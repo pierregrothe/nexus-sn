@@ -6,11 +6,12 @@
 """FakeKeychainClient: in-memory substitute for KeychainClient."""
 
 from nexus.auth.errors import AuthError
+from nexus.auth.keychain import KeychainClient
 
 __all__ = ["FakeKeychainClient"]
 
 
-class FakeKeychainClient:
+class FakeKeychainClient(KeychainClient):
     """In-memory keychain for tests. Pre-seeded with test credentials.
 
     Args:

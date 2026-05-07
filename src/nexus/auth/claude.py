@@ -1,12 +1,14 @@
 # nexus/auth/claude.py
-# Claude Enterprise API key storage and validation.
+# Claude Enterprise API key storage as an AuthProvider implementation.
 # Author: Pierre Grothe
 # Date: 2026-05-07
 
-"""ClaudeAuth: store, retrieve, and validate the Claude Enterprise API key."""
+"""ClaudeAuth: AnthropicAPIKeyProvider -- API-key-based auth provider."""
 
 import logging
 import os
+
+import anthropic
 
 from nexus.auth.errors import AuthError
 from nexus.auth.keychain import KeychainClient
@@ -21,9 +23,9 @@ _KEYCHAIN_USERNAME = "api_key"
 
 
 class ClaudeAuth:
-    """Manage the Claude Enterprise API key.
+    """API-key auth provider for the Anthropic API.
 
-    Resolution order:
+    Implements the AuthProvider Protocol structurally. Resolution order:
       1. NEXUS_CLAUDE_API_KEY environment variable (CI / scripted use)
       2. OS keychain under service "nexus-claude", username "api_key"
 
@@ -37,22 +39,39 @@ class ClaudeAuth:
         self._keychain = keychain or KeychainClient()
         self._org = org
 
+    @property
+    def name(self) -> str:
+        """AuthProvider identifier."""
+        return "anthropic_api_key"
+
+    def is_available(self) -> bool:
+        """Return True if an API key is reachable in env or keychain."""
+        return self.is_configured()
+
+    def create_client(self, max_retries: int) -> anthropic.Anthropic:
+        """Construct an Anthropic client authenticated with the API key.
+
+        Args:
+            max_retries: Max retries to set on the SDK client.
+
+        Returns:
+            anthropic.Anthropic instance using X-Api-Key authentication.
+        """
+        return anthropic.Anthropic(api_key=self.get_api_key(), max_retries=max_retries)
+
     def get_api_key(self) -> str:
         """Return the Claude API key.
-
-        Checks the environment variable first, then the OS keychain.
 
         Returns:
             The API key string.
 
         Raises:
-            AuthError: When no key is configured in either location.
+            AuthError: When no key is configured in env or keychain.
         """
         env_value = os.environ.get(_ENV_VAR)
         if env_value:
             log.debug("Claude API key loaded from environment variable")
             return env_value
-
         return self._keychain.get(_KEYCHAIN_SERVICE, _KEYCHAIN_USERNAME)
 
     def store_api_key(self, api_key: str) -> None:
@@ -65,11 +84,7 @@ class ClaudeAuth:
         log.info("Claude API key stored in keychain for org=%s", self._org)
 
     def is_configured(self) -> bool:
-        """Return True if an API key is available (env or keychain).
-
-        Returns:
-            True when a key can be retrieved without raising AuthError.
-        """
+        """Return True if an API key is available (env or keychain)."""
         if os.environ.get(_ENV_VAR):
             return True
         try:

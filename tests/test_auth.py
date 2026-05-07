@@ -95,3 +95,26 @@ def test_sn_auth_get_password_raises_when_not_configured(
     auth = SNAuth(keychain=FakeKeychainClient())
     with pytest.raises(AuthError):
         auth.get_password("dev12345", "admin")
+
+
+def test_claude_auth_implements_auth_provider_name() -> None:
+    auth = ClaudeAuth(keychain=FakeKeychainClient())
+    assert auth.name == "anthropic_api_key"
+
+
+def test_claude_auth_is_available_matches_is_configured(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("NEXUS_CLAUDE_API_KEY", raising=False)
+    keychain = FakeKeychainClient({("claude", "api_key"): "sk-test"})
+    auth = ClaudeAuth(keychain=keychain)
+    assert auth.is_available() is True
+    assert auth.is_available() == auth.is_configured()
+
+
+def test_claude_auth_create_client_returns_anthropic_with_api_key(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("NEXUS_CLAUDE_API_KEY", "sk-test-create")
+    auth = ClaudeAuth(keychain=FakeKeychainClient())
+    client = auth.create_client(max_retries=3)
+    assert client.api_key == "sk-test-create"
+    assert client.auth_token is None
