@@ -1,0 +1,10 @@
+repos:
+  - repo: local
+    hooks:
+      - id: pytest
+        name: Run test suite
+        entry: poetry run pytest -q --tb=short -p no:cacheprovider --override-ini="addopts="
+        language: system
+        types: [python]
+        pass_filenames: false
+        always_run: true
