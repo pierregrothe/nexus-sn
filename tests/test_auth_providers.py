@@ -10,8 +10,10 @@ from pathlib import Path
 
 import pytest
 
+from nexus.auth.claude import ClaudeAuth
 from nexus.auth.errors import AuthError
 from nexus.auth.oauth import ClaudeCodeOAuthProvider
+from nexus.auth.providers import AnthropicAPIKeyProvider, get_default_providers
 from tests.fakes.fake_auth_provider import FakeAuthProvider
 
 
@@ -114,3 +116,15 @@ def test_oauth_provider_create_client_raises_when_no_token(
     monkeypatch.delenv("USER", raising=False)
     with pytest.raises(AuthError):
         ClaudeCodeOAuthProvider().create_client(max_retries=3)
+
+
+def test_default_providers_returns_two_providers_oauth_first() -> None:
+    providers = get_default_providers()
+
+    assert len(providers) == 2
+    assert providers[0].name == "claude_code_oauth"
+    assert providers[1].name == "anthropic_api_key"
+
+
+def test_anthropic_api_key_provider_alias_is_claude_auth() -> None:
+    assert AnthropicAPIKeyProvider is ClaudeAuth

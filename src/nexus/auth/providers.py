@@ -14,7 +14,19 @@ from typing import Protocol
 
 import anthropic
 
-__all__ = ["AuthProvider"]
+from nexus.auth.claude import ClaudeAuth
+from nexus.auth.oauth import ClaudeCodeOAuthProvider
+
+__all__ = [
+    "AnthropicAPIKeyProvider",
+    "AuthProvider",
+    "ClaudeCodeOAuthProvider",
+    "get_default_providers",
+]
+
+# Alias for clarity in type hints and docs. ClaudeAuth implements AuthProvider
+# structurally; the alias makes its role in the provider chain explicit.
+AnthropicAPIKeyProvider = ClaudeAuth
 
 
 class AuthProvider(Protocol):
@@ -51,3 +63,14 @@ class AuthProvider(Protocol):
             An authenticated anthropic.Anthropic instance.
         """
         ...
+
+
+def get_default_providers() -> list[AuthProvider]:
+    """Return the default provider chain in priority order.
+
+    Returns:
+        Two-element list: [ClaudeCodeOAuthProvider, AnthropicAPIKeyProvider].
+        OAuth tried first (gives access to enterprise MCP servers tied to the
+        Claude account); API key second (fallback for users without Claude Code).
+    """
+    return [ClaudeCodeOAuthProvider(), AnthropicAPIKeyProvider()]
