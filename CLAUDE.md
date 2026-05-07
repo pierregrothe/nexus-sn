@@ -16,7 +16,11 @@ Key concepts:
 ## Standards (from skills-dev)
 
 - Python 3.14+. All Python 3.14 syntax is permitted including PEP 758 (unparenthesized multi-except).
-- Package manager: Poetry.
+- Package manager: Poetry, with in-project venv at .venv/. Activate once per shell:
+  `source .venv/bin/activate`. After that, run tools directly: `pytest`, `ruff check`,
+  `mypy src/nexus/`, `pyright src/nexus/`, `black src/`, `pre-commit run --all-files`.
+  Hooks and pre-commit invoke .venv/bin/ tools directly, so they work regardless of
+  whether the venv is active in the current shell.
 - Line length: 100. Formatter: black. Linter: ruff. Type checkers: mypy strict + pyright strict (both must report 0 errors).
   No # type: ignore anywhere. For untyped packages add stubs to src/stubs/.
 - Versioning: CalVer (YYYY.0M.PATCH).

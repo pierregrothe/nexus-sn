@@ -20,6 +20,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).parent.parent.parent
 NEXUS_SRC = REPO_ROOT / "src" / "nexus"
 TESTS = REPO_ROOT / "tests"
+VENV_BIN = REPO_ROOT / ".venv" / "bin"
 
 
 def is_target(path: Path) -> bool:
@@ -36,8 +37,15 @@ def is_target(path: Path) -> bool:
 
 
 def run(cmd: list[str]) -> tuple[int, str]:
-    """Run a subprocess and return (returncode, combined output)."""
-    result = subprocess.run(cmd, capture_output=True, text=True, cwd=REPO_ROOT)
+    """Run a subprocess and return (returncode, combined output).
+
+    The first element of cmd is treated as a tool name and resolved against
+    .venv/bin/. This bypasses Poetry's overhead on every hook invocation
+    while ensuring the venv-installed tool is used regardless of shell PATH.
+    """
+    tool = VENV_BIN / cmd[0]
+    full_cmd = [str(tool), *cmd[1:]] if tool.exists() else cmd
+    result = subprocess.run(full_cmd, capture_output=True, text=True, cwd=REPO_ROOT)
     return result.returncode, (result.stdout + result.stderr).strip()
 
 
@@ -87,7 +95,7 @@ def check_coverage_ratchet(path: Path) -> str | None:
     baseline_covered = baseline["covered_lines"]
 
     rc, _ = run([
-        "poetry", "run", "pytest",
+        "pytest",
         "--cov=nexus",
         "--cov-report=json",
         "--cov-fail-under=0",
@@ -141,15 +149,15 @@ def main() -> int:
 
     issues: list[str] = []
 
-    rc, out = run(["poetry", "run", "ruff", "check", str(path)])
+    rc, out = run(["ruff", "check", str(path)])
     if rc != 0 and out:
         issues.append(f"ruff:\n{out}")
 
-    rc, out = run(["poetry", "run", "mypy", str(path)])
+    rc, out = run(["mypy", str(path)])
     if rc != 0 and out:
         issues.append(f"mypy:\n{out}")
 
-    rc, out = run(["poetry", "run", "pyright", str(path)])
+    rc, out = run(["pyright", str(path)])
     if rc != 0 and out:
         issues.append(f"pyright:\n{out}")
 

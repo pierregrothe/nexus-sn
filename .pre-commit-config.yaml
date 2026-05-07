@@ -3,35 +3,35 @@ repos:
     hooks:
       - id: black
         name: Format check (black)
-        entry: poetry run black --check src/nexus/ tests/
+        entry: .venv/bin/black --check src/nexus/ tests/
         language: system
         types: [python]
         pass_filenames: false
         always_run: true
       - id: ruff
         name: Lint (ruff)
-        entry: poetry run ruff check src/nexus/ tests/
+        entry: .venv/bin/ruff check src/nexus/ tests/
         language: system
         types: [python]
         pass_filenames: false
         always_run: true
       - id: mypy
         name: Type check (mypy)
-        entry: poetry run mypy src/nexus/
+        entry: .venv/bin/mypy src/nexus/
         language: system
         types: [python]
         pass_filenames: false
         always_run: true
       - id: pyright
         name: Type check (pyright)
-        entry: poetry run pyright src/nexus/
+        entry: .venv/bin/pyright src/nexus/
         language: system
         types: [python]
         pass_filenames: false
         always_run: true
       - id: pytest
         name: Run test suite
-        entry: poetry run pytest -q --tb=short -p no:cacheprovider --override-ini="addopts="
+        entry: .venv/bin/pytest -q --tb=short -p no:cacheprovider --override-ini=addopts=
         language: system
         types: [python]
         pass_filenames: false
