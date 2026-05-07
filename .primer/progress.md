@@ -21,41 +21,68 @@ Capabilities layer:
 Connectors layer:
   ConnectorProtocol -- plugin interface
   ConnectorRegistry -- dynamic connector loading
-  ServiceNowClient + FakeServiceNowClient -- REST API (table, record, scripting endpoints)
+  ServiceNowClient + FakeServiceNowClient -- REST API
   ServiceNowConnector -- protocol implementation
-  Full error hierarchy (SNAuthError, SNNotFoundError, SNRateLimitError, SNServerError)
+  Full error hierarchy (SNAuthError, SNNotFoundError, SNRateLimitError, SNClientError)
+
+API layer (NEW -- MVP Step 1 complete):
+  AnthropicClient -- Anthropic SDK wrapper with prompt caching, cache-hit logging,
+                     and error mapping (AuthError, AnthropicError)
+  AnthropicClientProtocol -- structural interface for agents and CLI commands
+  ModelTier (StrEnum) -- STANDARD/POWERFUL/FAST tiers, auto-discovered at init
+                          via client.models.list() with created_at sort, env var
+                          override (NEXUS_MODEL_*), hardcoded fallback
+  AnthropicError -- typed exception with status_code and message
+  ToolRegistry -- assembles connector tools as anthropic.types.ToolParam list
+  configure_logging -- TimedRotatingFileHandler with 7-day rotation, attaches
+                       to root logger (file + stderr handlers)
+  FakeAnthropicClient -- test double, records calls, returns CANNED_MESSAGE
 
 Agents base:
   AgentProtocol, ExecutionContext, AgentResult
 
 CLI skeleton:
   All 5 MVP commands present in cli.py (setup, status, sync, templates, assess)
-  Stubs only -- no implementation behind any command
+  Stubs only -- no implementation behind any command yet
+  ui command works end-to-end: imports start_ui (always-importable), calls it,
+    raises clean ImportError if nicegui not installed
+
+Governance enforcement (NEW -- ADRs 006-013):
+  10 blocking pre-edit rules: no-mocks, no-relative-imports, no-bare-except,
+    no-lru-cache-none, no-unittest-testcase, no-sys-argv, no-type-ignore,
+    no-bare-any-in-sig, no-dict-any-in-sig, no-deferred-import
+  Coverage ratchet (.ratchet.json) -- per-module covered_lines can only increase
+  Post-edit checks: ruff + mypy + pyright (all strict, all blocking)
+  Lean CI: lint only on every push (<30s), full tests on release tags
+  Pre-commit hook: black + ruff + mypy + pyright + pytest (CI-aligned)
+  Cross-platform venv resolution (POSIX bin/, Windows Scripts/.exe)
 
 Infrastructure:
-  pyproject.toml -- Poetry, src layout, ruff/black/mypy/pytest, CalVer
-  .claude/hooks/ -- pre-edit-validate.py + post-edit-lint.py
-  .github/workflows/ -- ci.yml, release.yml, validate-templates.yml
-  templates/ -- manifest.json skeleton, directory structure
+  pyproject.toml -- Python 3.14, Poetry in-project venv, ruff/black/mypy/pyright
+  pyrightconfig.json -- strict, py314
+  .ratchet.json -- coverage baseline for 16 implemented modules
+  .pre-commit-config.yaml -- 5 hooks aligned with CI lint stage
+  .github/workflows/ci.yml -- lean (lint matrix on push, test matrix on tags)
 
-Tests: 37 total, all real fakes (no mocks) -- cannot run until poetry install
+Tests: 53 passing (39 original + 14 new for api layer). All real fakes, no mocks.
+GitHub: https://github.com/pierregrothe/nexus-sn (public, governance-baseline-2026-05-07 tag).
 
 ## Known Issues
 
-- poetry install not run. No virtualenv, no poetry.lock. Tests cannot run yet.
-- MCPProbe._check_server() is stubbed (always returns False). Enterprise MCP
-  endpoint URLs are unknown -- need Pierre to check Claude Enterprise config.
-- knowledge/mastery/ is empty. 206 ServiceNow product docs from JARVIS
-  need to be ported or rebuilt. Decision pending.
-- Template schemas (templates/schemas/*.py) are stubs. Pydantic models for
-  NowAssistSkill and Workflow are the first two to design.
-- cli.py commands all raise NotImplementedError. No end-to-end path works yet.
+- MCPProbe._check_server() returns False (stub). Enterprise MCP endpoint URLs
+  unknown -- needs inspection of Claude Enterprise config.
+- knowledge/mastery/ empty. Decision pending: copy from JARVIS or rebuild.
+- Template schemas (templates/schemas/*.py) are stubs. NowAssistSkill and Workflow
+  Pydantic models are the first to design.
+- cli.py commands (setup, status, sync, templates, assess) raise NotImplementedError.
+- Stub modules at 0% coverage (agents/specialists/*, cli, connectors/servicenow/*,
+  templates, assessment, execution, knowledge). Tracked in .ratchet.json once impl
+  begins; full 100% gate achieved as stubs implement.
 
 ## What's Left
 
 2026.05 -- MVP Commands:
-  AnthropicClient.complete() with prompt caching  [active]
-  GitHubSync -- manifest fetch + template download
+  GitHubSync -- manifest fetch + template download (next up)
   TemplateRegistry -- list and get from local cache
   InstanceScanner -- health scan via ServiceNowClient
   RuleEngine + AssessmentReporter

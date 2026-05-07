@@ -9,8 +9,8 @@
 - [x] Test suite foundation (39 tests, all real fakes)
 
 ## 2026.05 -- MVP Commands [active]
-- [ ] AnthropicClient.complete() with prompt caching [active]
-- [ ] GitHubSync -- manifest fetch + template download
+- [x] AnthropicClient.complete() with prompt caching
+- [ ] GitHubSync -- manifest fetch + template download [active]
 - [ ] TemplateRegistry -- list and get from local cache
 - [ ] InstanceScanner -- health scan via ServiceNowClient
 - [ ] RuleEngine + AssessmentReporter

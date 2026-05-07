@@ -142,4 +142,34 @@ Every Python module declares __all__. Export in category order:
 
 Use match/case for multi-branch dispatch on enums and string codes.
 Always include a case _: default branch.
+
+## Tier-based model resolution (api/ layer)
+
+Agents declare a capability tier (StrEnum), never a specific model version string.
+The tier is resolved to an actual model ID at AnthropicClient init via
+_discover_model() which queries client.models.list(), filters by family prefix
+(claude-sonnet-, claude-opus-, claude-haiku-), excludes date-pinned variants
+(-YYYYMMDD) and "preview" entries, then sorts by created_at desc. Env vars
+(NEXUS_MODEL_STANDARD/POWERFUL/FAST) override discovery; hardcoded defaults are
+the offline fallback. When a new Sonnet ships, no code change is needed --
+discovery picks it up automatically.
+
+## Structural Protocol chains at SDK boundaries
+
+When wrapping a third-party SDK type, define narrow private Protocols that
+describe only the duck-typed interface used. Example: _ModelEntry (id, created_at)
++ _ModelsList (list() -> Iterable[_ModelEntry]) + _ModelDiscoveryClient (models
+property). This pattern keeps test fakes simple (a tiny dataclass satisfies the
+Protocol structurally) and avoids leaking SDK types upstream. Use Iterable, not
+list, in Protocol returns -- list is invariant; Iterable is covariant.
+
+## Fake-as-Protocol-implementation test doubles
+
+Test fakes implement the exact Protocol the production code consumes. Naming
+convention: FakeXClient where XClient is the real class. Fakes use
+@dataclass(slots=True), expose a `calls: list[dict]` for assertion, and return
+a module-level CANNED_RESPONSE constant. Example: FakeAnthropicClient implements
+AnthropicClientProtocol; tests inject it where the production code expects the
+Protocol. No mocks anywhere -- all test doubles are real Python classes with the
+same interface.
 Prefer match over if/elif chains for 3+ branches.
