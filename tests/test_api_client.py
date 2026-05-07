@@ -36,6 +36,8 @@ def test_configure_logging_creates_logs_directory_and_attaches_handlers(
         assert logging.StreamHandler in handler_types
         assert root.level == logging.INFO
     finally:
+        for h in root.handlers:
+            h.close()
         root.handlers.clear()
         root.handlers.extend(saved_handlers)
         root.level = saved_level
