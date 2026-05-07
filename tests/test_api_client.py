@@ -12,6 +12,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import anthropic
+import httpx
 import pytest
 
 from nexus.api.client import _TIER_DEFAULTS, AnthropicClient, ModelTier, _discover_model
@@ -177,10 +178,8 @@ def _make_client(messages_fake: _FakeSdkMessages) -> AnthropicClient:
     )
 
 
-def _make_httpx_response(status_code: int) -> object:
+def _make_httpx_response(status_code: int) -> httpx.Response:
     """Build minimal httpx.Response for constructing Anthropic SDK exceptions."""
-    import httpx
-
     return httpx.Response(
         status_code, request=httpx.Request("POST", "https://api.anthropic.com")
     )
