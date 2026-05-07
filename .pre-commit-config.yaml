@@ -1,3 +1,7 @@
+# Hooks invoke .venv/bin/<tool> directly to bypass Poetry overhead.
+# Assumes Poetry's virtualenvs.in-project = true (see CLAUDE.md).
+# POSIX paths only -- on Windows, activate .venv/Scripts/ first or replace
+# entries with Poetry-managed paths.
 repos:
   - repo: local
     hooks:

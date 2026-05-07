@@ -20,7 +20,9 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).parent.parent.parent
 NEXUS_SRC = REPO_ROOT / "src" / "nexus"
 TESTS = REPO_ROOT / "tests"
-VENV_BIN = REPO_ROOT / ".venv" / "bin"
+_VENV_BIN_NAME = "Scripts" if sys.platform == "win32" else "bin"
+_EXE_SUFFIX = ".exe" if sys.platform == "win32" else ""
+VENV_BIN = REPO_ROOT / ".venv" / _VENV_BIN_NAME
 
 
 def is_target(path: Path) -> bool:
@@ -36,15 +38,22 @@ def is_target(path: Path) -> bool:
     return False
 
 
-def run(cmd: list[str]) -> tuple[int, str]:
-    """Run a subprocess and return (returncode, combined output).
+def run_tool(cmd: list[str]) -> tuple[int, str]:
+    """Invoke a venv-installed tool by name and return (returncode, output).
 
-    The first element of cmd is treated as a tool name and resolved against
-    .venv/bin/. This bypasses Poetry's overhead on every hook invocation
-    while ensuring the venv-installed tool is used regardless of shell PATH.
+    Resolves cmd[0] against .venv/<bin|Scripts>/ to bypass Poetry's per-call
+    overhead. Fails loudly when the venv exists but the tool does not -- a
+    silent PATH fallback would let a misconfigured environment use a system
+    tool with different config or version. Falls back to PATH only when no
+    venv exists at all (fresh clone before poetry install).
     """
-    tool = VENV_BIN / cmd[0]
-    full_cmd = [str(tool), *cmd[1:]] if tool.exists() else cmd
+    if VENV_BIN.is_dir():
+        tool = VENV_BIN / f"{cmd[0]}{_EXE_SUFFIX}"
+        if not tool.exists():
+            return 2, f"venv tool '{cmd[0]}' not found at {tool} -- run 'poetry install'"
+        full_cmd = [str(tool), *cmd[1:]]
+    else:
+        full_cmd = cmd
     result = subprocess.run(full_cmd, capture_output=True, text=True, cwd=REPO_ROOT)
     return result.returncode, (result.stdout + result.stderr).strip()
 
@@ -94,9 +103,9 @@ def check_coverage_ratchet(path: Path) -> str | None:
 
     baseline_covered = baseline["covered_lines"]
 
-    rc, _ = run([
+    rc, _ = run_tool([
         "pytest",
-        "--cov=nexus",
+        f"--cov={module}",
         "--cov-report=json",
         "--cov-fail-under=0",
         "-q", "--tb=no", "--no-header",
@@ -149,15 +158,15 @@ def main() -> int:
 
     issues: list[str] = []
 
-    rc, out = run(["ruff", "check", str(path)])
+    rc, out = run_tool(["ruff", "check", str(path)])
     if rc != 0 and out:
         issues.append(f"ruff:\n{out}")
 
-    rc, out = run(["mypy", str(path)])
+    rc, out = run_tool(["mypy", str(path)])
     if rc != 0 and out:
         issues.append(f"mypy:\n{out}")
 
-    rc, out = run(["pyright", str(path)])
+    rc, out = run_tool(["pyright", str(path)])
     if rc != 0 and out:
         issues.append(f"pyright:\n{out}")
 
