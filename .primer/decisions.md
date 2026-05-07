@@ -100,3 +100,22 @@ optional. Plugins can be added without modifying core code.
 **Consequences:** ServiceNowClient is not imported directly outside the connectors
 layer. All tool calls go through ConnectorRegistry.get(). Future connectors inherit
 ConnectorProtocol and register themselves.
+
+---
+
+### 2026-05-07 -- Sprint retrospective governance upgrade
+
+**Status:** accepted
+
+**Context:** MVP Step 1 sprint revealed 23 issues across 6 categories. Most were
+type safety failures, test quality gaps, and broken hook infrastructure. Cataloged
+in docs/superpowers/specs/2026-05-07-governance-enforcement-design.md.
+
+**Decision:** 8 new ADRs (006-013) document the governance improvements. Plan 1
+fixed the critical issues (broken hooks, Python 3.14, type enforcement). Plan 2
+adds the ratchet baseline, lean CI, pre-commit hook, and formal ADR documents.
+
+**Consequences:** The codebase now has 10 blocking pre-edit rules, a coverage ratchet
+in .ratchet.json, pyright strict alongside mypy, and lean CI (<30s feedback).
+Pre-commit hook enforces full test suite locally before every commit. CI cross-platform
+testing only runs on release tags.

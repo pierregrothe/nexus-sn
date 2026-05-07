@@ -2,49 +2,83 @@
 
 ## Enforcement Gates
 
-### Pre-edit -- Claude Code hooks (blocks Claude writes)
-- no-mocks -- blocks unittest.mock, MagicMock, @patch, pytest_mock (pre-edit-validate.py)
-- no-relative-imports -- blocks from .module style (pre-edit-validate.py)
-- no-bare-except -- blocks bare except: clauses (pre-edit-validate.py)
-- no-lru-cache-none -- blocks @lru_cache(maxsize=None), use @cache (pre-edit-validate.py)
-- no-unittest-testcase -- blocks class Foo(TestCase) in test files (pre-edit-validate.py)
-- no-sys-argv -- blocks sys.argv indexing outside test files (pre-edit-validate.py)
-- post-edit-ruff -- runs ruff check after every Python file write (post-edit-lint.py)
-- post-edit-mypy -- runs mypy after every Python file write (post-edit-lint.py)
+### Tier 1 -- Blocking (pre-edit hook, prevents file write)
 
-### CI (blocks merge to main)
-- black-check -- formatting check (black --check src/nexus/ tests/)
-- ruff-check -- lint check (ruff check src/nexus/ tests/)
-- mypy -- type check (mypy src/nexus/)
-- pytest -- test suite, cross-platform (ubuntu, macos, windows, Python 3.12)
+- no-mocks -- blocks unittest.mock, MagicMock, @patch, pytest_mock
+- no-relative-imports -- blocks from .module style
+- no-bare-except -- blocks bare except: clauses
+- no-lru-cache-none -- blocks @lru_cache(maxsize=None)
+- no-unittest-testcase -- blocks class Foo(TestCase) in test files
+- no-sys-argv -- blocks sys.argv indexing outside test files
+- no-type-ignore -- blocks # type: ignore anywhere (ADR-007)
+- no-bare-any-in-sig -- blocks : Any or -> Any in function signatures (ADR-008)
+- no-dict-any-in-sig -- blocks dict[str, Any] in function signatures (ADR-008)
+- no-deferred-import -- blocks import inside def/class bodies
+
+### Tier 2 -- Ratchet (post-edit hook, blocks if metrics worsen)
+
+- coverage-ratchet -- per-module covered lines can only increase (ADR-009)
+  Baseline: .ratchet.json (updated when coverage improves)
+
+### Tier 3 -- Soft (post-edit warning, never blocks)
+
+- missing-test-file -- warns if src/nexus/X/Y.py edited without tests/
+- resource-open -- warns if file handle / logging handler opened in test without close
+
+### Post-edit checks (runs after every Python file write, blocking)
+
+- ruff-check -- lint (ruff check on edited file)
+- mypy -- type check (mypy on edited file) -- ADR-012
+- pyright -- type check (pyright on edited file) -- ADR-012
+
+### CI (every push, lint only)
+
+- black-check -- formatting (black --check src/nexus/ tests/)
+- ruff-check -- lint (ruff check src/nexus/ tests/)
+- mypy -- type check (mypy src/nexus/) -- ADR-012
+- pyright -- type check (pyright src/nexus/) -- ADR-012
+
+### CI release tags only (full test suite)
+
+- pytest -- cross-platform (ubuntu, macos, windows), Python 3.14 -- ADR-013
+
+### Pre-commit (blocks local commit)
+
+- pytest -- full test suite (poetry run pytest -q --override-ini="addopts=")
 
 ## Agent-Enforced Rules
-
-Rules with no automated gate -- agent convention only.
 
 - calver -- CalVer YYYY.0M.PATCH; version set manually in pyproject.toml
 - file-headers -- new Python files: # path, # description, # Author, # Date
 - docstrings -- Google-style docstrings on all public functions, classes, methods
 - module-exports -- every module declares explicit __all__
-- pydantic-frozen -- ConfigDict(frozen=True) unless mutation required
+- pydantic-frozen -- ConfigDict(frozen=True, strict=True, extra="forbid")
 - utc-only -- datetime.now(UTC); no naive datetimes
 - slots-dataclass -- @dataclass(slots=True) for structured data
-- enum-dispatch -- match/case for enum dispatch; always include case _: default
-- no-print -- logging.getLogger(__name__) in library code; no print()
-- secrets-keychain -- secrets in OS keychain only; never in config files
-- layer-order -- no imports from higher layers (config < auth < capabilities
-                   < api/connectors < agents/.../templates/assessment/execution < cli)
+- enum-dispatch -- match/case with case _: default
+- no-print -- logging.getLogger(__name__) in library code
+- secrets-keychain -- secrets in OS keychain only
+- layer-order -- config < auth < capabilities < api/connectors < agents/... < cli
 - test-naming -- test_<function>_<scenario> convention
-- 100-coverage -- 100% line coverage; enforced by CI but not hard-blocked at write time
+- 100-coverage -- 100% line coverage target for implemented modules
+- behavioral-tests -- tests must assert on behavior, not just side effects (ADR-009)
 
 ## ADR Catalog
 
 | ADR | Title | Enforcement | Status |
 |-----|-------|-------------|--------|
-| 001 | API-direct architecture (no Claude Code dependency) | none | accepted |
+| 001 | API-direct architecture | none | accepted |
 | 002 | Template distribution via GitHub sync | agent | accepted |
 | 003 | Assessment 3-gate model | agent | accepted |
 | 004 | CalVer versioning (YYYY.0M.PATCH) | agent | accepted |
 | 005 | Connector plugin system | agent | accepted |
+| 006 | Python 3.14 minimum | hook | accepted |
+| 007 | Zero type: ignore tolerance | blocking hook | accepted |
+| 008 | Type annotation completeness | blocking hook + pyright | accepted |
+| 009 | Behavioral test completeness | ratchet | accepted |
+| 010 | Resource lifecycle in tests | soft hook | accepted |
+| 011 | 3-tier enforcement model | governance doc | accepted |
+| 012 | Dual type checking (mypy + pyright) | blocking hook + CI | accepted |
+| 013 | Lean CI for solo developer | ci.yml | accepted |
 
 Full ADR files: .primer/adr/
