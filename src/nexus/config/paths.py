@@ -1,0 +1,91 @@
+# nexus/config/paths.py
+# Authoritative path constants for all NEXUS runtime directories and files.
+# Author: Pierre Grothe
+# Date: 2026-05-07
+
+"""Centralised path definitions for the ~/.nexus/ directory tree.
+
+All NEXUS code that needs a runtime path imports it from here.
+No other module hardcodes a path under ~/.nexus/.
+"""
+
+import logging
+from dataclasses import dataclass
+from pathlib import Path
+
+log = logging.getLogger(__name__)
+
+__all__ = ["NexusPaths"]
+
+_DEFAULT_ROOT = Path.home() / ".nexus"
+
+
+@dataclass(slots=True, frozen=True)
+class NexusPaths:
+    """All runtime paths NEXUS reads from or writes to.
+
+    Args:
+        root: Base directory. Defaults to ~/.nexus/.
+    """
+
+    root: Path
+
+    @classmethod
+    def default(cls) -> "NexusPaths":
+        """Create paths rooted at ~/.nexus/.
+
+        Returns:
+            NexusPaths with root set to the default location.
+        """
+        return cls(root=_DEFAULT_ROOT)
+
+    @classmethod
+    def from_env(cls) -> "NexusPaths":
+        """Create paths, honouring NEXUS_CONFIG_PATH env var if set.
+
+        Returns:
+            NexusPaths with root derived from environment or default.
+        """
+        import os
+
+        env_path = os.environ.get("NEXUS_CONFIG_PATH")
+        if env_path:
+            return cls(root=Path(env_path).parent)
+        return cls.default()
+
+    @property
+    def config_file(self) -> Path:
+        """Path to the main config YAML."""
+        return self.root / "config.yaml"
+
+    @property
+    def templates_dir(self) -> Path:
+        """Local template cache populated by nexus sync."""
+        return self.root / "templates"
+
+    @property
+    def reports_dir(self) -> Path:
+        """Generated HTML and JSON reports."""
+        return self.root / "reports"
+
+    @property
+    def jobs_dir(self) -> Path:
+        """Job history: scan results, manifests, rollback scripts."""
+        return self.root / "jobs"
+
+    @property
+    def logs_dir(self) -> Path:
+        """Structured session logs."""
+        return self.root / "logs"
+
+    def ensure_dirs(self) -> None:
+        """Create all runtime directories if they do not exist."""
+        for path in (
+            self.root,
+            self.templates_dir,
+            self.reports_dir,
+            self.jobs_dir,
+            self.logs_dir,
+        ):
+            path.mkdir(parents=True, exist_ok=True)
+        log.debug("runtime directories ensured under %s", self.root)

@@ -1,0 +1,102 @@
+# Decision Log
+
+Append-only record of architectural and design decisions.
+
+## Template
+
+```
+### YYYY-MM-DD -- [Title]
+
+**Status:** proposed | accepted | superseded by [link]
+
+**Context:** Why this decision was needed.
+
+**Decision:** What was decided.
+
+**Consequences:** What follows from this decision.
+```
+
+### 2026-05-07 -- API-direct architecture (no Claude Code dependency)
+
+**Status:** accepted
+
+**Context:** JARVIS required Claude Code + MCP protocol + Node.js, limiting deployment
+to developers who had Claude Desktop or Claude Code installed.
+
+**Decision:** NEXUS calls the Anthropic API directly using the Python SDK.
+No Claude Code, no MCP protocol, no Node.js. Ships as a pip package that
+runs on Windows, macOS, and Linux identically.
+
+**Consequences:** NEXUS can be installed anywhere Python runs. Enterprise MCP servers
+(Value Melody, SSC, BT1, etc.) are accessed via the Claude Enterprise API key's
+server-sent events channel, not via a local MCP host process. The capability probing
+layer must handle absent enterprise MCP gracefully.
+
+---
+
+### 2026-05-07 -- Template distribution via GitHub sync
+
+**Status:** accepted
+
+**Context:** Four distribution models were evaluated: (A) bundled at install, (B)
+versioned PyPI data package, (C) separate templates-only repo, (D) same repo + sync
+command. JARVIS used bundled knowledge that went stale between installs.
+
+**Decision:** Option D -- templates live in the same GitHub repo under templates/.
+The `nexus sync` command fetches the manifest and downloads changed files to
+~/.nexus/templates/. No version pinning required; latest is always authoritative.
+
+**Consequences:** nexus sync is a required first step after install. Offline use
+requires a prior sync. The GitHubSync layer must handle rate limiting and partial
+downloads gracefully.
+
+---
+
+### 2026-05-07 -- Assessment 3-gate model
+
+**Status:** accepted
+
+**Context:** JARVIS had no validation step -- it applied templates and hoped for
+the best. Failed deployments left instances in an unknown state.
+
+**Decision:** Assessment runs in three phases: Gate 1 (readiness check before deploy),
+Gate 2 (validation check after deploy), and standalone `nexus assess` (health scan
+at any time). Each gate is a separate RuleEngine evaluation pass.
+
+**Consequences:** Every template deployment requires two assessment passes. The
+RuleEngine must be stateless and re-runnable. Rollback logic is scoped to the
+execution layer, not the assessment layer.
+
+---
+
+### 2026-05-07 -- CalVer versioning (YYYY.0M.PATCH)
+
+**Status:** accepted
+
+**Context:** NEXUS is a ServiceNow tooling project where "how current is this?"
+matters more than API stability signaling. SemVer MAJOR bumps would be meaningless
+without a stable external API contract.
+
+**Decision:** CalVer format YYYY.0M.PATCH (e.g., 2026.05.0). Patch resets to 0
+each month. Breaking changes are documented in CHANGELOG.md.
+
+**Consequences:** Version number encodes freshness. CI release workflow tags from
+pyproject.toml version field. No automated version bumping -- Pierre sets the
+version manually before tagging.
+
+---
+
+### 2026-05-07 -- Connector plugin system
+
+**Status:** accepted
+
+**Context:** ServiceNow is the first and primary connector, but future connectors
+(JIRA, GitHub, Confluence) were anticipated in the JARVIS analysis.
+
+**Decision:** Connectors are registered via ConnectorProtocol. ConnectorRegistry
+discovers them by class name. ServiceNow REST is built-in; enterprise MCP is
+optional. Plugins can be added without modifying core code.
+
+**Consequences:** ServiceNowClient is not imported directly outside the connectors
+layer. All tool calls go through ConnectorRegistry.get(). Future connectors inherit
+ConnectorProtocol and register themselves.
