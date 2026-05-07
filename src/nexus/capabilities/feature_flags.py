@@ -13,7 +13,7 @@ is unavailable are hidden from the CLI and silently skipped by agents.
 from dataclasses import dataclass
 from enum import StrEnum
 
-__all__ = ["FeatureFlag", "MCPServer", "ServerSpec", "FEATURE_MAP"]
+__all__ = ["FEATURE_MAP", "FeatureFlag", "MCPServer", "ServerSpec"]
 
 
 class FeatureFlag(StrEnum):

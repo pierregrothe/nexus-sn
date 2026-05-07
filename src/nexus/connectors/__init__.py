@@ -8,4 +8,4 @@
 from nexus.connectors.base import ConnectorProtocol, ToolResult
 from nexus.connectors.registry import ConnectorRegistry
 
-__all__ = ["ConnectorProtocol", "ToolResult", "ConnectorRegistry"]
+__all__ = ["ConnectorProtocol", "ConnectorRegistry", "ToolResult"]

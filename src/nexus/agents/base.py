@@ -8,7 +8,7 @@
 from dataclasses import dataclass, field
 from typing import Any, Protocol, runtime_checkable
 
-__all__ = ["AgentProtocol", "ExecutionContext", "AgentResult"]
+__all__ = ["AgentProtocol", "AgentResult", "ExecutionContext"]
 
 
 @dataclass(slots=True, frozen=True)

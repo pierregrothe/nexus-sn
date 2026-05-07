@@ -17,12 +17,12 @@ from pydantic import BaseModel, ConfigDict, Field
 log = logging.getLogger(__name__)
 
 __all__ = [
+    "AuthConfig",
+    "CapabilitiesConfig",
     "InstanceProfile",
     "InstancesConfig",
-    "CapabilitiesConfig",
-    "PreferencesConfig",
-    "AuthConfig",
     "NexusConfig",
+    "PreferencesConfig",
 ]
 
 _CONFIG_VERSION = "1.0"
@@ -120,7 +120,7 @@ class NexusConfig(BaseModel):
     preferences: PreferencesConfig = Field(default_factory=PreferencesConfig)
 
     @classmethod
-    def default(cls) -> "NexusConfig":
+    def default(cls) -> NexusConfig:
         """Create a default configuration.
 
         Returns:

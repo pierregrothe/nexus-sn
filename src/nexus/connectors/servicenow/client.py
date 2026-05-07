@@ -49,7 +49,7 @@ class ServiceNowClient:
         self._client: httpx.AsyncClient | None = None
         log.debug("ServiceNowClient initialised for %s", base)
 
-    async def __aenter__(self) -> "ServiceNowClient":
+    async def __aenter__(self) -> ServiceNowClient:
         self._client = httpx.AsyncClient(
             base_url=self._base_url,
             auth=self._auth,

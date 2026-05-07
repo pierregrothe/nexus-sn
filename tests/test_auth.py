@@ -5,12 +5,11 @@
 
 """Tests for nexus.auth."""
 
-import os
 
 import pytest
 
-from nexus.auth.errors import AuthError
 from nexus.auth.claude import ClaudeAuth
+from nexus.auth.errors import AuthError
 from nexus.auth.servicenow import SNAuth
 from tests.fakes import FakeKeychainClient
 

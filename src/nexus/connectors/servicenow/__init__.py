@@ -10,9 +10,9 @@ from nexus.connectors.servicenow.connector import ServiceNowConnector
 from nexus.connectors.servicenow.errors import SNAuthError, SNClientError, SNNotFoundError
 
 __all__ = [
-    "ServiceNowClient",
-    "ServiceNowConnector",
     "SNAuthError",
     "SNClientError",
     "SNNotFoundError",
+    "ServiceNowClient",
+    "ServiceNowConnector",
 ]

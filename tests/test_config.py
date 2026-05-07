@@ -95,7 +95,6 @@ def test_config_manager_from_env_uses_default_when_env_not_set(
     nexus_paths: NexusPaths, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     # Verifies that without NEXUS_CONFIG_PATH, from_env() uses home
-    import os
     monkeypatch.delenv("NEXUS_CONFIG_PATH", raising=False)
     paths = NexusPaths.from_env()
     assert paths.root == Path.home() / ".nexus"

@@ -31,7 +31,7 @@ class NexusPaths:
     root: Path
 
     @classmethod
-    def default(cls) -> "NexusPaths":
+    def default(cls) -> NexusPaths:
         """Create paths rooted at ~/.nexus/.
 
         Returns:
@@ -40,7 +40,7 @@ class NexusPaths:
         return cls(root=_DEFAULT_ROOT)
 
     @classmethod
-    def from_env(cls) -> "NexusPaths":
+    def from_env(cls) -> NexusPaths:
         """Create paths, honouring NEXUS_CONFIG_PATH env var if set.
 
         Returns:

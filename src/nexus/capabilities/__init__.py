@@ -11,8 +11,8 @@ from nexus.capabilities.registry import CapabilitySet
 
 __all__ = [
     "FEATURE_MAP",
+    "CapabilitySet",
     "FeatureFlag",
     "MCPProbe",
     "ProbeResult",
-    "CapabilitySet",
 ]

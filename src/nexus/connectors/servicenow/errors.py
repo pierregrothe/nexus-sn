@@ -5,7 +5,7 @@
 
 """Typed exceptions for the ServiceNow connector."""
 
-__all__ = ["SNClientError", "SNAuthError", "SNNotFoundError", "SNRateLimitError"]
+__all__ = ["SNAuthError", "SNClientError", "SNNotFoundError", "SNRateLimitError"]
 
 
 class SNClientError(Exception):

@@ -11,7 +11,7 @@ from nexus.config.settings import InstanceProfile, NexusConfig
 
 __all__ = [
     "ConfigManager",
-    "NexusPaths",
     "InstanceProfile",
     "NexusConfig",
+    "NexusPaths",
 ]

@@ -20,7 +20,7 @@ from nexus.capabilities.feature_flags import MCPServer
 
 log = logging.getLogger(__name__)
 
-__all__ = ["ProbeResult", "MCPProbe"]
+__all__ = ["MCPProbe", "ProbeResult"]
 
 
 @dataclass(slots=True, frozen=True)

@@ -9,9 +9,7 @@ All commands validate config and credentials at startup.
 Features requiring unavailable MCP servers are hidden from help text.
 """
 
-import asyncio
 import logging
-import sys
 from typing import Annotated
 
 import typer

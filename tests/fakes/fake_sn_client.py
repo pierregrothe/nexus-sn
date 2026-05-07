@@ -28,7 +28,7 @@ class FakeServiceNowClient:
         for table, records in (initial_records or {}).items():
             self._tables[table] = [dict(r) for r in records]
 
-    async def __aenter__(self) -> "FakeServiceNowClient":
+    async def __aenter__(self) -> FakeServiceNowClient:
         return self
 
     async def __aexit__(self, *_: object) -> None:

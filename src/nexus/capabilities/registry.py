@@ -6,8 +6,7 @@
 """CapabilitySet: session-scoped capability snapshot built from probe results."""
 
 import logging
-from dataclasses import dataclass, field
-from functools import cache
+from dataclasses import dataclass
 
 from nexus.capabilities.feature_flags import FEATURE_MAP, FeatureFlag, MCPServer
 from nexus.capabilities.probe import ProbeResult
@@ -35,7 +34,7 @@ class CapabilitySet:
     enabled_features: frozenset[FeatureFlag]
 
     @classmethod
-    def from_probe_results(cls, results: list[ProbeResult]) -> "CapabilitySet":
+    def from_probe_results(cls, results: list[ProbeResult]) -> CapabilitySet:
         """Build a CapabilitySet from a list of probe results.
 
         Args:
@@ -69,7 +68,7 @@ class CapabilitySet:
         )
 
     @classmethod
-    def none(cls) -> "CapabilitySet":
+    def none(cls) -> CapabilitySet:
         """Return an empty CapabilitySet (no MCP servers available).
 
         Returns:
