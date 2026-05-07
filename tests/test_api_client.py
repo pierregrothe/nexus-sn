@@ -4,7 +4,9 @@
 # Date: 2026-05-07
 """Tests for the NEXUS api layer."""
 
-from typing import Any
+import logging
+import logging.handlers
+from pathlib import Path
 
 from nexus.api.errors import AnthropicError
 from nexus.api.logging_config import configure_logging
@@ -18,7 +20,22 @@ def test_anthropic_error_has_status_code_and_message() -> None:
     assert "429" in str(exc)
 
 
-def test_configure_logging_creates_logs_directory(tmp_path: Any) -> None:
-    paths = NexusPaths(root=tmp_path / ".nexus")
-    configure_logging(paths)
-    assert (tmp_path / ".nexus" / "logs").is_dir()
+def test_configure_logging_creates_logs_directory_and_attaches_handlers(
+    tmp_path: Path,
+) -> None:
+    root = logging.getLogger()
+    saved_handlers = root.handlers[:]
+    saved_level = root.level
+    root.handlers.clear()
+    try:
+        paths = NexusPaths(root=tmp_path / ".nexus")
+        configure_logging(paths)
+        assert (tmp_path / ".nexus" / "logs").is_dir()
+        handler_types = {type(h) for h in root.handlers}
+        assert logging.handlers.TimedRotatingFileHandler in handler_types
+        assert logging.StreamHandler in handler_types
+        assert root.level == logging.INFO
+    finally:
+        root.handlers.clear()
+        root.handlers.extend(saved_handlers)
+        root.level = saved_level

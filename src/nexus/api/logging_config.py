@@ -25,20 +25,21 @@ def configure_logging(paths: NexusPaths, level: int = logging.INFO) -> None:
         paths: NexusPaths providing the runtime directory locations.
         level: Logging level applied to all handlers (default INFO).
     """
-    logs_dir: Path = paths.root / "logs"
-    logs_dir.mkdir(parents=True, exist_ok=True)
     root = logging.getLogger()
     if root.handlers:
         return
+    logs_dir: Path = paths.logs_dir
+    logs_dir.mkdir(parents=True, exist_ok=True)
     file_handler = logging.handlers.TimedRotatingFileHandler(
         logs_dir / "nexus.log",
         when="midnight",
         backupCount=7,
         encoding="utf-8",
     )
-    file_handler.setFormatter(logging.Formatter(_FMT))
+    fmt = logging.Formatter(_FMT)
+    file_handler.setFormatter(fmt)
     stream_handler = logging.StreamHandler()
-    stream_handler.setFormatter(logging.Formatter(_FMT))
+    stream_handler.setFormatter(fmt)
     root.setLevel(level)
     root.addHandler(file_handler)
     root.addHandler(stream_handler)
