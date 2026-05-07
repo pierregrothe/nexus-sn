@@ -25,9 +25,10 @@ Connectors layer:
   ServiceNowConnector -- protocol implementation
   Full error hierarchy (SNAuthError, SNNotFoundError, SNRateLimitError, SNClientError)
 
-API layer (NEW -- MVP Step 1 complete):
+API layer (MVP Step 1 complete):
   AnthropicClient -- Anthropic SDK wrapper with prompt caching, cache-hit logging,
-                     and error mapping (AuthError, AnthropicError)
+                     and error mapping (AuthError, AnthropicError). Takes a
+                     Sequence[AuthProvider] and resolves first available at init.
   AnthropicClientProtocol -- structural interface for agents and CLI commands
   ModelTier (StrEnum) -- STANDARD/POWERFUL/FAST tiers, auto-discovered at init
                           via client.models.list() with created_at sort, env var
@@ -37,6 +38,17 @@ API layer (NEW -- MVP Step 1 complete):
   configure_logging -- TimedRotatingFileHandler with 7-day rotation, attaches
                        to root logger (file + stderr handlers)
   FakeAnthropicClient -- test double, records calls, returns CANNED_MESSAGE
+
+Auth layer extended (NEW -- pluggable provider system, PR #1):
+  AuthProvider (Protocol) -- name property, is_available, create_client(max_retries)
+  ClaudeCodeOAuthProvider -- reads OAuth token from CLAUDE_CODE_OAUTH_TOKEN env,
+                              ~/.claude/.credentials.json, or macOS Keychain
+                              ("Claude Code-credentials" via keyring lib).
+                              Per-instance cache; first source wins.
+  AnthropicAPIKeyProvider -- ClaudeAuth alias; reads NEXUS_CLAUDE_API_KEY env
+                              or nexus keychain entry. Cached after resolution.
+  get_default_providers() -- returns [OAuth, APIKey] in priority order.
+  FakeAuthProvider -- test double for AuthProvider Protocol.
 
 Agents base:
   AgentProtocol, ExecutionContext, AgentResult
@@ -64,7 +76,7 @@ Infrastructure:
   .pre-commit-config.yaml -- 5 hooks aligned with CI lint stage
   .github/workflows/ci.yml -- lean (lint matrix on push, test matrix on tags)
 
-Tests: 53 passing (39 original + 14 new for api layer). All real fakes, no mocks.
+Tests: 71 passing (53 prior + 18 new for AuthProvider system). All real fakes, no mocks.
 GitHub: https://github.com/pierregrothe/nexus-sn (public, governance-baseline-2026-05-07 tag).
 
 ## Known Issues

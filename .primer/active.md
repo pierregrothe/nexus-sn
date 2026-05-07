@@ -1,11 +1,17 @@
 # NEXUS -- Active Work
 
 Last updated: 2026-05-07
-Session: MVP Step 1 complete + sprint retrospective + governance enforcement Plans 1 & 2.
+Session: Pluggable AuthProvider implemented end-to-end (Plan 3, PR #1).
 
 ## Current focus
 
-MVP Step 1 (AnthropicClient) is DONE. Next is Step 2: GitHubSync.
+Pluggable AuthProvider feature complete on branch `feat/pluggable-auth`, PR #1
+opened: https://github.com/pierregrothe/nexus-sn/pull/1
+
+After merge, MVP Step 1 unblocks: smoke test against real Anthropic API can run
+using Claude Code's stored OAuth token (no API key needed).
+
+Next focus shifts back to MVP Step 2: GitHubSync.
 
   src/nexus/templates/sync.py -- implement GitHubSync.fetch_manifest() + download_changed()
   Test with tmp_path and a fake manifest fixture.
@@ -17,44 +23,39 @@ Build order from here (rest of 2026.05 milestone):
   Step 6: nexus setup command -- credential wizard, config write, initial sync
   Step 7: nexus status command -- probe capabilities, verify SN connectivity
 
-## What was completed this session
+## What was completed this session (Plan 3 + simplify)
 
-MVP Step 1 -- AnthropicClient (commits c28af22 -> 1cd5bbb, 13 commits):
-  api/client.py -- ModelTier auto-discovery via models.list(), prompt caching,
-                   error mapping (AuthError, AnthropicError), cache-hit logging
-  api/errors.py -- AnthropicError(status_code, message)
-  api/logging_config.py -- TimedRotatingFileHandler with 7-day rotation
-  api/__init__.py -- exports AnthropicClient, AnthropicClientProtocol, ModelTier,
-                     AnthropicError, ToolRegistry, configure_logging
-  tests/fakes/fake_anthropic_client.py -- FakeAnthropicClient with MessageParam/ToolParam
-  tests/test_api_client.py -- 14 tests covering all behaviors
+Plan 3 -- Pluggable AuthProvider (8 commits on feat/pluggable-auth):
+  src/nexus/auth/providers.py -- AuthProvider Protocol + get_default_providers()
+                                  + AnthropicAPIKeyProvider alias
+  src/nexus/auth/oauth.py -- ClaudeCodeOAuthProvider (env -> ~/.claude/.credentials.json
+                              -> macOS Keychain via keyring lib)
+  src/nexus/auth/claude.py -- ClaudeAuth implements AuthProvider Protocol
+                               with cached get_api_key()
+  src/nexus/api/client.py -- AnthropicClient takes auth_providers (was api_key str)
+  tests/fakes/fake_auth_provider.py -- FakeAuthProvider test double
+  tests/test_auth_providers.py -- 13 tests for OAuth provider + chain
+  scripts/smoke_anthropic.py -- updated to use get_default_providers()
 
-Governance enforcement (Plan 1 + Plan 2, 16 commits):
-  Hook fixes: shell expansion, stderr routing, .venv/bin direct invocation
-  Python 3.14 minimum (pyproject + pyrightconfig + CLAUDE.md)
-  Pyright strict added alongside mypy
-  4 new pre-edit blocking rules: type-ignore-ban, bare-any-in-sig,
-                                  dict-any-in-sig, deferred-import-in-body
-  Coverage ratchet (.ratchet.json) with per-module gate (scoped to edited module)
-  Lean CI (lint only on push, tests on release tags)
-  Pre-commit hook with black + ruff + mypy + pyright + pytest (CI-aligned)
-  8 new ADRs (006-013) in .primer/adr/
-  governance.md rewritten with 3-tier enforcement model
-  Cross-platform .venv detection (POSIX + Windows)
+Simplify pass on top:
+  - Subprocess "security find-generic-password" replaced with keyring.get_password()
+  - is_configured() removed, body inlined into is_available()
+  - Dead _TIER_DEFAULTS / _discover_model aliases dropped
+  - Per-instance caching for token/api_key resolution
+  - EAFP file read (drop redundant exists() stat + TOCTOU window)
 
-Test count: 53 passing (was 39).
+Test count: 71 passing (was 53). Coverage up across auth modules.
 
 ## Blockers / open questions
 
-- MCPProbe._check_server() returns False (stubbed). Need enterprise MCP endpoint
-  URLs from Claude Enterprise account config.
-- knowledge/mastery/ is empty. Decision pending: copy from JARVIS or build fresh.
-- Coverage gate at 50% in pyproject (raised from 40 in MVP Step 1, then to 100
-  in Plan 2 -- but stub modules at 0% block 100%). Effective baseline tracked in
-  .ratchet.json per module; full 100% achieved as stubs implement.
+- MCPProbe._check_server() still stubbed (returns False). With OAuth working,
+  enterprise MCP probing is now possible -- but real endpoint URLs still needed.
+- knowledge/mastery/ empty. Decision pending: copy from JARVIS or build fresh.
+- Smoke test scripts/smoke_anthropic.py needs manual run after PR merge to
+  validate end-to-end Anthropic API call against your enterprise account.
 
 ## Branch / remote state
 
-Branch: main, in sync with origin/main at e073a56. Upstream tracking configured.
-GitHub repo: https://github.com/pierregrothe/nexus-sn (public)
-Tag: governance-baseline-2026-05-07 (pushed to GitHub release)
+Branch: feat/pluggable-auth, 8 commits ahead of main.
+PR #1: https://github.com/pierregrothe/nexus-sn/pull/1 -- ready for merge.
+After merge: switch back to main and start MVP Step 2 (GitHubSync) on a new branch.
