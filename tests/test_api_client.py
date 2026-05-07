@@ -6,15 +6,19 @@
 
 import logging
 import logging.handlers
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
 
+import anthropic
 import pytest
 
-from nexus.api.client import _TIER_DEFAULTS, ModelTier, _discover_model
+from nexus.api.client import _TIER_DEFAULTS, AnthropicClient, ModelTier, _discover_model
 from nexus.api.errors import AnthropicError
 from nexus.api.logging_config import configure_logging
+from nexus.auth.errors import AuthError
+from nexus.capabilities.registry import CapabilitySet
 from nexus.config.paths import NexusPaths
 
 
@@ -119,3 +123,112 @@ def test_discover_model_excludes_preview_models() -> None:
 
     result = _discover_model(SimpleNamespace(models=_FakeModels()), ModelTier.STANDARD)
     assert result == "claude-sonnet-4-6"
+
+
+# ---------------------------------------------------------------------------
+# FakeSdk helpers -- used only in this file for AnthropicClient tests
+# ---------------------------------------------------------------------------
+
+
+@dataclass(slots=True)
+class _FakeSdkMessages:
+    response: object
+    side_effect: BaseException | None = None
+    last_kwargs: dict[str, object] = field(default_factory=dict)
+
+    def create(self, **kwargs: object) -> object:
+        """Capture kwargs and return canned response or raise side_effect."""
+        self.last_kwargs = dict(kwargs)
+        if self.side_effect is not None:
+            raise self.side_effect
+        return self.response
+
+
+@dataclass(slots=True)
+class _FakeSdk:
+    messages: _FakeSdkMessages
+    model_list: list[object] = field(default_factory=list)
+
+    @property
+    def models(self) -> SimpleNamespace:
+        """Return fake models namespace with list() method."""
+        items = self.model_list
+        return SimpleNamespace(list=lambda: items)
+
+
+_CANNED_RESPONSE = SimpleNamespace(
+    content=[SimpleNamespace(type="text", text="ok")],
+    stop_reason="end_turn",
+    usage=SimpleNamespace(
+        input_tokens=10,
+        output_tokens=5,
+        cache_creation_input_tokens=3,
+        cache_read_input_tokens=7,
+    ),
+)
+
+
+def _make_client(messages_fake: _FakeSdkMessages) -> AnthropicClient:
+    """Construct AnthropicClient with injected FakeSdk (empty model list -> fallback)."""
+    return AnthropicClient(
+        api_key="test-key",
+        capabilities=CapabilitySet.none(),
+        _sdk_client=_FakeSdk(messages=messages_fake),
+    )
+
+
+def _make_httpx_response(status_code: int) -> object:
+    """Build minimal httpx.Response for constructing Anthropic SDK exceptions."""
+    import httpx
+
+    return httpx.Response(
+        status_code, request=httpx.Request("POST", "https://api.anthropic.com")
+    )
+
+
+# ---------------------------------------------------------------------------
+# AnthropicClient.complete() tests
+# ---------------------------------------------------------------------------
+
+
+def test_complete_adds_cache_control_to_system() -> None:
+    fake_messages = _FakeSdkMessages(response=_CANNED_RESPONSE)
+    client = _make_client(fake_messages)
+    client.complete(messages=[{"role": "user", "content": "hi"}], system="Be helpful.")
+    system_block = fake_messages.last_kwargs["system"][0]
+    assert system_block["cache_control"] == {"type": "ephemeral"}
+    assert system_block["text"] == "Be helpful."
+
+
+def test_complete_maps_authentication_error_to_auth_error() -> None:
+    side_effect = anthropic.AuthenticationError(
+        message="invalid key",
+        response=_make_httpx_response(401),
+        body={"error": {"message": "unauthorized"}},
+    )
+    fake_messages = _FakeSdkMessages(response=_CANNED_RESPONSE, side_effect=side_effect)
+    client = _make_client(fake_messages)
+    with pytest.raises(AuthError):
+        client.complete(messages=[{"role": "user", "content": "hi"}], system="sys")
+
+
+def test_complete_maps_api_status_error_to_anthropic_error() -> None:
+    side_effect = anthropic.APIStatusError(
+        message="server error",
+        response=_make_httpx_response(500),
+        body={"error": {"message": "internal"}},
+    )
+    fake_messages = _FakeSdkMessages(response=_CANNED_RESPONSE, side_effect=side_effect)
+    client = _make_client(fake_messages)
+    with pytest.raises(AnthropicError) as exc_info:
+        client.complete(messages=[{"role": "user", "content": "hi"}], system="sys")
+    assert exc_info.value.status_code == 500
+
+
+def test_complete_logs_cache_tokens(caplog: pytest.LogCaptureFixture) -> None:
+    fake_messages = _FakeSdkMessages(response=_CANNED_RESPONSE)
+    client = _make_client(fake_messages)
+    with caplog.at_level(logging.INFO, logger="nexus.api.client"):
+        client.complete(messages=[{"role": "user", "content": "hi"}], system="sys")
+    assert "cache_write=3" in caplog.text
+    assert "cache_read=7" in caplog.text
