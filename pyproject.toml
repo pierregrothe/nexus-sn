@@ -50,7 +50,7 @@ pythonpath = ["src"]
 addopts = [
     "--cov=nexus",
     "--cov-report=term-missing",
-    "--cov-fail-under=40",
+    "--cov-fail-under=50",
 ]
 
 # -- coverage ----------------------------------------------------------------

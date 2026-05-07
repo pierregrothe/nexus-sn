@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
+from typing import ClassVar
 
 import anthropic
 import httpx
@@ -18,9 +19,12 @@ import pytest
 from nexus.api.client import _TIER_DEFAULTS, AnthropicClient, ModelTier, _discover_model
 from nexus.api.errors import AnthropicError
 from nexus.api.logging_config import configure_logging
+from nexus.api.tool_registry import ToolRegistry
 from nexus.auth.errors import AuthError
 from nexus.capabilities.registry import CapabilitySet
 from nexus.config.paths import NexusPaths
+from nexus.connectors.base import Tool
+from nexus.connectors.registry import ConnectorRegistry
 from tests.fakes.fake_anthropic_client import FakeAnthropicClient
 
 
@@ -240,3 +244,37 @@ def test_fake_client_records_calls() -> None:
     assert len(client.calls) == 1
     assert client.calls[0]["system"] == "sys"
     assert client.calls[0]["messages"] == [{"role": "user", "content": "hi"}]
+
+
+def test_tool_registry_assembles_anthropic_format() -> None:
+    class _FakeConnector:
+        name: ClassVar[str] = "fake"
+
+        def tools(self) -> list[Tool]:
+            """Return single fake tool."""
+            return [
+                Tool(
+                    name="fake_search",
+                    description="Search for things",
+                    parameters={
+                        "type": "object",
+                        "properties": {"q": {"type": "string"}},
+                        "required": ["q"],
+                    },
+                    connector="fake",
+                )
+            ]
+
+        async def call(self, tool_name: str, **kwargs: object) -> object:
+            """No-op call implementation."""
+            return None
+
+    registry = ConnectorRegistry()
+    registry.register(_FakeConnector())
+    tool_reg = ToolRegistry(registry)
+
+    tools = tool_reg.as_anthropic_tools()
+    assert len(tools) == 1
+    assert tools[0]["name"] == "fake_search"
+    assert tools[0]["description"] == "Search for things"
+    assert "input_schema" in tools[0]
