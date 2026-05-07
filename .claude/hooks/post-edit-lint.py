@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 # .claude/hooks/post-edit-lint.py
-# PostToolUse hook -- run ruff + mypy after Claude edits a Python file.
+# PostToolUse hook -- run ruff, mypy, and pyright after Claude edits a Python file.
 # Author: Pierre Grothe
 # Date: 2026-05-07
-"""Run ruff and mypy immediately after a Python file is written.
+"""Run ruff, mypy, and pyright immediately after a Python file is written.
 
 Exit codes:
   0 -- no issues (or non-Python file)
-  2 -- lint/type issues found (Claude receives stdout as feedback)
+  2 -- lint/type issues found (output on stderr so Claude Code displays it)
 """
 
 from __future__ import annotations
@@ -73,8 +73,12 @@ def main() -> int:
     if rc != 0 and out:
         issues.append(f"mypy:\n{out}")
 
+    rc, out = run(["poetry", "run", "pyright", str(path)])
+    if rc != 0 and out:
+        issues.append(f"pyright:\n{out}")
+
     if issues:
-        print("\n".join(issues))
+        print("\n".join(issues), file=sys.stderr)
         return 2
 
     return 0
