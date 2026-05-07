@@ -4,9 +4,14 @@
 # Date: 2026-05-07
 """FakeAnthropicClient: implements AnthropicClientProtocol with canned responses."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 from types import SimpleNamespace
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from anthropic.types import MessageParam, ToolParam
 
 __all__ = ["CANNED_MESSAGE", "FakeAnthropicClient"]
 
@@ -34,9 +39,9 @@ class FakeAnthropicClient:
 
     def complete(
         self,
-        messages: list[dict[str, Any]],
+        messages: list[MessageParam],
         system: str,
-        tools: list[dict[str, Any]] | None = None,
+        tools: list[ToolParam] | None = None,
         max_tokens: int = 8192,
     ) -> object:
         """Record call arguments and return CANNED_MESSAGE.
@@ -48,7 +53,13 @@ class FakeAnthropicClient:
             max_tokens: Max tokens requested by the caller.
 
         Returns:
-            CANNED_MESSAGE, a minimal Message-like namespace object.
+            CANNED_MESSAGE (SimpleNamespace). Not anthropic.types.Message --
+            callers should use the fake only via AnthropicClientProtocol.
         """
-        self.calls.append({"messages": messages, "system": system, "tools": tools})
+        self.calls.append({
+            "messages": messages,
+            "system": system,
+            "tools": tools,
+            "max_tokens": max_tokens,
+        })
         return CANNED_MESSAGE
