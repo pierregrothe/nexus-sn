@@ -6,7 +6,8 @@
 """Fake connectors and clients for use in tests."""
 
 from tests.fakes.fake_anthropic_client import FakeAnthropicClient
+from tests.fakes.fake_auth_provider import FakeAuthProvider
 from tests.fakes.fake_keychain import FakeKeychainClient
 from tests.fakes.fake_sn_client import FakeServiceNowClient
 
-__all__ = ["FakeAnthropicClient", "FakeKeychainClient", "FakeServiceNowClient"]
+__all__ = ["FakeAnthropicClient", "FakeAuthProvider", "FakeKeychainClient", "FakeServiceNowClient"]
