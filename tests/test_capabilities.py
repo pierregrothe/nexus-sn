@@ -5,6 +5,10 @@
 
 """Tests for nexus.capabilities."""
 
+from dataclasses import FrozenInstanceError
+
+import pytest
+
 from nexus.capabilities.feature_flags import FEATURE_MAP, FeatureFlag, MCPServer
 from nexus.capabilities.probe import ProbeResult
 from nexus.capabilities.registry import CapabilitySet
@@ -55,6 +59,5 @@ def test_capability_set_mixed_results() -> None:
 
 def test_capability_set_is_immutable() -> None:
     caps = CapabilitySet.none()
-    import pytest
-    with pytest.raises(Exception):
-        caps.available_servers = frozenset()  # type: ignore[misc]
+    with pytest.raises(FrozenInstanceError):
+        setattr(caps, "available_servers", frozenset())

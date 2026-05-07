@@ -9,6 +9,7 @@ from pathlib import Path
 
 import pytest
 import yaml
+from pydantic import ValidationError
 
 from nexus.config.manager import ConfigManager
 from nexus.config.paths import NexusPaths
@@ -49,8 +50,8 @@ def test_nexus_config_default_auto_probe_enabled() -> None:
 
 def test_nexus_config_is_frozen() -> None:
     config = NexusConfig.default()
-    with pytest.raises(Exception):
-        config.preferences = config.preferences  # type: ignore[misc]
+    with pytest.raises(ValidationError):
+        setattr(config, "auto_probe", False)
 
 
 def test_instance_profile_stores_url_and_username() -> None:
