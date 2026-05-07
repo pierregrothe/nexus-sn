@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 # .claude/hooks/post-edit-lint.py
-# PostToolUse hook -- run ruff, mypy, and pyright after Claude edits a Python file.
+# PostToolUse hook -- run ruff, mypy, pyright, and coverage ratchet after edits.
 # Author: Pierre Grothe
 # Date: 2026-05-07
-"""Run ruff, mypy, and pyright immediately after a Python file is written.
+"""Run ruff, mypy, pyright, and per-module coverage ratchet after a Python file is written.
 
 Exit codes:
   0 -- no issues (or non-Python file)
-  2 -- lint/type issues found (output on stderr so Claude Code displays it)
+  2 -- lint/type/coverage issues found (output on stderr so Claude Code displays it)
 """
 
 from __future__ import annotations
@@ -39,6 +39,82 @@ def run(cmd: list[str]) -> tuple[int, str]:
     """Run a subprocess and return (returncode, combined output)."""
     result = subprocess.run(cmd, capture_output=True, text=True, cwd=REPO_ROOT)
     return result.returncode, (result.stdout + result.stderr).strip()
+
+
+def _module_name(path: Path) -> str | None:
+    """Derive nexus.X.Y module name from a src/nexus/X/Y.py path.
+
+    Args:
+        path: Absolute path to a Python file.
+
+    Returns:
+        Module name string, or None if path is not under src/nexus/.
+    """
+    try:
+        rel = path.relative_to(NEXUS_SRC)
+    except ValueError:
+        return None
+    parts = list(rel.parts)
+    if parts[-1] == "__init__.py":
+        parts = parts[:-1]
+    else:
+        parts[-1] = parts[-1].removesuffix(".py")
+    return "nexus." + ".".join(parts) if parts else None
+
+
+def check_coverage_ratchet(path: Path) -> str | None:
+    """Run coverage and block if covered lines for the edited module decreased.
+
+    Args:
+        path: Path to the edited source file.
+
+    Returns:
+        Error string if coverage decreased, None if clean or not applicable.
+    """
+    module = _module_name(path)
+    if module is None:
+        return None
+
+    ratchet_path = REPO_ROOT / ".ratchet.json"
+    if not ratchet_path.exists():
+        return None
+
+    ratchet = json.loads(ratchet_path.read_text())
+    baseline = ratchet.get("modules", {}).get(module)
+    if baseline is None:
+        return None
+
+    baseline_covered = baseline["covered_lines"]
+
+    rc, _ = run([
+        "poetry", "run", "pytest",
+        "--cov=nexus",
+        "--cov-report=json",
+        "--cov-fail-under=0",
+        "-q", "--tb=no", "--no-header",
+    ])
+    if rc != 0:
+        return None  # tests failed; let ruff/mypy/pyright report
+
+    cov_file = REPO_ROOT / "coverage.json"
+    if not cov_file.exists():
+        return None
+
+    cov_data = json.loads(cov_file.read_text())
+    module_path_fragment = module.replace(".", "/")
+    for file_key, file_data in cov_data.get("files", {}).items():
+        normalized = file_key.replace("\\", "/")
+        if module_path_fragment in normalized and normalized.endswith(".py"):
+            current = file_data["summary"]["covered_lines"]
+            if current < baseline_covered:
+                return (
+                    f"RATCHET VIOLATION: {module} coverage decreased "
+                    f"({current} < {baseline_covered} covered lines). "
+                    "Add tests before reducing coverage."
+                )
+            break
+
+    return None
 
 
 def main() -> int:
@@ -76,6 +152,10 @@ def main() -> int:
     rc, out = run(["poetry", "run", "pyright", str(path)])
     if rc != 0 and out:
         issues.append(f"pyright:\n{out}")
+
+    ratchet_issue = check_coverage_ratchet(path)
+    if ratchet_issue:
+        issues.append(f"ratchet:\n{ratchet_issue}")
 
     if issues:
         print("\n".join(issues), file=sys.stderr)
