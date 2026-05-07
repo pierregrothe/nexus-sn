@@ -18,6 +18,7 @@ from rich.table import Table
 
 from nexus.config.manager import ConfigManager
 from nexus.config.paths import NexusPaths
+from nexus.ui.app import start_ui
 
 log = logging.getLogger(__name__)
 
@@ -136,12 +137,10 @@ def rollback(
 def ui() -> None:
     """Start the NiceGUI dashboard (requires pip install nexus-sn[ui])."""
     try:
-        from nexus.ui.app import start_ui  # type: ignore[import]
-
         start_ui()
-    except ImportError:
-        err_console.print("[red]NiceGUI not installed.[/red] " "Run: pip install nexus-sn[ui]")
-        raise typer.Exit(code=1)
+    except ImportError as exc:
+        err_console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(code=1) from exc
 
 
 if __name__ == "__main__":

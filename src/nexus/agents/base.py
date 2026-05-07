@@ -28,7 +28,7 @@ class ExecutionContext:
     instance_url: str
     job_id: str
     task_id: str
-    inputs: dict[str, Any] = field(default_factory=dict)
+    inputs: dict[str, Any] = field(default_factory=dict[str, Any])
     dry_run: bool = False
 
 
@@ -46,8 +46,8 @@ class AgentResult:
 
     task_id: str
     success: bool
-    outputs: dict[str, Any] = field(default_factory=dict)
-    errors: list[str] = field(default_factory=list)
+    outputs: dict[str, Any] = field(default_factory=dict[str, Any])
+    errors: list[str] = field(default_factory=list[str])
     summary: str = ""
 
 
