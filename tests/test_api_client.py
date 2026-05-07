@@ -21,6 +21,7 @@ from nexus.api.logging_config import configure_logging
 from nexus.auth.errors import AuthError
 from nexus.capabilities.registry import CapabilitySet
 from nexus.config.paths import NexusPaths
+from tests.fakes.fake_anthropic_client import FakeAnthropicClient
 
 
 def test_anthropic_error_has_status_code_and_message() -> None:
@@ -231,3 +232,11 @@ def test_complete_logs_cache_tokens(caplog: pytest.LogCaptureFixture) -> None:
         client.complete(messages=[{"role": "user", "content": "hi"}], system="sys")
     assert "cache_write=3" in caplog.text
     assert "cache_read=7" in caplog.text
+
+
+def test_fake_client_records_calls() -> None:
+    client = FakeAnthropicClient()
+    client.complete(messages=[{"role": "user", "content": "hi"}], system="sys")
+    assert len(client.calls) == 1
+    assert client.calls[0]["system"] == "sys"
+    assert client.calls[0]["messages"] == [{"role": "user", "content": "hi"}]
