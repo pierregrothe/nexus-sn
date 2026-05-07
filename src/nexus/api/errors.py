@@ -1,0 +1,21 @@
+# src/nexus/api/errors.py
+# Anthropic API error types.
+# Author: Pierre Grothe
+# Date: 2026-05-07
+"""Typed exceptions for the Anthropic API layer."""
+
+__all__ = ["AnthropicError"]
+
+
+class AnthropicError(Exception):
+    """Raised when the Anthropic API returns an error status.
+
+    Args:
+        status_code: HTTP status code from the API response.
+        message: Error message from the API response body.
+    """
+
+    def __init__(self, status_code: int, message: str) -> None:
+        self.status_code = status_code
+        self.message = message
+        super().__init__(f"Anthropic API error {status_code}: {message}")
