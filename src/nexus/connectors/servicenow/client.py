@@ -123,9 +123,7 @@ class ServiceNowClient:
         response = await self._post(f"{_TABLE_API_BASE}/{table}", json=data)
         return dict(response.get("result", {}))
 
-    async def update_record(
-        self, table: str, sys_id: str, data: dict[str, Any]
-    ) -> dict[str, Any]:
+    async def update_record(self, table: str, sys_id: str, data: dict[str, Any]) -> dict[str, Any]:
         """Update an existing record.
 
         Args:
@@ -148,9 +146,7 @@ class ServiceNowClient:
         """
         await self._delete(f"{_TABLE_API_BASE}/{table}/{sys_id}")
 
-    async def _get(
-        self, path: str, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
+    async def _get(self, path: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
         return await self._request("GET", path, params=params)
 
     async def _post(self, path: str, json: dict[str, Any]) -> dict[str, Any]:

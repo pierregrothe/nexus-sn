@@ -9,8 +9,7 @@ try:
     import nicegui  # noqa: F401
 except ImportError as exc:
     raise ImportError(
-        "The NEXUS dashboard requires NiceGUI. "
-        "Install it with: pip install nexus-sn[ui]"
+        "The NEXUS dashboard requires NiceGUI. " "Install it with: pip install nexus-sn[ui]"
     ) from exc
 
 __all__: list[str] = []

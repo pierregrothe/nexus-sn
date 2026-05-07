@@ -137,12 +137,10 @@ def ui() -> None:
     """Start the NiceGUI dashboard (requires pip install nexus-sn[ui])."""
     try:
         from nexus.ui.app import start_ui  # type: ignore[import]
+
         start_ui()
     except ImportError:
-        err_console.print(
-            "[red]NiceGUI not installed.[/red] "
-            "Run: pip install nexus-sn[ui]"
-        )
+        err_console.print("[red]NiceGUI not installed.[/red] " "Run: pip install nexus-sn[ui]")
         raise typer.Exit(code=1)
 
 

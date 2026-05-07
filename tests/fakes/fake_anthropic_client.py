@@ -56,10 +56,12 @@ class FakeAnthropicClient:
             CANNED_MESSAGE (SimpleNamespace). Not anthropic.types.Message --
             callers should use the fake only via AnthropicClientProtocol.
         """
-        self.calls.append({
-            "messages": messages,
-            "system": system,
-            "tools": tools,
-            "max_tokens": max_tokens,
-        })
+        self.calls.append(
+            {
+                "messages": messages,
+                "system": system,
+                "tools": tools,
+                "max_tokens": max_tokens,
+            }
+        )
         return CANNED_MESSAGE

@@ -227,9 +227,7 @@ def _make_client(messages_fake: _FakeSdkMessages) -> AnthropicClient:
 
 def _make_httpx_response(status_code: int) -> httpx.Response:
     """Build minimal httpx.Response for constructing Anthropic SDK exceptions."""
-    return httpx.Response(
-        status_code, request=httpx.Request("POST", "https://api.anthropic.com")
-    )
+    return httpx.Response(status_code, request=httpx.Request("POST", "https://api.anthropic.com"))
 
 
 # ---------------------------------------------------------------------------

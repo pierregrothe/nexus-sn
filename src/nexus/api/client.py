@@ -104,9 +104,7 @@ def _discover_model(client: _ModelDiscoveryClient, tier: ModelTier) -> str:
             [
                 m
                 for m in client.models.list()
-                if m.id.startswith(prefix)
-                and not _DATE_RE.search(m.id)
-                and "preview" not in m.id
+                if m.id.startswith(prefix) and not _DATE_RE.search(m.id) and "preview" not in m.id
             ],
             key=lambda m: m.created_at,
             reverse=True,
@@ -164,9 +162,7 @@ class AnthropicClient:
         _sdk_client: anthropic.Anthropic | None = None,
     ) -> None:
         """Initialize with API key, capabilities, and model tier."""
-        self._client = _sdk_client or anthropic.Anthropic(
-            api_key=api_key, max_retries=_MAX_RETRIES
-        )
+        self._client = _sdk_client or anthropic.Anthropic(api_key=api_key, max_retries=_MAX_RETRIES)
         self._capabilities = capabilities
         self._model = _discover_model(self._client, tier)
         log.info("AnthropicClient initialised: tier=%s model=%s", tier, self._model)

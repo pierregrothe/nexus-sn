@@ -5,7 +5,6 @@
 
 """Tests for nexus.auth."""
 
-
 import pytest
 
 from nexus.auth.claude import ClaudeAuth

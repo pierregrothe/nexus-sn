@@ -21,9 +21,7 @@ class FakeServiceNowClient:
         initial_records: Optional seed data {table: [records]}.
     """
 
-    def __init__(
-        self, initial_records: dict[str, list[dict[str, Any]]] | None = None
-    ) -> None:
+    def __init__(self, initial_records: dict[str, list[dict[str, Any]]] | None = None) -> None:
         self._tables: dict[str, list[dict[str, Any]]] = {}
         for table, records in (initial_records or {}).items():
             self._tables[table] = [dict(r) for r in records]
@@ -85,9 +83,7 @@ class FakeServiceNowClient:
         self._tables.setdefault(table, []).append(record)
         return dict(record)
 
-    async def update_record(
-        self, table: str, sys_id: str, data: dict[str, Any]
-    ) -> dict[str, Any]:
+    async def update_record(self, table: str, sys_id: str, data: dict[str, Any]) -> dict[str, Any]:
         """Update a record in place.
 
         Args:
@@ -112,6 +108,4 @@ class FakeServiceNowClient:
             sys_id: Record identifier.
         """
         if table in self._tables:
-            self._tables[table] = [
-                r for r in self._tables[table] if r.get("sys_id") != sys_id
-            ]
+            self._tables[table] = [r for r in self._tables[table] if r.get("sys_id") != sys_id]
