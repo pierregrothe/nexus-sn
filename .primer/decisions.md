@@ -119,3 +119,29 @@ adds the ratchet baseline, lean CI, pre-commit hook, and formal ADR documents.
 in .ratchet.json, pyright strict alongside mypy, and lean CI (<30s feedback).
 Pre-commit hook enforces full test suite locally before every commit. CI cross-platform
 testing only runs on release tags.
+
+---
+
+### 2026-05-07 -- Pluggable AuthProvider with OAuth-first chain
+
+**Status:** accepted
+
+**Context:** Original design (ADR-001) assumed users would have Anthropic API keys.
+Smoke-test reality check exposed the gap: getting a key from ServiceNow's enterprise
+Claude account is a lengthy process; personal keys violate company AI usage guidelines
+and lack access to org MCP servers. Anthropic forbids third parties from offering
+claude.ai login flows -- but the Claude Agent SDK reads OAuth tokens from Claude Code's
+stored credentials, and the standard Anthropic SDK accepts those tokens via auth_token=.
+
+**Decision:** AnthropicClient takes a Sequence[AuthProvider] instead of api_key:str.
+The default chain (get_default_providers()) is [ClaudeCodeOAuthProvider, AnthropicAPIKeyProvider].
+OAuth provider reads token from CLAUDE_CODE_OAUTH_TOKEN env, then ~/.claude/.credentials.json,
+then macOS Keychain ("Claude Code-credentials" via keyring lib). API key provider is
+the fallback for users without Claude Code. The architecture supports future Bedrock,
+Vertex, and Foundry providers without further interface changes.
+
+**Consequences:** Users authenticated to Claude Code (the typical case for ServiceNow
+employees) get API access for free, including their org's MCP servers. ADR-001 (API-direct)
+remains valid -- still calling Anthropic directly via the standard SDK; OAuth uses the
+Bearer auth header (auth_token=) instead of X-Api-Key. Spec at
+docs/superpowers/specs/2026-05-07-pluggable-auth-design.md (PR #1).

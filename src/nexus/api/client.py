@@ -7,7 +7,7 @@
 import logging
 import os
 import re
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from datetime import datetime
 from enum import StrEnum
 from typing import Protocol
@@ -17,11 +17,18 @@ from anthropic.types import MessageParam, ToolParam
 
 from nexus.api.errors import AnthropicError
 from nexus.auth.errors import AuthError
+from nexus.auth.providers import AuthProvider
 from nexus.capabilities.registry import CapabilitySet
 
 log = logging.getLogger(__name__)
 
-__all__ = ["AnthropicClient", "AnthropicClientProtocol", "ModelTier"]
+__all__ = [
+    "TIER_DEFAULTS",
+    "AnthropicClient",
+    "AnthropicClientProtocol",
+    "ModelTier",
+    "discover_model",
+]
 
 _MAX_RETRIES = 3
 _DATE_RE = re.compile(r"-\d{8}$")
@@ -46,7 +53,7 @@ _TIER_FAMILY: dict[ModelTier, str] = {
     ModelTier.FAST: "claude-haiku-",
 }
 
-_TIER_DEFAULTS: dict[ModelTier, str] = {
+TIER_DEFAULTS: dict[ModelTier, str] = {
     ModelTier.STANDARD: "claude-sonnet-4-6",
     ModelTier.POWERFUL: "claude-opus-4-7",
     ModelTier.FAST: "claude-haiku-4-5",
@@ -75,7 +82,7 @@ class _ModelsList(Protocol):
 
 
 class _ModelDiscoveryClient(Protocol):
-    """Duck-typed interface required by _discover_model."""
+    """Duck-typed interface required by discover_model."""
 
     @property
     def models(self) -> _ModelsList:
@@ -83,7 +90,7 @@ class _ModelDiscoveryClient(Protocol):
         ...
 
 
-def _discover_model(client: _ModelDiscoveryClient, tier: ModelTier) -> str:
+def discover_model(client: _ModelDiscoveryClient, tier: ModelTier) -> str:
     """Return the newest available model ID for the given tier.
 
     Resolution order: env var override, auto-discover via API, hardcoded fallback.
@@ -113,7 +120,7 @@ def _discover_model(client: _ModelDiscoveryClient, tier: ModelTier) -> str:
             return str(candidates[0].id)
     except Exception:
         log.warning("model discovery failed for tier=%s; using fallback", tier)
-    return _TIER_DEFAULTS[tier]
+    return TIER_DEFAULTS[tier]
 
 
 class AnthropicClientProtocol(Protocol):
@@ -148,24 +155,61 @@ class AnthropicClient:
     """Anthropic API wrapper with prompt caching and capability-aware tools.
 
     Args:
-        api_key: Claude Enterprise API key.
+        auth_providers: Ordered list of AuthProvider instances. The first one
+            whose is_available() returns True is used to construct the SDK
+            client. Pass get_default_providers() for the standard chain.
         capabilities: Session capability set from startup probe.
         tier: Model capability tier (default STANDARD).
-        _sdk_client: Injectable anthropic.Anthropic instance (tests only).
+        _sdk_client: Injectable SDK client instance (tests only).
+            When provided, auth_providers is ignored.
     """
 
     def __init__(
         self,
-        api_key: str,
+        auth_providers: Sequence[AuthProvider],
         capabilities: CapabilitySet,
         tier: ModelTier = ModelTier.STANDARD,
         _sdk_client: anthropic.Anthropic | None = None,
     ) -> None:
-        """Initialize with API key, capabilities, and model tier."""
-        self._client = _sdk_client or anthropic.Anthropic(api_key=api_key, max_retries=_MAX_RETRIES)
+        """Initialize with auth providers, capabilities, and model tier."""
+        if _sdk_client is not None:
+            self._client: anthropic.Anthropic = _sdk_client
+            provider_name = "injected"
+        else:
+            self._client, provider_name = self._resolve_auth(auth_providers)
         self._capabilities = capabilities
-        self._model = _discover_model(self._client, tier)
-        log.info("AnthropicClient initialised: tier=%s model=%s", tier, self._model)
+        self._model = discover_model(self._client, tier)
+        log.info(
+            "AnthropicClient initialised: provider=%s tier=%s model=%s",
+            provider_name,
+            tier,
+            self._model,
+        )
+
+    @staticmethod
+    def _resolve_auth(
+        auth_providers: Sequence[AuthProvider],
+    ) -> tuple[anthropic.Anthropic, str]:
+        """Pick the first available provider and create its SDK client.
+
+        Args:
+            auth_providers: Ordered provider chain.
+
+        Returns:
+            Tuple of (sdk_client, provider_name).
+
+        Raises:
+            AuthError: When no provider is available.
+        """
+        for provider in auth_providers:
+            if provider.is_available():
+                return provider.create_client(_MAX_RETRIES), provider.name
+        raise AuthError(
+            "anthropic",
+            "auth_providers",
+            "No auth provider available. Run 'nexus setup' or "
+            "ensure Claude Code is authenticated.",
+        )
 
     def complete(
         self,

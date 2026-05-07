@@ -10,13 +10,13 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any
+from typing import cast
 
 import anthropic
 import httpx
 import pytest
 
-from nexus.api.client import _TIER_DEFAULTS, AnthropicClient, ModelTier, _discover_model
+from nexus.api.client import TIER_DEFAULTS, AnthropicClient, ModelTier, discover_model
 from nexus.api.errors import AnthropicError
 from nexus.api.logging_config import configure_logging
 from nexus.api.tool_registry import ToolRegistry
@@ -26,6 +26,7 @@ from nexus.config.paths import NexusPaths
 from nexus.connectors.base import Tool, ToolResult
 from nexus.connectors.registry import ConnectorRegistry
 from tests.fakes.fake_anthropic_client import FakeAnthropicClient
+from tests.fakes.fake_auth_provider import FakeAuthProvider
 
 
 def test_anthropic_error_has_status_code_and_message() -> None:
@@ -67,7 +68,7 @@ class _FakeModel:
 
 
 def test_model_tier_standard_default_is_sonnet() -> None:
-    assert _TIER_DEFAULTS[ModelTier.STANDARD] == "claude-sonnet-4-6"
+    assert TIER_DEFAULTS[ModelTier.STANDARD] == "claude-sonnet-4-6"
 
 
 def test_discover_model_returns_newest_by_created_at() -> None:
@@ -85,7 +86,7 @@ def test_discover_model_returns_newest_by_created_at() -> None:
             """Return fake models accessor."""
             return _FakeModels()
 
-    result = _discover_model(_FakeClient(), ModelTier.STANDARD)
+    result = discover_model(_FakeClient(), ModelTier.STANDARD)
     assert result == "claude-sonnet-4-6"
 
 
@@ -101,8 +102,8 @@ def test_discover_model_falls_back_when_list_raises() -> None:
             """Return fake models accessor."""
             return _FakeModels()
 
-    result = _discover_model(_FakeClient(), ModelTier.STANDARD)
-    assert result == _TIER_DEFAULTS[ModelTier.STANDARD]
+    result = discover_model(_FakeClient(), ModelTier.STANDARD)
+    assert result == TIER_DEFAULTS[ModelTier.STANDARD]
 
 
 def test_discover_model_respects_env_var_override(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -119,7 +120,7 @@ def test_discover_model_respects_env_var_override(monkeypatch: pytest.MonkeyPatc
             """Never called -- env var takes priority."""
             return _FakeModels()  # pragma: no cover
 
-    result = _discover_model(_FakeClient(), ModelTier.STANDARD)
+    result = discover_model(_FakeClient(), ModelTier.STANDARD)
     assert result == "claude-sonnet-4-99"
 
 
@@ -144,7 +145,7 @@ def test_discover_model_excludes_date_pinned_variants() -> None:
             """Return fake models accessor."""
             return _FakeModels()
 
-    result = _discover_model(_FakeClient(), ModelTier.STANDARD)
+    result = discover_model(_FakeClient(), ModelTier.STANDARD)
     assert result == "claude-sonnet-4-6"
 
 
@@ -169,7 +170,7 @@ def test_discover_model_excludes_preview_models() -> None:
             """Return fake models accessor."""
             return _FakeModels()
 
-    result = _discover_model(_FakeClient(), ModelTier.STANDARD)
+    result = discover_model(_FakeClient(), ModelTier.STANDARD)
     assert result == "claude-sonnet-4-6"
 
 
@@ -182,7 +183,7 @@ def test_discover_model_excludes_preview_models() -> None:
 class _FakeSdkMessages:
     response: object
     side_effect: BaseException | None = None
-    last_kwargs: dict[str, object] = field(default_factory=dict)
+    last_kwargs: dict[str, object] = field(default_factory=dict[str, object])
 
     def create(self, **kwargs: object) -> object:
         """Capture kwargs and return canned response or raise side_effect."""
@@ -195,7 +196,7 @@ class _FakeSdkMessages:
 @dataclass(slots=True)
 class _FakeSdk:
     messages: _FakeSdkMessages
-    model_list: list[object] = field(default_factory=list)
+    model_list: list[object] = field(default_factory=list[object])
 
     @property
     def models(self) -> SimpleNamespace:
@@ -219,9 +220,9 @@ _CANNED_RESPONSE = SimpleNamespace(
 def _make_client(messages_fake: _FakeSdkMessages) -> AnthropicClient:
     """Construct AnthropicClient with injected FakeSdk (empty model list -> fallback)."""
     return AnthropicClient(
-        api_key="test-key",
+        auth_providers=[],
         capabilities=CapabilitySet.none(),
-        _sdk_client=_FakeSdk(messages=messages_fake),
+        _sdk_client=cast(anthropic.Anthropic, _FakeSdk(messages=messages_fake)),
     )
 
 
@@ -239,7 +240,7 @@ def test_complete_adds_cache_control_to_system() -> None:
     fake_messages = _FakeSdkMessages(response=_CANNED_RESPONSE)
     client = _make_client(fake_messages)
     client.complete(messages=[{"role": "user", "content": "hi"}], system="Be helpful.")
-    system_block = fake_messages.last_kwargs["system"][0]
+    system_block = cast(list[dict[str, object]], fake_messages.last_kwargs["system"])[0]
     assert system_block["cache_control"] == {"type": "ephemeral"}
     assert system_block["text"] == "Be helpful."
 
@@ -308,7 +309,7 @@ def test_tool_registry_assembles_anthropic_format() -> None:
                 )
             ]
 
-        async def call(self, tool_name: str, **kwargs: Any) -> ToolResult:
+        async def call(self, tool_name: str, **kwargs: object) -> ToolResult:
             """No-op call implementation."""
             return ToolResult(tool_name=tool_name, success=True)
 
@@ -321,3 +322,32 @@ def test_tool_registry_assembles_anthropic_format() -> None:
     assert tools[0]["name"] == "fake_search"
     assert tools[0].get("description") == "Search for things"
     assert "input_schema" in tools[0]
+
+
+def test_anthropic_client_picks_first_available_provider(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    fake_messages = _FakeSdkMessages(response=_CANNED_RESPONSE)
+    fake_sdk = cast(anthropic.Anthropic, _FakeSdk(messages=fake_messages))
+    providers = [
+        FakeAuthProvider(name="oauth", available=False),
+        FakeAuthProvider(name="api_key", available=True, sdk_client=fake_sdk),
+    ]
+    with caplog.at_level(logging.INFO, logger="nexus.api.client"):
+        AnthropicClient(
+            auth_providers=providers,
+            capabilities=CapabilitySet.none(),
+        )
+    assert "provider=api_key" in caplog.text
+
+
+def test_anthropic_client_raises_auth_error_when_no_provider_available() -> None:
+    providers = [
+        FakeAuthProvider(name="oauth", available=False),
+        FakeAuthProvider(name="api_key", available=False),
+    ]
+    with pytest.raises(AuthError):
+        AnthropicClient(
+            auth_providers=providers,
+            capabilities=CapabilitySet.none(),
+        )

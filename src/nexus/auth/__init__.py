@@ -8,11 +8,21 @@
 from nexus.auth.claude import ClaudeAuth
 from nexus.auth.errors import AuthError
 from nexus.auth.keychain import KeychainClient
+from nexus.auth.oauth import ClaudeCodeOAuthProvider
+from nexus.auth.providers import (
+    AnthropicAPIKeyProvider,
+    AuthProvider,
+    get_default_providers,
+)
 from nexus.auth.servicenow import SNAuth
 
 __all__ = [
+    "AnthropicAPIKeyProvider",
     "AuthError",
+    "AuthProvider",
     "ClaudeAuth",
+    "ClaudeCodeOAuthProvider",
     "KeychainClient",
     "SNAuth",
+    "get_default_providers",
 ]
