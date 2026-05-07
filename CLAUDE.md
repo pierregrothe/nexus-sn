@@ -15,9 +15,10 @@ Key concepts:
 
 ## Standards (from skills-dev)
 
-- Python 3.12+. Do NOT use Python 3.14-only syntax (PEP 758, Path.copy, etc.).
+- Python 3.14+. All Python 3.14 syntax is permitted including PEP 758 (unparenthesized multi-except).
 - Package manager: Poetry.
-- Line length: 100. Formatter: black. Linter: ruff. Type checker: mypy strict.
+- Line length: 100. Formatter: black. Linter: ruff. Type checkers: mypy strict + pyright strict (both must report 0 errors).
+  No # type: ignore anywhere. For untyped packages add stubs to src/stubs/.
 - Versioning: CalVer (YYYY.0M.PATCH).
 - No mocks. Use fakes in tests/fakes/.
 - 100% line coverage. mypy strict: 0 errors. ruff: 0 violations.
@@ -29,6 +30,33 @@ Key concepts:
 - @cache over @lru_cache(maxsize=None).
 - @dataclass(slots=True) for structured data.
 - match/case for enum dispatch (always include case _: default).
+
+## Enforcement Model
+
+Three tiers. All checks run automatically via Claude Code hooks.
+
+**Tier 1 -- Blocking (pre-edit hook, PostToolUse):** Fails before file is written.
+  Rules: no-mocks, no-relative-imports, no-bare-except, no-lru-cache-none,
+         no-unittest-testcase, no-sys-argv, no-type-ignore, no-bare-any-in-sig,
+         no-dict-any-in-sig, no-deferred-import
+
+**Tier 2 -- Ratchet (.ratchet.json, tracked in post-edit hook):** Coverage and
+  complexity metrics can only decrease, never increase. (Baseline file: Plan 2)
+
+**Tier 3 -- Soft (post-edit warning):** Advisory only, never blocks.
+  Rules: missing-test-file, unclosed-resource-handle (Plan 2)
+
+## Pydantic Conventions
+
+All Pydantic models use frozen + strict + no-extra:
+
+```python
+model_config = ConfigDict(frozen=True, strict=True, extra="forbid")
+```
+
+Fields with constraints use `Annotated[Type, Field(...)]`.
+Cross-field validators use `@model_validator(mode="after")` and return `Self`.
+No `dict[str, Any]` in Pydantic model definitions -- use TypedDicts for complex fields.
 
 ## Architecture
 
