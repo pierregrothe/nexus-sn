@@ -83,3 +83,39 @@ def test_discover_model_respects_env_var_override(monkeypatch: pytest.MonkeyPatc
     monkeypatch.setenv("NEXUS_MODEL_STANDARD", "claude-sonnet-4-99")
     result = _discover_model(SimpleNamespace(models=None), ModelTier.STANDARD)
     assert result == "claude-sonnet-4-99"
+
+
+def test_discover_model_excludes_date_pinned_variants() -> None:
+    date_pinned = SimpleNamespace(
+        id="claude-sonnet-4-6-20250101",
+        created_at=datetime(2025, 12, 1, tzinfo=UTC),
+    )
+    floating = SimpleNamespace(
+        id="claude-sonnet-4-6",
+        created_at=datetime(2025, 9, 1, tzinfo=UTC),
+    )
+
+    class _FakeModels:
+        def list(self) -> list:  # type: ignore[type-arg]
+            return [date_pinned, floating]
+
+    result = _discover_model(SimpleNamespace(models=_FakeModels()), ModelTier.STANDARD)
+    assert result == "claude-sonnet-4-6"
+
+
+def test_discover_model_excludes_preview_models() -> None:
+    preview = SimpleNamespace(
+        id="claude-sonnet-4-preview",
+        created_at=datetime(2025, 12, 1, tzinfo=UTC),
+    )
+    stable = SimpleNamespace(
+        id="claude-sonnet-4-6",
+        created_at=datetime(2025, 9, 1, tzinfo=UTC),
+    )
+
+    class _FakeModels:
+        def list(self) -> list:  # type: ignore[type-arg]
+            return [preview, stable]
+
+    result = _discover_model(SimpleNamespace(models=_FakeModels()), ModelTier.STANDARD)
+    assert result == "claude-sonnet-4-6"

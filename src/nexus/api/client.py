@@ -8,7 +8,7 @@ import logging
 import os
 import re
 from enum import StrEnum
-from typing import Protocol
+from typing import Any, Protocol
 
 import anthropic
 from anthropic.types import MessageParam, ToolParam
@@ -57,7 +57,16 @@ _TIER_ENV: dict[ModelTier, str] = {
 }
 
 
-def _discover_model(client: anthropic.Anthropic, tier: ModelTier) -> str:
+class _ModelDiscoveryClient(Protocol):
+    """Duck-typed interface required by _discover_model."""
+
+    @property
+    def models(self) -> Any:
+        """Provide models.list() access."""
+        ...
+
+
+def _discover_model(client: _ModelDiscoveryClient, tier: ModelTier) -> str:
     """Return the newest available model ID for the given tier.
 
     Resolution order: env var override, auto-discover via API, hardcoded fallback.
