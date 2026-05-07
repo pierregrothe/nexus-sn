@@ -5,7 +5,10 @@
 """ToolRegistry: builds the tool list passed to the Anthropic API."""
 
 import logging
-from typing import Any
+from typing import cast
+
+from anthropic.types import ToolParam
+from anthropic.types.tool_param import InputSchema
 
 from nexus.connectors.registry import ConnectorRegistry
 
@@ -25,18 +28,20 @@ class ToolRegistry:
         """Store the connector registry for tool enumeration."""
         self._connectors = connectors
 
-    def as_anthropic_tools(self) -> list[dict[str, Any]]:
+    def as_anthropic_tools(self) -> list[ToolParam]:
         """Return all connector tools in Anthropic API format.
 
         Returns:
-            List of tool dicts with name, description, and input_schema.
+            List of ToolParam dicts with name, description, and input_schema.
         """
-        tools = []
+        tools: list[ToolParam] = []
         for tool in self._connectors.all_tools():
-            tools.append({
-                "name": tool.name,
-                "description": tool.description,
-                "input_schema": tool.parameters,
-            })
+            tools.append(
+                ToolParam(
+                    name=tool.name,
+                    description=tool.description,
+                    input_schema=cast(InputSchema, tool.parameters),
+                )
+            )
         log.debug("tool registry: %d tools assembled", len(tools))
         return tools

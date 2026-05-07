@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
-from typing import ClassVar
+from typing import Any
 
 import anthropic
 import httpx
@@ -23,7 +23,7 @@ from nexus.api.tool_registry import ToolRegistry
 from nexus.auth.errors import AuthError
 from nexus.capabilities.registry import CapabilitySet
 from nexus.config.paths import NexusPaths
-from nexus.connectors.base import Tool
+from nexus.connectors.base import Tool, ToolResult
 from nexus.connectors.registry import ConnectorRegistry
 from tests.fakes.fake_anthropic_client import FakeAnthropicClient
 
@@ -290,7 +290,10 @@ def test_fake_client_records_calls() -> None:
 
 def test_tool_registry_assembles_anthropic_format() -> None:
     class _FakeConnector:
-        name: ClassVar[str] = "fake"
+        @property
+        def name(self) -> str:
+            """Unique connector identifier."""
+            return "fake"
 
         def tools(self) -> list[Tool]:
             """Return single fake tool."""
@@ -307,9 +310,9 @@ def test_tool_registry_assembles_anthropic_format() -> None:
                 )
             ]
 
-        async def call(self, tool_name: str, **kwargs: object) -> object:
+        async def call(self, tool_name: str, **kwargs: Any) -> ToolResult:
             """No-op call implementation."""
-            return None
+            return ToolResult(tool_name=tool_name, success=True)
 
     registry = ConnectorRegistry()
     registry.register(_FakeConnector())
@@ -318,5 +321,5 @@ def test_tool_registry_assembles_anthropic_format() -> None:
     tools = tool_reg.as_anthropic_tools()
     assert len(tools) == 1
     assert tools[0]["name"] == "fake_search"
-    assert tools[0]["description"] == "Search for things"
+    assert tools[0].get("description") == "Search for things"
     assert "input_schema" in tools[0]
