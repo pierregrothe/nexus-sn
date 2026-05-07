@@ -2,16 +2,7 @@
 # API client layer tests.
 # Author: Pierre Grothe
 # Date: 2026-05-07
-"""Tests for AnthropicError, AnthropicClient, FakeAnthropicClient, and ToolRegistry."""
-
-import logging
-from dataclasses import dataclass, field
-from datetime import UTC, datetime
-from types import SimpleNamespace
-from typing import Any
-
-import httpx
-import pytest
+"""Tests for the NEXUS api layer."""
 
 from nexus.api.errors import AnthropicError
 

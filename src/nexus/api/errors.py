@@ -16,6 +16,7 @@ class AnthropicError(Exception):
     """
 
     def __init__(self, status_code: int, message: str) -> None:
+        """Initialize with HTTP status code and error message."""
         self.status_code = status_code
         self.message = message
         super().__init__(f"Anthropic API error {status_code}: {message}")
