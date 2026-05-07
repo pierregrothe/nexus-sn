@@ -38,6 +38,7 @@ class ClaudeAuth:
         """Initialize with optional keychain and org slug."""
         self._keychain = keychain or KeychainClient()
         self._org = org
+        self._cached_key: str | None = None
 
     @property
     def name(self) -> str:
@@ -46,7 +47,13 @@ class ClaudeAuth:
 
     def is_available(self) -> bool:
         """Return True if an API key is reachable in env or keychain."""
-        return self.is_configured()
+        if os.environ.get(_ENV_VAR):
+            return True
+        try:
+            self._keychain.get(_KEYCHAIN_SERVICE, _KEYCHAIN_USERNAME)
+        except AuthError:
+            return False
+        return True
 
     def create_client(self, max_retries: int) -> anthropic.Anthropic:
         """Construct an Anthropic client authenticated with the API key.
@@ -60,7 +67,7 @@ class ClaudeAuth:
         return anthropic.Anthropic(api_key=self.get_api_key(), max_retries=max_retries)
 
     def get_api_key(self) -> str:
-        """Return the Claude API key.
+        """Return the Claude API key (cached after first resolution).
 
         Returns:
             The API key string.
@@ -68,11 +75,15 @@ class ClaudeAuth:
         Raises:
             AuthError: When no key is configured in env or keychain.
         """
+        if self._cached_key is not None:
+            return self._cached_key
         env_value = os.environ.get(_ENV_VAR)
         if env_value:
             log.debug("Claude API key loaded from environment variable")
+            self._cached_key = env_value
             return env_value
-        return self._keychain.get(_KEYCHAIN_SERVICE, _KEYCHAIN_USERNAME)
+        self._cached_key = self._keychain.get(_KEYCHAIN_SERVICE, _KEYCHAIN_USERNAME)
+        return self._cached_key
 
     def store_api_key(self, api_key: str) -> None:
         """Persist the API key in the OS keychain.
@@ -82,13 +93,3 @@ class ClaudeAuth:
         """
         self._keychain.set(_KEYCHAIN_SERVICE, _KEYCHAIN_USERNAME, api_key)
         log.info("Claude API key stored in keychain for org=%s", self._org)
-
-    def is_configured(self) -> bool:
-        """Return True if an API key is available (env or keychain)."""
-        if os.environ.get(_ENV_VAR):
-            return True
-        try:
-            self._keychain.get(_KEYCHAIN_SERVICE, _KEYCHAIN_USERNAME)
-            return True
-        except AuthError:
-            return False

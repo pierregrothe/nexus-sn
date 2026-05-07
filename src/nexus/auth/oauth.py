@@ -16,11 +16,12 @@ import json
 import logging
 import os
 import platform
-import subprocess
 from pathlib import Path
-from typing import cast
+from typing import ClassVar, cast
 
 import anthropic
+import keyring
+import keyring.errors
 
 from nexus.auth.errors import AuthError
 
@@ -31,11 +32,16 @@ __all__ = ["ClaudeCodeOAuthProvider"]
 _OAUTH_ENV_VAR = "CLAUDE_CODE_OAUTH_TOKEN"
 _CREDENTIALS_FILENAME = ".credentials.json"
 _KEYCHAIN_SERVICE = "Claude Code-credentials"
-_KEYCHAIN_TIMEOUT_SECONDS = 5.0
 
 
 class ClaudeCodeOAuthProvider:
     """Auth provider that reads Claude Code's stored OAuth tokens."""
+
+    _UNSET: ClassVar[object] = object()
+
+    def __init__(self) -> None:
+        """Initialize with no cached token."""
+        self._cached: object = self._UNSET
 
     @property
     def name(self) -> str:
@@ -68,12 +74,18 @@ class ClaudeCodeOAuthProvider:
         return anthropic.Anthropic(auth_token=token, max_retries=max_retries)
 
     def _resolve_token(self) -> str | None:
-        """Return the OAuth token, trying env -> file -> Keychain in order."""
-        return (
-            self._read_token_from_env()
-            or self._read_token_from_file()
-            or self._read_token_from_keychain()
-        )
+        """Return the OAuth token, trying env -> file -> Keychain in order.
+
+        Cached on first call so repeated is_available() / create_client() calls
+        do not re-walk the source chain.
+        """
+        if self._cached is self._UNSET:
+            self._cached = (
+                self._read_token_from_env()
+                or self._read_token_from_file()
+                or self._read_token_from_keychain()
+            )
+        return cast(str | None, self._cached)
 
     def _read_token_from_env(self) -> str | None:
         """Return token from CLAUDE_CODE_OAUTH_TOKEN env var, if set."""
@@ -82,44 +94,35 @@ class ClaudeCodeOAuthProvider:
     def _read_token_from_file(self) -> str | None:
         """Return access token from .credentials.json, or None if missing/malformed."""
         creds_path = self._config_dir() / _CREDENTIALS_FILENAME
-        if not creds_path.exists():
-            return None
         try:
             content = creds_path.read_text(encoding="utf-8")
+        except FileNotFoundError:
+            return None
         except OSError as exc:
             log.warning("could not read %s: %s", creds_path, exc)
             return None
         return self._parse_token_from_credentials_json(content)
 
     def _read_token_from_keychain(self) -> str | None:
-        """Return token from macOS Keychain (Darwin only), or None."""
+        """Return token from macOS Keychain (Darwin only), or None.
+
+        Note: bypasses KeychainClient because Claude Code stores credentials
+        under service "Claude Code-credentials" (not under the "nexus-" prefix
+        that KeychainClient adds).
+        """
         if platform.system() != "Darwin":
             return None
         user = os.environ.get("USER", "")
         if not user:
             return None
         try:
-            result = subprocess.run(
-                [
-                    "security",
-                    "find-generic-password",
-                    "-a",
-                    user,
-                    "-w",
-                    "-s",
-                    _KEYCHAIN_SERVICE,
-                ],
-                capture_output=True,
-                text=True,
-                timeout=_KEYCHAIN_TIMEOUT_SECONDS,
-                check=False,
-            )
-        except (subprocess.SubprocessError, OSError) as exc:
+            creds_json = keyring.get_password(_KEYCHAIN_SERVICE, user)
+        except keyring.errors.KeyringError as exc:
             log.warning("could not read macOS Keychain: %s", exc)
             return None
-        if result.returncode != 0:
+        if not creds_json:
             return None
-        return self._parse_token_from_credentials_json(result.stdout.strip())
+        return self._parse_token_from_credentials_json(creds_json)
 
     @staticmethod
     def _config_dir() -> Path:

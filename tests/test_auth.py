@@ -59,20 +59,20 @@ def test_claude_auth_get_api_key_raises_when_not_configured(
         auth.get_api_key()
 
 
-def test_claude_auth_is_configured_returns_true_with_env(
+def test_claude_auth_is_available_returns_true_with_env(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv("NEXUS_CLAUDE_API_KEY", "any-key")
     auth = ClaudeAuth(keychain=FakeKeychainClient())
-    assert auth.is_configured() is True
+    assert auth.is_available() is True
 
 
-def test_claude_auth_is_configured_returns_false_with_no_credentials(
+def test_claude_auth_is_available_returns_false_with_no_credentials(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.delenv("NEXUS_CLAUDE_API_KEY", raising=False)
     auth = ClaudeAuth(keychain=FakeKeychainClient())
-    assert auth.is_configured() is False
+    assert auth.is_available() is False
 
 
 def test_sn_auth_get_password_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -100,14 +100,6 @@ def test_sn_auth_get_password_raises_when_not_configured(
 def test_claude_auth_implements_auth_provider_name() -> None:
     auth = ClaudeAuth(keychain=FakeKeychainClient())
     assert auth.name == "anthropic_api_key"
-
-
-def test_claude_auth_is_available_matches_is_configured(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("NEXUS_CLAUDE_API_KEY", raising=False)
-    keychain = FakeKeychainClient({("claude", "api_key"): "sk-test"})
-    auth = ClaudeAuth(keychain=keychain)
-    assert auth.is_available() is True
-    assert auth.is_available() == auth.is_configured()
 
 
 def test_claude_auth_create_client_returns_anthropic_with_api_key(

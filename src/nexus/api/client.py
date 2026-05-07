@@ -123,12 +123,6 @@ def discover_model(client: _ModelDiscoveryClient, tier: ModelTier) -> str:
     return TIER_DEFAULTS[tier]
 
 
-# Underscore aliases so existing imports of _TIER_DEFAULTS / _discover_model
-# continue to resolve until a full-codebase rename sweep.
-_TIER_DEFAULTS = TIER_DEFAULTS
-_discover_model = discover_model
-
-
 class AnthropicClientProtocol(Protocol):
     """Interface for the Anthropic API client.
 
