@@ -12,6 +12,7 @@ credentials so callers get a consistent error type.
 import logging
 
 import keyring
+from keyring.errors import PasswordDeleteError
 
 from nexus.auth.errors import AuthError
 
@@ -28,6 +29,7 @@ class KeychainClient:
     """
 
     def __init__(self, service_prefix: str = "nexus") -> None:
+        """Initialize with optional service name prefix."""
         self._prefix = service_prefix
 
     def _service(self, name: str) -> str:
@@ -78,5 +80,5 @@ class KeychainClient:
         try:
             keyring.delete_password(self._service(service), username)
             log.debug("credential deleted: service=%s username=%s", service, username)
-        except keyring.errors.PasswordDeleteError:
+        except PasswordDeleteError:
             log.debug("credential not present, nothing to delete: service=%s", service)

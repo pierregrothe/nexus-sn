@@ -49,6 +49,7 @@ class MCPProbe:
     """
 
     def __init__(self, api_key: str, timeout_seconds: int = 5) -> None:
+        """Initialize with optional keychain client."""
         self._api_key = api_key
         self._timeout = timeout_seconds
 

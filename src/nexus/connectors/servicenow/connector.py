@@ -24,6 +24,7 @@ class ServiceNowConnector:
     """
 
     def __init__(self, client: ServiceNowClient) -> None:
+        """Initialize with a configured ServiceNowClient instance."""
         self._client = client
 
     @property

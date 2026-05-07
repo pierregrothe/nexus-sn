@@ -18,6 +18,7 @@ class SNClientError(Exception):
     """
 
     def __init__(self, message: str, status_code: int | None = None, suggestion: str = "") -> None:
+        """Initialize with error message, optional HTTP status code, and suggestion."""
         self.status_code = status_code
         self.suggestion = suggestion
         super().__init__(message)

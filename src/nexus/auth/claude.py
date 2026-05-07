@@ -33,6 +33,7 @@ class ClaudeAuth:
     """
 
     def __init__(self, keychain: KeychainClient | None = None, org: str = "servicenow") -> None:
+        """Initialize with optional keychain and org slug."""
         self._keychain = keychain or KeychainClient()
         self._org = org
 

@@ -30,6 +30,7 @@ class SNAuth:
     """
 
     def __init__(self, keychain: KeychainClient | None = None) -> None:
+        """Initialize with optional keychain client."""
         self._keychain = keychain or KeychainClient()
 
     def get_password(self, profile: str, username: str) -> str:

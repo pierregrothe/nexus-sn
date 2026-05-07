@@ -18,6 +18,7 @@ class AuthError(Exception):
     """
 
     def __init__(self, service: str, username: str, suggestion: str = "") -> None:
+        """Initialize with service name, username, and optional suggestion."""
         self.service = service
         self.username = username
         self.suggestion = suggestion

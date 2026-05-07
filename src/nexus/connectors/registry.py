@@ -23,6 +23,7 @@ class ConnectorRegistry:
     """
 
     def __init__(self) -> None:
+        """Initialize empty connector registry."""
         self._connectors: dict[str, ConnectorProtocol] = {}
 
     def register(self, connector: ConnectorProtocol) -> None:

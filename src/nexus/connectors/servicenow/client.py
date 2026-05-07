@@ -41,6 +41,7 @@ class ServiceNowClient:
     """
 
     def __init__(self, instance_url: str, username: str, password: str) -> None:
+        """Initialize HTTP client with instance URL and credentials."""
         base = instance_url.rstrip("/")
         if not base.startswith("https://"):
             base = f"https://{base}"
@@ -50,6 +51,7 @@ class ServiceNowClient:
         log.debug("ServiceNowClient initialised for %s", base)
 
     async def __aenter__(self) -> ServiceNowClient:
+        """Enter async context and open the HTTP connection pool."""
         self._client = httpx.AsyncClient(
             base_url=self._base_url,
             auth=self._auth,
@@ -59,6 +61,7 @@ class ServiceNowClient:
         return self
 
     async def __aexit__(self, *_: object) -> None:
+        """Exit async context and close the HTTP connection pool."""
         if self._client:
             await self._client.aclose()
             self._client = None

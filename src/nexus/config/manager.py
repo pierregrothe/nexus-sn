@@ -26,6 +26,7 @@ class ConfigManager:
     """
 
     def __init__(self, paths: NexusPaths | None = None) -> None:
+        """Initialize with optional config file path."""
         self._paths = paths or NexusPaths.from_env()
 
     def load(self) -> NexusConfig:
@@ -39,7 +40,7 @@ class ConfigManager:
             log.info("config file not found at %s -- using defaults", config_file)
             return NexusConfig.default()
 
-        raw = yaml.safe_load(config_file.read_text(encoding="utf-8")) or {}
+        raw: dict[str, object] = yaml.safe_load(config_file.read_text(encoding="utf-8")) or {}
         config = NexusConfig.model_validate(raw)
         log.debug("loaded config version=%s from %s", config.version, config_file)
         return config
