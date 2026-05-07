@@ -7,6 +7,7 @@
 import logging
 import os
 import re
+from datetime import datetime
 from enum import StrEnum
 from typing import Any, Protocol
 
@@ -57,12 +58,19 @@ _TIER_ENV: dict[ModelTier, str] = {
 }
 
 
+class _ModelInfo(Protocol):
+    """Minimal interface for a single model entry from models.list()."""
+
+    id: str
+    created_at: datetime
+
+
 class _ModelDiscoveryClient(Protocol):
     """Duck-typed interface required by _discover_model."""
 
     @property
     def models(self) -> Any:
-        """Provide models.list() access."""
+        """Provide models.list() access. Returns the SDK Models object or a fake."""
         ...
 
 
@@ -95,7 +103,7 @@ def _discover_model(client: _ModelDiscoveryClient, tier: ModelTier) -> str:
             reverse=True,
         )
         if candidates:
-            return candidates[0].id
+            return str(candidates[0].id)
     except Exception:
         log.warning("model discovery failed for tier=%s; using fallback", tier)
     return _TIER_DEFAULTS[tier]

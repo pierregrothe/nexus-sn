@@ -22,6 +22,7 @@ class ToolRegistry:
     """
 
     def __init__(self, connectors: ConnectorRegistry) -> None:
+        """Store the connector registry for tool enumeration."""
         self._connectors = connectors
 
     def as_anthropic_tools(self) -> list[dict[str, Any]]:
