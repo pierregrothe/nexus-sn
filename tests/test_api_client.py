@@ -58,76 +58,118 @@ def test_configure_logging_creates_logs_directory_and_attaches_handlers(
         root.level = saved_level
 
 
+@dataclass(slots=True)
+class _FakeModel:
+    """Test double satisfying _ModelEntry -- used in model discovery tests."""
+
+    id: str
+    created_at: datetime
+
+
 def test_model_tier_standard_default_is_sonnet() -> None:
     assert _TIER_DEFAULTS[ModelTier.STANDARD] == "claude-sonnet-4-6"
 
 
 def test_discover_model_returns_newest_by_created_at() -> None:
-    older = SimpleNamespace(
-        id="claude-sonnet-4-5",
-        created_at=datetime(2025, 9, 1, tzinfo=UTC),
-    )
-    newer = SimpleNamespace(
-        id="claude-sonnet-4-6",
-        created_at=datetime(2025, 12, 1, tzinfo=UTC),
-    )
+    older = _FakeModel(id="claude-sonnet-4-5", created_at=datetime(2025, 9, 1, tzinfo=UTC))
+    newer = _FakeModel(id="claude-sonnet-4-6", created_at=datetime(2025, 12, 1, tzinfo=UTC))
 
     class _FakeModels:
-        def list(self) -> list:  # type: ignore[type-arg]
+        def list(self) -> list[_FakeModel]:
+            """Return fake model list."""
             return [older, newer]
 
-    result = _discover_model(SimpleNamespace(models=_FakeModels()), ModelTier.STANDARD)
+    class _FakeClient:
+        @property
+        def models(self) -> _FakeModels:
+            """Return fake models accessor."""
+            return _FakeModels()
+
+    result = _discover_model(_FakeClient(), ModelTier.STANDARD)
     assert result == "claude-sonnet-4-6"
 
 
 def test_discover_model_falls_back_when_list_raises() -> None:
     class _FakeModels:
-        def list(self) -> list:  # type: ignore[type-arg]
+        def list(self) -> list[_FakeModel]:
+            """Raise to simulate discovery failure."""
             raise RuntimeError("connection refused")
 
-    result = _discover_model(SimpleNamespace(models=_FakeModels()), ModelTier.STANDARD)
+    class _FakeClient:
+        @property
+        def models(self) -> _FakeModels:
+            """Return fake models accessor."""
+            return _FakeModels()
+
+    result = _discover_model(_FakeClient(), ModelTier.STANDARD)
     assert result == _TIER_DEFAULTS[ModelTier.STANDARD]
 
 
 def test_discover_model_respects_env_var_override(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("NEXUS_MODEL_STANDARD", "claude-sonnet-4-99")
-    result = _discover_model(SimpleNamespace(models=None), ModelTier.STANDARD)
+
+    class _FakeModels:
+        def list(self) -> list[_FakeModel]:
+            """Never called -- env var takes priority."""
+            return []  # pragma: no cover
+
+    class _FakeClient:
+        @property
+        def models(self) -> _FakeModels:
+            """Never called -- env var takes priority."""
+            return _FakeModels()  # pragma: no cover
+
+    result = _discover_model(_FakeClient(), ModelTier.STANDARD)
     assert result == "claude-sonnet-4-99"
 
 
 def test_discover_model_excludes_date_pinned_variants() -> None:
-    date_pinned = SimpleNamespace(
+    date_pinned = _FakeModel(
         id="claude-sonnet-4-6-20250101",
         created_at=datetime(2025, 12, 1, tzinfo=UTC),
     )
-    floating = SimpleNamespace(
+    floating = _FakeModel(
         id="claude-sonnet-4-6",
         created_at=datetime(2025, 9, 1, tzinfo=UTC),
     )
 
     class _FakeModels:
-        def list(self) -> list:  # type: ignore[type-arg]
+        def list(self) -> list[_FakeModel]:
+            """Return mix of date-pinned and floating model."""
             return [date_pinned, floating]
 
-    result = _discover_model(SimpleNamespace(models=_FakeModels()), ModelTier.STANDARD)
+    class _FakeClient:
+        @property
+        def models(self) -> _FakeModels:
+            """Return fake models accessor."""
+            return _FakeModels()
+
+    result = _discover_model(_FakeClient(), ModelTier.STANDARD)
     assert result == "claude-sonnet-4-6"
 
 
 def test_discover_model_excludes_preview_models() -> None:
-    preview = SimpleNamespace(
+    preview = _FakeModel(
         id="claude-sonnet-4-preview",
         created_at=datetime(2025, 12, 1, tzinfo=UTC),
     )
-    stable = SimpleNamespace(
+    stable = _FakeModel(
         id="claude-sonnet-4-6",
         created_at=datetime(2025, 9, 1, tzinfo=UTC),
     )
 
     class _FakeModels:
-        def list(self) -> list:  # type: ignore[type-arg]
+        def list(self) -> list[_FakeModel]:
+            """Return mix of preview and stable model."""
             return [preview, stable]
 
-    result = _discover_model(SimpleNamespace(models=_FakeModels()), ModelTier.STANDARD)
+    class _FakeClient:
+        @property
+        def models(self) -> _FakeModels:
+            """Return fake models accessor."""
+            return _FakeModels()
+
+    result = _discover_model(_FakeClient(), ModelTier.STANDARD)
     assert result == "claude-sonnet-4-6"
 
 
