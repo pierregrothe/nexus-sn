@@ -7,9 +7,10 @@
 import logging
 import os
 import re
+from collections.abc import Iterable
 from datetime import datetime
 from enum import StrEnum
-from typing import Any, Protocol
+from typing import Protocol
 
 import anthropic
 from anthropic.types import MessageParam, ToolParam
@@ -65,12 +66,20 @@ class _ModelInfo(Protocol):
     created_at: datetime
 
 
+class _ModelsList(Protocol):
+    """Minimal duck-typed interface for the models listing accessor."""
+
+    def list(self) -> Iterable[_ModelInfo]:
+        """Return available model entries."""
+        ...
+
+
 class _ModelDiscoveryClient(Protocol):
     """Duck-typed interface required by _discover_model."""
 
     @property
-    def models(self) -> Any:
-        """Provide models.list() access. Returns the SDK Models object or a fake."""
+    def models(self) -> _ModelsList:
+        """Provide models.list() access."""
         ...
 
 
