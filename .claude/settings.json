@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$(git rev-parse --show-toplevel)/.claude/hooks/pre-edit-validate.py\""
+            "command": "python3 .claude/hooks/pre-edit-validate.py"
           }
         ]
       }
@@ -17,7 +17,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$(git rev-parse --show-toplevel)/.claude/hooks/post-edit-lint.py\""
+            "command": "python3 .claude/hooks/post-edit-lint.py"
           }
         ]
       }
