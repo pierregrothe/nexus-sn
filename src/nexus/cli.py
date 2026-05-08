@@ -14,10 +14,13 @@ from typing import Annotated
 
 import typer
 from rich.console import Console
-from rich.table import Table
 
-from nexus.config.manager import ConfigManager
-from nexus.config.paths import NexusPaths
+from nexus.auth.keychain import KeychainClient
+from nexus.cache import clear_cache
+from nexus.capabilities.claude_config import FilesystemClaudeCodeConfigReader
+from nexus.capabilities.registry import CapabilitySet
+from nexus.capabilities.status_reporter import StatusReporter
+from nexus.capabilities.tier import TierDetector
 from nexus.ui.app import start_ui
 
 log = logging.getLogger(__name__)
@@ -56,27 +59,19 @@ def setup() -> None:
 
 
 @app.command()
-def status() -> None:
-    """Show instance connection status and available capabilities."""
-    paths = NexusPaths.from_env()
-    manager = ConfigManager(paths)
+def status(
+    refresh: Annotated[
+        bool, typer.Option("--refresh", help="Clear cached tier detection and re-detect")
+    ] = False,
+) -> None:
+    """Show NEXUS tier and available enterprise MCP servers."""
+    if refresh:
+        clear_cache(TierDetector.detect)
 
-    if not manager.exists():
-        err_console.print("[yellow]No config found. Run 'nexus setup' first.[/yellow]")
-        raise typer.Exit(code=1)
-
-    config = manager.load()
-
-    table = Table(title="NEXUS Status")
-    table.add_column("Item", style="bold")
-    table.add_column("Value")
-
-    table.add_row("Config", str(paths.config_file))
-    table.add_row("Default instance", config.instances.default or "(none)")
-    table.add_row("GitHub repo", config.preferences.github_repo or "(not configured)")
-    table.add_row("MCP auto-probe", str(config.capabilities.auto_probe))
-
-    console.print(table)
+    reader = FilesystemClaudeCodeConfigReader(keychain=KeychainClient())
+    detection = TierDetector(reader=reader).detect()
+    capabilities = CapabilitySet.from_detection(detection)
+    StatusReporter(console=console).print(detection, capabilities)
 
 
 @app.command()
