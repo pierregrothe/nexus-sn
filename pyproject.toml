@@ -94,7 +94,7 @@ target-version = "py314"
 line-length = 100
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "I", "UP", "TID", "PT", "RUF", "ANN", "LOG", "G", "T10", "D"]
+select = ["E", "F", "W", "I", "UP", "TID", "PT", "RUF", "ANN", "LOG", "G", "T10", "D", "PGH", "PLC0415"]
 ignore = [
     "E501",   # line too long -- black handles wrapping
     "ANN401", # Any is legitimate in protocol code

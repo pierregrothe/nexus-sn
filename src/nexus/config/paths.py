@@ -10,6 +10,7 @@ No other module hardcodes a path under ~/.nexus/.
 """
 
 import logging
+import os
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -46,8 +47,6 @@ class NexusPaths:
         Returns:
             NexusPaths with root derived from environment or default.
         """
-        import os
-
         env_path = os.environ.get("NEXUS_CONFIG_PATH")
         if env_path:
             return cls(root=Path(env_path).parent)

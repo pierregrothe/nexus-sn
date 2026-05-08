@@ -4,16 +4,23 @@
 
 ### Tier 1 -- Blocking (pre-edit hook, prevents file write)
 
-- no-mocks -- blocks unittest.mock, MagicMock, @patch, pytest_mock
-- no-relative-imports -- blocks from .module style
-- no-bare-except -- blocks bare except: clauses
-- no-lru-cache-none -- blocks @lru_cache(maxsize=None)
-- no-unittest-testcase -- blocks class Foo(TestCase) in test files
+File-aware checks the regex hook still owns:
 - no-sys-argv -- blocks sys.argv indexing outside test files
-- no-type-ignore -- blocks # type: ignore anywhere (ADR-007)
 - no-bare-any-in-sig -- blocks : Any or -> Any in function signatures (ADR-008)
 - no-dict-any-in-sig -- blocks dict[str, Any] in function signatures (ADR-008)
-- no-deferred-import -- blocks import inside def/class bodies
+
+### Tier 1 -- Blocking (ruff lint, fails post-edit and pre-commit)
+
+- no-mocks -- ruff banned-api on unittest.mock and pytest_mock
+- no-relative-imports -- ruff ban-relative-imports = "all"
+- no-bare-except -- ruff E722
+- no-deferred-import -- ruff PLC0415 (ADR-016)
+- no-type-ignore -- ruff PGH003 (ADR-007)
+
+### Tier 1 -- Blocking (semgrep, semantic governance, ADR-016)
+
+- no-lru-cache-none -- @lru_cache(maxsize=None) is forbidden, use @cache
+- no-unittest-testcase -- class X(TestCase) is forbidden in tests/, use pytest functions
 
 ### Tier 2 -- Ratchet (post-edit hook, blocks if metrics worsen)
 
@@ -81,5 +88,6 @@
 | 012 | Dual type checking (mypy + pyright) | blocking hook + CI | accepted |
 | 013 | Lean CI for solo developer | ci.yml | accepted |
 | 015 | Migrate from anthropic SDK to claude-agent-sdk | none | accepted |
+| 016 | Semgrep for semantic governance rules | semgrep + pre-commit | accepted |
 
 Full ADR files: .primer/adr/
