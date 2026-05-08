@@ -18,6 +18,7 @@ from rich.console import Console
 from nexus.auth.keychain import KeychainClient
 from nexus.cache import clear_cache
 from nexus.capabilities.claude_config import FilesystemClaudeCodeConfigReader
+from nexus.capabilities.feature_flags import MCPServer, claude_ai_name_for
 from nexus.capabilities.registry import CapabilitySet
 from nexus.capabilities.status_reporter import StatusReporter
 from nexus.capabilities.tier import TierDetector
@@ -72,6 +73,50 @@ def status(
     detection = TierDetector(reader=reader).detect()
     capabilities = CapabilitySet.from_detection(detection)
     StatusReporter(console=console).print(detection, capabilities)
+
+
+@app.command()
+def reauth(
+    server: Annotated[
+        str | None,
+        typer.Option(
+            "--server",
+            help="Name of the MCP server to re-authenticate (lowercase enum value, e.g. 'marketing')",
+        ),
+    ] = None,
+) -> None:
+    """Print the command to re-authenticate one or more MCP servers."""
+    reader = FilesystemClaudeCodeConfigReader(keychain=KeychainClient())
+    detection = TierDetector(reader=reader).detect()
+
+    if server is not None:
+        target = _resolve_reauth_target(server, detection.needs_reauth_servers)
+        if target is None:
+            err_console.print(
+                f"[red]Server {server!r} is not currently flagged for re-auth.[/red] "
+                "Run `nexus status --refresh` if you think this is wrong."
+            )
+            raise typer.Exit(code=1)
+        cmd = f'claude /mcp "{claude_ai_name_for(target)}"'
+        console.print(cmd)
+        return
+
+    if not detection.needs_reauth_servers:
+        console.print("All MCP servers authenticated. Nothing to do.")
+        return
+
+    sorted_servers = sorted(detection.needs_reauth_servers, key=lambda s: s.value)
+    for srv in sorted_servers:
+        cmd = f'claude /mcp "{claude_ai_name_for(srv)}"'
+        console.print(f"  {srv.value}: {cmd}")
+
+
+def _resolve_reauth_target(name: str, candidates: frozenset[MCPServer]) -> MCPServer | None:
+    """Match a user-supplied name (lowercase enum value) to a candidate server."""
+    for srv in candidates:
+        if srv.value == name:
+            return srv
+    return None
 
 
 @app.command()
