@@ -11,7 +11,7 @@
     "nexus.auth.servicenow": {"covered_lines": 19, "total_lines": 29},
     "nexus.cache": {"covered_lines": 3, "total_lines": 3},
     "nexus.cache.backends": {"covered_lines": 50, "total_lines": 51},
-    "nexus.cache.decorator": {"covered_lines": 122, "total_lines": 129},
+    "nexus.cache.decorator": {"covered_lines": 121, "total_lines": 128},
     "nexus.cache.errors": {"covered_lines": 2, "total_lines": 2},
     "nexus.cache.keys": {"covered_lines": 25, "total_lines": 31},
     "nexus.capabilities": {"covered_lines": 7, "total_lines": 7},

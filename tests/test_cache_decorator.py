@@ -227,6 +227,32 @@ def test_clear_cache_instance_clears_all_methods_on_instance() -> None:
     assert obj.b_calls == 2
 
 
+def test_cached_persist_uses_redirected_disk_root_after_monkeypatch(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Verify lazy-resolve: monkeypatch + cache clear -> next call uses new path."""
+    cache_a = tmp_path / "a"
+    monkeypatch.setattr(decorator_module, "_disk_cache_root", lambda: cache_a)
+    decorator_module._DISK_BACKENDS.clear()
+
+    calls: list[int] = []
+
+    @cached(ttl=None, persist=True, namespace="lazy_test")
+    def heavy(x: int) -> int:
+        calls.append(x)
+        return x * 10
+
+    assert heavy(3) == 30
+    assert calls == [3]
+
+    cache_b = tmp_path / "b"
+    monkeypatch.setattr(decorator_module, "_disk_cache_root", lambda: cache_b)
+    decorator_module._DISK_BACKENDS.clear()
+
+    assert heavy(3) == 30
+    assert calls == [3, 3]
+
+
 def test_clear_cache_no_arg_clears_all_module_level_caches() -> None:
     calls = 0
 
