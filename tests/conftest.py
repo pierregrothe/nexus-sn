@@ -2,6 +2,7 @@
 # Shared pytest fixtures for the NEXUS test suite.
 # Author: Pierre Grothe
 # Date: 2026-05-07
+# pyright: reportUnusedFunction=false
 
 """Pytest configuration and shared fixtures."""
 
