@@ -68,7 +68,7 @@ class AgentClient:
         model: str | None = None,
         max_turns: int = 1,
     ) -> str:
-        """See AgentClientProtocol.complete."""
+        """Run claude-agent-sdk query and return concatenated assistant text."""
         options = ClaudeAgentOptions(
             system_prompt=system,
             model=model,
