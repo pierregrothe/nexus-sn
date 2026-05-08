@@ -127,8 +127,12 @@ def cached[**P, R](
 
     def decorator(func: Callable[P, R]) -> Callable[P, R]:
         is_async = inspect.iscoroutinefunction(func)
-        sig = inspect.signature(func)
-        params = list(sig.parameters)
+        # Read parameter names from bytecode rather than inspect.signature()
+        # to avoid triggering PEP 649 annotation evaluation. Forward-ref
+        # annotations like `def from_env(cls) -> NexusPaths` are not yet
+        # resolvable at decoration time (the class is mid-definition).
+        code = func.__code__
+        params = list(code.co_varnames[: code.co_argcount])
         is_method = bool(params) and params[0] in ("self", "cls")
         permissive_func = cast("Callable[..., object]", func)
 

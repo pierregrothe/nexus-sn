@@ -14,6 +14,8 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
+from nexus.cache import cached
+
 log = logging.getLogger(__name__)
 
 __all__ = ["NexusPaths"]
@@ -41,8 +43,12 @@ class NexusPaths:
         return cls(root=_DEFAULT_ROOT)
 
     @classmethod
+    @cached(ttl=None)
     def from_env(cls) -> NexusPaths:
         """Create paths, honouring NEXUS_CONFIG_PATH env var if set.
+
+        Cached for the lifetime of the process. Tests that monkeypatch
+        NEXUS_CONFIG_PATH should call ``nexus.cache.clear_cache(NexusPaths.from_env)``.
 
         Returns:
             NexusPaths with root derived from environment or default.

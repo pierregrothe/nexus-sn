@@ -11,9 +11,10 @@ import pytest
 import yaml
 from pydantic import ValidationError
 
+from nexus.cache import clear_cache
 from nexus.config.manager import ConfigManager
 from nexus.config.paths import NexusPaths
-from nexus.config.settings import InstanceProfile, NexusConfig
+from nexus.config.settings import AuthConfig, InstanceProfile, NexusConfig
 
 
 def test_nexus_paths_default_root_is_home_nexus() -> None:
@@ -99,3 +100,26 @@ def test_config_manager_from_env_uses_default_when_env_not_set(
     monkeypatch.delenv("NEXUS_CONFIG_PATH", raising=False)
     paths = NexusPaths.from_env()
     assert paths.root == Path.home() / ".nexus"
+
+
+def test_config_manager_load_caches_after_first_call(nexus_paths: NexusPaths) -> None:
+    """load() should serve the cached NexusConfig on subsequent calls."""
+    manager = ConfigManager(nexus_paths)
+    initial = NexusConfig.default().model_copy(update={"auth": AuthConfig(claude_org="initial")})
+    manager.save(initial)
+
+    first = manager.load()
+    assert first.auth.claude_org == "initial"
+
+    # Mutate the file directly. A non-cached load would see "changed";
+    # the cached load returns the originally-loaded value.
+    nexus_paths.config_file.write_text(
+        "version: '1.0'\nauth:\n  claude_org: changed\n", encoding="utf-8"
+    )
+    second = manager.load()
+    assert second.auth.claude_org == "initial"
+    assert first == second
+
+    clear_cache(manager)
+    third = manager.load()
+    assert third.auth.claude_org == "changed"
