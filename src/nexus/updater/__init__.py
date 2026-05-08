@@ -10,6 +10,7 @@ version, downloads the wheel, runs pip install, and re-execs the user's
 command with the new code.
 """
 
+from nexus.updater.current import current_version, is_editable_install
 from nexus.updater.errors import UpdaterError
 
-__all__ = ["UpdaterError"]
+__all__ = ["UpdaterError", "current_version", "is_editable_install"]
