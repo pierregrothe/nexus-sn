@@ -13,6 +13,7 @@ import logging
 from typing import Annotated
 
 import typer
+from packaging.version import InvalidVersion, parse
 from rich.console import Console
 
 from nexus.auth.external_keychain import ExternalKeychainClient
@@ -23,6 +24,8 @@ from nexus.capabilities.registry import CapabilitySet
 from nexus.capabilities.status_reporter import StatusReporter
 from nexus.capabilities.tier import TierDetection, TierDetector
 from nexus.ui.app import start_ui
+from nexus.updater import check_and_maybe_update, current_version
+from nexus.updater.client import GitHubReleasesClient
 
 log = logging.getLogger(__name__)
 
@@ -49,6 +52,7 @@ def main(
 ) -> None:
     """NEXUS -- ServiceNow AI architect agent."""
     _configure_logging(log_level)
+    check_and_maybe_update()
 
 
 @app.command()
@@ -110,6 +114,45 @@ def reauth(
 
     for srv in sorted(detection.needs_reauth_servers, key=lambda s: s.value):
         console.print(f'  {srv.value}: claude /mcp "{claude_ai_name_for(srv)}"')
+
+
+@app.command()
+def update(
+    check_only: Annotated[
+        bool,
+        typer.Option("--check-only", help="Only report; do not install"),
+    ] = False,
+) -> None:
+    """Manually check for updates (and install unless --check-only).
+
+    Plain ``nexus update`` triggers the same auto-update path that runs on
+    every command. With ``--check-only``, just report whether a newer version
+    is available without installing.
+    """
+    current = current_version()
+    if current is None:
+        console.print("nexus-sn is not installed as a distribution; cannot check.")
+        return
+
+    info = GitHubReleasesClient().fetch_latest()
+    if info is None:
+        console.print("Could not reach GitHub. No update info available.")
+        return
+
+    try:
+        if parse(info.tag_name) <= parse(current):
+            console.print(f"Up to date ({current})")
+            return
+    except InvalidVersion:
+        console.print(f"Latest tag {info.tag_name!r} is not a valid version; skipping")
+        return
+
+    if check_only:
+        console.print(f"Update available: {current} -> {info.tag_name}")
+        return
+
+    # Trigger the full auto-update path; it handles everything.
+    check_and_maybe_update()
 
 
 @app.command()
