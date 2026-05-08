@@ -124,7 +124,7 @@ testing only runs on release tags.
 
 ### 2026-05-07 -- Pluggable AuthProvider with OAuth-first chain
 
-**Status:** accepted
+**Status:** superseded by ADR-015 (2026-05-08)
 
 **Context:** Original design (ADR-001) assumed users would have Anthropic API keys.
 Smoke-test reality check exposed the gap: getting a key from ServiceNow's enterprise
@@ -145,3 +145,27 @@ employees) get API access for free, including their org's MCP servers. ADR-001 (
 remains valid -- still calling Anthropic directly via the standard SDK; OAuth uses the
 Bearer auth header (auth_token=) instead of X-Api-Key. Spec at
 docs/superpowers/specs/2026-05-07-pluggable-auth-design.md (PR #1).
+
+---
+
+### 2026-05-08 -- Migrate from anthropic SDK to claude-agent-sdk
+
+**Status:** accepted (supersedes the AuthProvider OAuth path from 2026-05-07)
+
+**Context:** PR #1 introduced a Pluggable AuthProvider abstraction so users
+could authenticate via Claude Code's stored OAuth credentials, bypassing the
+API-key-acquisition process. Empirical testing showed the OAuth path is
+policy-gated at /v1/messages: the standard anthropic SDK with auth_token=
+returns 429 on every call. The Claude Agent SDK -- using the same OAuth
+credentials -- succeeds.
+
+**Decision:** Replace the anthropic SDK with claude-agent-sdk. Add an
+AgentClient async wrapper. Delete the AuthProvider abstraction (Agent SDK
+handles auth internally). Drop the anthropic package dependency.
+
+**Consequences:** NEXUS users with Claude Code installed get transparent
+LLM access. Subprocess overhead per call (~500ms-30s including SessionStart
+hooks). PR-#1's AuthProvider work is largely deleted (~250 lines removed,
+~150 lines added). ADR-001 partially superseded; the 2026-05-07
+AuthProvider entry is superseded by ADR-015.
+Spec at docs/superpowers/specs/2026-05-08-agent-sdk-migration-design.md.

@@ -14,8 +14,6 @@ import logging
 import time
 from dataclasses import dataclass
 
-import anthropic
-
 from nexus.capabilities.feature_flags import MCPServer
 
 log = logging.getLogger(__name__)
@@ -105,5 +103,4 @@ class MCPProbe:
         # the MCP server config and check if tools are returned.
         # Returns False until the enterprise MCP server endpoints are known.
         _ = server
-        _ = anthropic  # imported for future use
         return False  # pragma: no cover
