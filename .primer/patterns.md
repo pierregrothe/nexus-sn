@@ -4,16 +4,17 @@
 
 Import direction is strictly bottom-to-top. Never import from a higher layer.
 
-  config -> (nothing in nexus)
-  auth -> config
-  capabilities -> config, auth
-  api -> capabilities
-  connectors -> (nothing in nexus)
-  agents -> api, connectors, knowledge
-  templates -> connectors, knowledge
-  assessment -> connectors
-  execution -> agents, templates, assessment, api
-  cli -> execution, templates, assessment, config, auth, capabilities
+  cache -> (nothing in nexus)            # Layer 0 utility (ADR-017)
+  config -> cache
+  auth -> config, cache
+  capabilities -> config, auth, cache
+  api -> capabilities, cache
+  connectors -> cache
+  agents -> api, connectors, knowledge, cache
+  templates -> connectors, knowledge, cache
+  assessment -> connectors, cache
+  execution -> agents, templates, assessment, api, cache
+  cli -> execution, templates, assessment, config, auth, capabilities, cache
   ui -> cli (same API surface)
 
 If you need to pass data between layers, use the types defined in base.py / schemas.py.

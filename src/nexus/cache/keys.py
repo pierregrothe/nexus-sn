@@ -1,0 +1,91 @@
+# src/nexus/cache/keys.py
+# Cache key generation for the @cached decorator.
+# Author: Pierre Grothe
+# Date: 2026-05-08
+"""Compute deterministic cache keys for the @cached decorator (ADR-017)."""
+
+import hashlib
+from collections.abc import Callable
+
+from nexus.cache.errors import CacheKeyError
+
+__all__ = ["compute_key"]
+
+_HASH_LEN = 16
+_EMPTY_KWARGS: tuple[tuple[str, object], ...] = ()
+
+
+def compute_key(
+    qualname: str,
+    *,
+    args: tuple[object, ...],
+    kwargs: dict[str, object],
+    namespace: str | None,
+    key_fn: Callable[..., str] | None,
+) -> str:
+    """Build a deterministic cache key for a function call.
+
+    Format: "[namespace:]<qualname>:<arg_hash>"
+
+    Args:
+        qualname: Pre-computed "<module>.<qualname>" of the cached function.
+            The decorator computes it once at decoration time and passes it
+            on every call to avoid repeated attribute access on the hot path.
+        args: Positional args passed to the call.
+        kwargs: Keyword args passed to the call.
+        namespace: Optional prefix for disk caches.
+        key_fn: Optional custom key generator. When provided, replaces the
+            default hashing of args + kwargs.
+
+    Returns:
+        A stable string key.
+
+    Raises:
+        CacheKeyError: When an arg is not hashable and no key_fn is given.
+    """
+    if key_fn is not None:
+        arg_hash = key_fn(*args, **kwargs)
+    else:
+        arg_hash = _hash_call_args(args, kwargs)
+    prefix = f"{namespace}:" if namespace else ""
+    return f"{prefix}{qualname}:{arg_hash}"
+
+
+def _hash_call_args(args: tuple[object, ...], kwargs: dict[str, object]) -> str:
+    """Return a stable hash for (args, sorted_kwargs).
+
+    Tries hash() first (cheap path), falls back to repr-based SHA256 for
+    types that aren't hashable but have a stable repr (Pydantic frozen
+    models, frozen dataclasses, etc.).
+    """
+    sorted_kwargs = tuple(sorted(kwargs.items())) if kwargs else _EMPTY_KWARGS
+    try:
+        hashed = hash((args, sorted_kwargs))
+    except TypeError:
+        return _repr_sha256(args, sorted_kwargs)
+    return f"h{hashed:x}"
+
+
+def _repr_sha256(args: tuple[object, ...], sorted_kwargs: tuple[tuple[str, object], ...]) -> str:
+    """SHA256 over repr(args) + repr(sorted_kwargs). Used when hash() fails.
+
+    Raises:
+        CacheKeyError: If any arg is a known mutable container (dict/list/set).
+    """
+    offending = next((type(a).__name__ for a in args if _is_known_unhashable(a)), None)
+    if offending is not None:
+        raise CacheKeyError(
+            f"@cached received unhashable arg of type {offending!r}; "
+            "declare key_fn=lambda ... on the decorator (ADR-017)."
+        )
+    try:
+        payload = repr(args) + "|" + repr(sorted_kwargs)
+    except Exception as exc:
+        raise CacheKeyError(f"could not produce stable repr for args: {exc}") from exc
+    digest = hashlib.sha256(payload.encode("utf-8")).hexdigest()
+    return digest[:_HASH_LEN]
+
+
+def _is_known_unhashable(obj: object) -> bool:
+    """Return True for dict/list/set -- mutable containers we refuse to hash."""
+    return isinstance(obj, (dict, list, set))

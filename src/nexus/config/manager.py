@@ -10,6 +10,7 @@ from pathlib import Path
 
 import yaml
 
+from nexus.cache import cached
 from nexus.config.paths import NexusPaths
 from nexus.config.settings import NexusConfig
 
@@ -29,8 +30,12 @@ class ConfigManager:
         """Initialize with optional config file path."""
         self._paths = paths or NexusPaths.from_env()
 
+    @cached(ttl=None)
     def load(self) -> NexusConfig:
         """Load config from disk, returning defaults if the file does not exist.
+
+        Cached per-instance for the lifetime of the process. Call
+        ``nexus.cache.clear_cache(self)`` after writing config out-of-band.
 
         Returns:
             Validated NexusConfig instance.

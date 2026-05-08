@@ -17,10 +17,13 @@ File-aware checks the regex hook still owns:
 - no-deferred-import -- ruff PLC0415 (ADR-016)
 - no-type-ignore -- ruff PGH003 (ADR-007)
 
-### Tier 1 -- Blocking (semgrep, semantic governance, ADR-016)
+### Tier 1 -- Blocking (semgrep, semantic governance, ADR-016 + ADR-017)
 
 - no-lru-cache-none -- @lru_cache(maxsize=None) is forbidden, use @cache
 - no-unittest-testcase -- class X(TestCase) is forbidden in tests/, use pytest functions
+- caching-must-use-cached-decorator -- @cache, @lru_cache, @cached_property forbidden in src/nexus/ (ADR-017)
+- cached-requires-explicit-ttl -- @cached without ttl= is forbidden (ADR-017)
+- cached-persist-requires-namespace -- @cached(persist=True) without namespace= is forbidden (ADR-017)
 
 ### Tier 2 -- Ratchet (post-edit hook, blocks if metrics worsen)
 
@@ -89,5 +92,6 @@ File-aware checks the regex hook still owns:
 | 013 | Lean CI for solo developer | ci.yml | accepted |
 | 015 | Migrate from anthropic SDK to claude-agent-sdk | none | accepted |
 | 016 | Semgrep for semantic governance rules | semgrep + pre-commit | accepted |
+| 017 | Single canonical caching decorator (@cached) | semgrep + python | accepted |
 
 Full ADR files: .primer/adr/

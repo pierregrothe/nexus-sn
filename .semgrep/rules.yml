@@ -34,3 +34,60 @@ rules:
     metadata:
       adr: ADR-016
       category: governance
+
+  - id: caching-must-use-cached-decorator
+    languages: [python]
+    severity: ERROR
+    message: |
+      Direct use of functools.cache, functools.lru_cache, and
+      functools.cached_property is forbidden in src/nexus/. Use the
+      @cached decorator from nexus.cache (ADR-017).
+    paths:
+      include:
+        - "**/src/nexus/**"
+    pattern-either:
+      - pattern: "@cache"
+      - pattern: "@functools.cache"
+      - pattern: "@cached_property"
+      - pattern: "@functools.cached_property"
+      - pattern: "@lru_cache"
+      - pattern: "@lru_cache(...)"
+      - pattern: "@functools.lru_cache"
+      - pattern: "@functools.lru_cache(...)"
+    metadata:
+      adr: ADR-017
+      category: governance
+
+  - id: cached-requires-explicit-ttl
+    languages: [python]
+    severity: ERROR
+    message: |
+      @cached requires an explicit ttl= keyword. Use ttl=None for
+      infinite-within-process caching, or ttl=N for a TTL in seconds.
+      See ADR-017.
+    pattern-either:
+      - pattern: "@cached()"
+      - pattern: "@cached(persist=...)"
+      - pattern: "@cached(persist=..., namespace=...)"
+      - pattern: "@cached(namespace=...)"
+      - pattern: "@cached(key_fn=...)"
+      - pattern: "@cached(persist=..., key_fn=...)"
+      - pattern: "@cached(persist=..., namespace=..., key_fn=...)"
+      - pattern: "@cached(namespace=..., key_fn=...)"
+    metadata:
+      adr: ADR-017
+      category: governance
+
+  - id: cached-persist-requires-namespace
+    languages: [python]
+    severity: ERROR
+    message: |
+      @cached(persist=True) requires namespace=. The namespace becomes the
+      disk-cache key prefix and prevents collisions between modules.
+      See ADR-017.
+    pattern-either:
+      - pattern: "@cached(ttl=..., persist=True)"
+      - pattern: "@cached(ttl=..., persist=True, key_fn=...)"
+    metadata:
+      adr: ADR-017
+      category: governance
