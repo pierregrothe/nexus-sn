@@ -12,5 +12,11 @@ command with the new code.
 
 from nexus.updater.current import current_version, is_editable_install
 from nexus.updater.errors import UpdaterError
+from nexus.updater.runner import check_and_maybe_update
 
-__all__ = ["UpdaterError", "current_version", "is_editable_install"]
+__all__ = [
+    "UpdaterError",
+    "check_and_maybe_update",
+    "current_version",
+    "is_editable_install",
+]
