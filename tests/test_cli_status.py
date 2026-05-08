@@ -24,7 +24,7 @@ def test_nexus_status_command_runs_and_prints_anonymous_for_isolated_home(
     clear_cache(TierDetector.detect)
     result = runner.invoke(app, ["status"])
     assert result.exit_code == 0
-    assert "Anonymous" in result.output
+    assert "ANONYMOUS" in result.output
 
 
 def test_nexus_status_refresh_clears_cache(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
