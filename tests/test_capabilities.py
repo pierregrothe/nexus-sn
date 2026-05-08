@@ -9,6 +9,7 @@ from dataclasses import FrozenInstanceError
 
 import pytest
 
+from nexus.capabilities.claude_config import ClaudeCodeConfig
 from nexus.capabilities.feature_flags import (
     CLAUDE_AI_NAME_TO_SERVER,
     FEATURE_MAP,
@@ -18,6 +19,7 @@ from nexus.capabilities.feature_flags import (
 )
 from nexus.capabilities.probe import ProbeResult
 from nexus.capabilities.registry import CapabilitySet
+from nexus.capabilities.tier import Tier, TierDetection
 
 
 def test_feature_map_covers_all_known_servers() -> None:
@@ -90,3 +92,55 @@ def test_claude_ai_name_for_raises_for_unmapped_server() -> None:
     inverse = {server for server in CLAUDE_AI_NAME_TO_SERVER.values()}
     for server in MCPServer:
         assert server in inverse, f"missing claude.ai name mapping for {server}"
+
+
+def _make_detection(
+    *,
+    tier: Tier,
+    detected: frozenset[MCPServer],
+    reauth: frozenset[MCPServer] = frozenset(),
+) -> TierDetection:
+    return TierDetection(
+        tier=tier,
+        config=ClaudeCodeConfig(subscription_type=None, org_mcp_servers=(), needs_reauth=()),
+        detected_servers=detected,
+        needs_reauth_servers=reauth,
+    )
+
+
+def test_capability_set_from_detection_marks_detected_as_available() -> None:
+    detection = _make_detection(tier=Tier.ENTERPRISE, detected=frozenset({MCPServer.BT1}))
+    cs = CapabilitySet.from_detection(detection)
+    assert cs.tier is Tier.ENTERPRISE
+    assert cs.available_servers == frozenset({MCPServer.BT1})
+
+
+def test_capability_set_from_detection_marks_remainder_as_unavailable() -> None:
+    detection = _make_detection(tier=Tier.ENTERPRISE, detected=frozenset({MCPServer.BT1}))
+    cs = CapabilitySet.from_detection(detection)
+    expected_unavailable = frozenset(MCPServer) - frozenset({MCPServer.BT1})
+    assert cs.unavailable_servers == expected_unavailable
+
+
+def test_capability_set_from_detection_unions_features_for_detected_servers() -> None:
+    detection = _make_detection(tier=Tier.ENTERPRISE, detected=frozenset({MCPServer.VALUE_MELODY}))
+    cs = CapabilitySet.from_detection(detection)
+    assert FeatureFlag.ROI_ANALYSIS in cs.enabled_features
+
+
+def test_capability_set_from_detection_carries_needs_reauth() -> None:
+    detection = _make_detection(
+        tier=Tier.ENTERPRISE,
+        detected=frozenset({MCPServer.MARKETING}),
+        reauth=frozenset({MCPServer.MARKETING}),
+    )
+    cs = CapabilitySet.from_detection(detection)
+    assert cs.needs_reauth == frozenset({MCPServer.MARKETING})
+
+
+def test_capability_set_from_detection_anonymous_has_no_servers() -> None:
+    detection = _make_detection(tier=Tier.ANONYMOUS, detected=frozenset())
+    cs = CapabilitySet.from_detection(detection)
+    assert cs.tier is Tier.ANONYMOUS
+    assert cs.available_servers == frozenset()
+    assert cs.enabled_features == frozenset()
