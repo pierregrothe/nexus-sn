@@ -93,5 +93,6 @@ File-aware checks the regex hook still owns:
 | 015 | Migrate from anthropic SDK to claude-agent-sdk | none | accepted |
 | 016 | Semgrep for semantic governance rules | semgrep + pre-commit | accepted |
 | 017 | Single canonical caching decorator (@cached) | semgrep + python | accepted |
+| 018 | Tier detection from Claude Code OAuth + org MCP config | none | accepted |
 
 Full ADR files: .primer/adr/
