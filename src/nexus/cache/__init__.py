@@ -8,6 +8,7 @@ All caching in src/nexus/ goes through @cached. Direct use of functools.cache,
 functools.lru_cache, and functools.cached_property is forbidden by Semgrep.
 """
 
+from nexus.cache.decorator import cached, clear_cache
 from nexus.cache.errors import CacheKeyError
 
-__all__ = ["CacheKeyError"]
+__all__ = ["CacheKeyError", "cached", "clear_cache"]
