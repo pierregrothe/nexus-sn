@@ -160,9 +160,22 @@ storage layout (see "Self handling" below), not by the key. Including
 
 ### Self handling
 
-- In-memory caches: `self` is part of the cache scope. The wrapper stores
-  per-method caches as `_nexus_cache_<funcname>` attributes on the instance.
-  Cache lives and dies with the instance. No global registry, no weakrefs.
+- In-memory caches: `self` is the cache scope. Each `@cached`-decorated
+  method holds a `WeakKeyDictionary[object, InMemoryBackend]` in its
+  closure. The first call for an instance creates a backend and stores
+  it in the dict; later calls reuse it. When the instance is garbage
+  collected, the weak reference clears and the backend is freed.
+  Constraint: the instance must be hashable (`@dataclass(frozen=True)`,
+  Pydantic `frozen=True`, and plain classes all are by default).
+  Unhashable instances raise `TypeError` from the WeakKeyDictionary
+  insert at first call.
+  This pattern works for `@dataclass(slots=True, frozen=True)` types
+  like `NexusPaths` where attribute storage on the instance is impossible.
+- Free functions: backend is a module-level `InMemoryBackend` created
+  once at decoration time. No instance scope.
+- Class methods (`cls` as first arg): same WeakKeyDictionary pattern;
+  `cls` is the key. All instances of the class share one cache (since
+  `cls` is the same object).
 - Disk caches: `self` is excluded from the key. `namespace` is the only
   separator. Per-instance disk caching requires a dynamic `namespace`
   (e.g., `namespace=f"sn:{instance_label}"`).
