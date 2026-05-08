@@ -169,3 +169,26 @@ hooks). PR-#1's AuthProvider work is largely deleted (~250 lines removed,
 ~150 lines added). ADR-001 partially superseded; the 2026-05-07
 AuthProvider entry is superseded by ADR-015.
 Spec at docs/superpowers/specs/2026-05-08-agent-sdk-migration-design.md.
+
+
+---
+
+### 2026-05-08 -- Single canonical caching decorator (@cached)
+
+**Status:** accepted (ADR-017)
+
+**Context:** Four families of operations in NEXUS benefit from caching
+(Agent SDK calls, ServiceNow API responses, capability probes, config
+lookups). Without a canonical decorator, each would invent its own layer
+with different semantics.
+
+**Decision:** Layer-0 utility `src/nexus/cache/` exports `@cached(ttl,
+persist, namespace, key_fn)` and `clear_cache(target)`. Three Semgrep rules
+plus runtime TypeError/ValueError enforce the contract.
+
+**Consequences:** Adds diskcache as a runtime dep. Instances must be
+hashable (slots+frozen dataclasses use an id-keyed strong-dict fallback;
+documented in ADR-017). Function exceptions never cached. Initial adoption:
+ConfigManager.load and NexusPaths.from_env. Spec at
+docs/superpowers/specs/2026-05-08-cached-decorator-design.md; plan at
+docs/superpowers/plans/2026-05-08-cached-decorator.md.
