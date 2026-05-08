@@ -98,5 +98,6 @@ File-aware checks the regex hook still owns:
 | 017 | Single canonical caching decorator (@cached) | semgrep + python | accepted |
 | 018 | Tier detection from Claude Code OAuth + org MCP config | none | accepted |
 | 019 | Lessons from /simplify reviews | semgrep + PR template + ADR | accepted |
+| 020 | NEXUS auto-update from GitHub Releases | none | accepted |
 
 Full ADR files: .primer/adr/

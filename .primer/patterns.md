@@ -14,7 +14,8 @@ Import direction is strictly bottom-to-top. Never import from a higher layer.
   templates -> connectors, knowledge, cache
   assessment -> connectors, cache
   execution -> agents, templates, assessment, api, cache
-  cli -> execution, templates, assessment, config, auth, capabilities, cache
+  updater -> config, cache               # Layer 7 (ADR-020)
+  cli -> execution, templates, assessment, config, auth, capabilities, cache, updater
   ui -> cli (same API surface)
 
 If you need to pass data between layers, use the types defined in base.py / schemas.py.

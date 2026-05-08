@@ -244,3 +244,26 @@ persist mode is test-friendly (AgentClient adoption unblocked). Three
 new lint rules trace to ADR-019. PR template is a soft gate; the
 unchecked /simplify checkbox is review-visible. Spec at
 docs/superpowers/specs/2026-05-08-simplify-lessons-design.md.
+
+
+---
+
+### 2026-05-08 -- NEXUS auto-update from GitHub Releases (ADR-020)
+
+**Status:** accepted
+
+**Context:** Last of the user's original three-feature ask. Earlier deferral
+was correct -- no PyPI release existed to update against. This PR closes the
+gap by switching the release pipeline to GitHub-Releases-only (no PyPI yet)
+and implementing the auto-update logic.
+
+**Decision:** Layer 7 `src/nexus/updater/` package with check_and_maybe_update
+orchestrator invoked by the CLI callback. Every-launch GitHub API call,
+wheel download + pip install + os.execv re-run on update. Editable installs
+detected via importlib.metadata.distribution().origin.dir_info.editable;
+skipped silently. NEXUS_AUTO_UPDATE=0 escape hatch.
+
+**Consequences:** ~200-500ms per launch (3s timeout). pip install + re-exec
+on update (~5-10s one-time). Rollback via env var + manual pip downgrade.
+Wheel hash verification skipped for v1 (HTTPS sufficient). PyPI publication
+deferred. Spec at docs/superpowers/specs/2026-05-08-auto-update-design.md.
