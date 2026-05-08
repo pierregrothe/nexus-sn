@@ -10,7 +10,7 @@ from dataclasses import FrozenInstanceError
 import pytest
 
 from nexus.capabilities.feature_flags import (
-    _CLAUDE_AI_NAME_TO_SERVER,
+    CLAUDE_AI_NAME_TO_SERVER,
     FEATURE_MAP,
     FeatureFlag,
     MCPServer,
@@ -70,12 +70,12 @@ def test_capability_set_is_immutable() -> None:
 
 
 def test_claude_ai_name_table_contains_all_known_servers() -> None:
-    assert "claude.ai ValueMelody" in _CLAUDE_AI_NAME_TO_SERVER
-    assert _CLAUDE_AI_NAME_TO_SERVER["claude.ai ValueMelody"] is MCPServer.VALUE_MELODY
+    assert "claude.ai ValueMelody" in CLAUDE_AI_NAME_TO_SERVER
+    assert CLAUDE_AI_NAME_TO_SERVER["claude.ai ValueMelody"] is MCPServer.VALUE_MELODY
 
 
 def test_claude_ai_name_table_includes_marketing_mcp() -> None:
-    assert _CLAUDE_AI_NAME_TO_SERVER["claude.ai Marketing MCP"] is MCPServer.MARKETING
+    assert CLAUDE_AI_NAME_TO_SERVER["claude.ai Marketing MCP"] is MCPServer.MARKETING
 
 
 def test_claude_ai_name_for_returns_string_form() -> None:
@@ -87,6 +87,6 @@ def test_claude_ai_name_for_raises_for_unmapped_server() -> None:
     # MCPServer is exhaustively covered; this guards against future enum additions
     # without table updates. We can't test it without an unmapped value, so we
     # just assert every enum member is in the inverse table.
-    inverse = {server for server in _CLAUDE_AI_NAME_TO_SERVER.values()}
+    inverse = {server for server in CLAUDE_AI_NAME_TO_SERVER.values()}
     for server in MCPServer:
         assert server in inverse, f"missing claude.ai name mapping for {server}"

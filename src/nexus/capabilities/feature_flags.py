@@ -13,7 +13,14 @@ is unavailable are hidden from the CLI and silently skipped by agents.
 from dataclasses import dataclass
 from enum import StrEnum
 
-__all__ = ["FEATURE_MAP", "FeatureFlag", "MCPServer", "ServerSpec", "claude_ai_name_for"]
+__all__ = [
+    "CLAUDE_AI_NAME_TO_SERVER",
+    "FEATURE_MAP",
+    "FeatureFlag",
+    "MCPServer",
+    "ServerSpec",
+    "claude_ai_name_for",
+]
 
 
 class FeatureFlag(StrEnum):
@@ -103,7 +110,7 @@ FEATURE_MAP: dict[MCPServer, ServerSpec] = {
     ),
 }
 
-_CLAUDE_AI_NAME_TO_SERVER: dict[str, MCPServer] = {
+CLAUDE_AI_NAME_TO_SERVER: dict[str, MCPServer] = {
     "claude.ai ValueMelody": MCPServer.VALUE_MELODY,
     "claude.ai Sales Success Center Content Retriever": MCPServer.SSC,
     "claude.ai BT1_MCP": MCPServer.BT1,
@@ -114,7 +121,7 @@ _CLAUDE_AI_NAME_TO_SERVER: dict[str, MCPServer] = {
 }
 
 _SERVER_TO_CLAUDE_AI_NAME: dict[MCPServer, str] = {
-    server: name for name, server in _CLAUDE_AI_NAME_TO_SERVER.items()
+    server: name for name, server in CLAUDE_AI_NAME_TO_SERVER.items()
 }
 
 
@@ -131,6 +138,6 @@ def claude_ai_name_for(server: MCPServer) -> str:
 
     Raises:
         KeyError: If the server has no mapping (a new MCPServer was added
-            without updating `_CLAUDE_AI_NAME_TO_SERVER`).
+            without updating `CLAUDE_AI_NAME_TO_SERVER`).
     """
     return _SERVER_TO_CLAUDE_AI_NAME[server]
