@@ -15,7 +15,7 @@
 - [ ] InstanceScanner -- health scan via ServiceNowClient
 - [ ] RuleEngine + AssessmentReporter
 - [ ] nexus setup command -- credential wizard
-- [ ] nexus status command -- probe capabilities, verify SN
+- [x] nexus status command -- probe capabilities, verify SN
 
 ## 2026.06 -- Template Library [planned]
 - [ ] NowAssistSkill + Workflow Pydantic schemas
