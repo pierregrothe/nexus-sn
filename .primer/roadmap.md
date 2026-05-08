@@ -9,7 +9,7 @@
 - [x] Test suite foundation (39 tests, all real fakes)
 
 ## 2026.05 -- MVP Commands [active]
-- [x] AnthropicClient.complete() with prompt caching
+- [x] AgentClient.complete() backed by claude-agent-sdk (ADR-015)
 - [ ] GitHubSync -- manifest fetch + template download [active]
 - [ ] TemplateRegistry -- list and get from local cache
 - [ ] InstanceScanner -- health scan via ServiceNowClient

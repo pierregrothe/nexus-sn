@@ -9,7 +9,7 @@ Config layer:
 
 Auth layer:
   KeychainClient + FakeKeychainClient -- OS keychain via keyring
-  ClaudeAuth -- Claude Enterprise API key retrieval
+  ClaudeAuth -- Claude Enterprise API key retrieval (env var or keychain)
   SNAuth -- ServiceNow credentials retrieval
   AuthError hierarchy
 
@@ -25,30 +25,18 @@ Connectors layer:
   ServiceNowConnector -- protocol implementation
   Full error hierarchy (SNAuthError, SNNotFoundError, SNRateLimitError, SNClientError)
 
-API layer (MVP Step 1 complete):
-  AnthropicClient -- Anthropic SDK wrapper with prompt caching, cache-hit logging,
-                     and error mapping (AuthError, AnthropicError). Takes a
-                     Sequence[AuthProvider] and resolves first available at init.
-  AnthropicClientProtocol -- structural interface for agents and CLI commands
-  ModelTier (StrEnum) -- STANDARD/POWERFUL/FAST tiers, auto-discovered at init
-                          via client.models.list() with created_at sort, env var
-                          override (NEXUS_MODEL_*), hardcoded fallback
-  AnthropicError -- typed exception with status_code and message
-  ToolRegistry -- assembles connector tools as anthropic.types.ToolParam list
+API layer (Agent SDK migration complete, PR #2 merged 2026-05-08):
+  AgentClient -- async wrapper around claude_agent_sdk.query(). Auth handled
+                  internally by the SDK (env var > Claude Code stored creds >
+                  macOS Keychain). Callers construct AgentClient() and call
+                  await client.complete(prompt, system=..., model=..., max_turns=...).
+  AgentClientProtocol -- structural interface for agents and CLI commands
+  AnthropicError -- typed exception (status_code, message); kept after SDK swap
+                    for raising on ResultMessage.is_error from Agent SDK
   configure_logging -- TimedRotatingFileHandler with 7-day rotation, attaches
                        to root logger (file + stderr handlers)
-  FakeAnthropicClient -- test double, records calls, returns CANNED_MESSAGE
-
-Auth layer extended (NEW -- pluggable provider system, PR #1):
-  AuthProvider (Protocol) -- name property, is_available, create_client(max_retries)
-  ClaudeCodeOAuthProvider -- reads OAuth token from CLAUDE_CODE_OAUTH_TOKEN env,
-                              ~/.claude/.credentials.json, or macOS Keychain
-                              ("Claude Code-credentials" via keyring lib).
-                              Per-instance cache; first source wins.
-  AnthropicAPIKeyProvider -- ClaudeAuth alias; reads NEXUS_CLAUDE_API_KEY env
-                              or nexus keychain entry. Cached after resolution.
-  get_default_providers() -- returns [OAuth, APIKey] in priority order.
-  FakeAuthProvider -- test double for AuthProvider Protocol.
+  FakeAgentClient -- @dataclass(slots=True) test double, records calls, returns
+                     canned_response or raises side_effect
 
 Agents base:
   AgentProtocol, ExecutionContext, AgentResult
@@ -59,10 +47,9 @@ CLI skeleton:
   ui command works end-to-end: imports start_ui (always-importable), calls it,
     raises clean ImportError if nicegui not installed
 
-Governance enforcement (NEW -- ADRs 006-013):
-  10 blocking pre-edit rules: no-mocks, no-relative-imports, no-bare-except,
-    no-lru-cache-none, no-unittest-testcase, no-sys-argv, no-type-ignore,
-    no-bare-any-in-sig, no-dict-any-in-sig, no-deferred-import
+Governance enforcement:
+  Pre-edit hook (.claude/hooks/pre-edit-validate.py) -- blocks anti-patterns
+    before file write
   Coverage ratchet (.ratchet.json) -- per-module covered_lines can only increase
   Post-edit checks: ruff + mypy + pyright (all strict, all blocking)
   Lean CI: lint only on every push (<30s), full tests on release tags
@@ -72,17 +59,19 @@ Governance enforcement (NEW -- ADRs 006-013):
 Infrastructure:
   pyproject.toml -- Python 3.14, Poetry in-project venv, ruff/black/mypy/pyright
   pyrightconfig.json -- strict, py314
-  .ratchet.json -- coverage baseline for 16 implemented modules
-  .pre-commit-config.yaml -- 5 hooks aligned with CI lint stage
+  .ratchet.json -- coverage baseline for implemented modules
+  .pre-commit-config.yaml -- 5 hooks aligned with CI lint stage (semgrep
+    addition pending in PR #3)
   .github/workflows/ci.yml -- lean (lint matrix on push, test matrix on tags)
 
-Tests: 71 passing (53 prior + 18 new for AuthProvider system). All real fakes, no mocks.
-GitHub: https://github.com/pierregrothe/nexus-sn (public, governance-baseline-2026-05-07 tag).
+Tests: 45 passing. All real fakes, no mocks.
+GitHub: https://github.com/pierregrothe/nexus-sn (public).
 
 ## Known Issues
 
 - MCPProbe._check_server() returns False (stub). Enterprise MCP endpoint URLs
-  unknown -- needs inspection of Claude Enterprise config.
+  unknown. With Agent SDK as the LLM layer, MCP wiring goes through
+  ClaudeAgentOptions(mcp_servers=...); probing strategy needs revisit.
 - knowledge/mastery/ empty. Decision pending: copy from JARVIS or rebuild.
 - Template schemas (templates/schemas/*.py) are stubs. NowAssistSkill and Workflow
   Pydantic models are the first to design.
@@ -90,6 +79,8 @@ GitHub: https://github.com/pierregrothe/nexus-sn (public, governance-baseline-20
 - Stub modules at 0% coverage (agents/specialists/*, cli, connectors/servicenow/*,
   templates, assessment, execution, knowledge). Tracked in .ratchet.json once impl
   begins; full 100% gate achieved as stubs implement.
+- 8 grandfathered dict[str, Any] usages in src/nexus/connectors/servicenow/client.py.
+  Pre-edit hook still blocks new ones; refactor to a typed alias is on the backlog.
 
 ## What's Left
 
@@ -108,8 +99,8 @@ GitHub: https://github.com/pierregrothe/nexus-sn (public, governance-baseline-20
   Gate 1 readiness check + Gate 2 validation check
 
 2026.07 -- Agent Specialists:
-  8 domain specialist agents implemented
-  ExecutionContext enrichment from enterprise MCP
+  8 domain specialist agents implemented (each takes AgentClientProtocol)
+  ExecutionContext enrichment from enterprise MCP (via Agent SDK mcp_servers)
   Multi-step orchestration via Planner + Dispatcher
   Rollback manager for failed deployments
 
@@ -121,5 +112,6 @@ GitHub: https://github.com/pierregrothe/nexus-sn (public, governance-baseline-20
 Backlog:
   NiceGUI web interface (nexus[ui] optional extra)
   Knowledge mastery KB (206 ServiceNow product docs)
-  MCPProbe real endpoint URLs
+  MCPProbe with real enterprise MCP endpoints
   JIRA, GitHub, Confluence connectors
+  Refactor servicenow/client.py dict[str, Any] -> typed alias
