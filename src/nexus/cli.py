@@ -24,6 +24,8 @@ from nexus.capabilities.registry import CapabilitySet
 from nexus.capabilities.status_reporter import StatusReporter
 from nexus.capabilities.tier import TierDetection, TierDetector
 from nexus.ui.app import start_ui
+from nexus.ui.banner import print_banner
+from nexus.ui.theme import NEXUS_THEME
 from nexus.updater import check_and_maybe_update, current_version
 from nexus.updater.client import GitHubReleasesClient
 
@@ -35,8 +37,8 @@ app = typer.Typer(
     no_args_is_help=True,
 )
 
-console = Console()
-err_console = Console(stderr=True)
+console = Console(theme=NEXUS_THEME)
+err_console = Console(stderr=True, theme=NEXUS_THEME)
 
 
 def _configure_logging(level: str = "WARNING") -> None:
@@ -79,6 +81,7 @@ def status(
     if refresh:
         clear_cache(TierDetector.detect)
 
+    print_banner(console)
     detection = _detect_tier()
     capabilities = CapabilitySet.from_detection(detection)
     StatusReporter(console=console).print(detection, capabilities)
@@ -101,7 +104,7 @@ def reauth(
         target = next((srv for srv in detection.needs_reauth_servers if srv.value == server), None)
         if target is None:
             err_console.print(
-                f"[red]Server {server!r} is not currently flagged for re-auth.[/red] "
+                f"[error]Server {server!r} is not currently flagged for re-auth.[/error] "
                 "Run `nexus status --refresh` if you think this is wrong."
             )
             raise typer.Exit(code=1)
@@ -213,7 +216,7 @@ def ui() -> None:
     try:
         start_ui()
     except ImportError as exc:
-        err_console.print(f"[red]{exc}[/red]")
+        err_console.print(f"[error]{exc}[/error]")
         raise typer.Exit(code=1) from exc
 
 
