@@ -22,14 +22,7 @@ __all__ = ["MISSING", "CacheBackend", "DiskBackend", "InMemoryBackend"]
 
 
 class _Missing:
-    """Sentinel singleton for "no cached value" -- distinct from None."""
-
-    _instance: _Missing | None = None
-
-    def __new__(cls) -> _Missing:
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-        return cls._instance
+    """Sentinel type for "no cached value" -- distinct from None."""
 
     def __repr__(self) -> str:
         return "<MISSING>"

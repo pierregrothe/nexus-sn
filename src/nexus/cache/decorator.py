@@ -134,7 +134,7 @@ def cached[**P, R](
         code = func.__code__
         params = list(code.co_varnames[: code.co_argcount])
         is_method = bool(params) and params[0] in ("self", "cls")
-        permissive_func = cast("Callable[..., object]", func)
+        qualname = f"{func.__module__}.{func.__qualname__}"
 
         if persist:
             disk_backend = _get_or_create_disk_backend(namespace)
@@ -144,8 +144,8 @@ def cached[**P, R](
 
             return _wrap_with_backend(
                 func,
-                permissive_func,
                 get_disk_backend,
+                qualname=qualname,
                 ttl=ttl,
                 namespace=namespace,
                 key_fn=key_fn,
@@ -161,8 +161,8 @@ def cached[**P, R](
 
             wrapper = _wrap_with_backend(
                 func,
-                permissive_func,
                 get_instance_backend,
+                qualname=qualname,
                 ttl=ttl,
                 namespace=None,
                 key_fn=key_fn,
@@ -179,8 +179,8 @@ def cached[**P, R](
 
         wrapper = _wrap_with_backend(
             func,
-            permissive_func,
             get_free_backend,
+            qualname=qualname,
             ttl=ttl,
             namespace=None,
             key_fn=key_fn,
@@ -195,9 +195,9 @@ def cached[**P, R](
 
 def _wrap_with_backend[**P, R](
     func: Callable[P, R],
-    permissive_func: Callable[..., object],
     get_backend: Callable[[object], CacheBackend],
     *,
+    qualname: str,
     ttl: int | None,
     namespace: str | None,
     key_fn: Callable[..., str] | None,
@@ -214,7 +214,7 @@ def _wrap_with_backend[**P, R](
             backend = get_backend(first_arg)
             cache_args = args[1:] if is_method else args
             key = compute_key(
-                func, args=cache_args, kwargs=kwargs, namespace=namespace, key_fn=key_fn
+                qualname, args=cache_args, kwargs=kwargs, namespace=namespace, key_fn=key_fn
             )
             cached_value = backend.get(key)
             if cached_value is not MISSING:
@@ -225,16 +225,20 @@ def _wrap_with_backend[**P, R](
 
         return cast("Callable[P, R]", async_wrapper)
 
+    sync_call = cast("Callable[..., object]", func)
+
     @functools.wraps(func)
     def sync_wrapper(*args: object, **kwargs: object) -> object:
         first_arg = args[0] if (is_method and args) else None
         backend = get_backend(first_arg)
         cache_args = args[1:] if is_method else args
-        key = compute_key(func, args=cache_args, kwargs=kwargs, namespace=namespace, key_fn=key_fn)
+        key = compute_key(
+            qualname, args=cache_args, kwargs=kwargs, namespace=namespace, key_fn=key_fn
+        )
         cached_value = backend.get(key)
         if cached_value is not MISSING:
             return cached_value
-        result = permissive_func(*args, **kwargs)
+        result = sync_call(*args, **kwargs)
         backend.set(key, result, ttl)
         return result
 

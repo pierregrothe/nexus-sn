@@ -6,17 +6,17 @@
 
 import hashlib
 from collections.abc import Callable
-from typing import Any
 
 from nexus.cache.errors import CacheKeyError
 
 __all__ = ["compute_key"]
 
 _HASH_LEN = 16
+_EMPTY_KWARGS: tuple[tuple[str, object], ...] = ()
 
 
 def compute_key(
-    func: Callable[..., Any],
+    qualname: str,
     *,
     args: tuple[object, ...],
     kwargs: dict[str, object],
@@ -25,10 +25,12 @@ def compute_key(
 ) -> str:
     """Build a deterministic cache key for a function call.
 
-    Format: "[namespace:]<module.qualname>:<arg_hash>"
+    Format: "[namespace:]<qualname>:<arg_hash>"
 
     Args:
-        func: The cached function (used for module + qualname).
+        qualname: Pre-computed "<module>.<qualname>" of the cached function.
+            The decorator computes it once at decoration time and passes it
+            on every call to avoid repeated attribute access on the hot path.
         args: Positional args passed to the call.
         kwargs: Keyword args passed to the call.
         namespace: Optional prefix for disk caches.
@@ -41,7 +43,6 @@ def compute_key(
     Raises:
         CacheKeyError: When an arg is not hashable and no key_fn is given.
     """
-    qualname = f"{func.__module__}.{func.__qualname__}"
     if key_fn is not None:
         arg_hash = key_fn(*args, **kwargs)
     else:
@@ -57,7 +58,7 @@ def _hash_call_args(args: tuple[object, ...], kwargs: dict[str, object]) -> str:
     types that aren't hashable but have a stable repr (Pydantic frozen
     models, frozen dataclasses, etc.).
     """
-    sorted_kwargs = tuple(sorted(kwargs.items()))
+    sorted_kwargs = tuple(sorted(kwargs.items())) if kwargs else _EMPTY_KWARGS
     try:
         hashed = hash((args, sorted_kwargs))
     except TypeError:
@@ -69,10 +70,10 @@ def _repr_sha256(args: tuple[object, ...], sorted_kwargs: tuple[tuple[str, objec
     """SHA256 over repr(args) + repr(sorted_kwargs). Used when hash() fails.
 
     Raises:
-        CacheKeyError: If any arg has no stable repr (rare; mostly for dict/list/set).
+        CacheKeyError: If any arg is a known mutable container (dict/list/set).
     """
-    if any(_is_known_unhashable(a) for a in args):
-        offending = next(type(a).__name__ for a in args if _is_known_unhashable(a))
+    offending = next((type(a).__name__ for a in args if _is_known_unhashable(a)), None)
+    if offending is not None:
         raise CacheKeyError(
             f"@cached received unhashable arg of type {offending!r}; "
             "declare key_fn=lambda ... on the decorator (ADR-017)."

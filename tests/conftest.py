@@ -2,12 +2,10 @@
 # Shared pytest fixtures for the NEXUS test suite.
 # Author: Pierre Grothe
 # Date: 2026-05-07
-# pyright: reportUnusedFunction=false
 
 """Pytest configuration and shared fixtures."""
 
 import logging
-from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
@@ -21,15 +19,13 @@ logging.basicConfig(level=logging.DEBUG)
 
 
 @pytest.fixture(autouse=True)
-def _clear_cached_paths_between_tests() -> Iterator[None]:
-    """Drop any cached NexusPaths.from_env result before/after each test.
+def _clear_cached_paths_between_tests() -> None:  # pyright: ignore[reportUnusedFunction]
+    """Drop the cached NexusPaths.from_env result before each test.
 
     NexusPaths.from_env() is @cached(ttl=None) so the first call's result
     sticks for the lifetime of the process. Tests that monkeypatch
     NEXUS_CONFIG_PATH need a fresh cache; this fixture provides it.
     """
-    clear_cache(NexusPaths.from_env)
-    yield
     clear_cache(NexusPaths.from_env)
 
 
