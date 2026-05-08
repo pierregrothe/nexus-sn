@@ -8,6 +8,7 @@
 import logging
 from pathlib import Path
 
+import httpx
 import pytest
 
 from nexus.cache import clear_cache
@@ -50,3 +51,17 @@ def default_config() -> NexusConfig:
         NexusConfig with all fields at default values.
     """
     return NexusConfig.default()
+
+
+def transport_returning(response: httpx.Response) -> httpx.MockTransport:
+    """Build an httpx.MockTransport that always returns ``response``."""
+    return httpx.MockTransport(lambda req: response)
+
+
+def transport_raising(exc: Exception) -> httpx.MockTransport:
+    """Build an httpx.MockTransport whose handler raises ``exc``."""
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        raise exc
+
+    return httpx.MockTransport(handler)

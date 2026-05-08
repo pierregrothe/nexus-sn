@@ -83,6 +83,11 @@ class NexusPaths:
         """Structured session logs."""
         return self.root / "logs"
 
+    @property
+    def cache_dir(self) -> Path:
+        """Auto-update lockfile, last-check timestamp, persistent caches."""
+        return self.root / "cache"
+
     def ensure_dirs(self) -> None:
         """Create all runtime directories if they do not exist."""
         for path in (
@@ -91,6 +96,7 @@ class NexusPaths:
             self.reports_dir,
             self.jobs_dir,
             self.logs_dir,
+            self.cache_dir,
         ):
             path.mkdir(parents=True, exist_ok=True)
         log.debug("runtime directories ensured under %s", self.root)

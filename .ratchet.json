@@ -22,11 +22,17 @@
     "nexus.capabilities.registry": {"covered_lines": 40, "total_lines": 40},
     "nexus.capabilities.status_reporter": {"covered_lines": 37, "total_lines": 39},
     "nexus.capabilities.tier": {"covered_lines": 45, "total_lines": 45},
-    "nexus.cli": {"covered_lines": 60, "total_lines": 81},
+    "nexus.cli": {"covered_lines": 66, "total_lines": 106},
     "nexus.config.manager": {"covered_lines": 31, "total_lines": 32},
-    "nexus.config.paths": {"covered_lines": 36, "total_lines": 37},
+    "nexus.config.paths": {"covered_lines": 41, "total_lines": 42},
     "nexus.config.settings": {"covered_lines": 35, "total_lines": 35},
     "nexus.connectors.base": {"covered_lines": 15, "total_lines": 18},
-    "nexus.connectors.registry": {"covered_lines": 22, "total_lines": 28}
+    "nexus.connectors.registry": {"covered_lines": 22, "total_lines": 28},
+    "nexus.updater": {"covered_lines": 4, "total_lines": 4},
+    "nexus.updater.client": {"covered_lines": 56, "total_lines": 56},
+    "nexus.updater.current": {"covered_lines": 23, "total_lines": 23},
+    "nexus.updater.errors": {"covered_lines": 2, "total_lines": 2},
+    "nexus.updater.installer": {"covered_lines": 32, "total_lines": 32},
+    "nexus.updater.runner": {"covered_lines": 110, "total_lines": 110}
   }
 }

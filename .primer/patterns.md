@@ -14,7 +14,8 @@ Import direction is strictly bottom-to-top. Never import from a higher layer.
   templates -> connectors, knowledge, cache
   assessment -> connectors, cache
   execution -> agents, templates, assessment, api, cache
-  cli -> execution, templates, assessment, config, auth, capabilities, cache
+  updater -> config, cache               # Layer 7 (ADR-020)
+  cli -> execution, templates, assessment, config, auth, capabilities, cache, updater
   ui -> cli (same API surface)
 
 If you need to pass data between layers, use the types defined in base.py / schemas.py.
@@ -55,6 +56,28 @@ Log file paths, not file contents.
 Log counts and flags for structured objects, never full dicts.
 Levels: DEBUG=high-volume detail, INFO=phase boundaries, WARNING=recoverable errors,
         ERROR=unrecovered failures.
+
+User-facing output goes through rich.Console (cli.py) or print() in updater hooks.
+sys.stdout.write / sys.stderr.write are banned in src/nexus/ (semgrep-enforced).
+
+## Hot-path I/O has a gate
+
+Anything wired into the CLI callback (@app.callback), per-command hooks, or
+loops that fire on every invocation MUST gate or cache external I/O. The
+auto-updater's check_and_maybe_update() runs on every nexus command; it
+hides a 3-second-timeout GitHub call behind a 24-hour mtime gate
+(_should_check_now / _record_check_attempt) so 99.99% of launches pay
+nothing. Apply the same shape (timestamp file, in-process cache, or env
+flag) when adding background work to a hot path. Caught in /simplify of
+PR #8 (ADR-020).
+
+## Path getters are pure
+
+Functions that return a Path do not mkdir as a side effect. Centralise
+directory creation in NexusPaths.ensure_dirs() (called once at startup)
+or at the immediate point of write. Mixing path resolution with
+filesystem mutation makes the function untestable in isolation and
+surprises future readers. Caught in /simplify of PR #8.
 
 ## Testing
 

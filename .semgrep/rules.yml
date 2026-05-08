@@ -141,3 +141,20 @@ rules:
     metadata:
       adr: ADR-019
       category: governance
+
+  - id: no-sys-stdout-write
+    languages: [python]
+    severity: ERROR
+    message: |
+      Direct sys.stdout.write / sys.stderr.write is forbidden in src/nexus/.
+      Use rich.Console (cli.py / capabilities/status_reporter.py pattern) or
+      a plain print(..., flush=True) for runtime hooks. Caught in /simplify
+      of PR #8 (ADR-020).
+    paths:
+      include: ["**/src/nexus/**"]
+    pattern-either:
+      - pattern: sys.stdout.write(...)
+      - pattern: sys.stderr.write(...)
+    metadata:
+      adr: ADR-020
+      category: governance
