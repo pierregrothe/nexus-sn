@@ -14,6 +14,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 from packaging.version import InvalidVersion, parse
@@ -34,7 +35,8 @@ log = logging.getLogger(__name__)
 __all__ = ["check_and_maybe_update"]
 
 _ENV_DISABLE = "NEXUS_AUTO_UPDATE"
-_LockHandle = tuple[io.IOBase, Path]
+_CHECK_INTERVAL_SECONDS = 24 * 60 * 60  # 24 hours
+_LockHandle = io.IOBase
 
 
 def check_and_maybe_update() -> None:
@@ -55,6 +57,10 @@ def check_and_maybe_update() -> None:
         log.debug("nexus-sn not installed as a distribution; skipping auto-update")
         return
 
+    if not _should_check_now():
+        log.debug("last update check is recent; skipping")
+        return
+
     lock = _try_acquire_lock()
     if lock is None:
         log.debug("update lockfile held by another process; skipping")
@@ -73,8 +79,9 @@ def _run_update_cycle(current: str) -> None:
         current: The currently installed version string.
     """
     info = _build_client().fetch_latest()
+    _record_check_attempt()
     if info is None:
-        return  # GitHub API failure already logged
+        return
     if info.wheel_url is None:
         log.warning("latest release %s has no wheel asset; skipping", info.tag_name)
         return
@@ -90,8 +97,7 @@ def _run_update_cycle(current: str) -> None:
         log.debug("already on latest version %s", current)
         return
 
-    sys.stdout.write(f"NEXUS updating {current} -> {info.tag_name}...\n")
-    sys.stdout.flush()
+    print(f"NEXUS updating {current} -> {info.tag_name}...", flush=True)
     try:
         with tempfile.TemporaryDirectory() as tmpdir:
             wheel_path = download_wheel(info.wheel_url, dest_dir=Path(tmpdir))
@@ -100,8 +106,7 @@ def _run_update_cycle(current: str) -> None:
         log.error("auto-update failed: %s", exc)
         return
 
-    sys.stdout.write(f"NEXUS updated to {info.tag_name}\n")
-    sys.stdout.flush()
+    print(f"NEXUS updated to {info.tag_name}", flush=True)
     _re_exec(info)
 
 
@@ -139,14 +144,37 @@ def _build_client() -> GitHubReleasesClient:
 def _lock_path() -> Path:
     """Return the path of the update lockfile.
 
-    Tests monkeypatch this to redirect to tmp_path.
+    Tests monkeypatch this to redirect to tmp_path. The parent directory
+    is created on first access via NexusPaths.ensure_dirs() / mkdir below.
 
     Returns:
-        Path to ~/.nexus/cache/update.lock (parent dir created if needed).
+        Path to ~/.nexus/cache/update.lock.
     """
-    cache_dir = NexusPaths.from_env().root / "cache"
+    cache_dir = NexusPaths.from_env().cache_dir
     cache_dir.mkdir(parents=True, exist_ok=True)
     return cache_dir / "update.lock"
+
+
+def _last_check_path() -> Path:
+    """Return the marker file whose mtime gates the next GitHub call."""
+    return _lock_path().with_name("update.last_check")
+
+
+def _should_check_now() -> bool:
+    """True when the last successful (or attempted) check is older than the interval."""
+    marker = _last_check_path()
+    try:
+        age = time.time() - marker.stat().st_mtime
+    except FileNotFoundError:
+        return True
+    return age >= _CHECK_INTERVAL_SECONDS
+
+
+def _record_check_attempt() -> None:
+    """Update the marker so the next launch waits for the configured interval."""
+    marker = _last_check_path()
+    marker.touch(exist_ok=True)
+    os.utime(marker, None)
 
 
 def _try_acquire_lock() -> _LockHandle | None:
@@ -155,10 +183,10 @@ def _try_acquire_lock() -> _LockHandle | None:
     Cross-platform: fcntl on POSIX, msvcrt on Windows.
 
     Returns:
-        ``(file_handle, path)`` on success, or None if the lock is held.
+        The open file handle on success, or None if the lock is held.
     """
-    path = _lock_path()
-    handle = path.open("w")
+    # Mode "a" creates the file if missing without truncating concurrent writers.
+    handle = _lock_path().open("a")
     try:
         if sys.platform == "win32":  # pragma: no cover
             msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
@@ -167,20 +195,15 @@ def _try_acquire_lock() -> _LockHandle | None:
     except OSError:
         handle.close()
         return None
-    return (handle, path)
+    return handle
 
 
 def _release_lock(lock: _LockHandle) -> None:
-    """Release the lock acquired by _try_acquire_lock.
-
-    Args:
-        lock: The handle/path tuple returned by _try_acquire_lock.
-    """
-    handle, _ = lock
+    """Release the lock acquired by _try_acquire_lock."""
     try:
         if sys.platform == "win32":  # pragma: no cover
-            msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+            msvcrt.locking(lock.fileno(), msvcrt.LK_UNLCK, 1)
         else:
-            fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+            fcntl.flock(lock.fileno(), fcntl.LOCK_UN)
     finally:
-        handle.close()
+        lock.close()

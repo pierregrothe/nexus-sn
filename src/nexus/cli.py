@@ -125,10 +125,13 @@ def update(
 ) -> None:
     """Manually check for updates (and install unless --check-only).
 
-    Plain ``nexus update`` triggers the same auto-update path that runs on
-    every command. With ``--check-only``, just report whether a newer version
-    is available without installing.
+    Plain ``nexus update`` runs the same auto-update path the CLI callback
+    triggers. With ``--check-only``, fetch and report without installing.
     """
+    if not check_only:
+        check_and_maybe_update()
+        return
+
     current = current_version()
     if current is None:
         console.print("nexus-sn is not installed as a distribution; cannot check.")
@@ -147,12 +150,7 @@ def update(
         console.print(f"Latest tag {info.tag_name!r} is not a valid version; skipping")
         return
 
-    if check_only:
-        console.print(f"Update available: {current} -> {info.tag_name}")
-        return
-
-    # Trigger the full auto-update path; it handles everything.
-    check_and_maybe_update()
+    console.print(f"Update available: {current} -> {info.tag_name}")
 
 
 @app.command()

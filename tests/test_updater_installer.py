@@ -12,22 +12,12 @@ import pytest
 
 from nexus.updater.errors import UpdaterError
 from nexus.updater.installer import download_wheel, pip_install_wheel
-
-
-def _transport_returning(response: httpx.Response) -> httpx.MockTransport:
-    return httpx.MockTransport(lambda req: response)
-
-
-def _transport_raising(exc: Exception) -> httpx.MockTransport:
-    def handler(req: httpx.Request) -> httpx.Response:
-        raise exc
-
-    return httpx.MockTransport(handler)
+from tests.conftest import transport_raising, transport_returning
 
 
 def test_download_wheel_writes_file_on_200(tmp_path: Path) -> None:
     response = httpx.Response(200, content=b"WHEEL_BYTES")
-    with httpx.Client(transport=_transport_returning(response)) as client:
+    with httpx.Client(transport=transport_returning(response)) as client:
         path = download_wheel(
             "https://example.com/nexus_sn-2026.06.0-py3-none-any.whl",
             dest_dir=tmp_path,
@@ -39,7 +29,7 @@ def test_download_wheel_writes_file_on_200(tmp_path: Path) -> None:
 
 def test_download_wheel_raises_on_non_200(tmp_path: Path) -> None:
     response = httpx.Response(404)
-    with httpx.Client(transport=_transport_returning(response)) as client:
+    with httpx.Client(transport=transport_returning(response)) as client:
         with pytest.raises(UpdaterError, match="404"):
             download_wheel(
                 "https://example.com/nexus_sn-2026.06.0-py3-none-any.whl",
@@ -49,7 +39,7 @@ def test_download_wheel_raises_on_non_200(tmp_path: Path) -> None:
 
 
 def test_download_wheel_raises_on_network_error(tmp_path: Path) -> None:
-    transport = _transport_raising(httpx.ConnectError("nope"))
+    transport = transport_raising(httpx.ConnectError("nope"))
     with httpx.Client(transport=transport) as client:
         with pytest.raises(UpdaterError, match="network"):
             download_wheel(
@@ -66,7 +56,7 @@ def test_download_wheel_constructs_default_client_when_none_injected(
     real_client = httpx.Client
 
     def fake_client_factory(timeout: float) -> httpx.Client:
-        return real_client(transport=_transport_returning(response), timeout=timeout)
+        return real_client(transport=transport_returning(response), timeout=timeout)
 
     monkeypatch.setattr(httpx, "Client", fake_client_factory)
     path = download_wheel(

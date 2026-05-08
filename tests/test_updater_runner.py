@@ -8,6 +8,7 @@ import fcntl
 import os
 import subprocess
 import sys
+import time
 from pathlib import Path
 from typing import TypedDict
 
@@ -43,6 +44,9 @@ def _patch_runner(
 
     monkeypatch.setattr(runner_module, "is_editable_install", lambda: editable)
     monkeypatch.setattr(runner_module, "current_version", lambda: current)
+    # Time-gate is exercised in dedicated tests; default behaviour bypasses it.
+    monkeypatch.setattr(runner_module, "_should_check_now", lambda: True)
+    monkeypatch.setattr(runner_module, "_record_check_attempt", lambda: None)
 
     def fake_build_client() -> FakeGitHubReleasesClient:
         return FakeGitHubReleasesClient(info=info)
@@ -252,7 +256,7 @@ def test_build_client_returns_real_github_releases_client() -> None:
 def test_lock_path_uses_nexus_paths_cache_dir(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """_lock_path resolves under NexusPaths.from_env().root / cache."""
+    """_lock_path resolves under NexusPaths.from_env().cache_dir."""
 
     def fake_from_env() -> NexusPaths:
         return NexusPaths(root=tmp_path)
@@ -261,3 +265,42 @@ def test_lock_path_uses_nexus_paths_cache_dir(
     lock = runner_module._lock_path()
     assert lock == tmp_path / "cache" / "update.lock"
     assert lock.parent.is_dir()
+
+
+def test_should_check_now_is_true_when_marker_missing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(runner_module, "_lock_path", lambda: tmp_path / "update.lock")
+    assert runner_module._should_check_now() is True
+
+
+def test_should_check_now_is_false_when_marker_recent(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(runner_module, "_lock_path", lambda: tmp_path / "update.lock")
+    runner_module._record_check_attempt()
+    assert runner_module._should_check_now() is False
+
+
+def test_should_check_now_is_true_when_marker_older_than_interval(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(runner_module, "_lock_path", lambda: tmp_path / "update.lock")
+    runner_module._record_check_attempt()
+    marker = runner_module._last_check_path()
+    aged = time.time() - runner_module._CHECK_INTERVAL_SECONDS - 60
+    os.utime(marker, (aged, aged))
+    assert runner_module._should_check_now() is True
+
+
+def test_runner_skips_when_last_check_is_recent(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The 24h gate prevents an HTTP call on every launch."""
+    info = ReleaseInfo(tag_name="2026.06.0", wheel_url="https://example.com/x.whl")
+    calls = _patch_runner(monkeypatch, editable=False, current="2026.05.1", info=info)
+    monkeypatch.setattr(runner_module, "_lock_path", lambda: tmp_path / "update.lock")
+    monkeypatch.setattr(runner_module, "_should_check_now", lambda: False)
+    check_and_maybe_update()
+    assert calls["install"] is False
+    assert calls["execv"] is None
