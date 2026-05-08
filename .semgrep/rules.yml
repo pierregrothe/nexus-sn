@@ -91,3 +91,53 @@ rules:
     metadata:
       adr: ADR-017
       category: governance
+
+  - id: external-keychain-must-use-wrapper
+    languages: [python]
+    severity: ERROR
+    message: |
+      Direct use of KeychainClient(service_prefix=...) is forbidden in src/nexus/.
+      For NEXUS-owned secrets, use the default KeychainClient(). For reading
+      other apps' keychain entries (e.g., Claude Code's), use
+      ExternalKeychainClient() from nexus.auth (ADR-019).
+    paths:
+      include: ["**/src/nexus/**"]
+    pattern-either:
+      - pattern: KeychainClient(service_prefix=$X)
+      - pattern: KeychainClient(service_prefix=$X, ...)
+    metadata:
+      adr: ADR-019
+      category: governance
+
+  - id: no-stub-see-docstring
+    languages: [python]
+    severity: ERROR
+    message: |
+      Stub docstrings like '"""See OtherClass.method."""' add no value.
+      Either copy the canonical docstring or write a one-line behavior
+      description (ADR-019).
+    paths:
+      include: ["**/src/nexus/**"]
+    pattern-regex: '"""See [A-Z][A-Za-z]+\.[a-z_]+\.\s*"""'
+    metadata:
+      adr: ADR-019
+      category: governance
+
+  - id: enum-shadowing-label-dict
+    languages: [python]
+    severity: WARNING
+    message: |
+      A module-level dict[<EnumType>, str] mapping enum members to strings
+      duplicates the enum's value field. Add a property to the enum
+      (e.g., def label(self) -> str: return self.value.capitalize()) or call
+      .value directly. Caught _TIER_LABEL in PR #6 (ADR-019).
+    paths:
+      include: ["**/src/nexus/**"]
+    pattern: |
+      $NAME: dict[$ENUM, str] = {
+          $ENUM.$MEMBER: ...,
+          ...
+      }
+    metadata:
+      adr: ADR-019
+      category: governance

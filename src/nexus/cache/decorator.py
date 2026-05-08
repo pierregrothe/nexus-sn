@@ -137,10 +137,13 @@ def cached[**P, R](
         qualname = f"{func.__module__}.{func.__qualname__}"
 
         if persist:
-            disk_backend = _get_or_create_disk_backend(namespace)
-
+            # Lazy-resolve: the wrapper looks up the backend on every call
+            # instead of capturing it at decoration time. Tests can
+            # monkeypatch _disk_cache_root and clear _DISK_BACKENDS between
+            # tests; the next call picks up the new path. The dict lookup
+            # adds ~50ns per call (negligible compared to disk I/O).
             def get_disk_backend(_first_arg: object) -> CacheBackend:
-                return disk_backend
+                return _get_or_create_disk_backend(namespace)
 
             return _wrap_with_backend(
                 func,

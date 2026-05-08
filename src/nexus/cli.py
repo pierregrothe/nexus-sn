@@ -15,7 +15,7 @@ from typing import Annotated
 import typer
 from rich.console import Console
 
-from nexus.auth.keychain import KeychainClient
+from nexus.auth.external_keychain import ExternalKeychainClient
 from nexus.cache import clear_cache
 from nexus.capabilities.claude_config import FilesystemClaudeCodeConfigReader
 from nexus.capabilities.feature_flags import claude_ai_name_for
@@ -61,7 +61,7 @@ def setup() -> None:
 
 def _detect_tier() -> TierDetection:
     """Run tier detection using a Claude-Code-aware keychain reader."""
-    reader = FilesystemClaudeCodeConfigReader(keychain=KeychainClient(service_prefix=""))
+    reader = FilesystemClaudeCodeConfigReader(keychain=ExternalKeychainClient())
     return TierDetector(reader=reader).detect()
 
 
