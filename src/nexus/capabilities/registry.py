@@ -6,11 +6,27 @@
 """CapabilitySet: session-scoped capability snapshot built from probe results."""
 
 import logging
+from collections.abc import Iterable
 from dataclasses import dataclass
 
 from nexus.capabilities.feature_flags import FEATURE_MAP, FeatureFlag, MCPServer
 from nexus.capabilities.probe import ProbeResult
 from nexus.capabilities.tier import Tier, TierDetection
+
+
+def _features_for(servers: Iterable[MCPServer]) -> frozenset[FeatureFlag]:
+    """Return the union of FEATURE_MAP features for the given servers.
+
+    Servers not present in FEATURE_MAP contribute nothing (logged at DEBUG
+    by the caller via FEATURE_MAP.get()).
+    """
+    features: set[FeatureFlag] = set()
+    for server in servers:
+        spec = FEATURE_MAP.get(server)
+        if spec is not None:
+            features.update(spec.features)
+    return frozenset(features)
+
 
 log = logging.getLogger(__name__)
 
@@ -53,17 +69,14 @@ class CapabilitySet:
         """
         available: set[MCPServer] = set()
         unavailable: set[MCPServer] = set()
-        features: set[FeatureFlag] = set()
 
         for result in results:
             if result.available:
                 available.add(result.server)
-                spec = FEATURE_MAP.get(result.server)
-                if spec:
-                    features.update(spec.features)
             else:
                 unavailable.add(result.server)
 
+        features = _features_for(available)
         log.info(
             "capability set built: %d servers available, %d features enabled",
             len(available),
@@ -72,7 +85,7 @@ class CapabilitySet:
         return cls(
             available_servers=frozenset(available),
             unavailable_servers=frozenset(unavailable),
-            enabled_features=frozenset(features),
+            enabled_features=features,
             tier=Tier.PRO,
             needs_reauth=frozenset(),
         )
@@ -91,13 +104,8 @@ class CapabilitySet:
         Returns:
             CapabilitySet with tier and needs_reauth populated from the detection.
         """
-        all_servers = frozenset(MCPServer)
-        unavailable = all_servers - detection.detected_servers
-        features: set[FeatureFlag] = set()
-        for server in detection.detected_servers:
-            spec = FEATURE_MAP.get(server)
-            if spec:
-                features.update(spec.features)
+        unavailable = frozenset(MCPServer) - detection.detected_servers
+        features = _features_for(detection.detected_servers)
         log.info(
             "capability set from detection: tier=%s; %d servers; %d features",
             detection.tier,
@@ -107,7 +115,7 @@ class CapabilitySet:
         return cls(
             available_servers=detection.detected_servers,
             unavailable_servers=unavailable,
-            enabled_features=frozenset(features),
+            enabled_features=features,
             tier=detection.tier,
             needs_reauth=detection.needs_reauth_servers,
         )

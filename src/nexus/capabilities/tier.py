@@ -2,7 +2,7 @@
 # Tier enum + TierDetector. Detects user tier from Claude Code state.
 # Author: Pierre Grothe
 # Date: 2026-05-08
-"""Tier detection (ADR-018).
+"""Tier detection.
 
 Anonymous = no Claude OAuth (API-key-only or unauthenticated).
 Pro       = authenticated Claude account, no Enterprise MCP servers.
@@ -89,7 +89,7 @@ class TierDetector:
         )
 
 
-_KNOWN_SUBSCRIPTIONS = ("enterprise", "pro", "max")
+_KNOWN_SUBSCRIPTIONS = frozenset({"enterprise", "pro", "max"})
 
 
 def _resolve_tier(subscription_type: str | None, detected: frozenset[MCPServer]) -> Tier:
@@ -105,19 +105,17 @@ def _resolve_tier(subscription_type: str | None, detected: frozenset[MCPServer])
     Returns:
         The resolved Tier.
     """
-    if subscription_type == "enterprise":
-        initial = Tier.ENTERPRISE
-    elif subscription_type is None and not detected:
-        initial = Tier.ANONYMOUS
-    else:
-        if subscription_type not in (None, *_KNOWN_SUBSCRIPTIONS):
-            log.debug("unknown subscription_type=%r; treating as Pro", subscription_type)
-        initial = Tier.PRO
-
-    if detected and initial is not Tier.ENTERPRISE:
-        log.debug("org MCP servers present; upgrading tier to Enterprise")
+    # Org MCP presence is authoritative -- if claude.ai pushed SN servers,
+    # the user is Enterprise regardless of the OAuth claim.
+    if detected:
         return Tier.ENTERPRISE
-    return initial
+    if subscription_type == "enterprise":
+        return Tier.ENTERPRISE
+    if subscription_type is None:
+        return Tier.ANONYMOUS
+    if subscription_type not in _KNOWN_SUBSCRIPTIONS:
+        log.debug("unknown subscription_type=%r; treating as Pro", subscription_type)
+    return Tier.PRO
 
 
 def _map_servers(claude_ai_names: tuple[str, ...]) -> frozenset[MCPServer]:

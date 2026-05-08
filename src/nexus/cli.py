@@ -18,10 +18,10 @@ from rich.console import Console
 from nexus.auth.keychain import KeychainClient
 from nexus.cache import clear_cache
 from nexus.capabilities.claude_config import FilesystemClaudeCodeConfigReader
-from nexus.capabilities.feature_flags import MCPServer, claude_ai_name_for
+from nexus.capabilities.feature_flags import claude_ai_name_for
 from nexus.capabilities.registry import CapabilitySet
 from nexus.capabilities.status_reporter import StatusReporter
-from nexus.capabilities.tier import TierDetector
+from nexus.capabilities.tier import TierDetection, TierDetector
 from nexus.ui.app import start_ui
 
 log = logging.getLogger(__name__)
@@ -59,6 +59,12 @@ def setup() -> None:
     console.print("Configure manually by editing ~/.nexus/config.yaml")
 
 
+def _detect_tier() -> TierDetection:
+    """Run tier detection using a Claude-Code-aware keychain reader."""
+    reader = FilesystemClaudeCodeConfigReader(keychain=KeychainClient(service_prefix=""))
+    return TierDetector(reader=reader).detect()
+
+
 @app.command()
 def status(
     refresh: Annotated[
@@ -69,8 +75,7 @@ def status(
     if refresh:
         clear_cache(TierDetector.detect)
 
-    reader = FilesystemClaudeCodeConfigReader(keychain=KeychainClient())
-    detection = TierDetector(reader=reader).detect()
+    detection = _detect_tier()
     capabilities = CapabilitySet.from_detection(detection)
     StatusReporter(console=console).print(detection, capabilities)
 
@@ -86,37 +91,25 @@ def reauth(
     ] = None,
 ) -> None:
     """Print the command to re-authenticate one or more MCP servers."""
-    reader = FilesystemClaudeCodeConfigReader(keychain=KeychainClient())
-    detection = TierDetector(reader=reader).detect()
+    detection = _detect_tier()
 
     if server is not None:
-        target = _resolve_reauth_target(server, detection.needs_reauth_servers)
+        target = next((srv for srv in detection.needs_reauth_servers if srv.value == server), None)
         if target is None:
             err_console.print(
                 f"[red]Server {server!r} is not currently flagged for re-auth.[/red] "
                 "Run `nexus status --refresh` if you think this is wrong."
             )
             raise typer.Exit(code=1)
-        cmd = f'claude /mcp "{claude_ai_name_for(target)}"'
-        console.print(cmd)
+        console.print(f'claude /mcp "{claude_ai_name_for(target)}"')
         return
 
     if not detection.needs_reauth_servers:
         console.print("All MCP servers authenticated. Nothing to do.")
         return
 
-    sorted_servers = sorted(detection.needs_reauth_servers, key=lambda s: s.value)
-    for srv in sorted_servers:
-        cmd = f'claude /mcp "{claude_ai_name_for(srv)}"'
-        console.print(f"  {srv.value}: {cmd}")
-
-
-def _resolve_reauth_target(name: str, candidates: frozenset[MCPServer]) -> MCPServer | None:
-    """Match a user-supplied name (lowercase enum value) to a candidate server."""
-    for srv in candidates:
-        if srv.value == name:
-            return srv
-    return None
+    for srv in sorted(detection.needs_reauth_servers, key=lambda s: s.value):
+        console.print(f'  {srv.value}: claude /mcp "{claude_ai_name_for(srv)}"')
 
 
 @app.command()

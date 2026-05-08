@@ -14,15 +14,9 @@ from rich.table import Table
 
 from nexus.capabilities.feature_flags import FEATURE_MAP, MCPServer
 from nexus.capabilities.registry import CapabilitySet
-from nexus.capabilities.tier import Tier, TierDetection
+from nexus.capabilities.tier import TierDetection
 
 __all__ = ["StatusReporter"]
-
-_TIER_LABEL: dict[Tier, str] = {
-    Tier.ANONYMOUS: "Anonymous",
-    Tier.PRO: "Pro",
-    Tier.ENTERPRISE: "Enterprise",
-}
 
 
 class StatusReporter:
@@ -46,10 +40,12 @@ class StatusReporter:
 
     def _panel(self, detection: TierDetection, capabilities: CapabilitySet) -> Panel:
         """Build the top-level NEXUS Status panel."""
-        tier_label = _TIER_LABEL[detection.tier]
         servers_total = len(MCPServer)
         servers_ready = len(capabilities.available_servers - detection.needs_reauth_servers)
-        body = f"Tier: {tier_label}\n{servers_ready}/{servers_total} MCP servers ready"
+        body = (
+            f"Tier: {detection.tier.value.capitalize()}\n"
+            f"{servers_ready}/{servers_total} MCP servers ready"
+        )
         return Panel(body, title="NEXUS Status", title_align="left")
 
     def _server_table(self, detection: TierDetection) -> Table:
@@ -60,7 +56,9 @@ class StatusReporter:
         table.add_column("Features")
 
         for server in sorted(detection.detected_servers, key=lambda s: s.value):
-            spec = FEATURE_MAP[server]
+            spec = FEATURE_MAP.get(server)
+            if spec is None:
+                continue
             status = "needs re-auth" if server in detection.needs_reauth_servers else "ready"
             features = ", ".join(f.value for f in spec.features) or "-"
             table.add_row(spec.name, status, features)
