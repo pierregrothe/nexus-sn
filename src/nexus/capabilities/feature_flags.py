@@ -13,7 +13,7 @@ is unavailable are hidden from the CLI and silently skipped by agents.
 from dataclasses import dataclass
 from enum import StrEnum
 
-__all__ = ["FEATURE_MAP", "FeatureFlag", "MCPServer", "ServerSpec"]
+__all__ = ["FEATURE_MAP", "FeatureFlag", "MCPServer", "ServerSpec", "claude_ai_name_for"]
 
 
 class FeatureFlag(StrEnum):
@@ -43,6 +43,7 @@ class MCPServer(StrEnum):
     DATA_ANALYTICS = "data_analytics"
     GTM = "gtm"
     M365 = "m365"
+    MARKETING = "marketing"
 
 
 @dataclass(slots=True, frozen=True)
@@ -95,4 +96,41 @@ FEATURE_MAP: dict[MCPServer, ServerSpec] = {
         description="Email, calendar, and SharePoint content",
         features=(FeatureFlag.EMAIL_CALENDAR, FeatureFlag.SHAREPOINT_CONTENT),
     ),
+    MCPServer.MARKETING: ServerSpec(
+        name="Marketing MCP",
+        description="Marketing operations (Marketo, campaign analytics).",
+        features=(),
+    ),
 }
+
+_CLAUDE_AI_NAME_TO_SERVER: dict[str, MCPServer] = {
+    "claude.ai ValueMelody": MCPServer.VALUE_MELODY,
+    "claude.ai Sales Success Center Content Retriever": MCPServer.SSC,
+    "claude.ai BT1_MCP": MCPServer.BT1,
+    "claude.ai Data_Analytics_Connection": MCPServer.DATA_ANALYTICS,
+    "claude.ai GTM MCP": MCPServer.GTM,
+    "claude.ai Microsoft 365": MCPServer.M365,
+    "claude.ai Marketing MCP": MCPServer.MARKETING,
+}
+
+_SERVER_TO_CLAUDE_AI_NAME: dict[MCPServer, str] = {
+    server: name for name, server in _CLAUDE_AI_NAME_TO_SERVER.items()
+}
+
+
+def claude_ai_name_for(server: MCPServer) -> str:
+    """Return the claude.ai-side string for a given MCPServer enum value.
+
+    Used by `nexus reauth` to construct the exact `claude /mcp <NAME>` command.
+
+    Args:
+        server: The MCPServer enum member.
+
+    Returns:
+        The "claude.ai <Name>" string used by Claude Code.
+
+    Raises:
+        KeyError: If the server has no mapping (a new MCPServer was added
+            without updating `_CLAUDE_AI_NAME_TO_SERVER`).
+    """
+    return _SERVER_TO_CLAUDE_AI_NAME[server]

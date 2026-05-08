@@ -5,5 +5,8 @@
   "pythonPlatform": "Darwin",
   "typeCheckingMode": "strict",
   "extraPaths": ["src"],
-  "stubPath": "src/stubs"
+  "stubPath": "src/stubs",
+  "executionEnvironments": [
+    {"root": "tests", "reportPrivateUsage": "none"}
+  ]
 }
