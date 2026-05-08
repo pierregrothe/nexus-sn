@@ -4,11 +4,12 @@
 # Date: 2026-05-08
 """ClaudeCodeConfig: snapshot of Claude Code state relevant to NEXUS tier detection.
 
-Reads three sources:
+Reads four sources:
   1. OAuth payload (macOS Keychain -> ~/.claude/.credentials.json fallback)
      for the subscription_type claim.
-  2. ~/.claude.json claudeAiMcpEverConnected list for org-pushed MCP servers.
-  3. ~/.claude/mcp-needs-auth-cache.json for servers requiring re-authentication.
+  2. ~/.claude.json oauthAccount for email, org name, and subscription fallback.
+  3. ~/.claude.json claudeAiMcpEverConnected list for org-pushed MCP servers.
+  4. ~/.claude/mcp-needs-auth-cache.json for servers requiring re-authentication.
 """
 
 import getpass
@@ -45,6 +46,9 @@ class ClaudeCodeConfig:
     subscription_type: str | None
     org_mcp_servers: tuple[str, ...]
     needs_reauth: tuple[str, ...]
+    email: str | None = None
+    display_name: str | None = None
+    organization_name: str | None = None
 
 
 class ClaudeCodeConfigReader(Protocol):
@@ -88,10 +92,14 @@ class FilesystemClaudeCodeConfigReader:
 
     def read(self) -> ClaudeCodeConfig:
         """Build a ClaudeCodeConfig from on-disk and keychain state."""
+        account = self._read_oauth_account()
         return ClaudeCodeConfig(
-            subscription_type=self._read_subscription_type(),
+            subscription_type=self._read_subscription_type() or _subscription_from_account(account),
             org_mcp_servers=self._read_org_mcp_servers(),
             needs_reauth=self._read_needs_reauth(),
+            email=_str_field(account, "emailAddress"),
+            display_name=_str_field(account, "displayName"),
+            organization_name=_str_field(account, "organizationName"),
         )
 
     def _read_subscription_type(self) -> str | None:
@@ -100,6 +108,24 @@ class FilesystemClaudeCodeConfigReader:
         if not payload:
             return None
         return _extract_subscription_type(payload)
+
+    def _read_oauth_account(self) -> dict[str, object] | None:
+        """Read the oauthAccount object from ~/.claude.json.
+
+        Returns None if the file is missing, malformed, or the key is absent.
+        """
+        claude_json = self._home / ".claude.json"
+        try:
+            raw = claude_json.read_text(encoding="utf-8")
+        except OSError:
+            return None
+        data = _parse_json_object(raw, source="~/.claude.json")
+        if data is None:
+            return None
+        account = data.get("oauthAccount")
+        if not isinstance(account, dict):
+            return None
+        return cast("dict[str, object]", account)
 
     def _read_keychain_payload(self) -> str | None:
         """Read the raw OAuth payload string from the OS keychain.
@@ -188,3 +214,34 @@ def _extract_subscription_type(payload: str) -> str | None:
     inner_dict = cast("dict[str, object]", inner)
     sub = inner_dict.get("subscriptionType")
     return sub if isinstance(sub, str) else None
+
+
+def _subscription_from_account(account: dict[str, object] | None) -> str | None:
+    """Derive a subscription_type string from oauthAccount.organizationType.
+
+    Maps "claude_enterprise" -> "enterprise". Returns None for unknown values.
+    """
+    if account is None:
+        return None
+    org_type = account.get("organizationType")
+    if not isinstance(org_type, str):
+        return None
+    if org_type == "claude_enterprise":
+        return "enterprise"
+    return org_type if org_type in ("pro", "max") else None
+
+
+def _str_field(account: dict[str, object] | None, key: str) -> str | None:
+    """Return a string value from an account dict, or None if absent or non-string.
+
+    Args:
+        account: Parsed oauthAccount dict, or None.
+        key: Key to look up in the dict.
+
+    Returns:
+        The string value, or None.
+    """
+    if account is None:
+        return None
+    val = account.get(key)
+    return val if isinstance(val, str) else None

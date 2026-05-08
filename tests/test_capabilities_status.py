@@ -66,10 +66,11 @@ def test_status_reporter_shows_needs_reauth_footer() -> None:
     assert "nexus reauth" in out
 
 
-def test_status_reporter_lists_every_server_even_when_none_configured() -> None:
-    """All 7 known servers always appear, with status indicating configuration."""
+def test_status_reporter_shows_no_integrations_message_when_none_detected() -> None:
+    """Empty detected set produces a placeholder, no server names leaked."""
     out = _render(_detection(tier=Tier.PRO, detected=frozenset(), reauth=frozenset()))
     assert "PRO" in out
+    assert "No enterprise integrations detected." in out
     for label in (
         "Value Melody",
         "Sales Success Center",
@@ -79,11 +80,11 @@ def test_status_reporter_lists_every_server_even_when_none_configured() -> None:
         "Microsoft 365",
         "Marketing MCP",
     ):
-        assert label in out
-    assert "not configured" in out
+        assert label not in out
 
 
-def test_status_reporter_marks_unconfigured_separately_from_ready_and_reauth() -> None:
+def test_status_reporter_shows_only_detected_servers() -> None:
+    """Only detected servers appear; undetected servers are not listed."""
     out = _render(
         _detection(
             tier=Tier.ENTERPRISE,
@@ -93,13 +94,15 @@ def test_status_reporter_marks_unconfigured_separately_from_ready_and_reauth() -
     )
     assert "READY" in out
     assert "NEEDS REAUTH" in out
-    assert "not configured" in out
+    assert "Value Melody" in out
+    assert "Sales Success Center" in out
+    assert "BT1" not in out
 
 
 def test_status_reporter_renders_runtime_panels() -> None:
-    """System / Account / Diagnostics / Auto-update panels appear."""
+    """Identity / System / Integrations / Diagnostics / Auto-update panels appear."""
     out = _render(_detection(tier=Tier.PRO, detected=frozenset(), reauth=frozenset()))
-    for header in ("System", "Account", "Diagnostics", "Auto-update", "MCP Servers"):
+    for header in ("Identity", "System", "Integrations", "Diagnostics", "Auto-update"):
         assert header in out
 
 

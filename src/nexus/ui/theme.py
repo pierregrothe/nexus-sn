@@ -10,10 +10,20 @@ theme on every invocation without forcing the optional [ui] extra.
 
 from rich.theme import Theme
 
-__all__ = ["NEXUS_BLUE", "NEXUS_CYAN", "NEXUS_THEME"]
+__all__ = ["NEXUS_BLUE", "NEXUS_CYAN", "NEXUS_THEME", "SN_BLUE", "SN_LIME", "SN_TEXT_START"]
 
 NEXUS_BLUE: tuple[int, int, int] = (0x1F, 0x6F, 0xEB)
 NEXUS_CYAN: tuple[int, int, int] = (0x39, 0xD3, 0xC3)
+
+# ServiceNow brand colors -- gradient endpoints for panel borders and text.
+SN_BLUE: tuple[int, int, int] = (0x00, 0x68, 0xB1)
+SN_LIME: tuple[int, int, int] = (0x7C, 0xC1, 0x43)
+# 40% along SN_BLUE -> SN_LIME: teal start point for value-text gradients.
+SN_TEXT_START: tuple[int, int, int] = (
+    int(SN_BLUE[0] + (SN_LIME[0] - SN_BLUE[0]) * 0.40),
+    int(SN_BLUE[1] + (SN_LIME[1] - SN_BLUE[1]) * 0.40),
+    int(SN_BLUE[2] + (SN_LIME[2] - SN_BLUE[2]) * 0.40),
+)
 
 
 NEXUS_THEME = Theme(

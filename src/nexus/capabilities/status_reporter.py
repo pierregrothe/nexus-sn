@@ -2,35 +2,61 @@
 # Rich-based status panels for `nexus status`.
 # Author: Pierre Grothe
 # Date: 2026-05-08
-"""StatusReporter: render the multi-panel `nexus status` dashboard.
+"""StatusReporter: render the condensed `nexus status` dashboard.
 
-Panels: top summary, system + account columns, MCP server table, runtime
-diagnostics + auto-update columns. All borders use the NEXUS theme so the
-dashboard reads as a coherent visual identity.
+Layout (3 rows, all gradient-bordered panels):
+  Row 1: Identity | System          (two equal columns, height-equalized)
+  Row 2: Integrations               (full width, only detected MCP servers)
+  Row 3: Diagnostics | Auto-update  (two equal columns, height-equalized)
+
+Value text uses a per-character gradient from SN_TEXT_START (teal) to SN_LIME,
+so the content palette matches the border gradient.
 """
 
-from rich.columns import Columns
-from rich.console import Console
-from rich.panel import Panel
+from rich.console import Console, RenderableType
 from rich.table import Table
 from rich.text import Text
 
-from nexus.capabilities.feature_flags import FEATURE_MAP, MCPServer
+from nexus.capabilities.feature_flags import FEATURE_MAP
 from nexus.capabilities.registry import CapabilitySet
 from nexus.capabilities.runtime_info import RuntimeInfo, collect_runtime_info
-from nexus.capabilities.tier import Tier, TierDetection
+from nexus.capabilities.tier import TierDetection
+from nexus.ui.gradient_panel import GradientPanel, gradient_text
+from nexus.ui.theme import SN_BLUE, SN_LIME, SN_TEXT_START
 
 __all__ = ["StatusReporter"]
 
-_PRIMARY = "primary"
-_ACCENT = "accent"
 _KB = 1024
 _MB = _KB * 1024
 _GB = _MB * 1024
 
 
+def _val(text: str) -> Text:
+    """Color a value string with a gradient from SN_TEXT_START to SN_LIME."""
+    return gradient_text(text, start=SN_TEXT_START, end=SN_LIME)
+
+
+def _panel(renderable: RenderableType, *, title: str, min_height: int = 0) -> GradientPanel:
+    """Construct a GradientPanel with the project's ServiceNow gradient."""
+    return GradientPanel(renderable, title=title, start=SN_BLUE, end=SN_LIME, min_height=min_height)
+
+
+def _two_col(left: RenderableType, right: RenderableType) -> Table:
+    """Lay out two renderables side by side in equal columns."""
+    grid = Table.grid(expand=True)
+    grid.add_column(ratio=1)
+    grid.add_column(ratio=1)
+    grid.add_row(left, right)
+    return grid
+
+
+def _line_count(text: Text) -> int:
+    """Count rendered lines in a Text object (newlines + 1)."""
+    return text.plain.count("\n") + 1
+
+
 class StatusReporter:
-    """Render the verbose `nexus status` dashboard.
+    """Render the condensed `nexus status` dashboard.
 
     Args:
         console: Rich Console used for output. Tests pass a recording console.
@@ -41,109 +67,111 @@ class StatusReporter:
         self._console = console
 
     def print(self, detection: TierDetection, capabilities: CapabilitySet) -> None:
-        """Print summary + system + account + servers + diagnostics + updater."""
+        """Print identity + system + integrations + diagnostics + updater."""
+        del capabilities  # superseded by detection.detected_servers in this view
         runtime = collect_runtime_info()
-        self._console.print(self._summary_panel(detection, capabilities, runtime))
+
+        identity_body = self._identity_body(detection, runtime)
+        system_body = self._system_body(runtime)
+        h1 = max(_line_count(identity_body), _line_count(system_body))
         self._console.print(
-            Columns(
-                [self._system_panel(runtime), self._account_panel(detection)],
-                expand=True,
-                equal=True,
+            _two_col(
+                _panel(identity_body, title="Identity", min_height=h1),
+                _panel(system_body, title="System", min_height=h1),
             )
         )
-        self._console.print(self._server_panel(detection))
+
+        self._console.print(self._integrations_panel(detection))
+
+        diag_body = self._diagnostics_body(runtime)
+        update_body = self._update_body(runtime)
+        h2 = max(_line_count(diag_body), _line_count(update_body))
         self._console.print(
-            Columns(
-                [self._diagnostics_panel(runtime), self._update_panel(runtime)],
-                expand=True,
-                equal=True,
+            _two_col(
+                _panel(diag_body, title="Diagnostics", min_height=h2),
+                _panel(update_body, title="Auto-update", min_height=h2),
             )
         )
+
         if detection.needs_reauth_servers:
             self._console.print(self._reauth_footer(detection))
 
-    def _summary_panel(
-        self,
-        detection: TierDetection,
-        capabilities: CapabilitySet,
-        runtime: RuntimeInfo,
-    ) -> Panel:
-        """Top-level snapshot: tier + ready/total counts."""
-        servers_total = len(MCPServer)
-        servers_ready = len(capabilities.available_servers - detection.needs_reauth_servers)
+    def _identity_body(self, detection: TierDetection, runtime: RuntimeInfo) -> Text:
+        """User email, org, tier, version, and server readiness."""
+        config = detection.config
+        reauth_detected = detection.detected_servers & detection.needs_reauth_servers
+        total = len(detection.detected_servers)
+        ready = total - len(reauth_detected)
         body = Text()
+        body.append("User:    ", style="muted")
+        body.append_text(
+            _val(config.email) if config.email else Text("not authenticated", style="muted")
+        )
+        body.append("\n")
+        body.append("Org:     ", style="muted")
+        body.append_text(
+            _val(config.organization_name) if config.organization_name else Text("-", style="muted")
+        )
+        body.append("\n")
         body.append("Tier:    ", style="muted")
-        body.append(f"{detection.tier.value.upper()}\n", style=_PRIMARY)
-        body.append("Servers: ", style="muted")
-        body.append(f"{servers_ready}/{servers_total} ready", style=_ACCENT)
-        if detection.needs_reauth_servers:
-            body.append(f"  ({len(detection.needs_reauth_servers)} need reauth)", style="warning")
+        body.append_text(_val(detection.tier.value.upper()))
         body.append("\n")
         body.append("Version: ", style="muted")
-        body.append(runtime.nexus_version or "unknown", style=_ACCENT)
-        return Panel(body, title="NEXUS", title_align="left", border_style=_PRIMARY)
+        body.append_text(_val(runtime.nexus_version or "unknown"))
+        if total:
+            body.append("\n")
+            body.append("Servers: ", style="muted")
+            body.append_text(_val(f"{ready}/{total} ready"))
+            if reauth_detected:
+                body.append(
+                    f"  ({len(reauth_detected)} need reauth)",
+                    style="warning",
+                )
+        return body
 
-    def _system_panel(self, runtime: RuntimeInfo) -> Panel:
+    def _system_body(self, runtime: RuntimeInfo) -> Text:
         """Python + platform + install mode."""
         body = Text()
         body.append("Python:   ", style="muted")
-        body.append(f"{runtime.python_version}\n", style=_ACCENT)
+        body.append_text(_val(runtime.python_version))
+        body.append("\n")
         body.append("Platform: ", style="muted")
-        body.append(f"{runtime.platform_label}\n", style=_ACCENT)
+        body.append_text(_val(runtime.platform_label))
+        body.append("\n")
         body.append("Install:  ", style="muted")
-        body.append(runtime.install_mode, style=_ACCENT)
-        return Panel(body, title="System", title_align="left", border_style=_ACCENT)
+        body.append_text(_val(runtime.install_mode))
+        return body
 
-    def _account_panel(self, detection: TierDetection) -> Panel:
-        """Subscription + OAuth + org MCP count."""
-        config = detection.config
-        subscription = (config.subscription_type or "anonymous").upper()
-        oauth_state = "yes" if config.subscription_type else "no"
-        body = Text()
-        body.append("Tier:         ", style="muted")
-        body.append(f"{detection.tier.value.upper()}\n", style=_PRIMARY)
-        body.append("Subscription: ", style="muted")
-        body.append(f"{subscription}\n", style=_PRIMARY)
-        body.append("OAuth:        ", style="muted")
-        body.append(f"{oauth_state}\n", style="ok" if config.subscription_type else "muted")
-        body.append("Org MCPs:     ", style="muted")
-        body.append(f"{len(config.org_mcp_servers)} configured", style=_PRIMARY)
-        if detection.tier == Tier.PRO:
-            body.append("\n")
-            body.append("Hint: ", style="muted")
-            body.append(
-                "ENTERPRISE features unlock when org MCP servers are provisioned",
-                style="info",
+    def _integrations_panel(self, detection: TierDetection) -> GradientPanel:
+        """Detected enterprise MCP integrations only."""
+        if not detection.detected_servers:
+            return _panel(
+                Text("No enterprise integrations detected.", style="muted"),
+                title="Integrations",
             )
-        return Panel(body, title="Account", title_align="left", border_style=_PRIMARY)
-
-    def _server_panel(self, detection: TierDetection) -> Panel:
-        """Full MCP server table -- ALL 7, including not-configured."""
         table = Table(show_header=True, expand=True, box=None)
         table.add_column("Server", style="bold")
         table.add_column("Status")
-        table.add_column("Features", overflow="fold")
-
-        for server in sorted(MCPServer, key=lambda s: s.value):
+        for server in sorted(detection.detected_servers, key=lambda s: s.value):
             spec = FEATURE_MAP.get(server)
-            if spec is None:  # pragma: no cover -- FEATURE_MAP covers every MCPServer value
-                continue
-            status, status_style = _server_status(server, detection)
-            features = ", ".join(f.value for f in spec.features) or "-"
-            table.add_row(spec.name, Text(status, style=status_style), features)
+            name = spec.name if spec else server.value
+            if server in detection.needs_reauth_servers:
+                table.add_row(name, Text("NEEDS REAUTH", style="warning"))
+            else:
+                table.add_row(name, Text("READY", style="ok"))
+        return _panel(table, title="Integrations")
 
-        return Panel(table, title="MCP Servers", title_align="left", border_style=_ACCENT)
-
-    def _diagnostics_panel(self, runtime: RuntimeInfo) -> Panel:
+    def _diagnostics_body(self, runtime: RuntimeInfo) -> Text:
         """Filesystem footprint."""
         body = Text()
         body.append("Config root: ", style="muted")
-        body.append(f"{runtime.config_root}\n", style=_ACCENT)
+        body.append_text(_val(str(runtime.config_root)))
+        body.append("\n")
         body.append("Cache size:  ", style="muted")
-        body.append(_humanize_bytes(runtime.cache_size_bytes), style=_ACCENT)
-        return Panel(body, title="Diagnostics", title_align="left", border_style=_ACCENT)
+        body.append_text(_val(_humanize_bytes(runtime.cache_size_bytes)))
+        return body
 
-    def _update_panel(self, runtime: RuntimeInfo) -> Panel:
+    def _update_body(self, runtime: RuntimeInfo) -> Text:
         """Auto-updater state."""
         body = Text()
         body.append("Enabled:    ", style="muted")
@@ -153,12 +181,12 @@ class StatusReporter:
         )
         body.append("\n")
         body.append("Last check: ", style="muted")
-        body.append(_humanize_age(runtime.last_update_check_ago_seconds), style=_ACCENT)
+        body.append_text(_val(_humanize_age(runtime.last_update_check_ago_seconds)))
         if runtime.install_mode == "editable":
             body.append("\n")
             body.append("Note: ", style="muted")
-            body.append("editable install -- auto-updater always skips", style="info")
-        return Panel(body, title="Auto-update", title_align="left", border_style=_PRIMARY)
+            body.append("editable install: auto-update disabled", style="info")
+        return body
 
     def _reauth_footer(self, detection: TierDetection) -> Text:
         """Build the re-auth instruction line."""
@@ -173,16 +201,8 @@ class StatusReporter:
         return text
 
 
-def _server_status(server: MCPServer, detection: TierDetection) -> tuple[str, str]:
-    """Return (label, theme-style) for a server."""
-    if server in detection.needs_reauth_servers:
-        return ("NEEDS REAUTH", "warning")
-    if server in detection.detected_servers:
-        return ("READY", "ok")
-    return ("not configured", "muted")
-
-
 def _humanize_bytes(n: int) -> str:
+    """Format byte count as a human-readable string."""
     if n < _KB:
         return f"{n} B"
     if n < _MB:
@@ -193,6 +213,7 @@ def _humanize_bytes(n: int) -> str:
 
 
 def _humanize_age(seconds: float | None) -> str:
+    """Format elapsed seconds as a human-readable age string."""
     if seconds is None:
         return "never"
     if seconds < 60:

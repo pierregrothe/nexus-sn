@@ -15,8 +15,55 @@ from nexus.capabilities.claude_config import (
     ClaudeCodeConfig,
     ClaudeCodeConfigReader,
     FilesystemClaudeCodeConfigReader,
+    _str_field,
+    _subscription_from_account,
 )
 from tests.fakes.fake_keychain import FakeKeychainClient
+
+# ---------------------------------------------------------------------------
+# _subscription_from_account unit tests
+# ---------------------------------------------------------------------------
+
+
+def test_subscription_from_account_with_none_returns_none() -> None:
+    assert _subscription_from_account(None) is None
+
+
+def test_subscription_from_account_maps_claude_enterprise_to_enterprise() -> None:
+    assert _subscription_from_account({"organizationType": "claude_enterprise"}) == "enterprise"
+
+
+def test_subscription_from_account_passes_through_pro() -> None:
+    assert _subscription_from_account({"organizationType": "pro"}) == "pro"
+
+
+def test_subscription_from_account_returns_none_for_unknown_type() -> None:
+    assert _subscription_from_account({"organizationType": "free_tier"}) is None
+
+
+def test_subscription_from_account_returns_none_when_key_missing() -> None:
+    assert _subscription_from_account({}) is None
+
+
+# ---------------------------------------------------------------------------
+# _str_field unit tests
+# ---------------------------------------------------------------------------
+
+
+def test_str_field_returns_string_value() -> None:
+    assert _str_field({"email": "a@b.com"}, "email") == "a@b.com"
+
+
+def test_str_field_returns_none_for_none_account() -> None:
+    assert _str_field(None, "email") is None
+
+
+def test_str_field_returns_none_when_key_missing() -> None:
+    assert _str_field({}, "email") is None
+
+
+def test_str_field_returns_none_for_non_string_value() -> None:
+    assert _str_field({"count": 5}, "count") is None
 
 
 def test_claude_code_config_default_construction() -> None:
@@ -140,3 +187,82 @@ def test_filesystem_reader_reads_needs_reauth_from_cache_file(tmp_path: Path) ->
     )
     cfg = reader.read()
     assert set(cfg.needs_reauth) == {"claude.ai Marketing MCP", "claude.ai Microsoft 365"}
+
+
+def test_filesystem_reader_reads_email_and_org_from_oauth_account(tmp_path: Path) -> None:
+    (tmp_path / ".claude.json").write_text(
+        json.dumps(
+            {
+                "oauthAccount": {
+                    "emailAddress": "alice@example.com",
+                    "displayName": "Alice",
+                    "organizationName": "Example Corp",
+                    "organizationType": "claude_enterprise",
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    reader = FilesystemClaudeCodeConfigReader(
+        keychain=FakeKeychainClient(), home=tmp_path, os_user="alice"
+    )
+    cfg = reader.read()
+    assert cfg.email == "alice@example.com"
+    assert cfg.display_name == "Alice"
+    assert cfg.organization_name == "Example Corp"
+    assert cfg.subscription_type == "enterprise"
+
+
+def test_filesystem_reader_subscription_falls_back_to_oauth_account(tmp_path: Path) -> None:
+    (tmp_path / ".claude.json").write_text(
+        json.dumps({"oauthAccount": {"organizationType": "claude_enterprise"}}),
+        encoding="utf-8",
+    )
+    reader = FilesystemClaudeCodeConfigReader(
+        keychain=FakeKeychainClient(), home=tmp_path, os_user="alice"
+    )
+    cfg = reader.read()
+    assert cfg.subscription_type == "enterprise"
+
+
+def test_filesystem_reader_ignores_non_list_mcp_servers(tmp_path: Path) -> None:
+    (tmp_path / ".claude.json").write_text(
+        json.dumps({"claudeAiMcpEverConnected": "not-a-list"}),
+        encoding="utf-8",
+    )
+    reader = FilesystemClaudeCodeConfigReader(
+        keychain=FakeKeychainClient(), home=tmp_path, os_user="alice"
+    )
+    cfg = reader.read()
+    assert cfg.org_mcp_servers == ()
+
+
+def test_filesystem_reader_handles_malformed_needs_reauth_cache(tmp_path: Path) -> None:
+    cache_dir = tmp_path / ".claude"
+    cache_dir.mkdir()
+    (cache_dir / "mcp-needs-auth-cache.json").write_text("not json", encoding="utf-8")
+    reader = FilesystemClaudeCodeConfigReader(
+        keychain=FakeKeychainClient(), home=tmp_path, os_user="alice"
+    )
+    cfg = reader.read()
+    assert cfg.needs_reauth == ()
+
+
+def test_filesystem_reader_ignores_credentials_file_that_is_json_array(tmp_path: Path) -> None:
+    creds_dir = tmp_path / ".claude"
+    creds_dir.mkdir()
+    (creds_dir / ".credentials.json").write_text(json.dumps([1, 2, 3]), encoding="utf-8")
+    reader = FilesystemClaudeCodeConfigReader(
+        keychain=FakeKeychainClient(), home=tmp_path, os_user="alice"
+    )
+    cfg = reader.read()
+    assert cfg.subscription_type is None
+
+
+def test_filesystem_reader_ignores_non_dict_claude_ai_oauth(tmp_path: Path) -> None:
+    keychain = FakeKeychainClient(
+        {("Claude Code-credentials", "alice"): json.dumps({"claudeAiOauth": "not-a-dict"})}
+    )
+    reader = FilesystemClaudeCodeConfigReader(keychain=keychain, home=tmp_path, os_user="alice")
+    cfg = reader.read()
+    assert cfg.subscription_type is None

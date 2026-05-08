@@ -2,7 +2,7 @@
 # Gradient ASCII banner shown by user-facing CLI commands.
 # Author: Pierre Grothe
 # Date: 2026-05-08
-"""Print the NEXUS banner with a left-to-right blue-to-cyan gradient.
+"""Print the NEXUS banner with a left-to-right ServiceNow blue-to-lime gradient.
 
 Unicode block characters carve out from the project ASCII-only rule for
 this single visual surface only; source-level identifiers and comments
@@ -12,7 +12,7 @@ elsewhere remain ASCII.
 from rich.console import Console
 from rich.text import Text
 
-from nexus.ui.theme import NEXUS_BLUE, NEXUS_CYAN
+from nexus.ui.theme import SN_BLUE, SN_LIME
 
 __all__ = ["banner_text", "gradient", "print_banner"]
 
@@ -70,7 +70,7 @@ def banner_text() -> Text:
     width = max(len(line) for line in _BANNER_LINES)
     out = Text()
     for line in _BANNER_LINES:
-        out.append_text(gradient(line.ljust(width), start=NEXUS_BLUE, end=NEXUS_CYAN))
+        out.append_text(gradient(line.ljust(width), start=SN_BLUE, end=SN_LIME))
         out.append("\n")
     out.append(_TAGLINE.center(width), style="muted")
     out.append("\n")
@@ -86,6 +86,7 @@ def print_banner(console: Console) -> None:
     """
     if not console.is_terminal:
         return
+    console.print()
     console.print(banner_text())
 
 
