@@ -7,7 +7,10 @@
       "Bash(cp /Users/pierre.grothe/.claude/skills/primer/reference/templates/decisions.md /Users/pierre.grothe/Developer/nexus/.primer/decisions.md)",
       "Bash(mkdir -p /Users/pierre.grothe/Developer/nexus/.primer/adr)",
       "mcp__plugin_context7_context7__resolve-library-id",
-      "mcp__plugin_context7_context7__query-docs"
+      "mcp__plugin_context7_context7__query-docs",
+      "Bash(rm -f .git/index.lock)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)"
     ]
   }
 }

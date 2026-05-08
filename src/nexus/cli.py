@@ -14,10 +14,14 @@ from typing import Annotated
 
 import typer
 from rich.console import Console
-from rich.table import Table
 
-from nexus.config.manager import ConfigManager
-from nexus.config.paths import NexusPaths
+from nexus.auth.keychain import KeychainClient
+from nexus.cache import clear_cache
+from nexus.capabilities.claude_config import FilesystemClaudeCodeConfigReader
+from nexus.capabilities.feature_flags import claude_ai_name_for
+from nexus.capabilities.registry import CapabilitySet
+from nexus.capabilities.status_reporter import StatusReporter
+from nexus.capabilities.tier import TierDetection, TierDetector
 from nexus.ui.app import start_ui
 
 log = logging.getLogger(__name__)
@@ -55,28 +59,57 @@ def setup() -> None:
     console.print("Configure manually by editing ~/.nexus/config.yaml")
 
 
+def _detect_tier() -> TierDetection:
+    """Run tier detection using a Claude-Code-aware keychain reader."""
+    reader = FilesystemClaudeCodeConfigReader(keychain=KeychainClient(service_prefix=""))
+    return TierDetector(reader=reader).detect()
+
+
 @app.command()
-def status() -> None:
-    """Show instance connection status and available capabilities."""
-    paths = NexusPaths.from_env()
-    manager = ConfigManager(paths)
+def status(
+    refresh: Annotated[
+        bool, typer.Option("--refresh", help="Clear cached tier detection and re-detect")
+    ] = False,
+) -> None:
+    """Show NEXUS tier and available enterprise MCP servers."""
+    if refresh:
+        clear_cache(TierDetector.detect)
 
-    if not manager.exists():
-        err_console.print("[yellow]No config found. Run 'nexus setup' first.[/yellow]")
-        raise typer.Exit(code=1)
+    detection = _detect_tier()
+    capabilities = CapabilitySet.from_detection(detection)
+    StatusReporter(console=console).print(detection, capabilities)
 
-    config = manager.load()
 
-    table = Table(title="NEXUS Status")
-    table.add_column("Item", style="bold")
-    table.add_column("Value")
+@app.command()
+def reauth(
+    server: Annotated[
+        str | None,
+        typer.Option(
+            "--server",
+            help="Name of the MCP server to re-authenticate (lowercase enum value, e.g. 'marketing')",
+        ),
+    ] = None,
+) -> None:
+    """Print the command to re-authenticate one or more MCP servers."""
+    detection = _detect_tier()
 
-    table.add_row("Config", str(paths.config_file))
-    table.add_row("Default instance", config.instances.default or "(none)")
-    table.add_row("GitHub repo", config.preferences.github_repo or "(not configured)")
-    table.add_row("MCP auto-probe", str(config.capabilities.auto_probe))
+    if server is not None:
+        target = next((srv for srv in detection.needs_reauth_servers if srv.value == server), None)
+        if target is None:
+            err_console.print(
+                f"[red]Server {server!r} is not currently flagged for re-auth.[/red] "
+                "Run `nexus status --refresh` if you think this is wrong."
+            )
+            raise typer.Exit(code=1)
+        console.print(f'claude /mcp "{claude_ai_name_for(target)}"')
+        return
 
-    console.print(table)
+    if not detection.needs_reauth_servers:
+        console.print("All MCP servers authenticated. Nothing to do.")
+        return
+
+    for srv in sorted(detection.needs_reauth_servers, key=lambda s: s.value):
+        console.print(f'  {srv.value}: claude /mcp "{claude_ai_name_for(srv)}"')
 
 
 @app.command()

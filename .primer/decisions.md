@@ -192,3 +192,30 @@ documented in ADR-017). Function exceptions never cached. Initial adoption:
 ConfigManager.load and NexusPaths.from_env. Spec at
 docs/superpowers/specs/2026-05-08-cached-decorator-design.md; plan at
 docs/superpowers/plans/2026-05-08-cached-decorator.md.
+
+
+---
+
+### 2026-05-08 -- Tier detection from Claude Code OAuth + org MCP config
+
+**Status:** accepted (ADR-018)
+
+**Context:** Capabilities layer was scaffolded but `_check_server` was a
+stub. Real detection needed. Investigation found three usable signals:
+OAuth subscription claim, claudeAiMcpEverConnected list, and the
+mcp-needs-auth-cache file. No email heuristic needed.
+
+**Decision:** Add Tier enum + TierDetector to capabilities. `nexus status`
+renders a Rich panel; `nexus reauth` prints the one-shot command. Detection
+caches per-instance in-memory (cross-invocation disk caching deferred --
+the @cached(persist=True) path captures the disk backend at decoration
+time, preventing test isolation). No live MCP probing in this PR;
+deferred until the Agent SDK exposes a clean tool-list query.
+
+**Consequences:** Cross-platform via keyring (macOS Keychain / Linux/Windows
+file fallback). Static SN MCP name table; new servers without table updates
+appear unrecognized but don't break anything. Re-auth is print-only (no
+subprocess invocation). `_CLAUDE_AI_NAME_TO_SERVER` renamed to public
+`CLAUDE_AI_NAME_TO_SERVER` so tier.py can import it without violating
+pyright strict's reportPrivateUsage. Spec at
+docs/superpowers/specs/2026-05-08-tier-detection-design.md.
