@@ -219,3 +219,28 @@ subprocess invocation). `_CLAUDE_AI_NAME_TO_SERVER` renamed to public
 `CLAUDE_AI_NAME_TO_SERVER` so tier.py can import it without violating
 pyright strict's reportPrivateUsage. Spec at
 docs/superpowers/specs/2026-05-08-tier-detection-design.md.
+
+
+---
+
+### 2026-05-08 -- Lessons from /simplify reviews (ADR-019)
+
+**Status:** accepted
+
+**Context:** Three /simplify sessions (PRs #2, #5, #6) caught real issues
+every time, including a CRITICAL keychain-prefix bug in PR #6 that pre-
+commit and tests missed. Recurring style smells (enum-shadowing dict,
+stub "See" docstrings, hot-path attribute access) appeared across PRs.
+The @cached(persist=True) decoration-time backend capture broke test
+isolation in PR #6, forcing a fallback to ttl=None.
+
+**Decision:** Bundled PR codifies four threads: ExternalKeychainClient
+wrapper for cross-app keychain reads, @cached(persist=True) lazy-resolve
+fix, three new Semgrep rules, and a PR template gating /simplify
+execution.
+
+**Consequences:** The keychain pattern bug class is closed. @cached
+persist mode is test-friendly (AgentClient adoption unblocked). Three
+new lint rules trace to ADR-019. PR template is a soft gate; the
+unchecked /simplify checkbox is review-visible. Spec at
+docs/superpowers/specs/2026-05-08-simplify-lessons-design.md.
