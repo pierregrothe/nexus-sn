@@ -67,7 +67,7 @@
 
 | ADR | Title | Enforcement | Status |
 |-----|-------|-------------|--------|
-| 001 | API-direct architecture | none | accepted |
+| 001 | API-direct architecture | none | accepted (partial supersede ADR-015) |
 | 002 | Template distribution via GitHub sync | agent | accepted |
 | 003 | Assessment 3-gate model | agent | accepted |
 | 004 | CalVer versioning (YYYY.0M.PATCH) | agent | accepted |
@@ -80,5 +80,6 @@
 | 011 | 3-tier enforcement model | governance doc | accepted |
 | 012 | Dual type checking (mypy + pyright) | blocking hook + CI | accepted |
 | 013 | Lean CI for solo developer | ci.yml | accepted |
+| 015 | Migrate from anthropic SDK to claude-agent-sdk | none | accepted |
 
 Full ADR files: .primer/adr/
