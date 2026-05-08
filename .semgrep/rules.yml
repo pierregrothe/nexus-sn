@@ -1,0 +1,36 @@
+# .semgrep/rules.yml
+# Semantic governance rules that complement ruff's syntactic checks.
+# Each rule traces to an ADR; see metadata.adr.
+# Author: Pierre Grothe
+# Date: 2026-05-08
+rules:
+  - id: no-lru-cache-none
+    languages: [python]
+    severity: ERROR
+    message: |
+      @lru_cache(maxsize=None) is forbidden. Use @cache from functools.
+      It expresses the same unbounded-cache intent more clearly.
+    pattern-either:
+      - pattern: "@lru_cache(maxsize=None)"
+      - pattern: "@functools.lru_cache(maxsize=None)"
+    metadata:
+      adr: ADR-016
+      category: governance
+
+  - id: no-unittest-testcase
+    languages: [python]
+    severity: ERROR
+    message: |
+      unittest.TestCase subclasses are forbidden. Use plain pytest functions:
+        def test_<function>_<scenario>() -> None: ...
+    paths:
+      include:
+        - "**/tests/**"
+    pattern-either:
+      - pattern: |
+          class $X(unittest.TestCase): ...
+      - pattern: |
+          class $X(TestCase): ...
+    metadata:
+      adr: ADR-016
+      category: governance

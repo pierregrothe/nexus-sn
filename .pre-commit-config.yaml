@@ -2,6 +2,9 @@
 # Assumes Poetry's virtualenvs.in-project = true (see CLAUDE.md).
 # POSIX paths only -- on Windows, activate .venv/Scripts/ first or replace
 # entries with Poetry-managed paths.
+#
+# Semgrep runs in pre-commit's own isolated env (additional_dependencies)
+# so its 50+ transitive deps don't pollute the project's poetry lockfile.
 repos:
   - repo: local
     hooks:
@@ -30,6 +33,14 @@ repos:
         name: Type check (pyright)
         entry: .venv/bin/pyright src/nexus/
         language: system
+        types: [python]
+        pass_filenames: false
+        always_run: true
+      - id: semgrep
+        name: Semantic governance (semgrep)
+        entry: semgrep --config .semgrep/rules.yml --error --quiet src/ tests/
+        language: python
+        additional_dependencies: ["semgrep==1.162.0"]
         types: [python]
         pass_filenames: false
         always_run: true

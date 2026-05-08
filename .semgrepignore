@@ -1,0 +1,20 @@
+# Project semgrepignore -- replaces semgrep's defaults, which skip tests/.
+# We need to scan tests/ for unittest.TestCase violations.
+# Author: Pierre Grothe
+# Date: 2026-05-08
+
+# Build / cache directories
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.json
+htmlcov/
+
+# Virtual envs
+.venv/
+venv/
+
+# VCS
+.git/
