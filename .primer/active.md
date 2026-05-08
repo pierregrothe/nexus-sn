@@ -1,61 +1,73 @@
 # NEXUS -- Active Work
 
-Last updated: 2026-05-07
-Session: Pluggable AuthProvider implemented end-to-end (Plan 3, PR #1).
+Last updated: 2026-05-08
+Session: Agent SDK migration shipped (PR #2), governance refactor in flight (PR #3).
 
 ## Current focus
 
-Pluggable AuthProvider feature complete on branch `feat/pluggable-auth`, PR #1
-opened: https://github.com/pierregrothe/nexus-sn/pull/1
+Two recent landings on main:
 
-After merge, MVP Step 1 unblocks: smoke test against real Anthropic API can run
-using Claude Code's stored OAuth token (no API key needed).
+  PR #2 (merged 2026-05-08, commit 477c4b3) -- Migrate from anthropic SDK to
+  claude-agent-sdk. Empirical testing showed the OAuth path through the
+  standard anthropic SDK is policy-gated at /v1/messages (returns 429 on
+  every call). claude-agent-sdk wraps the bundled Claude Code CLI as a
+  subprocess and authenticates using the user's stored credentials.
 
-Next focus shifts back to MVP Step 2: GitHubSync.
+  PR #3 (open, branch chore/semgrep-governance) -- Introduce semgrep for
+  semantic governance. Splits the 10-rule custom pre-edit hook into three
+  buckets: 5 ruff rules, 2 semgrep rules, 3 file-aware rules in the custom
+  hook. ADR-016.
 
-  src/nexus/templates/sync.py -- implement GitHubSync.fetch_manifest() + download_changed()
-  Test with tmp_path and a fake manifest fixture.
+After PR #3 merges, focus returns to MVP build order:
 
-Build order from here (rest of 2026.05 milestone):
+  Step 2: src/nexus/templates/sync.py -- GitHubSync.fetch_manifest() +
+          download_changed(). Test with tmp_path and a fake manifest fixture.
   Step 3: templates/registry.py -- TemplateRegistry.list() + get()
   Step 4: assessment/scanner.py -- InstanceScanner using ServiceNowClient
   Step 5: assessment/rules.py + reporter.py -- RuleEngine + AssessmentReporter
   Step 6: nexus setup command -- credential wizard, config write, initial sync
   Step 7: nexus status command -- probe capabilities, verify SN connectivity
 
-## What was completed this session (Plan 3 + simplify)
+## What was completed in the recent sessions
 
-Plan 3 -- Pluggable AuthProvider (8 commits on feat/pluggable-auth):
-  src/nexus/auth/providers.py -- AuthProvider Protocol + get_default_providers()
-                                  + AnthropicAPIKeyProvider alias
-  src/nexus/auth/oauth.py -- ClaudeCodeOAuthProvider (env -> ~/.claude/.credentials.json
-                              -> macOS Keychain via keyring lib)
-  src/nexus/auth/claude.py -- ClaudeAuth implements AuthProvider Protocol
-                               with cached get_api_key()
-  src/nexus/api/client.py -- AnthropicClient takes auth_providers (was api_key str)
-  tests/fakes/fake_auth_provider.py -- FakeAuthProvider test double
-  tests/test_auth_providers.py -- 13 tests for OAuth provider + chain
-  scripts/smoke_anthropic.py -- updated to use get_default_providers()
+Agent SDK migration (8-task plan, 9 commits squashed to 477c4b3):
+  src/nexus/api/agent_client.py -- AgentClient + AgentClientProtocol wrapping
+                                    claude_agent_sdk.query()
+  tests/fakes/fake_agent_client.py -- FakeAgentClient test double
+  tests/test_agent_client.py -- 6 tests
+  scripts/smoke_agent.py -- replaces scripts/smoke_anthropic.py
+  Deleted: src/nexus/api/client.py (AnthropicClient, ModelTier, _ModelDiscoveryClient),
+           src/nexus/api/tool_registry.py, src/nexus/auth/oauth.py,
+           src/nexus/auth/providers.py, tests/fakes/fake_anthropic_client.py,
+           tests/fakes/fake_auth_provider.py, tests/test_api_client.py,
+           tests/test_auth_providers.py, scripts/smoke_anthropic.py
+  Reverted: src/nexus/auth/claude.py to pre-PR-#1 shape (no AuthProvider Protocol)
+  Dropped: anthropic dep from pyproject.toml
+  Net: ~250 lines added, ~1300 lines removed; 71 -> 45 tests
+  Smoke test passed end-to-end: 2 calls returned real assistant text via OAuth
+  alone, no API key.
 
-Simplify pass on top:
-  - Subprocess "security find-generic-password" replaced with keyring.get_password()
-  - is_configured() removed, body inlined into is_available()
-  - Dead _TIER_DEFAULTS / _discover_model aliases dropped
-  - Per-instance caching for token/api_key resolution
-  - EAFP file read (drop redundant exists() stat + TOCTOU window)
-
-Test count: 71 passing (was 53). Coverage up across auth modules.
+Semgrep governance refactor (PR #3, in review):
+  .semgrep/rules.yml -- 2 semantic rules with metadata.adr links
+  .semgrepignore -- replaces semgrep defaults to scan tests/
+  Pre-commit hook adds semgrep via additional_dependencies (isolated venv,
+  no project lockfile pollution)
+  Custom hook trimmed from 10 checks to 3 file-aware checks
+  Ruff selects expanded with PLC0415 + PGH003
 
 ## Blockers / open questions
 
-- MCPProbe._check_server() still stubbed (returns False). With OAuth working,
-  enterprise MCP probing is now possible -- but real endpoint URLs still needed.
+- MCPProbe._check_server() still stubbed (returns False). Real enterprise MCP
+  endpoint URLs unknown. With Agent SDK as the LLM layer, MCP probing strategy
+  will change -- the SDK exposes MCP via ClaudeAgentOptions(mcp_servers=...);
+  separate enterprise MCP probing from the LLM connection.
 - knowledge/mastery/ empty. Decision pending: copy from JARVIS or build fresh.
-- Smoke test scripts/smoke_anthropic.py needs manual run after PR merge to
-  validate end-to-end Anthropic API call against your enterprise account.
+- 8 grandfathered dict[str, Any] usages in src/nexus/connectors/servicenow/client.py
+  -- the pre-edit hook still blocks new ones; semgrep rule deferred until those
+  are refactored to a typed alias.
 
 ## Branch / remote state
 
-Branch: feat/pluggable-auth, 8 commits ahead of main.
-PR #1: https://github.com/pierregrothe/nexus-sn/pull/1 -- ready for merge.
-After merge: switch back to main and start MVP Step 2 (GitHubSync) on a new branch.
+main: 477c4b3 (Agent SDK migration merged)
+chore/semgrep-governance: open as PR #3, CI green, awaiting merge
+After PR #3 merges: branch from main and start MVP Step 2 (GitHubSync).

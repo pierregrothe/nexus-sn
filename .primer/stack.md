@@ -19,7 +19,7 @@ src/nexus/      -- Python package (src layout)
   config/       -- Layer 1: settings, paths, config manager
   auth/         -- Layer 2: Claude API key + SN credentials + keychain
   capabilities/ -- Layer 3: MCP probe + feature flags + CapabilitySet
-  api/          -- Layer 4a: Anthropic SDK wrapper (prompt caching, ModelTier)
+  api/          -- Layer 4a: claude-agent-sdk wrapper (AgentClient async query)
   connectors/   -- Layer 4b: connector plugin system
     servicenow/ -- built-in SN REST connector (replaces MCP server)
   agents/       -- Layer 5a: orchestrator, router, specialist agents
@@ -32,7 +32,7 @@ src/nexus/      -- Python package (src layout)
 
 tests/
   fakes/        -- FakeServiceNowClient, FakeKeychainClient,
-                   FakeAnthropicClient (NO MOCKS EVER)
+                   FakeAgentClient (NO MOCKS EVER)
   test_*.py     -- test files
 
 templates/      -- community YAML template library (GitHub root)
@@ -41,7 +41,9 @@ templates/      -- community YAML template library (GitHub root)
 
 ## Core dependencies
 
-anthropic >= 0.50         -- Claude API with prompt caching
+claude-agent-sdk >= 0.1   -- LLM access; wraps bundled Claude Code CLI as
+                              subprocess; auth via env var, stored creds, or
+                              macOS Keychain (ADR-015)
 httpx >= 0.28             -- async SN REST client
 pydantic >= 2.9           -- models everywhere (frozen=True, strict=True, extra="forbid")
 pydantic-settings >= 2.6  -- config from env + YAML
@@ -124,11 +126,17 @@ Never in config files. Never logged.
 ~/.nexus/jobs/       -- job history, rollback manifests
 ~/.nexus/logs/       -- rotating session logs (7 days, configure_logging)
 
-## Anthropic model selection
+## LLM access
 
-ModelTier StrEnum: STANDARD (Sonnet), POWERFUL (Opus), FAST (Haiku).
-Auto-discovered at AnthropicClient init via client.models.list() -- picks newest
-floating alias by created_at, excludes date-pinned and "preview" variants.
-Env var override: NEXUS_MODEL_STANDARD/POWERFUL/FAST. Hardcoded fallback when
-API unreachable. Prompt caching enabled on system prompt on every call.
-Max retries: 3 with exponential backoff.
+AgentClient (src/nexus/api/agent_client.py) wraps claude_agent_sdk.query() with
+a simple async interface:
+  async def complete(self, prompt: str, *, system: str | None = None,
+                     model: str | None = None, max_turns: int = 1) -> str
+Auth is handled internally by claude-agent-sdk:
+  ANTHROPIC_API_KEY env > CLAUDE_CODE_OAUTH_TOKEN env >
+  $CLAUDE_CONFIG_DIR/.credentials.json (or ~/.claude/.credentials.json) >
+  macOS Keychain "Claude Code-credentials".
+Each query() call spawns the bundled Claude Code CLI as a subprocess; cold
+calls run SessionStart hooks (~10-30s). Subsequent calls within the same
+process reuse cached state. Model selection is delegated to the SDK; pass a
+specific model string only when overriding the default.
