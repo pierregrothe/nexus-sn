@@ -5,11 +5,13 @@
 """Fake connectors and clients for use in tests."""
 
 from tests.fakes.fake_agent_client import FakeAgentClient
+from tests.fakes.fake_clock import FakeClock
 from tests.fakes.fake_keychain import FakeKeychainClient
 from tests.fakes.fake_sn_client import FakeServiceNowClient
 
 __all__ = [
     "FakeAgentClient",
+    "FakeClock",
     "FakeKeychainClient",
     "FakeServiceNowClient",
 ]
