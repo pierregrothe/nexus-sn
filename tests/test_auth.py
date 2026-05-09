@@ -77,14 +77,16 @@ def test_claude_auth_is_configured_returns_false_with_no_credentials(
 
 def test_sn_auth_get_password_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("NEXUS_SN_PASSWORD_DEV12345", "env-pass")
-    auth = SNAuth(keychain=FakeKeychainClient())
+    with pytest.warns(DeprecationWarning, match="SNAuth is deprecated"):
+        auth = SNAuth(keychain=FakeKeychainClient())
     assert auth.get_password("dev12345", "admin") == "env-pass"
 
 
 def test_sn_auth_get_password_from_keychain(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("NEXUS_SN_PASSWORD_DEV12345", raising=False)
     keychain = FakeKeychainClient({("sn-dev12345", "admin"): "sn-pass"})
-    auth = SNAuth(keychain=keychain)
+    with pytest.warns(DeprecationWarning, match="SNAuth is deprecated"):
+        auth = SNAuth(keychain=keychain)
     assert auth.get_password("dev12345", "admin") == "sn-pass"
 
 
@@ -92,6 +94,7 @@ def test_sn_auth_get_password_raises_when_not_configured(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.delenv("NEXUS_SN_PASSWORD_DEV12345", raising=False)
-    auth = SNAuth(keychain=FakeKeychainClient())
+    with pytest.warns(DeprecationWarning, match="SNAuth is deprecated"):
+        auth = SNAuth(keychain=FakeKeychainClient())
     with pytest.raises(AuthError):
         auth.get_password("dev12345", "admin")
