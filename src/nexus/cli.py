@@ -188,7 +188,10 @@ def _detect_sn_version(url: str, token: str, profile: str) -> tuple[str, str, st
             headers={"Authorization": f"Bearer {token}"},
             timeout=10.0,
         ) as client:
-            for prop in ("glide.buildtag", "instance_name"):
+            _BUILDTAG_PROPS = ("glide.buildtag", "glide.buildtag.last")
+            for prop in (*_BUILDTAG_PROPS, "instance_name"):
+                if prop in _BUILDTAG_PROPS and sn_version != "unknown":
+                    continue
                 r = client.get(
                     "/api/now/table/sys_properties",
                     params={
@@ -211,7 +214,7 @@ def _detect_sn_version(url: str, token: str, profile: str) -> tuple[str, str, st
                 val = str(rows[0].get("value", "")).strip()
                 if not val:
                     continue
-                if prop == "glide.buildtag":
+                if prop in _BUILDTAG_PROPS:
                     sn_build = val
                     parts = val.split("-")
                     word = parts[1] if parts[0].lower() == "glide" and len(parts) > 1 else parts[0]
