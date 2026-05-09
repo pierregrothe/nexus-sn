@@ -56,8 +56,10 @@ class TokenExpiredError(InstanceError):
             profile: The profile name whose refresh token expired.
         """
         super().__init__(
-            f"Refresh token for {profile!r} has expired. "
-            f"Run 'nexus instance connect {profile}' to re-authenticate."
+            f"Refresh token for {profile!r} has expired (100-day OAuth TTL). "
+            f"Delete the profile and re-register:\n"
+            f"  nexus instance delete {profile}\n"
+            f"  nexus instance register {profile}"
         )
         self.profile = profile
 

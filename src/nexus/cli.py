@@ -125,6 +125,9 @@ def _resolve_profile(profile: str) -> tuple[InstanceRegistry, InstanceMeta]:
         profile = _config_default()
     if not profile:
         err_console.print("No default instance set.")
+        err_console.print("  Register one : nexus instance register <profile>")
+        err_console.print("  Set default  : nexus instance use <profile>")
+        err_console.print("  List all     : nexus instance")
         raise typer.Exit(1)
     registry = _instance_registry()
     try:
@@ -176,11 +179,31 @@ def instance_callback(ctx: typer.Context) -> None:
     """Show registered instances and available commands."""
     if ctx.invoked_subcommand is not None:
         return
-    instance_list()
-    console.print("\nCommands:  (<profile> is a local alias you choose, e.g. dev or prod)")
+
+    if not _instance_registry().list_all():
+        console.print("No instances registered.")
+        console.print("")
+        console.print("Quickstart:")
+        console.print("  nexus instance register dev")
+        console.print("")
+        console.print("  You will be prompted for:")
+        console.print("    Profile  -- already supplied above ('dev', 'prod', or any alias)")
+        console.print("    Instance -- subdomain, FQDN, or full URL, e.g.:")
+        console.print("                  dev12345")
+        console.print("                  dev12345.service-now.com")
+        console.print("                  https://dev12345.service-now.com")
+        console.print("    Username -- your ServiceNow login (e.g. admin)")
+        console.print("    Client ID / Secret -- from the SN OAuth app registry")
+        console.print("    Password -- your ServiceNow password (not stored)")
+        console.print("")
+    else:
+        instance_list()
+
+    console.print("Commands:")
     for cmd, desc in _INSTANCE_HELP:
         console.print(f"  nexus instance {cmd:<25} {desc}")
-    console.print("\nRun 'nexus instance <command> --help' for details.")
+    console.print("")
+    console.print("Run 'nexus instance <command> --help' for usage details.")
 
 
 @instance_app.command("list")
@@ -348,8 +371,10 @@ def instance_register(profile: str) -> None:
         )
         raise typer.Exit(1)
 
-    console.print(f"Registering instance: {profile}")
-    raw_url: str = typer.prompt("  Instance (subdomain, FQDN, or URL -- e.g. dev12345)")
+    console.print(f"Registering instance '{profile}'")
+    console.print(f"  '{profile}' is your local alias -- use it in all nexus instance commands.")
+    console.print("")
+    raw_url: str = typer.prompt("  Instance (subdomain, FQDN, or https:// URL -- e.g. dev12345)")
     host = raw_url.removeprefix("https://").removeprefix("http://").rstrip("/")
     if "." not in host:
         host = f"{host}.service-now.com"
