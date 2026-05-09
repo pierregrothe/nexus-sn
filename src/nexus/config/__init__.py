@@ -7,11 +7,10 @@
 
 from nexus.config.manager import ConfigManager
 from nexus.config.paths import NexusPaths
-from nexus.config.settings import InstanceProfile, NexusConfig
+from nexus.config.settings import NexusConfig
 
 __all__ = [
     "ConfigManager",
-    "InstanceProfile",
     "NexusConfig",
     "NexusPaths",
 ]

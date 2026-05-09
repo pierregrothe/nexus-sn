@@ -88,6 +88,26 @@ class NexusPaths:
         """Auto-update lockfile, last-check timestamp, persistent caches."""
         return self.root / "cache"
 
+    @property
+    def instances_dir(self) -> Path:
+        """Per-instance metadata and snapshot directories.
+
+        Returns:
+            Path to the instances root directory under ~/.nexus/.
+        """
+        return self.root / "instances"
+
+    def instance_dir(self, profile: str) -> Path:
+        """Directory for a specific instance profile.
+
+        Args:
+            profile: Instance profile name.
+
+        Returns:
+            Path to the per-instance directory under instances_dir.
+        """
+        return self.instances_dir / profile
+
     def ensure_dirs(self) -> None:
         """Create all runtime directories if they do not exist."""
         for path in (
@@ -97,6 +117,7 @@ class NexusPaths:
             self.jobs_dir,
             self.logs_dir,
             self.cache_dir,
+            self.instances_dir,
         ):
             path.mkdir(parents=True, exist_ok=True)
         log.debug("runtime directories ensured under %s", self.root)

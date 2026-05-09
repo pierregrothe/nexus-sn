@@ -19,7 +19,6 @@ log = logging.getLogger(__name__)
 __all__ = [
     "AuthConfig",
     "CapabilitiesConfig",
-    "InstanceProfile",
     "InstancesConfig",
     "NexusConfig",
     "PreferencesConfig",
@@ -28,32 +27,17 @@ __all__ = [
 _CONFIG_VERSION = "1.0"
 
 
-class InstanceProfile(BaseModel):
-    """A single ServiceNow instance connection profile.
-
-    Attributes:
-        url: Full instance URL, e.g. dev12345.service-now.com.
-        username: Login username. Password is stored in the OS keychain.
-    """
-
-    model_config = ConfigDict(frozen=True)
-
-    url: str
-    username: str
-
-
 class InstancesConfig(BaseModel):
     """ServiceNow instance registry.
 
     Attributes:
-        default: Name of the default profile.
-        profiles: Map of profile name to connection details.
+        default: Name of the default profile. The profile directory under
+            ~/.nexus/instances/ is the authoritative registry.
     """
 
     model_config = ConfigDict(frozen=True)
 
     default: str = ""
-    profiles: dict[str, InstanceProfile] = Field(default_factory=dict)
 
 
 class CapabilitiesConfig(BaseModel):

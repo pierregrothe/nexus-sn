@@ -14,7 +14,7 @@ from pydantic import ValidationError
 from nexus.cache import clear_cache
 from nexus.config.manager import ConfigManager
 from nexus.config.paths import NexusPaths
-from nexus.config.settings import AuthConfig, InstanceProfile, NexusConfig
+from nexus.config.settings import AuthConfig, NexusConfig
 
 
 def test_nexus_paths_default_root_is_home_nexus() -> None:
@@ -38,10 +38,22 @@ def test_nexus_paths_ensure_dirs_creates_all_directories(nexus_paths: NexusPaths
         assert path.is_dir()
 
 
+def test_nexus_paths_instances_dir_under_root(nexus_paths: NexusPaths) -> None:
+    assert nexus_paths.instances_dir == nexus_paths.root / "instances"
+
+
+def test_nexus_paths_instance_dir_includes_profile(nexus_paths: NexusPaths) -> None:
+    assert nexus_paths.instance_dir("dev12345") == nexus_paths.root / "instances" / "dev12345"
+
+
+def test_nexus_paths_ensure_dirs_creates_instances_dir(nexus_paths: NexusPaths) -> None:
+    nexus_paths.ensure_dirs()
+    assert nexus_paths.instances_dir.is_dir()
+
+
 def test_nexus_config_default_has_empty_instances() -> None:
     config = NexusConfig.default()
     assert config.instances.default == ""
-    assert config.instances.profiles == {}
 
 
 def test_nexus_config_default_auto_probe_enabled() -> None:
@@ -53,12 +65,6 @@ def test_nexus_config_is_frozen() -> None:
     config = NexusConfig.default()
     with pytest.raises(ValidationError):
         setattr(config, "auto_probe", False)
-
-
-def test_instance_profile_stores_url_and_username() -> None:
-    profile = InstanceProfile(url="dev12345.service-now.com", username="admin")
-    assert profile.url == "dev12345.service-now.com"
-    assert profile.username == "admin"
 
 
 def test_config_manager_load_returns_defaults_when_no_file(nexus_paths: NexusPaths) -> None:
