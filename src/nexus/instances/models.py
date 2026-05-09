@@ -47,17 +47,21 @@ class InstanceMeta(BaseModel):
     @field_validator("registered_at", "last_connected_at", "token_expires_at", mode="before")
     @classmethod
     def require_utc(cls, v: object) -> object:
-        """Reject naive datetimes -- all timestamps must be UTC-aware.
+        """Parse ISO strings and reject naive datetimes.
+
+        Strict mode disables string->datetime coercion, so we handle it here.
 
         Args:
             v: Field value to validate.
 
         Returns:
-            The value unchanged if timezone-aware.
+            A timezone-aware datetime.
 
         Raises:
-            ValueError: If v is a naive datetime.
+            ValueError: If v is a naive datetime or an unparseable string.
         """
+        if isinstance(v, str):
+            v = datetime.fromisoformat(v)
         if isinstance(v, datetime) and v.tzinfo is None:
             raise ValueError("datetime must be timezone-aware (UTC required)")
         return v
@@ -120,17 +124,19 @@ class ArtifactRecord(BaseModel):
     @field_validator("updated_on", mode="before")
     @classmethod
     def require_utc(cls, v: object) -> object:
-        """Reject naive datetimes.
+        """Parse ISO strings and reject naive datetimes.
 
         Args:
             v: Field value to validate.
 
         Returns:
-            The value unchanged if timezone-aware.
+            A timezone-aware datetime.
 
         Raises:
-            ValueError: If v is a naive datetime.
+            ValueError: If v is a naive datetime or an unparseable string.
         """
+        if isinstance(v, str):
+            v = datetime.fromisoformat(v)
         if isinstance(v, datetime) and v.tzinfo is None:
             raise ValueError("datetime must be timezone-aware (UTC required)")
         return v
@@ -151,17 +157,19 @@ class InstanceSnapshot(BaseModel):
     @field_validator("captured_at", mode="before")
     @classmethod
     def require_utc(cls, v: object) -> object:
-        """Reject naive datetimes.
+        """Parse ISO strings and reject naive datetimes.
 
         Args:
             v: Field value to validate.
 
         Returns:
-            The value unchanged if timezone-aware.
+            A timezone-aware datetime.
 
         Raises:
-            ValueError: If v is a naive datetime.
+            ValueError: If v is a naive datetime or an unparseable string.
         """
+        if isinstance(v, str):
+            v = datetime.fromisoformat(v)
         if isinstance(v, datetime) and v.tzinfo is None:
             raise ValueError("datetime must be timezone-aware (UTC required)")
         return v
