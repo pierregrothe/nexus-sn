@@ -164,6 +164,9 @@ class InstanceScanner:
             f"/api/now/table/{table}",
             params={"sysparm_fields": fields, "sysparm_limit": limit},
         )
+        if resp.status_code in (400, 404):
+            log.debug("table %s not available (HTTP %d), skipping", table, resp.status_code)
+            return []
         if resp.status_code != 200:
             log.warning("snapshot failed for table=%s status=%d", table, resp.status_code)
             raise SnapshotError(table, resp.status_code)

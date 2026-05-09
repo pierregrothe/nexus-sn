@@ -167,6 +167,9 @@ def _set_default_profile(paths: NexusPaths, profile: str) -> None:
 def _detect_sn_version(url: str, token: str, profile: str) -> tuple[str, str, str]:
     """Query sys_properties to detect the SN version, build tag, and instance name.
 
+    Tries glide.buildtag first; falls back to a LIKE search across all
+    properties whose name contains 'buildtag' in case the exact key is absent.
+
     Args:
         url: Full instance URL.
         token: Valid Bearer token.
@@ -194,6 +197,12 @@ def _detect_sn_version(url: str, token: str, profile: str) -> tuple[str, str, st
                         "sysparm_limit": 1,
                     },
                 )
+                log.debug(
+                    "version probe name=%s status=%d body=%.200s",
+                    prop,
+                    r.status_code,
+                    r.text,
+                )
                 if r.status_code != 200:
                     continue
                 rows = r.json().get("result", [])
@@ -209,6 +218,31 @@ def _detect_sn_version(url: str, token: str, profile: str) -> tuple[str, str, st
                     sn_version = word.capitalize()
                 else:
                     instance_name = val
+
+            if sn_version == "unknown":
+                r = client.get(
+                    "/api/now/table/sys_properties",
+                    params={
+                        "sysparm_query": "nameLIKEbuildtag",
+                        "sysparm_fields": "name,value",
+                        "sysparm_limit": 3,
+                    },
+                )
+                log.debug("version fallback status=%d body=%.300s", r.status_code, r.text)
+                if r.status_code == 200:
+                    for row in r.json().get("result", []):
+                        val = str(row.get("value", "")).strip()
+                        if val:
+                            sn_build = val
+                            parts = val.split("-")
+                            word = (
+                                parts[1]
+                                if parts[0].lower() == "glide" and len(parts) > 1
+                                else parts[0]
+                            )
+                            sn_version = word.capitalize()
+                            break
+
     except httpx.RequestError:
         pass
     return sn_version, sn_build, instance_name
@@ -529,6 +563,11 @@ def instance_register(profile: str) -> None:
     sn_version, sn_build, instance_name = _detect_sn_version(
         url, token_response.access_token, profile
     )
+    if sn_version == "unknown":
+        console.print(
+            "  Version: unknown (glide.buildtag not in sys_properties -- "
+            "run with --log-level DEBUG to diagnose)"
+        )
 
     registry = InstanceRegistry(paths.instances_dir)
     meta = InstanceMeta.create(
