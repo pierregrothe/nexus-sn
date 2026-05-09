@@ -30,7 +30,12 @@ from nexus.capabilities.tier import TierDetection, TierDetector
 from nexus.config.manager import ConfigManager
 from nexus.config.paths import NexusPaths
 from nexus.config.settings import InstancesConfig
-from nexus.instances.errors import InstanceNotFoundError, SnapshotError, TokenExpiredError
+from nexus.instances.errors import (
+    InstanceNotFoundError,
+    OAuthError,
+    SnapshotError,
+    TokenExpiredError,
+)
 from nexus.instances.models import InstanceMeta
 from nexus.instances.oauth import SNOAuthClient
 from nexus.instances.registry import InstanceRegistry
@@ -337,7 +342,7 @@ def instance_register(profile: str) -> None:
     oauth = SNOAuthClient(profile=profile, url=url, client_id=client_id, username=username)
     try:
         token_response = oauth.exchange(client_secret, password)
-    except Exception as exc:
+    except OAuthError as exc:
         err_console.print(str(exc))
         raise typer.Exit(1) from exc
 

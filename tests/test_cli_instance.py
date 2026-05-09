@@ -103,3 +103,26 @@ def test_instance_use_sets_default_in_config(runner: CliRunner, tmp_path: Path) 
 def test_instance_use_unknown_profile_exits_nonzero(runner: CliRunner, tmp_path: Path) -> None:
     result = runner.invoke(app, ["instance", "use", "nonexistent"])
     assert result.exit_code != 0
+
+
+def test_instance_connect_with_unknown_profile_exits_nonzero(
+    runner: CliRunner, tmp_path: Path
+) -> None:
+    result = runner.invoke(app, ["instance", "connect", "nonexistent"])
+    assert result.exit_code != 0
+
+
+def test_instance_refresh_with_unknown_profile_exits_nonzero(
+    runner: CliRunner, tmp_path: Path
+) -> None:
+    result = runner.invoke(app, ["instance", "refresh", "nonexistent"])
+    assert result.exit_code != 0
+
+
+def test_instance_register_with_existing_profile_exits_nonzero(
+    runner: CliRunner, tmp_path: Path
+) -> None:
+    _write_meta(tmp_path, _meta("dev12345"))
+    result = runner.invoke(app, ["instance", "register", "dev12345"])
+    assert result.exit_code != 0
+    assert "already exists" in result.output
