@@ -6,6 +6,7 @@
 
 from datetime import UTC, datetime, timedelta
 
+import httpx
 import pytest
 
 from nexus.auth.errors import AuthError
@@ -17,7 +18,7 @@ from tests.fakes.fake_http_transport import FakeOAuthTransport
 
 def _client(
     keychain: FakeKeychainClient | None = None,
-    transport: FakeOAuthTransport | None = None,
+    transport: httpx.BaseTransport | None = None,
 ) -> SNOAuthClient:
     return SNOAuthClient(
         profile="dev12345",
@@ -101,3 +102,41 @@ def test_sn_oauth_client_delete_tokens_removes_all_keychain_entries() -> None:
     _client(keychain=keychain).delete_tokens()
     with pytest.raises(AuthError):
         keychain.get("sn-dev12345", "access-token")
+
+
+def test_sn_oauth_client_get_bearer_token_raises_oauth_error_on_non_ttl_failure() -> None:
+    """Cover the bare `raise` on line ~123: OAuthError not matching invalid_grant/expired."""
+    keychain = FakeKeychainClient(
+        {
+            ("sn-dev12345", "client-secret"): "secret",
+            ("sn-dev12345", "refresh-token"): "ref",
+        }
+    )
+    transport = FakeOAuthTransport(status_code=400, error_description="server_error")
+    near_expiry = datetime.now(UTC) + timedelta(minutes=2)
+    with pytest.raises(OAuthError, match="server_error"):
+        _client(keychain=keychain, transport=transport).get_bearer_token(near_expiry)
+
+
+def test_sn_oauth_client_exchange_no_transport_raises_connect_error() -> None:
+    """Cover the else branch (httpx.Client with no transport) in _post_grant."""
+    client = SNOAuthClient(
+        profile="test",
+        url="https://nonexistent.invalid",
+        client_id="cid",
+        username="user",
+        keychain=FakeKeychainClient(),
+    )
+    with pytest.raises(httpx.ConnectError):
+        client.exchange("secret", "pw")
+
+
+def test_sn_oauth_client_exchange_raises_oauth_error_on_non_json_body() -> None:
+    """Cover lines ~156-157: except branch when resp.json() raises on non-JSON body."""
+
+    class _RawTransport(httpx.BaseTransport):
+        def handle_request(self, request: httpx.Request) -> httpx.Response:
+            return httpx.Response(500, content=b"Internal Server Error")
+
+    with pytest.raises(OAuthError, match="HTTP 500"):
+        _client(transport=_RawTransport()).exchange("secret", "pw")
