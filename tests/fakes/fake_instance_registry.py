@@ -81,7 +81,7 @@ class FakeInstanceRegistry:
         Returns:
             List of all registered InstanceMeta objects.
         """
-        return list(self.profiles.values())
+        return sorted(self.profiles.values(), key=lambda m: m.profile)
 
     def load_snapshot(self, profile: str) -> InstanceSnapshot | None:
         """Return stored snapshot or None.

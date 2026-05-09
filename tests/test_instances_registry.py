@@ -101,6 +101,15 @@ def test_registry_list_all_returns_empty_when_no_instances_dir(tmp_path: Path) -
     assert registry.list_all() == []
 
 
+def test_registry_list_all_returns_profiles_sorted_by_name(tmp_path: Path) -> None:
+    registry = InstanceRegistry(tmp_path)
+    registry.register(_meta("zzz"))
+    registry.register(_meta("aaa"))
+    profiles = registry.list_all()
+    assert profiles[0].profile == "aaa"
+    assert profiles[1].profile == "zzz"
+
+
 def test_registry_save_snapshot_writes_snapshot_json(tmp_path: Path) -> None:
     registry = InstanceRegistry(tmp_path)
     registry.register(_meta())

@@ -10,6 +10,7 @@ from tests.fakes.fake_claude_config import FakeClaudeCodeConfig
 from tests.fakes.fake_clock import FakeClock
 from tests.fakes.fake_github_releases import FakeGitHubReleasesClient
 from tests.fakes.fake_http_transport import FakeOAuthTransport
+from tests.fakes.fake_instance_registry import FakeInstanceRegistry
 from tests.fakes.fake_keychain import FakeKeychainClient
 from tests.fakes.fake_sn_client import FakeServiceNowClient
 
@@ -19,6 +20,7 @@ __all__ = [
     "FakeClaudeCodeConfig",
     "FakeClock",
     "FakeGitHubReleasesClient",
+    "FakeInstanceRegistry",
     "FakeKeychainClient",
     "FakeOAuthTransport",
     "FakeServiceNowClient",
