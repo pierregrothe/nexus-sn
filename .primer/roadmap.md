@@ -4,24 +4,29 @@
 - [x] Config, auth, capabilities layers
 - [x] ServiceNow REST connector + error hierarchy
 - [x] ConnectorProtocol plugin system
-- [x] CLI skeleton (all 5 commands stubbed)
+- [x] Instance management (register, connect, refresh, list, delete, use + OAuth auto-provisioning)
+- [x] CLI skeleton (all commands wired)
 - [x] CI/CD: lint, tests, release, template validation
-- [x] Test suite foundation (39 tests, all real fakes)
+- [x] AgentClient backed by claude-agent-sdk
+- [x] nexus status command
+- [x] nexus.capture layer (ScopeDiscoverer, ConfigFetcher, ArchiveWriter/Reader,
+      UpdateSetXmlBuilder, UpdateSetWriter, CaptureEngine)
+- [x] nexus capture command (discover, pull, list, push)
 
-## 2026.05 -- MVP Commands [active]
-- [x] AgentClient.complete() backed by claude-agent-sdk (ADR-015)
-- [ ] GitHubSync -- manifest fetch + template download [active]
+## 2026.05 -- Setup + Sync [active]
+- [ ] nexus setup command -- credential wizard, config write, initial sync
+- [ ] GitHubSync -- manifest fetch + template download
 - [ ] TemplateRegistry -- list and get from local cache
-- [ ] InstanceScanner -- health scan via ServiceNowClient
-- [ ] RuleEngine + AssessmentReporter
-- [ ] nexus setup command -- credential wizard
-- [x] nexus status command -- probe capabilities, verify SN
+
+## 2026.06 -- Assessment [planned]
+- [ ] RuleEngine + AssessmentReporter (consuming CaptureResult)
+- [ ] nexus assess command
+- [ ] Gate 1 readiness check + Gate 2 validation check
 
 ## 2026.06 -- Template Library [planned]
 - [ ] NowAssistSkill + Workflow Pydantic schemas
 - [ ] First 3+ community templates in templates/
 - [ ] Template apply engine (ApplyEngine)
-- [ ] Gate 1 readiness check + Gate 2 validation check
 
 ## 2026.07 -- Agent Specialists [planned]
 - [ ] 8 domain specialist agents implemented
@@ -39,3 +44,5 @@
 - [ ] Knowledge mastery KB (206 ServiceNow product docs)
 - [ ] MCPProbe real endpoint URLs
 - [ ] JIRA, GitHub, Confluence connectors
+- [ ] Extend capture to DEVELOPER_PLATFORM table group
+      (business rules, script includes, ACLs, scheduled jobs)

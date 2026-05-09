@@ -1,29 +1,21 @@
 # NEXUS -- Active Work
 
-Last updated: 2026-05-08
-Session: instance management UX + OAuth auto-provisioning shipped. 296 tests passing.
+Last updated: 2026-05-09
+Session: nexus.capture layer shipped. 343 tests passing.
 
 ## Current focus
 
-nexus instance register is now end-to-end functional with zero OAuth knowledge required.
-Recent commits on main (all direct, no open PRs):
+nexus.capture layer complete. Bidirectional SN config transport:
+- discover scopes, pull custom configs to YAML archive, push archive to update set.
+- sys_customer_update=true filter excludes all OOTB elements from capture.
+- AI_AUTOMATION table group: ai_skill, sys_hub_flow, sys_hub_action_type_definition,
+  virtual_agent_conversation_topic, sys_ai_agent (with related tables).
+- nexus capture discover/pull/list/push CLI commands wired.
 
-  e817e27 fix(instance): probe glide.buildtag.last for version on PDI instances
-  8aa8dc0 fix(instance): skip unavailable tables in scanner; improve version detection
-  5ab3be0 fix(instance): re-detect version on connect; extract _detect_sn_version helper
-  84e6fb6 fix(instance): robust version detection + 8h OAuth token lifetime
-  8c39b3e feat(instance): auto-provision OAuth credentials from username + password
-  7ecdb77 ux(cli): concrete error messages, quickstart guide for instance management
-  ecf7f9f ux(cli): accept bare subdomain in register
-  831101a feat(cli): instance list + command guide when called without subcommand
-
-Focus returns to MVP build order:
-  Step 2: src/nexus/templates/sync.py -- GitHubSync.fetch_manifest() +
-          download_changed(). Test with tmp_path and a fake manifest fixture.
-  Step 3: templates/registry.py -- TemplateRegistry.list() + get()
-  Step 4: assessment/scanner.py -- InstanceScanner using ServiceNowClient
-  Step 5: assessment/rules.py + reporter.py -- RuleEngine + AssessmentReporter
-  Step 6: nexus setup command -- credential wizard, config write, initial sync
+Focus moves to Setup + Sync:
+  Step 2: nexus setup command -- credential wizard, config write, initial sync
+  Step 3: GitHubSync.fetch_manifest() + download_changed()
+  Step 4: TemplateRegistry.list() + get()
 
 ## What was completed in the recent sessions
 
