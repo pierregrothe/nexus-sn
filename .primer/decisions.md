@@ -267,3 +267,28 @@ skipped silently. NEXUS_AUTO_UPDATE=0 escape hatch.
 on update (~5-10s one-time). Rollback via env var + manual pip downgrade.
 Wheel hash verification skipped for v1 (HTTPS sufficient). PyPI publication
 deferred. Spec at docs/superpowers/specs/2026-05-08-auto-update-design.md.
+
+---
+
+### 2026-05-08 -- OAuth auto-provisioning via caller-supplied client_secret
+
+**Status:** accepted
+
+**Context:** nexus instance register originally required users to supply an
+OAuth Client ID and Client Secret from the SN Application Registry -- a
+multi-step manual task invisible to most ServiceNow admins. Users only know
+their instance URL, username, and password.
+
+**Decision:** _provision_oauth() POSTs to /api/now/table/oauth_entity using
+HTTP Basic auth (username + password). NEXUS generates client_secret as a
+UUID4 and includes it in the POST body. SN encrypts it on save; the caller
+retains the plaintext. If the POST returns 201 with a client_id, registration
+proceeds with no OAuth prompts. On any failure (403 no admin role, 400 policy,
+network error), _print_oauth_setup() shows a 3-step manual guide and prompts
+for both values.
+
+**Consequences:** Register wizard reduced to three prompts (URL, username,
+password) for all instances where the admin user can create OAuth apps.
+The SN oauth_entity table requires the user to have admin or oauth_admin role.
+PDI token lifetime remains at 30 min regardless of token_lifetime field due
+to system-wide cap (glide.oauth.access_token.expire_in.system_max_seconds).

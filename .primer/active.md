@@ -1,27 +1,21 @@
 # NEXUS -- Active Work
 
 Last updated: 2026-05-08
-Session: Status dashboard visual polish shipped (PR #10). Test suite at 219 passing.
+Session: instance management UX + OAuth auto-provisioning shipped. 296 tests passing.
 
 ## Current focus
 
-nexus status is fully implemented and end-to-end functional. Recent merges:
+nexus instance register is now end-to-end functional with zero OAuth knowledge required.
+Recent commits on main (all direct, no open PRs):
 
-  PR #6 (merged) -- Tier detection from Claude Code OAuth + org MCP config (ADR-018)
-  PR #7 (merged) -- /simplify lessons learned, semgrep + governance (ADR-019)
-  PR #8 (merged) -- NEXUS auto-update from GitHub Releases (ADR-020)
-  PR #9 (merged) -- Gradient blue-to-cyan banner + themed Console
-  PR #10 (merged, commit 3bb4a55) -- Verbose multi-panel status dashboard:
-    src/nexus/ui/gradient_panel.py -- GradientPanel renderable + gradient_text()
-    src/nexus/ui/theme.py -- SN_TEXT_START constant (40% teal stop for value text)
-    src/nexus/ui/banner.py -- banner now uses SN_BLUE/SN_LIME (matches panels)
-    src/nexus/capabilities/status_reporter.py -- 3-row dashboard:
-      Row 1: Identity | System (equal height, two columns)
-      Row 2: Integrations (full width, only detected MCP servers)
-      Row 3: Diagnostics | Auto-update (equal height, two columns)
-    src/nexus/capabilities/claude_config.py -- fixed anonymous bug; reads
-      oauthAccount.emailAddress + organizationName from ~/.claude.json
-    tests/test_ui_gradient_panel.py -- 7 new tests
+  e817e27 fix(instance): probe glide.buildtag.last for version on PDI instances
+  8aa8dc0 fix(instance): skip unavailable tables in scanner; improve version detection
+  5ab3be0 fix(instance): re-detect version on connect; extract _detect_sn_version helper
+  84e6fb6 fix(instance): robust version detection + 8h OAuth token lifetime
+  8c39b3e feat(instance): auto-provision OAuth credentials from username + password
+  7ecdb77 ux(cli): concrete error messages, quickstart guide for instance management
+  ecf7f9f ux(cli): accept bare subdomain in register
+  831101a feat(cli): instance list + command guide when called without subcommand
 
 Focus returns to MVP build order:
   Step 2: src/nexus/templates/sync.py -- GitHubSync.fetch_manifest() +
@@ -33,32 +27,49 @@ Focus returns to MVP build order:
 
 ## What was completed in the recent sessions
 
-Status dashboard (PR #10, merged 2026-05-08):
-  GradientPanel renderable -- panel with left-to-right RGB gradient border.
-    Supports title, padding, min_height for equal-height column pairs.
-    __rich_measure__ enables Table.grid column sizing.
-  gradient_text() helper -- per-character gradient coloring for value text.
-  SN_TEXT_START constant -- teal (40% blue-to-lime), start color for values.
-  Banner visual update -- SN_BLUE->SN_LIME gradient, blank line before banner.
-  StatusReporter rewrite -- 3-row dashboard, dynamic MCP server list.
-  Anonymous bug fix -- email + org name now populated from ~/.claude.json
-    oauthAccount section (not keychain-only).
-  All 4 changed modules at 100% coverage; ratchet baselines updated.
+instance management UX (8 commits, 2026-05-08):
 
-Test suite: 219 passing. All real fakes, no mocks.
+  OAuth auto-provisioning:
+    _provision_oauth() -- POSTs to /api/now/table/oauth_entity via Basic auth,
+      generates client_secret (UUID4), extracts client_id from response.
+      Falls back to _print_oauth_setup() + manual prompts on any failure.
+    Register wizard now asks only: Instance URL, Username, Password.
+    Auto-provisioned OAuth apps request token_lifetime=28800 (8h).
+
+  Version detection:
+    _detect_sn_version() extracted as shared helper (register + connect).
+    Probes glide.buildtag, then glide.buildtag.last (PDIs store value there),
+      then falls back to nameLIKEbuildtag search.
+    instance_connect now re-detects and persists version/build/instance_name.
+    Visible warning printed when version cannot be detected.
+
+  Scanner resilience:
+    InstanceScanner._fetch() now treats HTTP 400/404 as table-not-available
+      and returns [] instead of raising SnapshotError.
+    Fixes nexus instance refresh on PDIs without ai_skill (NowAssist) table.
+
+  instance_callback with invoke_without_command=True:
+    Shows registered instances table or full quickstart when no subcommand given.
+    Command guide always shown at the bottom.
+
+  CLI helpers:
+    _resolve_profile(), _oauth_for(), _set_default_profile() extracted.
+    TokenExpiredError message now shows delete + re-register steps.
+
+Test suite: 296 passing. All real fakes, no mocks.
 
 ## Blockers / open questions
 
-- MCPProbe._check_server() still stubbed (returns False). Real enterprise MCP
-  endpoint URLs unknown. With Agent SDK as the LLM layer, MCP probing strategy
-  will change -- the SDK exposes MCP via ClaudeAgentOptions(mcp_servers=...);
-  separate enterprise MCP probing from the LLM connection.
+- MCPProbe._check_server() still stubbed (returns False). Enterprise MCP
+  endpoint URLs unknown. Probing strategy will revisit once Agent SDK
+  MCP wiring is designed.
+- PDI access token cap: glide.oauth.access_token.expire_in.system_max_seconds
+  overrides token_lifetime on the OAuth app record. Token stays at 30 min
+  on PDIs regardless of what we request. Needs SN admin to raise the cap.
 - knowledge/mastery/ empty. Decision pending: copy from JARVIS or build fresh.
-- 8 grandfathered dict[str, Any] usages in src/nexus/connectors/servicenow/client.py
-  -- the pre-edit hook still blocks new ones; semgrep rule deferred until those
-  are refactored to a typed alias.
+- 8 grandfathered dict[str, Any] in src/nexus/connectors/servicenow/client.py.
 
 ## Branch / remote state
 
-main: 3bb4a55 (status dashboard merged)
+main: e817e27 (instance UX + fixes merged)
 Next: branch from main and start MVP Step 2 (GitHubSync).

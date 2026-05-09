@@ -51,25 +51,36 @@ Updater layer:
 
 UI layer:
   NEXUS_THEME + themed Console -- ServiceNow brand colors
-  GradientPanel -- Rich renderable with left-to-right RGB gradient border;
-    supports title, padding, min_height for equal-height column pairs
+  GradientPanel -- Rich renderable with left-to-right RGB gradient border
   gradient_text() -- per-character RGB gradient coloring for value strings
   SN_BLUE, SN_LIME, SN_TEXT_START -- ServiceNow brand gradient stops
   banner_text() / print_banner() -- SN_BLUE->SN_LIME gradient NEXUS ASCII art
-  StatusReporter -- 3-row dashboard:
-    Row 1: Identity (user, org, tier, version, servers) | System (python, platform, install)
-    Row 2: Integrations (dynamic; only detected MCP servers shown)
-    Row 3: Diagnostics (config root, cache size) | Auto-update (enabled, last check)
+  StatusReporter -- 3-row dashboard (Identity | System, Integrations, Diagnostics | Auto-update)
 
 Agents base:
   AgentProtocol, ExecutionContext, AgentResult
 
+Instances layer (fully functional end-to-end):
+  InstanceMeta + InstanceSnapshot + ArtifactRecord -- Pydantic frozen models
+  InstanceRegistry -- profile directory read/write, snapshot persistence
+  SNOAuthClient -- OAuth2 Password Grant exchange + keychain token lifecycle
+    _Account StrEnum -- typed keychain account keys
+    UtcDatetime alias -- shared UTC validator
+  InstanceScanner -- parallel REST scan of 4 SN tables (ai_skill, sys_hub_flow,
+    sys_script, sys_script_include); 400/404 treated as table-not-available
+  Instance CLI commands: register (auto-provision OAuth), connect, refresh,
+    status, list, delete, use
+  _provision_oauth() -- auto-creates OAuth app via Basic auth, falls back to
+    manual instructions if SN returns non-201
+  _detect_sn_version() -- probes glide.buildtag, glide.buildtag.last, LIKE
+    fallback; re-runs on connect and persists result to meta.json
+
 CLI:
   nexus status -- fully implemented (banner + tier detection + StatusReporter)
+  nexus instance -- full subapp, invoke_without_command shows list + quickstart
   nexus reauth -- prints one-shot command for servers needing re-auth
-  nexus --refresh -- clears cached tier detection
-  setup, sync, templates, assess -- stubs (raise NotImplementedError)
-  ui command -- clean ImportError if nicegui not installed
+  nexus update / --refresh -- manual update check + cache clear
+  setup, sync, templates, assess -- stubs
 
 Governance enforcement:
   Pre-edit hook (.claude/hooks/pre-edit-validate.py) -- 10 blocking rules
@@ -84,30 +95,27 @@ Infrastructure:
   .ratchet.json -- coverage baseline for all implemented modules
   .github/workflows/ci.yml + release.yml -- lean CI + GitHub Releases auto-update
 
-Tests: 219 passing. All real fakes, no mocks.
+Tests: 296 passing. All real fakes, no mocks.
 GitHub: https://github.com/pierregrothe/nexus-sn (public).
 
 ## Known Issues
 
 - MCPProbe._check_server() returns False (stub). Enterprise MCP endpoint URLs
-  unknown. With Agent SDK as the LLM layer, MCP wiring goes through
-  ClaudeAgentOptions(mcp_servers=...); probing strategy needs revisit.
+  unknown. Probing strategy will revisit when Agent SDK MCP wiring is designed.
+- PDI token lifetime cap: glide.oauth.access_token.expire_in.system_max_seconds
+  overrides token_lifetime on OAuth app records; tokens stay at 30 min on PDIs.
 - knowledge/mastery/ empty. Decision pending: copy from JARVIS or rebuild.
-- Template schemas (templates/schemas/*.py) are stubs. NowAssistSkill and Workflow
-  Pydantic models are the first to design.
+- Template schemas (templates/schemas/*.py) are stubs.
 - setup, sync, templates, assess commands raise NotImplementedError.
 - Stub modules at 0% coverage (agents/specialists/*, connectors/servicenow/*,
-  templates, assessment, execution, knowledge). Tracked in .ratchet.json once impl
-  begins; full 100% gate achieved as stubs implement.
+  templates, assessment, execution, knowledge).
 - 8 grandfathered dict[str, Any] usages in src/nexus/connectors/servicenow/client.py.
-  Pre-edit hook still blocks new ones; refactor to a typed alias is on the backlog.
 
 ## What's Left
 
 2026.05 -- MVP Commands:
   GitHubSync -- manifest fetch + template download (next up)
   TemplateRegistry -- list and get from local cache
-  InstanceScanner -- health scan via ServiceNowClient
   RuleEngine + AssessmentReporter
   nexus setup command -- credential wizard
 
@@ -118,7 +126,7 @@ GitHub: https://github.com/pierregrothe/nexus-sn (public).
   Gate 1 readiness check + Gate 2 validation check
 
 2026.07 -- Agent Specialists:
-  8 domain specialist agents implemented (each takes AgentClientProtocol)
+  8 domain specialist agents (each takes AgentClientProtocol)
   ExecutionContext enrichment from enterprise MCP (via Agent SDK mcp_servers)
   Multi-step orchestration via Planner + Dispatcher
   Rollback manager for failed deployments
