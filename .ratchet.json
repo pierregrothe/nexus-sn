@@ -33,7 +33,7 @@
     "nexus.instances": {"covered_lines": 6, "total_lines": 6},
     "nexus.instances.errors": {"covered_lines": 19, "total_lines": 19},
     "nexus.instances.models": {"covered_lines": 72, "total_lines": 72},
-    "nexus.instances.oauth": {"covered_lines": 69, "total_lines": 71},
+    "nexus.instances.oauth": {"covered_lines": 71, "total_lines": 71},
     "nexus.instances.registry": {"covered_lines": 68, "total_lines": 68},
     "nexus.instances.scanner": {"covered_lines": 53, "total_lines": 53},
     "nexus.updater": {"covered_lines": 4, "total_lines": 4},

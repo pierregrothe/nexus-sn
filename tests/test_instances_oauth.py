@@ -142,3 +142,14 @@ def test_sn_oauth_client_exchange_raises_oauth_error_on_non_json_body() -> None:
 
     with pytest.raises(OAuthError, match="HTTP 500"):
         _client(transport=_RawTransport()).exchange("secret", "pw")
+
+
+def test_sn_oauth_client_exchange_raises_oauth_error_on_malformed_success_body() -> None:
+    """Cover malformed 200 response missing expected keys (KeyError path)."""
+
+    class _MalformedTransport(httpx.BaseTransport):
+        def handle_request(self, request: httpx.Request) -> httpx.Response:
+            return httpx.Response(200, json={"unexpected": "no token here"})
+
+    with pytest.raises(OAuthError, match="Malformed"):
+        _client(transport=_MalformedTransport()).exchange("secret", "pw")
