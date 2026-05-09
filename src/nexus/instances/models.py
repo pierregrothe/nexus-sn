@@ -7,8 +7,9 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 __all__ = ["ArtifactRecord", "InstanceMeta", "InstanceSnapshot", "SnapshotCounts"]
 
@@ -20,10 +21,10 @@ class SnapshotCounts(BaseModel):
 
     model_config = _FROZEN
 
-    ai_skills: int = 0
-    flows: int = 0
-    business_rules: int = 0
-    script_includes: int = 0
+    ai_skills: Annotated[int, Field(ge=0)] = 0
+    flows: Annotated[int, Field(ge=0)] = 0
+    business_rules: Annotated[int, Field(ge=0)] = 0
+    script_includes: Annotated[int, Field(ge=0)] = 0
 
 
 class InstanceMeta(BaseModel):
@@ -42,6 +43,24 @@ class InstanceMeta(BaseModel):
     last_connected_at: datetime
     token_expires_at: datetime
     snapshot_counts: SnapshotCounts = Field(default_factory=SnapshotCounts)
+
+    @field_validator("registered_at", "last_connected_at", "token_expires_at", mode="before")
+    @classmethod
+    def require_utc(cls, v: object) -> object:
+        """Reject naive datetimes -- all timestamps must be UTC-aware.
+
+        Args:
+            v: Field value to validate.
+
+        Returns:
+            The value unchanged if timezone-aware.
+
+        Raises:
+            ValueError: If v is a naive datetime.
+        """
+        if isinstance(v, datetime) and v.tzinfo is None:
+            raise ValueError("datetime must be timezone-aware (UTC required)")
+        return v
 
     @classmethod
     def create(
@@ -98,6 +117,24 @@ class ArtifactRecord(BaseModel):
     is_custom: bool
     extra: dict[str, str | bool | int] = Field(default_factory=dict)
 
+    @field_validator("updated_on", mode="before")
+    @classmethod
+    def require_utc(cls, v: object) -> object:
+        """Reject naive datetimes.
+
+        Args:
+            v: Field value to validate.
+
+        Returns:
+            The value unchanged if timezone-aware.
+
+        Raises:
+            ValueError: If v is a naive datetime.
+        """
+        if isinstance(v, datetime) and v.tzinfo is None:
+            raise ValueError("datetime must be timezone-aware (UTC required)")
+        return v
+
 
 class InstanceSnapshot(BaseModel):
     """Full artifact inventory captured by InstanceScanner."""
@@ -110,6 +147,24 @@ class InstanceSnapshot(BaseModel):
     flows: list[ArtifactRecord] = Field(default_factory=lambda: [])
     business_rules: list[ArtifactRecord] = Field(default_factory=lambda: [])
     script_includes: list[ArtifactRecord] = Field(default_factory=lambda: [])
+
+    @field_validator("captured_at", mode="before")
+    @classmethod
+    def require_utc(cls, v: object) -> object:
+        """Reject naive datetimes.
+
+        Args:
+            v: Field value to validate.
+
+        Returns:
+            The value unchanged if timezone-aware.
+
+        Raises:
+            ValueError: If v is a naive datetime.
+        """
+        if isinstance(v, datetime) and v.tzinfo is None:
+            raise ValueError("datetime must be timezone-aware (UTC required)")
+        return v
 
     @property
     def counts(self) -> SnapshotCounts:

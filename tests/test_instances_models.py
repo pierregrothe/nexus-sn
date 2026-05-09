@@ -7,6 +7,7 @@
 from datetime import UTC, datetime
 
 from nexus.instances.errors import (
+    InstanceError,
     InstanceNotFoundError,
     OAuthError,
     SnapshotError,
@@ -16,6 +17,7 @@ from nexus.instances.models import (
     ArtifactRecord,
     InstanceMeta,
     InstanceSnapshot,
+    SnapshotCounts,
 )
 
 
@@ -90,6 +92,7 @@ def test_instance_snapshot_counts_returns_totals() -> None:
         flows=[record, record],
     )
     counts = snapshot.counts
+    assert isinstance(counts, SnapshotCounts)
     assert counts.ai_skills == 1
     assert counts.flows == 2
     assert counts.business_rules == 0
@@ -108,3 +111,7 @@ def test_artifact_record_extra_accepts_mixed_types() -> None:
     assert record.extra["skill_type"] == "now_assist"
     assert record.extra["client_callable"] is False
     assert record.extra["order"] == 100
+
+
+def test_instance_not_found_error_is_instance_of_instance_error() -> None:
+    assert isinstance(InstanceNotFoundError("x"), InstanceError)
