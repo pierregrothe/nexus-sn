@@ -14,7 +14,7 @@ from pydantic import ValidationError
 from nexus.cache import clear_cache
 from nexus.config.manager import ConfigManager
 from nexus.config.paths import NexusPaths
-from nexus.config.settings import AuthConfig, NexusConfig
+from nexus.config.settings import AuthConfig, InstancesConfig, NexusConfig
 
 
 def test_nexus_paths_default_root_is_home_nexus() -> None:
@@ -34,6 +34,7 @@ def test_nexus_paths_ensure_dirs_creates_all_directories(nexus_paths: NexusPaths
         nexus_paths.reports_dir,
         nexus_paths.jobs_dir,
         nexus_paths.logs_dir,
+        nexus_paths.instances_dir,
     ):
         assert path.is_dir()
 
@@ -49,6 +50,16 @@ def test_nexus_paths_instance_dir_includes_profile(nexus_paths: NexusPaths) -> N
 def test_nexus_paths_ensure_dirs_creates_instances_dir(nexus_paths: NexusPaths) -> None:
     nexus_paths.ensure_dirs()
     assert nexus_paths.instances_dir.is_dir()
+
+
+def test_instances_config_rejects_extra_fields() -> None:
+    with pytest.raises(ValidationError):
+        InstancesConfig(default="dev", unknown_field="oops")  # type: ignore[call-arg]
+
+
+def test_instances_config_rejects_wrong_type_for_default() -> None:
+    with pytest.raises(ValidationError):
+        InstancesConfig(default=123)  # type: ignore[arg-type]
 
 
 def test_nexus_config_default_has_empty_instances() -> None:

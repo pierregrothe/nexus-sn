@@ -35,7 +35,7 @@ class InstancesConfig(BaseModel):
             ~/.nexus/instances/ is the authoritative registry.
     """
 
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, strict=True, extra="forbid")
 
     default: str = ""
 
