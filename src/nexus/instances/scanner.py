@@ -32,12 +32,12 @@ _EXTRA_FIELDS: dict[str, list[str]] = {
     "sys_script_include": ["api_name", "client_callable"],
 }
 
-_TABLE_CONFIG: dict[str, tuple[str, int]] = {
-    "ai_skill": (_AI_SKILL_FIELDS, 1000),
-    "sys_hub_flow": (_FLOW_FIELDS, 1000),
-    "sys_script": (_BR_FIELDS, 2000),
-    "sys_script_include": (_SI_FIELDS, 2000),
-}
+_TABLE_CONFIG: list[tuple[str, str, int]] = [
+    ("ai_skill", _AI_SKILL_FIELDS, 1000),
+    ("sys_hub_flow", _FLOW_FIELDS, 1000),
+    ("sys_script", _BR_FIELDS, 2000),
+    ("sys_script_include", _SI_FIELDS, 2000),
+]
 
 
 def _is_custom(row: dict[str, object]) -> bool:
@@ -159,7 +159,7 @@ class InstanceScanner:
         Raises:
             SnapshotError: If the response status is not 200.
         """
-        fields, limit = _TABLE_CONFIG[table]
+        _, fields, limit = next(cfg for cfg in _TABLE_CONFIG if cfg[0] == table)
         resp = await client.get(
             f"/api/now/table/{table}",
             params={"sysparm_fields": fields, "sysparm_limit": limit},

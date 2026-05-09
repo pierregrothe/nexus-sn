@@ -121,8 +121,9 @@ def test_is_custom_with_string_scope_uses_string_value() -> None:
 def test_parse_dt_returns_fallback_for_invalid_string() -> None:
     result = _parse_dt("not-a-date")
     assert result.tzinfo is not None
-    assert result.utcoffset() is not None
-    assert result.utcoffset().total_seconds() == 0  # type: ignore[union-attr]
+    offset = result.utcoffset()
+    assert offset is not None
+    assert offset.total_seconds() == 0
 
 
 async def test_instance_scanner_scan_with_invalid_updated_on_uses_fallback() -> None:
