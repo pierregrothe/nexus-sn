@@ -94,6 +94,60 @@ class ServiceNowClient:
         response = await self._get(f"{_TABLE_API_BASE}/{table}", params=params)
         return list(response.get("result", []))
 
+    async def list_records(
+        self,
+        table: str,
+        query: str = "",
+        limit: int = 1000,
+        offset: int = 0,
+        fields: str = "",
+        display_value: str = "false",
+    ) -> list[dict[str, Any]]:
+        """Query a ServiceNow table with full pagination support.
+
+        Unlike query_table, this method applies no cap on limit and supports
+        offset-based pagination for iterating over large result sets.
+
+        Args:
+            table: Table API name.
+            query: Encoded query string.
+            limit: Maximum records to return per page.
+            offset: Record index to start from (0-based).
+            fields: Comma-separated field names to return.
+            display_value: "true", "false", or "all" (value + display_value pairs).
+
+        Returns:
+            List of record dicts for the requested page.
+        """
+        sparams: dict[str, str | int] = {
+            "sysparm_limit": limit,
+            "sysparm_offset": offset,
+            "sysparm_display_value": display_value,
+        }
+        if query:
+            sparams["sysparm_query"] = query
+        if fields:
+            sparams["sysparm_fields"] = fields
+        response = await self._get(f"{_TABLE_API_BASE}/{table}", params=sparams)
+        return list(response.get("result", []))
+
+    async def count_records(self, table: str, query: str = "") -> int:
+        """Return the total count of records matching the query via the Aggregate API.
+
+        Args:
+            table: Table API name.
+            query: Encoded query string.
+
+        Returns:
+            Total matching record count.
+        """
+        cparams: dict[str, str] = {"sysparm_count": "true"}
+        if query:
+            cparams["sysparm_query"] = query
+        response = await self._get(f"{_STATS_API_BASE}/{table}", params=cparams)
+        count_str = response.get("result", {}).get("stats", {}).get("count", "0")
+        return int(count_str)
+
     async def get_record(self, table: str, sys_id: str, fields: str = "") -> dict[str, Any]:
         """Retrieve a single record by sys_id.
 
