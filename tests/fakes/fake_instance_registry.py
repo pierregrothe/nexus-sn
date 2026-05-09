@@ -12,7 +12,7 @@ from nexus.instances.models import InstanceMeta, InstanceSnapshot
 __all__ = ["FakeInstanceRegistry"]
 
 
-@dataclass
+@dataclass(slots=True)
 class FakeInstanceRegistry:
     """In-memory substitute for InstanceRegistry.
 
@@ -84,14 +84,19 @@ class FakeInstanceRegistry:
         return sorted(self.profiles.values(), key=lambda m: m.profile)
 
     def load_snapshot(self, profile: str) -> InstanceSnapshot | None:
-        """Return stored snapshot or None.
+        """Return stored snapshot or None if profile exists but has no snapshot.
 
         Args:
             profile: Profile name.
 
         Returns:
             Stored InstanceSnapshot or None if not yet captured.
+
+        Raises:
+            InstanceNotFoundError: If the profile does not exist.
         """
+        if profile not in self.profiles:
+            raise InstanceNotFoundError(profile)
         return self.snapshots.get(profile)
 
     def save_snapshot(self, profile: str, snapshot: InstanceSnapshot) -> None:

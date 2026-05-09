@@ -4,7 +4,10 @@
 # Date: 2026-05-08
 """Tests for instance management data models and errors."""
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta, timezone
+
+import pytest
+from pydantic import ValidationError
 
 from nexus.instances.errors import (
     InstanceError,
@@ -115,3 +118,41 @@ def test_artifact_record_extra_accepts_mixed_types() -> None:
 
 def test_instance_not_found_error_is_instance_of_instance_error() -> None:
     assert isinstance(InstanceNotFoundError("x"), InstanceError)
+
+
+def test_artifact_record_require_utc_rejects_non_utc_datetime() -> None:
+    eastern = timezone(timedelta(hours=-5))
+    non_utc = datetime.now(eastern)
+    with pytest.raises(ValidationError, match="UTC"):
+        ArtifactRecord(
+            sys_id="x",
+            name="x",
+            active=True,
+            updated_on=non_utc,
+            is_custom=False,
+        )
+
+
+def test_instance_snapshot_require_utc_rejects_non_utc_captured_at() -> None:
+    eastern = timezone(timedelta(hours=-5))
+    non_utc = datetime.now(eastern)
+    with pytest.raises(ValidationError, match="UTC"):
+        InstanceSnapshot(captured_at=non_utc, sn_version="Xanadu")
+
+
+def test_instance_meta_require_utc_rejects_non_utc_datetime() -> None:
+    eastern = timezone(timedelta(hours=-5))
+    non_utc = datetime.now(eastern)
+    with pytest.raises(ValidationError, match="UTC"):
+        InstanceMeta(
+            profile="dev12345",
+            url="https://dev12345.service-now.com",
+            username="admin",
+            client_id="client-123",
+            sn_version="Xanadu",
+            sn_build="04-01-2025",
+            instance_name="dev12345",
+            registered_at=non_utc,
+            last_connected_at=datetime.now(UTC),
+            token_expires_at=datetime.now(UTC),
+        )

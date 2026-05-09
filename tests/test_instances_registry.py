@@ -132,3 +132,42 @@ def test_registry_load_snapshot_returns_none_when_no_snapshot(tmp_path: Path) ->
     registry = InstanceRegistry(tmp_path)
     registry.register(_meta())
     assert registry.load_snapshot("dev12345") is None
+
+
+def test_registry_save_raises_when_not_found(tmp_path: Path) -> None:
+    registry = InstanceRegistry(tmp_path)
+    with pytest.raises(InstanceNotFoundError):
+        registry.save(_meta())
+
+
+def test_registry_save_snapshot_raises_when_not_found(tmp_path: Path) -> None:
+    registry = InstanceRegistry(tmp_path)
+    with pytest.raises(InstanceNotFoundError):
+        registry.save_snapshot("missing", _snapshot())
+
+
+def test_registry_list_all_skips_malformed_meta(tmp_path: Path) -> None:
+    (tmp_path / "bad").mkdir()
+    (tmp_path / "bad" / "meta.json").write_text("not json", encoding="utf-8")
+    registry = InstanceRegistry(tmp_path)
+    registry.register(_meta("good"))
+    profiles = registry.list_all()
+    assert len(profiles) == 1
+    assert profiles[0].profile == "good"
+
+
+def test_registry_load_snapshot_raises_when_profile_not_found(tmp_path: Path) -> None:
+    registry = InstanceRegistry(tmp_path)
+    with pytest.raises(InstanceNotFoundError):
+        registry.load_snapshot("nonexistent")
+
+
+def test_registry_save_snapshot_cleans_tmp_on_oserror(tmp_path: Path) -> None:
+    registry = InstanceRegistry(tmp_path)
+    registry.register(_meta())
+    profile_dir = tmp_path / "dev12345"
+    # Create a directory where snapshot.json would be placed so Path.replace raises OSError.
+    (profile_dir / "snapshot.json").mkdir()
+    with pytest.raises(IsADirectoryError, match="Is a directory"):
+        registry.save_snapshot("dev12345", _snapshot())
+    assert not any(p.suffix == ".tmp" for p in profile_dir.iterdir())

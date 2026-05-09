@@ -9,6 +9,8 @@ import shutil
 import tempfile
 from pathlib import Path
 
+from pydantic import ValidationError
+
 from nexus.instances.errors import InstanceNotFoundError
 from nexus.instances.models import InstanceMeta, InstanceSnapshot
 
@@ -102,7 +104,7 @@ class InstanceRegistry:
                 profiles.append(
                     InstanceMeta.model_validate_json(meta_file.read_text(encoding="utf-8"))
                 )
-            except Exception:
+            except OSError, ValueError, ValidationError:
                 log.warning("skipping malformed meta.json: %s", meta_file)
         return profiles
 
@@ -113,9 +115,15 @@ class InstanceRegistry:
             profile: Profile name.
 
         Returns:
-            InstanceSnapshot or None if no snapshot has been captured yet.
+            InstanceSnapshot or None if the profile exists but no snapshot captured yet.
+
+        Raises:
+            InstanceNotFoundError: If the profile directory does not exist.
         """
-        snap_file = self._dir(profile) / _SNAPSHOT
+        profile_dir = self._dir(profile)
+        if not profile_dir.exists():
+            raise InstanceNotFoundError(profile)
+        snap_file = profile_dir / _SNAPSHOT
         if not snap_file.exists():
             return None
         return InstanceSnapshot.model_validate_json(snap_file.read_text(encoding="utf-8"))
@@ -141,7 +149,7 @@ class InstanceRegistry:
             with open(fd, "w", encoding="utf-8") as f:
                 f.write(snapshot.model_dump_json(indent=2))
             Path(tmp).replace(snap_file)
-        except Exception:
+        except OSError:
             Path(tmp).unlink(missing_ok=True)
             raise
 

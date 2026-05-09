@@ -62,8 +62,8 @@ class InstanceMeta(BaseModel):
         """
         if isinstance(v, str):
             v = datetime.fromisoformat(v)
-        if isinstance(v, datetime) and v.tzinfo is None:
-            raise ValueError("datetime must be timezone-aware (UTC required)")
+        if isinstance(v, datetime) and (v.tzinfo is None or v.utcoffset() != timedelta(0)):
+            raise ValueError("datetime must be UTC (tzinfo required, offset must be +00:00)")
         return v
 
     @classmethod
@@ -137,8 +137,8 @@ class ArtifactRecord(BaseModel):
         """
         if isinstance(v, str):
             v = datetime.fromisoformat(v)
-        if isinstance(v, datetime) and v.tzinfo is None:
-            raise ValueError("datetime must be timezone-aware (UTC required)")
+        if isinstance(v, datetime) and (v.tzinfo is None or v.utcoffset() != timedelta(0)):
+            raise ValueError("datetime must be UTC (tzinfo required, offset must be +00:00)")
         return v
 
 
@@ -170,8 +170,8 @@ class InstanceSnapshot(BaseModel):
         """
         if isinstance(v, str):
             v = datetime.fromisoformat(v)
-        if isinstance(v, datetime) and v.tzinfo is None:
-            raise ValueError("datetime must be timezone-aware (UTC required)")
+        if isinstance(v, datetime) and (v.tzinfo is None or v.utcoffset() != timedelta(0)):
+            raise ValueError("datetime must be UTC (tzinfo required, offset must be +00:00)")
         return v
 
     @property
