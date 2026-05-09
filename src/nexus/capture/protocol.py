@@ -14,8 +14,11 @@ from nexus.capture.models import (
     ScopeManifest,
     UpdateSetRef,
 )
+from nexus.capture.tables import AI_AUTOMATION
 
 __all__ = ["CaptureProtocol"]
+
+_DEFAULT_GROUP = AI_AUTOMATION.key
 
 
 class CaptureProtocol(Protocol):
@@ -24,7 +27,7 @@ class CaptureProtocol(Protocol):
     async def discover_scopes(
         self,
         instance_id: str,
-        table_group: str = "ai_automation",
+        table_group: str = _DEFAULT_GROUP,
     ) -> ScopeManifest:
         """Discover all application scopes on the instance with per-table counts.
 
@@ -41,7 +44,7 @@ class CaptureProtocol(Protocol):
         self,
         instance_id: str,
         scope_ids: list[str],
-        table_group: str = "ai_automation",
+        table_group: str = _DEFAULT_GROUP,
     ) -> CaptureResult:
         """Fetch all custom configurations in the given scopes from a live instance.
 

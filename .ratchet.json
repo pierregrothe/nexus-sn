@@ -46,7 +46,7 @@
     "nexus.capture.archive": {"covered_lines": 52, "total_lines": 57},
     "nexus.capture.engine": {"covered_lines": 32, "total_lines": 32},
     "nexus.capture.errors": {"covered_lines": 24, "total_lines": 24},
-    "nexus.capture.fetcher": {"covered_lines": 82, "total_lines": 96},
+    "nexus.capture.fetcher": {"covered_lines": 76, "total_lines": 76},
     "nexus.capture.models": {"covered_lines": 61, "total_lines": 61},
     "nexus.capture.protocol": {"covered_lines": 0, "total_lines": 15},
     "nexus.capture.scope": {"covered_lines": 26, "total_lines": 26},

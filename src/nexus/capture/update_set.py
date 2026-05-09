@@ -10,8 +10,8 @@ import logging
 from nexus.capture.errors import UpdateSetError
 from nexus.capture.models import CaptureResult, UpdateSetRef
 from nexus.capture.xml_builder import UpdateSetXmlBuilder
-from nexus.connectors.servicenow.client import ServiceNowClient
 from nexus.connectors.servicenow.errors import SNClientError
+from nexus.connectors.servicenow.protocol import ServiceNowClientProtocol
 
 log = logging.getLogger(__name__)
 
@@ -22,13 +22,13 @@ class UpdateSetWriter:
     """Pushes a CaptureResult into a ServiceNow update set.
 
     Args:
-        client: Open ServiceNowClient for the target instance.
+        client: Open ServiceNowClientProtocol for the target instance.
         builder: XML builder for generating update set payloads.
     """
 
     def __init__(
         self,
-        client: ServiceNowClient,
+        client: ServiceNowClientProtocol,
         builder: UpdateSetXmlBuilder,
     ) -> None:
         """Initialize with an open client and XML builder."""

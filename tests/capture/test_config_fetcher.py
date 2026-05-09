@@ -219,6 +219,26 @@ async def test_fetch_404_on_list_returns_empty_and_continues() -> None:
 
 
 @pytest.mark.asyncio
+async def test_fetch_records_preserves_ref_field_values() -> None:
+    ref_value = {"value": "scope001", "display_value": "NowAssist HRSD"}
+    skill_with_ref = {
+        "sys_id": "s_ref",
+        "name": "Ref Skill",
+        "sys_scope": ref_value,
+        "sys_customer_update": "true",
+    }
+    client = FakeServiceNowClient(initial_records={"ai_skill": [skill_with_ref]})
+    fetcher = ConfigFetcher(client, DEFAULT_TABLE_GROUPS)
+    async with client:
+        records = await fetcher.fetch(
+            instance_id="dev", scope_ids=[_SCOPE_ID], table_group="ai_automation"
+        )
+
+    skill = next(r for r in records if r.table == "ai_skill")
+    assert skill.fields["sys_scope"] == ref_value
+
+
+@pytest.mark.asyncio
 async def test_fetch_500_on_list_propagates() -> None:
     client = _ListRaisesClient(raise_table="ai_skill", status_code=500)
     fetcher = ConfigFetcher(client, DEFAULT_TABLE_GROUPS)

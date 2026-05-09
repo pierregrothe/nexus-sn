@@ -11,8 +11,8 @@ from typing import Any, cast
 
 from nexus.capture.models import ConfigRecord, SnRecord, SnRefField
 from nexus.capture.tables import RelatedTable, TableGroup, TableSpec
-from nexus.connectors.servicenow.client import ServiceNowClient
 from nexus.connectors.servicenow.errors import SNClientError
+from nexus.connectors.servicenow.protocol import ServiceNowClientProtocol
 
 log = logging.getLogger(__name__)
 
@@ -21,20 +21,53 @@ __all__ = ["ConfigFetcher"]
 _DEFAULT_PAGE_SIZE = 1000
 
 
+def _row_to_record(
+    row: dict[str, object],
+    table: str,
+    scope_sys_id: str,
+    now: datetime,
+    parent_sys_id: str | None,
+) -> ConfigRecord:
+    sys_id_raw = row.get("sys_id")
+    sys_id = sys_id_raw if isinstance(sys_id_raw, str) else ""
+    scope_raw = row.get("sys_scope")
+    scope_name = scope_raw if isinstance(scope_raw, str) else scope_sys_id
+    fields: SnRecord = {}
+    for key, val in row.items():
+        if isinstance(val, str):
+            fields[key] = val
+        elif isinstance(val, dict):
+            val_d = cast(dict[str, object], val)
+            v = val_d.get("value")
+            dv = val_d.get("display_value")
+            if isinstance(v, str) and isinstance(dv, str):
+                ref: SnRefField = {"value": v, "display_value": dv}
+                fields[key] = ref
+    return ConfigRecord(
+        sys_id=sys_id,
+        table=table,
+        scope_sys_id=scope_sys_id,
+        scope_name=scope_name,
+        captured_at=now,
+        fields=fields,
+        parent_sys_id=parent_sys_id,
+    )
+
+
 class ConfigFetcher:
     """Fetches custom records for a given scope and table group.
 
     All queries include sys_customer_update=true to exclude OOTB records.
 
     Args:
-        client: Open ServiceNowClient for the source instance.
+        client: Open ServiceNowClientProtocol for the source instance.
         table_groups: Mapping of group key to TableGroup.
         page_size: Records per paginated request.
     """
 
     def __init__(
         self,
-        client: ServiceNowClient,
+        client: ServiceNowClientProtocol,
         table_groups: dict[str, TableGroup],
         page_size: int = _DEFAULT_PAGE_SIZE,
     ) -> None:
@@ -85,35 +118,10 @@ class ConfigFetcher:
     ) -> list[ConfigRecord]:
         query = f"sys_customer_update=true^{spec.scope_field}={scope_sys_id}"
         raw = await self._fetch_all_pages(spec.name, query)
-        records: list[ConfigRecord] = []
-        for row in raw:
-            row_obj = cast(dict[str, object], row)
-            raw_sid = row_obj.get("sys_id")
-            sys_id = raw_sid if isinstance(raw_sid, str) else ""
-            raw_scope = row_obj.get("sys_scope")
-            scope_name = raw_scope if isinstance(raw_scope, str) else scope_sys_id
-            fields: SnRecord = {}
-            for key, val in row_obj.items():
-                if isinstance(val, str):
-                    fields[key] = val
-                elif isinstance(val, dict):
-                    val_d = cast(dict[str, object], val)
-                    v = val_d.get("value")
-                    dv = val_d.get("display_value")
-                    if isinstance(v, str) and isinstance(dv, str):
-                        ref: SnRefField = {"value": v, "display_value": dv}
-                        fields[key] = ref
-            records.append(
-                ConfigRecord(
-                    sys_id=sys_id,
-                    table=spec.name,
-                    scope_sys_id=scope_sys_id,
-                    scope_name=scope_name,
-                    captured_at=now,
-                    fields=fields,
-                    parent_sys_id=None,
-                )
-            )
+        records = [
+            _row_to_record(cast(dict[str, object], row), spec.name, scope_sys_id, now, None)
+            for row in raw
+        ]
         log.info("captured %d records from %s (scope=%s)", len(records), spec.name, scope_sys_id)
         return records
 
@@ -126,36 +134,12 @@ class ConfigFetcher:
     ) -> list[ConfigRecord]:
         query = f"sys_customer_update=true^{related.join_field}={parent_sys_id}"
         raw = await self._fetch_all_pages(related.name, query)
-        results: list[ConfigRecord] = []
-        for row in raw:
-            row_obj = cast(dict[str, object], row)
-            raw_sid = row_obj.get("sys_id")
-            sys_id = raw_sid if isinstance(raw_sid, str) else ""
-            raw_scope = row_obj.get("sys_scope")
-            scope_name = raw_scope if isinstance(raw_scope, str) else scope_sys_id
-            fields: SnRecord = {}
-            for key, val in row_obj.items():
-                if isinstance(val, str):
-                    fields[key] = val
-                elif isinstance(val, dict):
-                    val_d = cast(dict[str, object], val)
-                    v = val_d.get("value")
-                    dv = val_d.get("display_value")
-                    if isinstance(v, str) and isinstance(dv, str):
-                        ref: SnRefField = {"value": v, "display_value": dv}
-                        fields[key] = ref
-            results.append(
-                ConfigRecord(
-                    sys_id=sys_id,
-                    table=related.name,
-                    scope_sys_id=scope_sys_id,
-                    scope_name=scope_name,
-                    captured_at=now,
-                    fields=fields,
-                    parent_sys_id=parent_sys_id,
-                )
+        return [
+            _row_to_record(
+                cast(dict[str, object], row), related.name, scope_sys_id, now, parent_sys_id
             )
-        return results
+            for row in raw
+        ]
 
     async def _fetch_all_pages(self, table: str, query: str) -> list[dict[str, Any]]:
         try:

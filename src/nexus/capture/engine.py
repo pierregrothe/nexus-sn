@@ -18,7 +18,7 @@ from nexus.capture.models import (
     UpdateSetRef,
 )
 from nexus.capture.scope import ScopeDiscoverer
-from nexus.capture.tables import DEFAULT_TABLE_GROUPS, TableGroup
+from nexus.capture.tables import AI_AUTOMATION, DEFAULT_TABLE_GROUPS, TableGroup
 from nexus.capture.update_set import UpdateSetWriter
 from nexus.capture.xml_builder import UpdateSetXmlBuilder
 from nexus.connectors.servicenow.client import ServiceNowClient
@@ -58,7 +58,7 @@ class CaptureEngine:
     async def discover_scopes(
         self,
         instance_id: str,
-        table_group: str = "ai_automation",
+        table_group: str = AI_AUTOMATION.key,
     ) -> ScopeManifest:
         """Discover all application scopes on the instance with per-table counts.
 
@@ -75,7 +75,7 @@ class CaptureEngine:
         self,
         instance_id: str,
         scope_ids: list[str],
-        table_group: str = "ai_automation",
+        table_group: str = AI_AUTOMATION.key,
     ) -> CaptureResult:
         """Fetch all custom configurations in the given scopes.
 

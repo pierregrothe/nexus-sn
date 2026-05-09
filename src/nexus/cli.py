@@ -31,7 +31,8 @@ from nexus.capabilities.registry import CapabilitySet
 from nexus.capabilities.status_reporter import StatusReporter
 from nexus.capabilities.tier import TierDetection, TierDetector
 from nexus.capture.engine import CaptureEngine
-from nexus.capture.tables import DEFAULT_TABLE_GROUPS
+from nexus.capture.models import ArchiveManifest
+from nexus.capture.tables import AI_AUTOMATION, DEFAULT_TABLE_GROUPS
 from nexus.config.manager import ConfigManager
 from nexus.config.paths import NexusPaths
 from nexus.config.settings import InstancesConfig
@@ -637,7 +638,7 @@ def instance_register(profile: str) -> None:
 @capture_app.command("discover")
 def capture_discover(
     instance: Annotated[str, typer.Argument(help="Instance profile name")],
-    group: Annotated[str, typer.Option(help="Table group")] = "ai_automation",
+    group: Annotated[str, typer.Option(help="Table group")] = AI_AUTOMATION.key,
 ) -> None:
     """Discover application scopes on an instance and show per-table counts."""
 
@@ -672,7 +673,7 @@ def capture_discover(
 def capture_pull(
     instance: Annotated[str, typer.Argument(help="Instance profile name")],
     scope: Annotated[list[str], typer.Option(help="Scope sys_id (repeatable)")],
-    group: Annotated[str, typer.Option(help="Table group")] = "ai_automation",
+    group: Annotated[str, typer.Option(help="Table group")] = AI_AUTOMATION.key,
 ) -> None:
     """Capture custom configurations for selected scopes to a local archive."""
 
@@ -706,17 +707,18 @@ def capture_list(
     for manifest_path in sorted(archives_root.rglob("manifest.yaml")):
         try:
             raw = _yaml.safe_load(manifest_path.read_text(encoding="utf-8"))
-            inst = raw.get("instance_id", "?")
-            if instance and inst != instance:
-                continue
-            tbl.add_row(
-                inst,
-                str(raw.get("captured_at", "?"))[:19],
-                str(raw.get("record_count", 0)),
-                str(manifest_path.parent),
-            )
-        except Exception:
+            manifest = ArchiveManifest.model_validate(raw, strict=False)
+        except Exception as exc:
+            err_console.print(f"Skipping corrupt manifest {manifest_path.parent}: {exc}")
             continue
+        if instance and manifest.instance_id != instance:
+            continue
+        tbl.add_row(
+            manifest.instance_id,
+            str(manifest.captured_at)[:19],
+            str(manifest.record_count),
+            str(manifest.archive_dir),
+        )
     console.print(tbl)
 
 

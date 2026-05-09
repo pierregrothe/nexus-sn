@@ -5,12 +5,14 @@
 
 """ScopeDiscoverer: queries sys_scope and counts custom records per table per scope."""
 
+import asyncio
 import logging
 from datetime import UTC, datetime
+from typing import Any
 
 from nexus.capture.models import ScopeEntry, ScopeManifest
 from nexus.capture.tables import TableGroup
-from nexus.connectors.servicenow.client import ServiceNowClient
+from nexus.connectors.servicenow.protocol import ServiceNowClientProtocol
 
 log = logging.getLogger(__name__)
 
@@ -24,13 +26,13 @@ class ScopeDiscoverer:
     """Discovers application scopes and counts custom records per table.
 
     Args:
-        client: Open ServiceNowClient for the target instance.
+        client: Open ServiceNowClientProtocol for the target instance.
         table_groups: Mapping of group key to TableGroup.
     """
 
     def __init__(
         self,
-        client: ServiceNowClient,
+        client: ServiceNowClientProtocol,
         table_groups: dict[str, TableGroup],
     ) -> None:
         """Initialize with an open client and the table group registry."""
@@ -48,20 +50,28 @@ class ScopeDiscoverer:
             ScopeManifest with one ScopeEntry per discovered scope.
         """
         group = self._groups[table_group]
-        raw_scopes = await self._client.list_records(
-            "sys_scope",
-            fields=_SCOPE_FIELDS,
-            limit=_SCOPE_PAGE,
-        )
+        total = await self._client.count_records("sys_scope")
+        raw_scopes: list[dict[str, Any]] = []
+        offset = 0
+        while offset < total:
+            page = await self._client.list_records(
+                "sys_scope",
+                fields=_SCOPE_FIELDS,
+                limit=_SCOPE_PAGE,
+                offset=offset,
+            )
+            raw_scopes.extend(page)
+            offset += _SCOPE_PAGE
         log.info("discovered %d scopes on %s", len(raw_scopes), instance_id)
 
         entries: list[ScopeEntry] = []
         for row in raw_scopes:
             scope_sys_id = str(row.get("sys_id", ""))
-            counts: dict[str, int] = {}
-            for spec in group.tables:
-                query = f"sys_customer_update=true^sys_scope={scope_sys_id}"
-                counts[spec.name] = await self._client.count_records(spec.name, query=query)
+            query = f"sys_customer_update=true^sys_scope={scope_sys_id}"
+            counts_list: list[int] = await asyncio.gather(
+                *[self._client.count_records(spec.name, query=query) for spec in group.tables]
+            )
+            counts = {spec.name: n for spec, n in zip(group.tables, counts_list, strict=True)}
             entries.append(
                 ScopeEntry(
                     sys_id=scope_sys_id,
