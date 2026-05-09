@@ -326,7 +326,8 @@ def instance_register(profile: str) -> None:
 
     console.print(f"Registering instance: {profile}")
     raw_url: str = typer.prompt("  Instance URL (e.g. dev12345.service-now.com)")
-    url = raw_url if raw_url.startswith("https://") else f"https://{raw_url}"
+    stripped = raw_url.removeprefix("https://").removeprefix("http://")
+    url = f"https://{stripped}"
     username: str = typer.prompt("  Username")
     client_id: str = typer.prompt("  OAuth Client ID")
     client_secret: str = typer.prompt("  OAuth Client Secret", hide_input=True)
