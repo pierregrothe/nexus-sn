@@ -97,6 +97,11 @@ class NexusPaths:
         """
         return self.root / "instances"
 
+    @property
+    def archives_dir(self) -> Path:
+        """Local capture archives root."""
+        return self.root / "archives"
+
     def instance_dir(self, profile: str) -> Path:
         """Directory for a specific instance profile.
 
@@ -118,6 +123,7 @@ class NexusPaths:
             self.logs_dir,
             self.cache_dir,
             self.instances_dir,
+            self.archives_dir,
         ):
             path.mkdir(parents=True, exist_ok=True)
         log.debug("runtime directories ensured under %s", self.root)
