@@ -109,3 +109,40 @@ class FakeServiceNowClient:
         """
         if table in self._tables:
             self._tables[table] = [r for r in self._tables[table] if r.get("sys_id") != sys_id]
+
+    async def list_records(
+        self,
+        table: str,
+        query: str = "",
+        limit: int = 1000,
+        offset: int = 0,
+        fields: str = "",
+        display_value: str = "false",
+    ) -> list[dict[str, Any]]:
+        """Return a page of records from the in-memory table.
+
+        Args:
+            table: Table name.
+            query: Ignored in fake -- returns all records in page window.
+            limit: Maximum records to return.
+            offset: Starting record index.
+            fields: Ignored in fake.
+            display_value: Ignored in fake.
+
+        Returns:
+            List of record dicts for the requested page.
+        """
+        all_records = self._tables.get(table, [])
+        return all_records[offset : offset + limit]
+
+    async def count_records(self, table: str, query: str = "") -> int:
+        """Return the total count of records in the table.
+
+        Args:
+            table: Table name.
+            query: Ignored in fake -- counts all records.
+
+        Returns:
+            Total record count.
+        """
+        return len(self._tables.get(table, []))

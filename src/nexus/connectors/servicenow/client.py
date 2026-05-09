@@ -29,6 +29,7 @@ __all__ = ["ServiceNowClient"]
 _MAX_RETRIES = 3
 _TIMEOUT_SECONDS = 30.0
 _TABLE_API_BASE = "/api/now/table"
+_STATS_API_BASE = "/api/now/stats"
 
 
 class ServiceNowClient:
