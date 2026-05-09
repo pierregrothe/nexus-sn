@@ -35,12 +35,18 @@ def test_nexus_paths_ensure_dirs_creates_all_directories(nexus_paths: NexusPaths
         nexus_paths.jobs_dir,
         nexus_paths.logs_dir,
         nexus_paths.instances_dir,
+        nexus_paths.archives_dir,
     ):
         assert path.is_dir()
 
 
 def test_nexus_paths_instances_dir_under_root(nexus_paths: NexusPaths) -> None:
     assert nexus_paths.instances_dir == nexus_paths.root / "instances"
+
+
+def test_nexus_paths_archives_dir_under_root() -> None:
+    paths = NexusPaths(root=Path("/tmp/nexus"))
+    assert paths.archives_dir == Path("/tmp/nexus/archives")
 
 
 def test_nexus_paths_instance_dir_includes_profile(nexus_paths: NexusPaths) -> None:

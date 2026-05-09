@@ -26,12 +26,15 @@ def test_table_unavailable_error_is_capture_error() -> None:
     err = TableUnavailableError(table="ai_skill", instance_id="dev")
     assert isinstance(err, CaptureError)
     assert err.table == "ai_skill"
+    assert err.instance_id == "dev"
+    assert "ai_skill" in str(err)
 
 
 def test_archive_corrupt_error_is_capture_error() -> None:
     err = ArchiveCorruptError(archive_dir=Path("/tmp/missing"))
     assert isinstance(err, CaptureError)
     assert err.archive_dir == Path("/tmp/missing")
+    assert "/tmp/missing" in str(err)
 
 
 def test_update_set_error_is_capture_error() -> None:
@@ -42,4 +45,8 @@ def test_update_set_error_is_capture_error() -> None:
         failed_table="ai_skill",
     )
     assert isinstance(err, CaptureError)
+    assert err.update_set_name == "NEXUS-capture"
+    assert err.instance_id == "dev"
+    assert err.failed_record_sys_id == "abc"
     assert err.failed_table == "ai_skill"
+    assert "ai_skill" in str(err)
