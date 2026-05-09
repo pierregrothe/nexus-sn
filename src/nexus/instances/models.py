@@ -9,33 +9,13 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
-from pydantic import BaseModel, BeforeValidator, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field
 
-__all__ = ["ArtifactRecord", "InstanceMeta", "InstanceSnapshot", "SnapshotCounts", "UtcDatetime"]
+from nexus.config.types import UtcDatetime
+
+__all__ = ["ArtifactRecord", "InstanceMeta", "InstanceSnapshot", "SnapshotCounts"]
 
 _FROZEN = ConfigDict(frozen=True, strict=True, extra="forbid")
-
-
-def _require_utc(v: object) -> object:
-    """Reject naive datetimes and non-UTC offsets before Pydantic coercion.
-
-    Args:
-        v: Field value to validate (str or datetime).
-
-    Returns:
-        A timezone-aware datetime with UTC offset.
-
-    Raises:
-        ValueError: If v is a naive datetime or has a non-UTC offset.
-    """
-    if isinstance(v, str):
-        v = datetime.fromisoformat(v)
-    if isinstance(v, datetime) and (v.tzinfo is None or v.utcoffset() != timedelta(0)):
-        raise ValueError("datetime must be UTC (tzinfo required, offset must be +00:00)")
-    return v
-
-
-UtcDatetime = Annotated[datetime, BeforeValidator(_require_utc)]
 
 
 class SnapshotCounts(BaseModel):

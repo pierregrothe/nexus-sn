@@ -7,11 +7,12 @@
 
 from __future__ import annotations
 
-from datetime import datetime
 from pathlib import Path
 from typing import TypedDict
 
 from pydantic import BaseModel, ConfigDict
+
+from nexus.config.types import UtcDatetime
 
 __all__ = [
     "ArchiveManifest",
@@ -56,7 +57,7 @@ class ScopeManifest(BaseModel):
     model_config = ConfigDict(frozen=True, strict=True, extra="forbid")
 
     instance_id: str
-    captured_at: datetime
+    captured_at: UtcDatetime
     scopes: tuple[ScopeEntry, ...]
 
 
@@ -69,7 +70,7 @@ class ConfigRecord(BaseModel):
     table: str
     scope_sys_id: str
     scope_name: str
-    captured_at: datetime
+    captured_at: UtcDatetime
     fields: SnRecord
     parent_sys_id: str | None = None
 
@@ -80,7 +81,7 @@ class CaptureResult(BaseModel):
     model_config = ConfigDict(frozen=True, strict=True, extra="forbid")
 
     instance_id: str
-    captured_at: datetime
+    captured_at: UtcDatetime
     scope_ids: tuple[str, ...]
     table_group: str
     records: tuple[ConfigRecord, ...]
@@ -104,7 +105,7 @@ class ArchiveManifest(BaseModel):
 
     format_version: str
     instance_id: str
-    captured_at: datetime
+    captured_at: UtcDatetime
     scope_ids: tuple[str, ...]
     table_group: str
     record_count: int

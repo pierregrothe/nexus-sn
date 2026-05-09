@@ -45,7 +45,7 @@ class TableSpec:
     display: str
     scope_field: str = "sys_scope"
     related: tuple[RelatedTable, ...] = field(default_factory=tuple)
-    key_fields: tuple[str, ...] = field(default_factory=lambda: ("sys_id", "name", "sys_scope"))
+    key_fields: tuple[str, ...] = ("sys_id", "name", "sys_scope")
 
 
 @dataclass(slots=True, frozen=True)

@@ -10,6 +10,7 @@ from typing import get_args
 import pytest
 from pydantic import ValidationError
 
+from nexus.config.types import UtcDatetime, _require_utc
 from nexus.instances.errors import (
     InstanceError,
     InstanceNotFoundError,
@@ -22,8 +23,6 @@ from nexus.instances.models import (
     InstanceMeta,
     InstanceSnapshot,
     SnapshotCounts,
-    UtcDatetime,
-    _require_utc,
 )
 
 

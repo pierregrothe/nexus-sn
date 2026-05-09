@@ -4,13 +4,16 @@
 # Date: 2026-05-09
 
 from datetime import UTC, datetime
+from pathlib import Path
 
 from nexus.capture.models import (
+    ArchiveManifest,
     CaptureResult,
     ConfigRecord,
     ScopeEntry,
     ScopeManifest,
     SnRefField,
+    UpdateSetRef,
 )
 from nexus.capture.tables import (
     AI_AUTOMATION,
@@ -126,3 +129,27 @@ def test_table_spec_related_table_has_join_field() -> None:
 
 def test_default_table_groups_contains_ai_automation() -> None:
     assert "ai_automation" in DEFAULT_TABLE_GROUPS
+
+
+def test_archive_manifest_constructs() -> None:
+    m = ArchiveManifest(
+        format_version="1.0",
+        instance_id="dev",
+        captured_at=NOW,
+        scope_ids=("s1",),
+        table_group="ai_automation",
+        record_count=5,
+        archive_dir=Path("/tmp"),
+    )
+    assert m.record_count == 5
+
+
+def test_update_set_ref_constructs() -> None:
+    ref = UpdateSetRef(
+        sys_id="u1",
+        name="NEXUS-Capture",
+        state="in progress",
+        record_count=3,
+        instance_id="dev",
+    )
+    assert ref.state == "in progress"
