@@ -75,9 +75,23 @@ Instances layer (fully functional end-to-end):
   _detect_sn_version() -- probes glide.buildtag, glide.buildtag.last, LIKE
     fallback; re-runs on connect and persists result to meta.json
 
+Capture layer (bidirectional SN config transport):
+  CaptureProtocol -- structural interface (CLI/TUI/Web UI bind to this)
+  ScopeDiscoverer -- paginated sys_scope fetch + count_records per table
+  ConfigFetcher -- paginated Table API, related child records, custom-only filter
+  ArchiveWriter/Reader -- YAML on disk with nested related record layout
+  UpdateSetXmlBuilder -- ElementTree-based SN update set XML generation
+  UpdateSetWriter -- create/reuse sys_update_set + inject via sys_update_xml
+  CaptureEngine -- orchestrates all components, DI via ServiceNowClientProtocol
+  AI_AUTOMATION table group: ai_skill, sys_hub_flow (+input/logic),
+    sys_hub_action_type_definition, virtual_agent_conversation_topic (+block),
+    sys_ai_agent (+capability)
+  config/types.py -- UtcDatetime shared across instances and capture layers
+
 CLI:
   nexus status -- fully implemented (banner + tier detection + StatusReporter)
   nexus instance -- full subapp, invoke_without_command shows list + quickstart
+  nexus capture -- discover, pull, list, push subcommands
   nexus reauth -- prints one-shot command for servers needing re-auth
   nexus update / --refresh -- manual update check + cache clear
   setup, sync, templates, assess -- stubs
@@ -95,7 +109,7 @@ Infrastructure:
   .ratchet.json -- coverage baseline for all implemented modules
   .github/workflows/ci.yml + release.yml -- lean CI + GitHub Releases auto-update
 
-Tests: 296 passing. All real fakes, no mocks.
+Tests: 344 passing. All real fakes, no mocks.
 GitHub: https://github.com/pierregrothe/nexus-sn (public).
 
 ## Known Issues

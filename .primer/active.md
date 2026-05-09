@@ -1,18 +1,34 @@
 # NEXUS -- Active Work
 
 Last updated: 2026-05-09
-Session: nexus.capture layer shipped. 343 tests passing.
+Session: nexus.capture layer complete + /simplify in progress. 344 tests passing.
 
 ## Current focus
 
-nexus.capture layer complete. Bidirectional SN config transport:
-- discover scopes, pull custom configs to YAML archive, push archive to update set.
-- sys_customer_update=true filter excludes all OOTB elements from capture.
-- AI_AUTOMATION table group: ai_skill, sys_hub_flow, sys_hub_action_type_definition,
-  virtual_agent_conversation_topic, sys_ai_agent (with related tables).
-- nexus capture discover/pull/list/push CLI commands wired.
+/simplify review found several efficiency and quality issues in the capture layer.
+Fixes in progress (uncommitted):
 
-Focus moves to Setup + Sync:
+  fetcher.py:
+    _row_to_record() extracted -- eliminates 25-line duplication between
+    _fetch_table() and _fetch_related().
+    New test: test_fetch_records_preserves_ref_field_values -- exercises
+    the SnRefField dict branch previously uncovered.
+
+  scope.py:
+    Pagination loop added -- fixes silent truncation at 500 scopes.
+    asyncio.gather() for count_records -- 5 concurrent calls per scope
+    instead of 5 serial calls.
+
+  connectors/servicenow/protocol.py (new):
+    ServiceNowClientProtocol -- structural interface used by ConfigFetcher,
+    ScopeDiscoverer, UpdateSetWriter so FakeServiceNowClient satisfies the
+    type without inheriting from ServiceNowClient.
+
+  Still to apply: AI_AUTOMATION.key constant for "ai_automation" string
+  literals in engine.py, protocol.py, cli.py; capture_list YAML warning
+  and ArchiveManifest.model_validate improvement.
+
+Next after /simplify:
   Step 2: nexus setup command -- credential wizard, config write, initial sync
   Step 3: GitHubSync.fetch_manifest() + download_changed()
   Step 4: TemplateRegistry.list() + get()
