@@ -218,6 +218,7 @@ def _provision_oauth(url: str, profile: str, username: str, password: str) -> tu
                     "type": "oauth2",
                     "client_secret": generated_secret,
                     "redirect_url": "https://localhost",
+                    "token_lifetime": "28800",
                 },
                 auth=(username, password),
             )
@@ -480,21 +481,32 @@ def instance_register(profile: str) -> None:
             headers={"Authorization": f"Bearer {token_response.access_token}"},
             timeout=10.0,
         ) as client:
-            resp = client.get(
-                "/api/now/table/sys_properties",
-                params={
-                    "sysparm_query": "nameINglide.buildtag,instance_name",
-                    "sysparm_fields": "name,value",
-                    "sysparm_limit": 2,
-                },
-            )
-        if resp.status_code == 200:
-            for row in resp.json().get("result", []):
-                if row.get("name") == "glide.buildtag":
-                    sn_build = str(row.get("value", ""))
-                    sn_version = sn_build.split("-")[0] if sn_build else "unknown"
-                elif row.get("name") == "instance_name":
-                    instance_name = str(row.get("value", profile))
+            for prop in ("glide.buildtag", "instance_name"):
+                r = client.get(
+                    "/api/now/table/sys_properties",
+                    params={
+                        "sysparm_query": f"name={prop}",
+                        "sysparm_fields": "value",
+                        "sysparm_limit": 1,
+                    },
+                )
+                if r.status_code != 200:
+                    continue
+                rows = r.json().get("result", [])
+                if not rows:
+                    continue
+                val = str(rows[0].get("value", "")).strip()
+                if not val:
+                    continue
+                if prop == "glide.buildtag":
+                    sn_build = val
+                    parts = val.split("-")
+                    # New-style: "Xanadu-12-18-2024__..." -> parts[0] = "Xanadu"
+                    # Old-style: "glide-london-07-05-..." -> parts[1] = "london"
+                    word = parts[1] if parts[0].lower() == "glide" and len(parts) > 1 else parts[0]
+                    sn_version = word.capitalize()
+                else:
+                    instance_name = val
     except httpx.RequestError:
         pass
 
