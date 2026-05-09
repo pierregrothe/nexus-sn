@@ -11,6 +11,7 @@ Features requiring unavailable MCP servers are hidden from help text.
 
 import asyncio
 import logging
+import uuid
 from datetime import UTC, datetime
 from typing import Annotated
 
@@ -163,6 +164,82 @@ def _set_default_profile(paths: NexusPaths, profile: str) -> None:
     manager.save(manager.load().model_copy(update={"instances": InstancesConfig(default=profile)}))
 
 
+def _print_oauth_setup(url: str, profile: str) -> None:
+    """Print step-by-step manual OAuth setup instructions for ServiceNow.
+
+    Args:
+        url: Full instance URL, used to build the direct navigation link.
+        profile: Profile alias, used as the suggested OAuth app name.
+    """
+    console.print("")
+    console.print("  Manual OAuth setup (one-time, ~2 minutes):")
+    console.print("")
+    console.print(f"  1. Open {url} and navigate to:")
+    console.print("       System OAuth > Application Registry > New")
+    console.print("     Choose 'Create an OAuth API endpoint for external clients'")
+    console.print("")
+    console.print("  2. Fill in:")
+    console.print(f"       Name          nexus-{profile}")
+    console.print("       Redirect URL   https://localhost  (placeholder, not used)")
+    console.print("     Click Submit.")
+    console.print("")
+    console.print("  3. Open the record you just created:")
+    console.print("       Copy the Client ID  (UUID shown at the top of the form)")
+    console.print("       Click the lock icon next to Client Secret to reveal it")
+    console.print("     Paste both values below.")
+    console.print("")
+
+
+def _provision_oauth(url: str, profile: str, username: str, password: str) -> tuple[str, str]:
+    """Try to auto-create an OAuth app in SN; fall back to manual prompts on failure.
+
+    Posts to the oauth_entity Table API using HTTP Basic auth. If the instance
+    returns 201 with a client_id, the caller receives those credentials without
+    any interactive prompts. On any failure the user is shown setup instructions
+    and prompted to enter the credentials manually.
+
+    Args:
+        url: Full instance URL.
+        profile: Profile alias used as the OAuth app name suffix.
+        username: SN login for Basic auth.
+        password: SN password for Basic auth.
+
+    Returns:
+        Tuple of (client_id, client_secret).
+    """
+    generated_secret = str(uuid.uuid4())
+    fail_reason = ""
+    try:
+        with httpx.Client(base_url=url, timeout=10.0) as client:
+            resp = client.post(
+                "/api/now/table/oauth_entity",
+                json={
+                    "name": f"nexus-{profile}",
+                    "type": "oauth2",
+                    "client_secret": generated_secret,
+                    "redirect_url": "https://localhost",
+                },
+                auth=(username, password),
+            )
+        if resp.status_code == 201:
+            result = resp.json().get("result", {})
+            client_id = str(result.get("client_id", ""))
+            if client_id:
+                console.print(f"  Created OAuth application 'nexus-{profile}' automatically.")
+                return client_id, generated_secret
+            fail_reason = "HTTP 201 but no client_id in response"
+        else:
+            fail_reason = f"HTTP {resp.status_code}"
+    except httpx.RequestError as exc:
+        fail_reason = str(exc)
+
+    console.print(f"  Could not auto-create OAuth credentials ({fail_reason}).")
+    _print_oauth_setup(url, profile)
+    client_id = typer.prompt("  OAuth Client ID")
+    client_secret: str = typer.prompt("  OAuth Client Secret", hide_input=True)
+    return client_id, client_secret
+
+
 _INSTANCE_HELP = [
     ("register <profile>", "Add an instance -- wizard prompts for URL, credentials"),
     ("connect [profile]", "Verify connectivity, refresh token if near expiry"),
@@ -193,8 +270,10 @@ def instance_callback(ctx: typer.Context) -> None:
         console.print("                  dev12345.service-now.com")
         console.print("                  https://dev12345.service-now.com")
         console.print("    Username -- your ServiceNow login (e.g. admin)")
-        console.print("    Client ID / Secret -- from the SN OAuth app registry")
         console.print("    Password -- your ServiceNow password (not stored)")
+        console.print("")
+        console.print("  NEXUS will auto-create OAuth credentials using your username and")
+        console.print("  password. If auto-creation fails, you will be shown setup steps.")
         console.print("")
     else:
         instance_list()
@@ -380,9 +459,9 @@ def instance_register(profile: str) -> None:
         host = f"{host}.service-now.com"
     url = f"https://{host}"
     username: str = typer.prompt("  Username")
-    client_id: str = typer.prompt("  OAuth Client ID")
-    client_secret: str = typer.prompt("  OAuth Client Secret", hide_input=True)
     password: str = typer.prompt("  Password", hide_input=True)
+
+    client_id, client_secret = _provision_oauth(url, profile, username, password)
 
     console.print("  Exchanging credentials for OAuth token...")
     oauth = SNOAuthClient(profile=profile, url=url, client_id=client_id, username=username)
