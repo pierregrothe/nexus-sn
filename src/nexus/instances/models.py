@@ -12,7 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 __all__ = ["ArtifactRecord", "InstanceMeta", "InstanceSnapshot", "SnapshotCounts"]
 
-_FROZEN = ConfigDict(frozen=True)
+_FROZEN = ConfigDict(frozen=True, strict=True, extra="forbid")
 
 
 class SnapshotCounts(BaseModel):
