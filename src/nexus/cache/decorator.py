@@ -274,12 +274,16 @@ def clear_cache(target: object | None = None) -> None:
         return
 
     if callable(target):
-        if target in _INSTANCE_BACKENDS:
-            for instance_backend in _INSTANCE_BACKENDS[target].all_backends():
+        # Unwrap bound methods and classmethods so the lookup matches the
+        # wrapper stored in _INSTANCE_BACKENDS / _FREE_FUNCTION_BACKENDS.
+        raw: object = getattr(target, "__func__", None) or target
+        lookup = cast("_AnyCallable", raw)
+        if lookup in _INSTANCE_BACKENDS:
+            for instance_backend in _INSTANCE_BACKENDS[lookup].all_backends():
                 instance_backend.clear()
             return
-        if target in _FREE_FUNCTION_BACKENDS:
-            _FREE_FUNCTION_BACKENDS[target].clear()
+        if lookup in _FREE_FUNCTION_BACKENDS:
+            _FREE_FUNCTION_BACKENDS[lookup].clear()
             return
 
     # Treat as instance: clear every method's backend on this instance.
