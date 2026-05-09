@@ -112,7 +112,9 @@ def test_sn_oauth_client_get_bearer_token_raises_oauth_error_on_non_ttl_failure(
             ("sn-dev12345", "refresh-token"): "ref",
         }
     )
-    transport = FakeOAuthTransport(status_code=400, error_description="server_error")
+    transport = FakeOAuthTransport(
+        status_code=400, error_description="server_error", error_code="server_error"
+    )
     near_expiry = datetime.now(UTC) + timedelta(minutes=2)
     with pytest.raises(OAuthError, match="server_error"):
         _client(keychain=keychain, transport=transport).get_bearer_token(near_expiry)

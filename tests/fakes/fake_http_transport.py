@@ -18,6 +18,7 @@ class FakeOAuthTransport(httpx.BaseTransport):
         expires_in: Token lifetime in seconds.
         status_code: HTTP status code to return (200 = success, 400 = failure).
         error_description: Error description returned on non-200 responses.
+        error_code: Structured error code returned in 'error' field on non-200 responses.
     """
 
     def __init__(
@@ -28,6 +29,7 @@ class FakeOAuthTransport(httpx.BaseTransport):
         expires_in: int = 1800,
         status_code: int = 200,
         error_description: str = "",
+        error_code: str = "invalid_grant",
     ) -> None:
         """See class docstring."""
         self._access_token = access_token
@@ -35,6 +37,7 @@ class FakeOAuthTransport(httpx.BaseTransport):
         self._expires_in = expires_in
         self._status_code = status_code
         self._error_description = error_description
+        self._error_code = error_code
 
     def handle_request(self, request: httpx.Request) -> httpx.Response:
         """Return canned OAuth response regardless of request content.
@@ -59,7 +62,7 @@ class FakeOAuthTransport(httpx.BaseTransport):
         return httpx.Response(
             self._status_code,
             json={
-                "error": "invalid_grant",
-                "error_description": self._error_description or "invalid_grant",
+                "error": self._error_code,
+                "error_description": self._error_description or self._error_code,
             },
         )

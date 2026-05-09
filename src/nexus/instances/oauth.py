@@ -118,7 +118,7 @@ class SNOAuthClient:
                 extra={"refresh_token": refresh_token},
             )
         except OAuthError as exc:
-            if "invalid_grant" in str(exc).lower() or "expired" in str(exc).lower():
+            if exc.error_code == "invalid_grant":
                 raise TokenExpiredError(self._profile) from exc
             raise
 
@@ -152,17 +152,23 @@ class SNOAuthClient:
 
         if resp.status_code != 200:
             try:
-                desc = resp.json().get("error_description", f"HTTP {resp.status_code}")
-            except Exception:
+                body = resp.json()
+                desc = str(body.get("error_description", f"HTTP {resp.status_code}"))
+                code = str(body.get("error", ""))
+            except ValueError, KeyError:
                 desc = f"HTTP {resp.status_code}"
-            raise OAuthError(str(desc))
+                code = ""
+            raise OAuthError(desc, error_code=code)
 
-        body = resp.json()
-        return TokenResponse(
-            access_token=str(body["access_token"]),
-            refresh_token=str(body["refresh_token"]),
-            expires_in=int(body["expires_in"]),
-        )
+        try:
+            body = resp.json()
+            return TokenResponse(
+                access_token=str(body["access_token"]),
+                refresh_token=str(body["refresh_token"]),
+                expires_in=int(body["expires_in"]),
+            )
+        except (ValueError, KeyError) as exc:
+            raise OAuthError(f"Malformed token response: {exc}") from exc
 
     def _store_tokens(self, client_secret: str, access_token: str, refresh_token: str) -> None:
         profile = self._profile

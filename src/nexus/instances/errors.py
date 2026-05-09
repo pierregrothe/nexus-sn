@@ -35,13 +35,15 @@ class InstanceNotFoundError(InstanceError):
 class OAuthError(InstanceError):
     """Raised when OAuth token exchange or refresh fails."""
 
-    def __init__(self, message: str) -> None:
+    def __init__(self, message: str, error_code: str = "") -> None:
         """Initialize with the OAuth error description.
 
         Args:
             message: The OAuth error description from the server.
+            error_code: The structured error code (e.g. 'invalid_grant').
         """
         super().__init__(f"OAuth error: {message}")
+        self.error_code = error_code
 
 
 class TokenExpiredError(InstanceError):
