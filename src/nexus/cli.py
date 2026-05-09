@@ -164,6 +164,56 @@ def _set_default_profile(paths: NexusPaths, profile: str) -> None:
     manager.save(manager.load().model_copy(update={"instances": InstancesConfig(default=profile)}))
 
 
+def _detect_sn_version(url: str, token: str, profile: str) -> tuple[str, str, str]:
+    """Query sys_properties to detect the SN version, build tag, and instance name.
+
+    Args:
+        url: Full instance URL.
+        token: Valid Bearer token.
+        profile: Fallback value for instance_name if the property is not found.
+
+    Returns:
+        Tuple of (sn_version, sn_build, instance_name). sn_version is
+        'unknown' when the buildtag property is missing or unreadable.
+    """
+    sn_version = "unknown"
+    sn_build = ""
+    instance_name = profile
+    try:
+        with httpx.Client(
+            base_url=url,
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=10.0,
+        ) as client:
+            for prop in ("glide.buildtag", "instance_name"):
+                r = client.get(
+                    "/api/now/table/sys_properties",
+                    params={
+                        "sysparm_query": f"name={prop}",
+                        "sysparm_fields": "value",
+                        "sysparm_limit": 1,
+                    },
+                )
+                if r.status_code != 200:
+                    continue
+                rows = r.json().get("result", [])
+                if not rows:
+                    continue
+                val = str(rows[0].get("value", "")).strip()
+                if not val:
+                    continue
+                if prop == "glide.buildtag":
+                    sn_build = val
+                    parts = val.split("-")
+                    word = parts[1] if parts[0].lower() == "glide" and len(parts) > 1 else parts[0]
+                    sn_version = word.capitalize()
+                else:
+                    instance_name = val
+    except httpx.RequestError:
+        pass
+    return sn_version, sn_build, instance_name
+
+
 def _print_oauth_setup(url: str, profile: str) -> None:
     """Print step-by-step manual OAuth setup instructions for ServiceNow.
 
@@ -404,9 +454,13 @@ def instance_connect(profile: str = typer.Argument("")) -> None:
         raise typer.Exit(1) from exc
 
     now = datetime.now(UTC)
-    registry.save(
-        meta.model_copy(update={"last_connected_at": now, "token_expires_at": new_expiry})
-    )
+    sn_version, sn_build, instance_name = _detect_sn_version(meta.url, token, meta.profile)
+    update: dict[str, object] = {"last_connected_at": now, "token_expires_at": new_expiry}
+    if sn_version != "unknown":
+        update["sn_version"] = sn_version
+        update["sn_build"] = sn_build
+        update["instance_name"] = instance_name
+    registry.save(meta.model_copy(update=update))
     console.print(
         f"Connected to {profile!r}. Token valid until {new_expiry.strftime('%H:%M UTC')}."
     )
@@ -472,43 +526,9 @@ def instance_register(profile: str) -> None:
         err_console.print(str(exc))
         raise typer.Exit(1) from exc
 
-    sn_version = "unknown"
-    sn_build = ""
-    instance_name = profile
-    try:
-        with httpx.Client(
-            base_url=url,
-            headers={"Authorization": f"Bearer {token_response.access_token}"},
-            timeout=10.0,
-        ) as client:
-            for prop in ("glide.buildtag", "instance_name"):
-                r = client.get(
-                    "/api/now/table/sys_properties",
-                    params={
-                        "sysparm_query": f"name={prop}",
-                        "sysparm_fields": "value",
-                        "sysparm_limit": 1,
-                    },
-                )
-                if r.status_code != 200:
-                    continue
-                rows = r.json().get("result", [])
-                if not rows:
-                    continue
-                val = str(rows[0].get("value", "")).strip()
-                if not val:
-                    continue
-                if prop == "glide.buildtag":
-                    sn_build = val
-                    parts = val.split("-")
-                    # New-style: "Xanadu-12-18-2024__..." -> parts[0] = "Xanadu"
-                    # Old-style: "glide-london-07-05-..." -> parts[1] = "london"
-                    word = parts[1] if parts[0].lower() == "glide" and len(parts) > 1 else parts[0]
-                    sn_version = word.capitalize()
-                else:
-                    instance_name = val
-    except httpx.RequestError:
-        pass
+    sn_version, sn_build, instance_name = _detect_sn_version(
+        url, token_response.access_token, profile
+    )
 
     registry = InstanceRegistry(paths.instances_dir)
     meta = InstanceMeta.create(

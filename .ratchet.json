@@ -23,7 +23,7 @@
     "nexus.capabilities.runtime_info": {"covered_lines": 45, "total_lines": 45},
     "nexus.capabilities.status_reporter": {"covered_lines": 138, "total_lines": 138},
     "nexus.capabilities.tier": {"covered_lines": 45, "total_lines": 45},
-    "nexus.cli": {"covered_lines": 193, "total_lines": 373},
+    "nexus.cli": {"covered_lines": 194, "total_lines": 382},
     "nexus.ui.banner": {"covered_lines": 38, "total_lines": 38},
     "nexus.ui.gradient_panel": {"covered_lines": 71, "total_lines": 71},
     "nexus.ui.theme": {"covered_lines": 8, "total_lines": 8},
