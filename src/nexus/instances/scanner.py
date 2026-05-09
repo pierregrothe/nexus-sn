@@ -122,7 +122,7 @@ class InstanceScanner:
             InstanceSnapshot with all four artifact lists populated.
 
         Raises:
-            SnapshotError: If any REST call returns a non-2xx status.
+            SnapshotError: If any REST call returns a status other than 200.
         """
         async with httpx.AsyncClient(
             base_url=url,
@@ -165,6 +165,9 @@ class InstanceScanner:
             params={"sysparm_fields": fields, "sysparm_limit": limit},
         )
         if resp.status_code != 200:
+            log.warning("snapshot failed for table=%s status=%d", table, resp.status_code)
             raise SnapshotError(table, resp.status_code)
         rows: list[dict[str, object]] = resp.json().get("result", [])
-        return [_to_record(row, _EXTRA_FIELDS[table]) for row in rows]
+        records = [_to_record(row, _EXTRA_FIELDS[table]) for row in rows]
+        log.debug("fetched %d records from %s", len(records), table)
+        return records
