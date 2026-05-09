@@ -109,6 +109,57 @@ def _config_default() -> str:
     return ConfigManager(NexusPaths.from_env()).load().instances.default
 
 
+def _resolve_profile(profile: str) -> tuple[InstanceRegistry, InstanceMeta]:
+    """Resolve an optional profile to a registry and loaded meta.
+
+    Args:
+        profile: Profile name, or empty string to use the config default.
+
+    Returns:
+        Tuple of (registry, meta) for the resolved profile.
+
+    Raises:
+        SystemExit: Via typer.Exit if no default is set or the profile is not found.
+    """
+    if not profile:
+        profile = _config_default()
+    if not profile:
+        err_console.print("No default instance set.")
+        raise typer.Exit(1)
+    registry = _instance_registry()
+    try:
+        return registry, registry.load(profile)
+    except InstanceNotFoundError as exc:
+        err_console.print(str(exc))
+        raise typer.Exit(1) from exc
+
+
+def _oauth_for(profile: str, meta: InstanceMeta) -> SNOAuthClient:
+    """Build an SNOAuthClient for a profile and its stored meta.
+
+    Args:
+        profile: Instance profile name.
+        meta: InstanceMeta loaded from the registry.
+
+    Returns:
+        Configured SNOAuthClient.
+    """
+    return SNOAuthClient(
+        profile=profile, url=meta.url, client_id=meta.client_id, username=meta.username
+    )
+
+
+def _set_default_profile(paths: NexusPaths, profile: str) -> None:
+    """Persist profile as the default instance in config.
+
+    Args:
+        paths: NexusPaths for the current config root.
+        profile: Profile name to set as default (empty string to clear).
+    """
+    manager = ConfigManager(paths)
+    manager.save(manager.load().model_copy(update={"instances": InstancesConfig(default=profile)}))
+
+
 @instance_app.command("list")
 def instance_list() -> None:
     """Show all registered ServiceNow instances."""
@@ -141,20 +192,7 @@ def instance_list() -> None:
 @instance_app.command("status")
 def instance_status(profile: str = typer.Argument("")) -> None:
     """Show metadata and snapshot summary for an instance."""
-    if not profile:
-        profile = _config_default()
-    if not profile:
-        err_console.print(
-            "No default instance. Pass a profile or run 'nexus instance use <profile>'."
-        )
-        raise typer.Exit(1)
-
-    registry = _instance_registry()
-    try:
-        meta = registry.load(profile)
-    except InstanceNotFoundError as exc:
-        err_console.print(str(exc))
-        raise typer.Exit(1) from exc
+    registry, meta = _resolve_profile(profile)
 
     now = datetime.now(UTC)
     remaining = (meta.token_expires_at - now).total_seconds() / 60
@@ -166,7 +204,7 @@ def instance_status(profile: str = typer.Argument("")) -> None:
     console.print(f"Token:     {token_str}")
     console.print(f"Connected: {meta.last_connected_at.strftime('%Y-%m-%d %H:%M UTC')}")
 
-    snapshot = registry.load_snapshot(profile)
+    snapshot = registry.load_snapshot(meta.profile)
     if snapshot is None:
         console.print("\nNo snapshot. Run 'nexus instance refresh' to capture one.")
         return
@@ -192,17 +230,9 @@ def instance_delete(
         if not typer.confirm(f"Delete instance {profile!r} and all its data?"):
             raise typer.Abort()
 
-    registry = _instance_registry()
-    try:
-        meta = registry.load(profile)
-    except InstanceNotFoundError as exc:
-        err_console.print(str(exc))
-        raise typer.Exit(1) from exc
-
-    SNOAuthClient(
-        profile=profile, url=meta.url, client_id=meta.client_id, username=meta.username
-    ).delete_tokens()
-    registry.delete(profile)
+    registry, meta = _resolve_profile(profile)
+    _oauth_for(profile, meta).delete_tokens()
+    registry.delete(meta.profile)
 
     paths = NexusPaths.from_env()
     manager = ConfigManager(paths)
@@ -216,38 +246,17 @@ def instance_delete(
 @instance_app.command("use")
 def instance_use(profile: str) -> None:
     """Set the default instance."""
-    registry = _instance_registry()
-    try:
-        registry.load(profile)
-    except InstanceNotFoundError as exc:
-        err_console.print(str(exc))
-        raise typer.Exit(1) from exc
-
-    paths = NexusPaths.from_env()
-    manager = ConfigManager(paths)
-    manager.save(manager.load().model_copy(update={"instances": InstancesConfig(default=profile)}))
+    _resolve_profile(profile)
+    _set_default_profile(NexusPaths.from_env(), profile)
     console.print(f"Default instance set to {profile!r}.")
 
 
 @instance_app.command("connect")
 def instance_connect(profile: str = typer.Argument("")) -> None:
     """Verify connectivity and refresh token if near expiry."""
-    if not profile:
-        profile = _config_default()
-    if not profile:
-        err_console.print("No default instance set.")
-        raise typer.Exit(1)
-
-    registry = _instance_registry()
-    try:
-        meta = registry.load(profile)
-    except InstanceNotFoundError as exc:
-        err_console.print(str(exc))
-        raise typer.Exit(1) from exc
-
-    oauth = SNOAuthClient(
-        profile=profile, url=meta.url, client_id=meta.client_id, username=meta.username
-    )
+    registry, meta = _resolve_profile(profile)
+    profile = meta.profile
+    oauth = _oauth_for(profile, meta)
     try:
         token, new_expiry = oauth.get_bearer_token(meta.token_expires_at)
     except TokenExpiredError as exc:
@@ -280,22 +289,9 @@ def instance_connect(profile: str = typer.Argument("")) -> None:
 @instance_app.command("refresh")
 def instance_refresh(profile: str = typer.Argument("")) -> None:
     """Pull a fresh artifact snapshot from the instance."""
-    if not profile:
-        profile = _config_default()
-    if not profile:
-        err_console.print("No default instance set.")
-        raise typer.Exit(1)
-
-    registry = _instance_registry()
-    try:
-        meta = registry.load(profile)
-    except InstanceNotFoundError as exc:
-        err_console.print(str(exc))
-        raise typer.Exit(1) from exc
-
-    oauth = SNOAuthClient(
-        profile=profile, url=meta.url, client_id=meta.client_id, username=meta.username
-    )
+    registry, meta = _resolve_profile(profile)
+    profile = meta.profile
+    oauth = _oauth_for(profile, meta)
     try:
         token, new_expiry = oauth.get_bearer_token(meta.token_expires_at)
     except TokenExpiredError as exc:
@@ -387,11 +383,8 @@ def instance_register(profile: str) -> None:
     registry.register(meta)
     console.print(f"  Registered {profile} ({sn_version}).")
 
-    manager = ConfigManager(paths)
-    if not manager.load().instances.default:
-        manager.save(
-            manager.load().model_copy(update={"instances": InstancesConfig(default=profile)})
-        )
+    if not ConfigManager(paths).load().instances.default:
+        _set_default_profile(paths, profile)
         console.print("  Set as default instance.")
 
 

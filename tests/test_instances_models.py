@@ -5,6 +5,7 @@
 """Tests for instance management data models and errors."""
 
 from datetime import UTC, datetime, timedelta, timezone
+from typing import get_args
 
 import pytest
 from pydantic import ValidationError
@@ -21,6 +22,8 @@ from nexus.instances.models import (
     InstanceMeta,
     InstanceSnapshot,
     SnapshotCounts,
+    UtcDatetime,
+    _require_utc,
 )
 
 
@@ -156,3 +159,39 @@ def test_instance_meta_require_utc_rejects_non_utc_datetime() -> None:
             last_connected_at=datetime.now(UTC),
             token_expires_at=datetime.now(UTC),
         )
+
+
+def test_require_utc_passthrough_with_utc_datetime() -> None:
+    dt = datetime.now(UTC)
+    assert _require_utc(dt) is dt
+
+
+def test_require_utc_parses_iso_string_to_datetime() -> None:
+    iso = "2026-01-01T00:00:00+00:00"
+    result = _require_utc(iso)
+    assert isinstance(result, datetime)
+    assert result.utcoffset() == timedelta(0)
+
+
+def test_require_utc_rejects_naive_datetime() -> None:
+    naive = datetime(2026, 1, 1, 12, 0, 0)
+    with pytest.raises(ValueError, match="UTC"):
+        _require_utc(naive)
+
+
+def test_require_utc_rejects_non_utc_offset() -> None:
+    eastern = timezone(timedelta(hours=-5))
+    non_utc = datetime(2026, 1, 1, 12, 0, 0, tzinfo=eastern)
+    with pytest.raises(ValueError, match="UTC"):
+        _require_utc(non_utc)
+
+
+def test_require_utc_passthrough_with_non_datetime() -> None:
+    # Non-datetime, non-string values pass through unchanged (Pydantic handles them).
+    assert _require_utc(42) == 42
+
+
+def test_utc_datetime_alias_is_annotated_type() -> None:
+    # UtcDatetime must be an Annotated type wrapping datetime.
+    args = get_args(UtcDatetime)
+    assert args[0] is datetime

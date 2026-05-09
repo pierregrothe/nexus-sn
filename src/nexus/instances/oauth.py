@@ -9,6 +9,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from enum import StrEnum
 
 import httpx
 
@@ -21,6 +22,12 @@ __all__ = ["SNOAuthClient", "TokenResponse"]
 
 _REFRESH_BUFFER = timedelta(minutes=5)
 _OAUTH_PATH = "/oauth_token.do"
+
+
+class _Account(StrEnum):
+    CLIENT_SECRET = "client-secret"
+    ACCESS_TOKEN = "access-token"
+    REFRESH_TOKEN = "refresh-token"
 
 
 @dataclass(slots=True, frozen=True)
@@ -104,12 +111,12 @@ class SNOAuthClient:
         now = datetime.now(UTC)
         if now + _REFRESH_BUFFER < token_expires_at:
             return (
-                self._keychain.get(f"sn-{self._profile}", "access-token"),
+                self._keychain.get(f"sn-{self._profile}", _Account.ACCESS_TOKEN),
                 token_expires_at,
             )
 
-        client_secret = self._keychain.get(f"sn-{self._profile}", "client-secret")
-        refresh_token = self._keychain.get(f"sn-{self._profile}", "refresh-token")
+        client_secret = self._keychain.get(f"sn-{self._profile}", _Account.CLIENT_SECRET)
+        refresh_token = self._keychain.get(f"sn-{self._profile}", _Account.REFRESH_TOKEN)
 
         try:
             response = self._post_grant(
@@ -127,7 +134,7 @@ class SNOAuthClient:
 
     def delete_tokens(self) -> None:
         """Remove all keychain entries for this profile."""
-        for account in ("client-secret", "access-token", "refresh-token"):
+        for account in _Account:
             self._keychain.delete(f"sn-{self._profile}", account)
 
     def _post_grant(
@@ -171,7 +178,6 @@ class SNOAuthClient:
             raise OAuthError(f"Malformed token response: {exc}") from exc
 
     def _store_tokens(self, client_secret: str, access_token: str, refresh_token: str) -> None:
-        profile = self._profile
-        self._keychain.set(f"sn-{profile}", "client-secret", client_secret)
-        self._keychain.set(f"sn-{profile}", "access-token", access_token)
-        self._keychain.set(f"sn-{profile}", "refresh-token", refresh_token)
+        self._keychain.set(f"sn-{self._profile}", _Account.CLIENT_SECRET, client_secret)
+        self._keychain.set(f"sn-{self._profile}", _Account.ACCESS_TOKEN, access_token)
+        self._keychain.set(f"sn-{self._profile}", _Account.REFRESH_TOKEN, refresh_token)
