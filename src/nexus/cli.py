@@ -161,7 +161,7 @@ def _set_default_profile(paths: NexusPaths, profile: str) -> None:
 
 
 _INSTANCE_HELP = [
-    ("register <profile>", "Register a new instance (OAuth2 wizard)"),
+    ("register <profile>", "Add an instance -- wizard prompts for URL, credentials"),
     ("connect [profile]", "Verify connectivity, refresh token if near expiry"),
     ("refresh [profile]", "Pull a fresh artifact snapshot"),
     ("status [profile]", "Show instance metadata and snapshot detail"),
@@ -177,7 +177,7 @@ def instance_callback(ctx: typer.Context) -> None:
     if ctx.invoked_subcommand is not None:
         return
     instance_list()
-    console.print("\nCommands:")
+    console.print("\nCommands:  (<profile> is a local alias you choose, e.g. dev or prod)")
     for cmd, desc in _INSTANCE_HELP:
         console.print(f"  nexus instance {cmd:<25} {desc}")
     console.print("\nRun 'nexus instance <command> --help' for details.")
@@ -349,9 +349,11 @@ def instance_register(profile: str) -> None:
         raise typer.Exit(1)
 
     console.print(f"Registering instance: {profile}")
-    raw_url: str = typer.prompt("  Instance URL (e.g. dev12345.service-now.com)")
-    stripped = raw_url.removeprefix("https://").removeprefix("http://")
-    url = f"https://{stripped}"
+    raw_url: str = typer.prompt("  Instance (subdomain, FQDN, or URL -- e.g. dev12345)")
+    host = raw_url.removeprefix("https://").removeprefix("http://").rstrip("/")
+    if "." not in host:
+        host = f"{host}.service-now.com"
+    url = f"https://{host}"
     username: str = typer.prompt("  Username")
     client_id: str = typer.prompt("  OAuth Client ID")
     client_secret: str = typer.prompt("  OAuth Client Secret", hide_input=True)
