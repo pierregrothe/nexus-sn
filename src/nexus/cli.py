@@ -13,10 +13,12 @@ import asyncio
 import logging
 import uuid
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Annotated
 
 import httpx
 import typer
+import yaml as _yaml
 from packaging.version import InvalidVersion, parse
 from rich.console import Console
 from rich.table import Table
@@ -28,9 +30,12 @@ from nexus.capabilities.feature_flags import claude_ai_name_for
 from nexus.capabilities.registry import CapabilitySet
 from nexus.capabilities.status_reporter import StatusReporter
 from nexus.capabilities.tier import TierDetection, TierDetector
+from nexus.capture.engine import CaptureEngine
+from nexus.capture.tables import DEFAULT_TABLE_GROUPS
 from nexus.config.manager import ConfigManager
 from nexus.config.paths import NexusPaths
 from nexus.config.settings import InstancesConfig
+from nexus.connectors.servicenow.client import ServiceNowClient
 from nexus.instances.errors import (
     InstanceNotFoundError,
     OAuthError,
@@ -57,6 +62,9 @@ app = typer.Typer(
 
 instance_app = typer.Typer(name="instance", help="Manage ServiceNow instances.")
 app.add_typer(instance_app)
+
+capture_app = typer.Typer(name="capture", help="Capture and deploy ServiceNow configurations.")
+app.add_typer(capture_app)
 
 console = Console(theme=NEXUS_THEME)
 err_console = Console(stderr=True, theme=NEXUS_THEME)
@@ -328,6 +336,41 @@ def _provision_oauth(url: str, profile: str, username: str, password: str) -> tu
     return client_id, client_secret
 
 
+def _build_capture_engine(profile: str) -> tuple[CaptureEngine, ServiceNowClient]:
+    """Build a CaptureEngine for the given registered instance profile.
+
+    Gets the OAuth bearer token for the profile and constructs both a
+    ServiceNowClient (used as an async context manager by callers) and a
+    CaptureEngine wired to the same client.
+
+    Args:
+        profile: Instance profile name from InstanceRegistry.
+
+    Returns:
+        Tuple of (CaptureEngine, ServiceNowClient). The caller must use the
+        client as an async context manager before awaiting engine methods.
+
+    Raises:
+        typer.Exit: With code 1 if the profile is not registered or the
+            OAuth token is expired.
+    """
+    _, meta = _resolve_profile(profile)
+    oauth = _oauth_for(profile, meta)
+    try:
+        token, _ = oauth.get_bearer_token(meta.token_expires_at)
+    except TokenExpiredError as exc:
+        err_console.print(str(exc))
+        err_console.print("  Refresh the token: nexus instance connect")
+        raise typer.Exit(1) from exc
+    client = ServiceNowClient(
+        instance_url=meta.url,
+        username=meta.username,
+        password=token,
+    )
+    engine = CaptureEngine(client=client, archive_root=NexusPaths.from_env().archives_dir)
+    return engine, client
+
+
 _INSTANCE_HELP = [
     ("register <profile>", "Add an instance -- wizard prompts for URL, credentials"),
     ("connect [profile]", "Verify connectivity, refresh token if near expiry"),
@@ -589,6 +632,112 @@ def instance_register(profile: str) -> None:
     if not ConfigManager(paths).load().instances.default:
         _set_default_profile(paths, profile)
         console.print("  Set as default instance.")
+
+
+@capture_app.command("discover")
+def capture_discover(
+    instance: Annotated[str, typer.Argument(help="Instance profile name")],
+    group: Annotated[str, typer.Option(help="Table group")] = "ai_automation",
+) -> None:
+    """Discover application scopes on an instance and show per-table counts."""
+
+    async def _run() -> None:
+        engine, client = _build_capture_engine(instance)
+        async with client:
+            manifest = await engine.discover_scopes(instance, group)
+
+        if not manifest.scopes:
+            console.print("No application scopes found.")
+            return
+
+        tbl = Table(title=f"Scopes on {instance}")
+        tbl.add_column("Name")
+        tbl.add_column("Scope Key")
+        group_obj = DEFAULT_TABLE_GROUPS.get(group)
+        if group_obj:
+            for spec in group_obj.tables:
+                tbl.add_column(spec.display, justify="right")
+        for scope in manifest.scopes:
+            row = [scope.name, scope.scope]
+            if group_obj:
+                for spec in group_obj.tables:
+                    row.append(str(scope.table_counts.get(spec.name, 0)))
+            tbl.add_row(*row)
+        console.print(tbl)
+
+    asyncio.run(_run())
+
+
+@capture_app.command("pull")
+def capture_pull(
+    instance: Annotated[str, typer.Argument(help="Instance profile name")],
+    scope: Annotated[list[str], typer.Option(help="Scope sys_id (repeatable)")],
+    group: Annotated[str, typer.Option(help="Table group")] = "ai_automation",
+) -> None:
+    """Capture custom configurations for selected scopes to a local archive."""
+
+    async def _run() -> None:
+        engine, client = _build_capture_engine(instance)
+        async with client:
+            result = await engine.capture(instance, scope, group)
+        manifest = engine.save_archive(result)
+        console.print(f"Captured {manifest.record_count} records.")
+        console.print(f"Archive: {manifest.archive_dir}")
+
+    asyncio.run(_run())
+
+
+@capture_app.command("list")
+def capture_list(
+    instance: Annotated[str | None, typer.Argument(help="Filter by instance")] = None,
+) -> None:
+    """List local capture archives."""
+    archives_root = NexusPaths.from_env().archives_dir
+    if not archives_root.exists():
+        console.print("No archives found.")
+        return
+
+    tbl = Table(title="Local Archives")
+    tbl.add_column("Instance")
+    tbl.add_column("Timestamp")
+    tbl.add_column("Records", justify="right")
+    tbl.add_column("Path")
+
+    for manifest_path in sorted(archives_root.rglob("manifest.yaml")):
+        try:
+            raw = _yaml.safe_load(manifest_path.read_text(encoding="utf-8"))
+            inst = raw.get("instance_id", "?")
+            if instance and inst != instance:
+                continue
+            tbl.add_row(
+                inst,
+                str(raw.get("captured_at", "?"))[:19],
+                str(raw.get("record_count", 0)),
+                str(manifest_path.parent),
+            )
+        except Exception:
+            continue
+    console.print(tbl)
+
+
+@capture_app.command("push")
+def capture_push(
+    archive: Annotated[str, typer.Argument(help="Path to archive directory")],
+    instance: Annotated[str, typer.Argument(help="Target instance profile")],
+    update_set: Annotated[str, typer.Option(help="Update set name")] = "NEXUS-capture",
+) -> None:
+    """Push a local archive into an update set on the target instance."""
+
+    async def _run() -> None:
+        engine, client = _build_capture_engine(instance)
+        manifest_path = Path(archive) / "manifest.yaml"
+        result = engine.load_archive(manifest_path)
+        async with client:
+            ref = await engine.push_to_update_set(result, instance, update_set)
+        console.print(f"Injected {ref.record_count} records into update set {ref.name!r}.")
+        console.print(f"Update set sys_id: {ref.sys_id}")
+
+    asyncio.run(_run())
 
 
 @app.command()
