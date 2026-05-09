@@ -160,6 +160,29 @@ def _set_default_profile(paths: NexusPaths, profile: str) -> None:
     manager.save(manager.load().model_copy(update={"instances": InstancesConfig(default=profile)}))
 
 
+_INSTANCE_HELP = [
+    ("register <profile>", "Register a new instance (OAuth2 wizard)"),
+    ("connect [profile]", "Verify connectivity, refresh token if near expiry"),
+    ("refresh [profile]", "Pull a fresh artifact snapshot"),
+    ("status [profile]", "Show instance metadata and snapshot detail"),
+    ("use <profile>", "Set the default instance (* marker)"),
+    ("delete <profile>", "Remove an instance and its keychain entries"),
+    ("list", "Show all instances in tabular form"),
+]
+
+
+@instance_app.callback(invoke_without_command=True)
+def instance_callback(ctx: typer.Context) -> None:
+    """Show registered instances and available commands."""
+    if ctx.invoked_subcommand is not None:
+        return
+    instance_list()
+    console.print("\nCommands:")
+    for cmd, desc in _INSTANCE_HELP:
+        console.print(f"  nexus instance {cmd:<25} {desc}")
+    console.print("\nRun 'nexus instance <command> --help' for details.")
+
+
 @instance_app.command("list")
 def instance_list() -> None:
     """Show all registered ServiceNow instances."""

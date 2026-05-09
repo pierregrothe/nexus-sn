@@ -41,6 +41,26 @@ def _write_meta(tmp_path: Path, meta: InstanceMeta) -> None:
     (profile_dir / "meta.json").write_text(meta.model_dump_json(indent=2), encoding="utf-8")
 
 
+def test_instance_callback_with_no_subcommand_shows_instances(
+    runner: CliRunner, tmp_path: Path
+) -> None:
+    _write_meta(tmp_path, _meta("dev12345"))
+    result = runner.invoke(app, ["instance"])
+    assert result.exit_code == 0
+    assert "dev12345" in result.output
+    assert "nexus instance" in result.output
+
+
+def test_instance_callback_with_no_subcommand_shows_commands(
+    runner: CliRunner, tmp_path: Path
+) -> None:
+    result = runner.invoke(app, ["instance"])
+    assert result.exit_code == 0
+    assert "register" in result.output
+    assert "connect" in result.output
+    assert "nexus instance" in result.output
+
+
 def test_instance_list_with_no_instances_prints_empty_message(
     runner: CliRunner, tmp_path: Path
 ) -> None:
