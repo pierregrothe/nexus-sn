@@ -1,8 +1,8 @@
 # src/nexus/instances/__init__.py
-# Instance management package for NEXUS.
+# Instance management: OAuth, registry, scanner.
 # Author: Pierre Grothe
 # Date: 2026-05-08
-"""Public API for the nexus.instances package."""
+"""Instance management public exports."""
 
 from nexus.instances.errors import (
     InstanceError,
@@ -17,15 +17,22 @@ from nexus.instances.models import (
     InstanceSnapshot,
     SnapshotCounts,
 )
+from nexus.instances.oauth import SNOAuthClient, TokenResponse
+from nexus.instances.registry import InstanceRegistry
+from nexus.instances.scanner import InstanceScanner
 
 __all__ = [
     "ArtifactRecord",
     "InstanceError",
     "InstanceMeta",
     "InstanceNotFoundError",
+    "InstanceRegistry",
+    "InstanceScanner",
     "InstanceSnapshot",
     "OAuthError",
+    "SNOAuthClient",
     "SnapshotCounts",
     "SnapshotError",
     "TokenExpiredError",
+    "TokenResponse",
 ]

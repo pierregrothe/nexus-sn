@@ -7,6 +7,7 @@
 
 import logging
 import os
+import warnings
 
 from nexus.auth.errors import AuthError
 from nexus.auth.keychain import KeychainClient
@@ -31,6 +32,11 @@ class SNAuth:
 
     def __init__(self, keychain: KeychainClient | None = None) -> None:
         """Initialize with optional keychain client."""
+        warnings.warn(
+            "SNAuth is deprecated. Use nexus.instances.SNOAuthClient instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         self._keychain = keychain or KeychainClient()
 
     def get_password(self, profile: str, username: str) -> str:
