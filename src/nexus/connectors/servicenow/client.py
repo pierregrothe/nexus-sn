@@ -35,30 +35,52 @@ _STATS_API_BASE = "/api/now/stats"
 class ServiceNowClient:
     """Async REST client for a single ServiceNow instance.
 
+    Supports two authentication modes:
+    - Basic auth: pass username and password.
+    - OAuth Bearer: pass token keyword argument only (ignores username/password).
+
     Args:
         instance_url: Base URL, e.g. "dev12345.service-now.com".
-        username: ServiceNow login username.
-        password: ServiceNow login password. Never logged.
+        username: ServiceNow login username (Basic auth).
+        password: ServiceNow login password. Never logged (Basic auth).
+        token: OAuth bearer token. When provided, uses Authorization: Bearer
+               instead of Basic auth.
     """
 
-    def __init__(self, instance_url: str, username: str, password: str) -> None:
+    def __init__(
+        self,
+        instance_url: str,
+        username: str = "",
+        password: str = "",
+        *,
+        token: str | None = None,
+    ) -> None:
         """Initialize HTTP client with instance URL and credentials."""
         base = instance_url.rstrip("/")
         if not base.startswith("https://"):
             base = f"https://{base}"
         self._base_url = base
+        self._token = token
         self._auth = (username, password)
         self._client: httpx.AsyncClient | None = None
         log.debug("ServiceNowClient initialised for %s", base)
 
     async def __aenter__(self) -> ServiceNowClient:
         """Enter async context and open the HTTP connection pool."""
-        self._client = httpx.AsyncClient(
-            base_url=self._base_url,
-            auth=self._auth,
-            timeout=_TIMEOUT_SECONDS,
-            headers={"Accept": "application/json", "Content-Type": "application/json"},
-        )
+        base_headers = {"Accept": "application/json", "Content-Type": "application/json"}
+        if self._token:
+            self._client = httpx.AsyncClient(
+                base_url=self._base_url,
+                headers={**base_headers, "Authorization": f"Bearer {self._token}"},
+                timeout=_TIMEOUT_SECONDS,
+            )
+        else:
+            self._client = httpx.AsyncClient(
+                base_url=self._base_url,
+                auth=self._auth,
+                timeout=_TIMEOUT_SECONDS,
+                headers=base_headers,
+            )
         return self
 
     async def __aexit__(self, *_: object) -> None:

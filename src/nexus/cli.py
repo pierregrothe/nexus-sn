@@ -435,11 +435,7 @@ def _build_capture_engine(profile: str) -> tuple[CaptureEngine, ServiceNowClient
         typer.Exit: With code 1 if the profile is not registered or expired.
     """
     _, meta, token, _ = _acquire_token(profile)
-    client = ServiceNowClient(
-        instance_url=meta.url,
-        username=meta.username,
-        password=token,
-    )
+    client = ServiceNowClient(instance_url=meta.url, token=token)
     engine = CaptureEngine(client=client, archive_root=NexusPaths.from_env().archives_dir)
     return engine, client
 
