@@ -21,7 +21,7 @@ import httpx
 import typer
 import yaml as _yaml
 from packaging.version import InvalidVersion, parse
-from rich.console import Console
+from rich.console import Console, RenderableType
 from rich.progress import (
     BarColumn,
     MofNCompleteColumn,
@@ -58,7 +58,8 @@ from nexus.instances.registry import InstanceRegistry
 from nexus.instances.scanner import InstanceScanner
 from nexus.ui.app import start_ui
 from nexus.ui.banner import print_banner
-from nexus.ui.theme import NEXUS_THEME
+from nexus.ui.gradient_panel import GradientPanel
+from nexus.ui.theme import NEXUS_THEME, SN_BLUE, SN_LIME
 from nexus.updater import check_and_maybe_update, current_version
 from nexus.updater.client import GitHubReleasesClient
 
@@ -124,6 +125,11 @@ def _make_progress() -> Progress:
         console=console,
         transient=True,  # progress bar disappears when done; result takes its place
     )
+
+
+def _sn_panel(content: RenderableType, title: str) -> GradientPanel:
+    """Wrap content in a ServiceNow-branded gradient panel."""
+    return GradientPanel(content, title=title, start=SN_BLUE, end=SN_LIME)
 
 
 def _trunc(s: str, width: int) -> str:
@@ -527,10 +533,7 @@ def _print_command_guide(app_name: str, help_items: list[tuple[str, str]]) -> No
     tbl.add_column("desc", style="dim", no_wrap=True)
     for cmd, desc in help_items:
         tbl.add_row(f"{app_name} {cmd}", desc)
-    console.print()
-    console.rule(f"[{_SN_BLUE_S}]{app_name}[/{_SN_BLUE_S}]", style=_SN_BLUE_S)
-    console.print(tbl)
-    console.rule(style=_SN_BLUE_S)
+    console.print(_sn_panel(tbl, title=app_name))
     console.print(f"  [dim]Run [bold]{app_name} <command> --help[/bold] for details.[/dim]")
 
 
@@ -604,10 +607,7 @@ def instance_list() -> None:
             _token_cell(meta),
             meta.last_connected_at.strftime("%Y-%m-%d %H:%M"),
         )
-    console.print()
-    console.rule(f"[{_SN_BLUE_S}]Instances[/{_SN_BLUE_S}]", style=_SN_BLUE_S)
-    console.print(tbl)
-    console.rule(style=_SN_BLUE_S)
+    console.print(_sn_panel(tbl, title="Instances"))
 
 
 @instance_app.command("status")
@@ -891,12 +891,7 @@ def capture_discover(
                     row.append(_count_cell(scope.table_counts.get(spec.name, 0)))
             tbl.add_row(*row)
 
-        console.rule(
-            f"[{_SN_BLUE_S}]Custom scopes on {resolved}[/{_SN_BLUE_S}]",
-            style=_SN_BLUE_S,
-        )
-        console.print(tbl)
-        console.rule(style=_SN_BLUE_S)
+        console.print(_sn_panel(tbl, title=f"Custom scopes on {resolved}"))
 
         # Summary line
         if all_scopes or not custom_s:
@@ -1018,17 +1013,17 @@ def capture_pull(
                 )
 
         manifest = engine.save_archive(result)
-        console.rule(f"[{_SN_LIME_S}]Capture complete[/{_SN_LIME_S}]", style=_SN_BLUE_S)
-        console.print(
-            f"  [{_SN_LIME_S}][bold]{manifest.record_count:,} records[/bold][/{_SN_LIME_S}]"
-            f"  [dim]saved to archive[/dim]"
+        summary = Table(box=None, pad_edge=False, show_header=False, show_edge=False)
+        summary.add_column(style=_SN_BLUE_S, no_wrap=True)
+        summary.add_column(style="white", no_wrap=True)
+        summary.add_row(
+            "Records", f"[{_SN_LIME_S}][bold]{manifest.record_count:,}[/bold][/{_SN_LIME_S}]"
         )
-        console.print(f"  [dim]{manifest.archive_dir}[/dim]")
-        console.rule(style=_SN_BLUE_S)
-        console.print(
-            f"  [{_SN_LIME_S}]Next:[/{_SN_LIME_S}]"
-            f" [bold white]nexus capture push {manifest.archive_dir}[/bold white]"
+        summary.add_row("Archive", f"[dim]{manifest.archive_dir}[/dim]")
+        summary.add_row(
+            "Next", f"[bold white]nexus capture push {manifest.archive_dir}[/bold white]"
         )
+        console.print(_sn_panel(summary, title="Capture complete"))
 
     asyncio.run(_run())
 
@@ -1071,9 +1066,7 @@ def capture_list(
             str(manifest.record_count),
             _trunc(str(manifest.archive_dir), 45),
         )
-    console.rule(f"[{_SN_BLUE_S}]Archives[/{_SN_BLUE_S}]", style=_SN_BLUE_S)
-    console.print(tbl)
-    console.rule(style=_SN_BLUE_S)
+    console.print(_sn_panel(tbl, title="Archives"))
 
 
 @capture_app.command("push")
