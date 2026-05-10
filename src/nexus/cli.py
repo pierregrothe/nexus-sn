@@ -58,7 +58,7 @@ from nexus.instances.registry import InstanceRegistry
 from nexus.instances.scanner import InstanceScanner
 from nexus.ui.app import start_ui
 from nexus.ui.banner import print_banner
-from nexus.ui.theme import NEXUS_THEME, SN_BLUE, SN_LIME
+from nexus.ui.theme import NEXUS_THEME
 from nexus.updater import check_and_maybe_update, current_version
 from nexus.updater.client import GitHubReleasesClient
 
@@ -100,9 +100,9 @@ _TABLE_HEADER: dict[str, str] = {
     "sys_ai_agent": "AI",
 }
 
-# Derived hex strings -- used throughout the capture UI layer.
-_SN_BLUE_S = f"rgb({SN_BLUE[0]},{SN_BLUE[1]},{SN_BLUE[2]})"
-_SN_LIME_S = f"rgb({SN_LIME[0]},{SN_LIME[1]},{SN_LIME[2]})"
+# Named Rich styles registered in NEXUS_THEME -- use as [sn.blue]...[/sn.blue]
+_SN_BLUE_S = "sn.blue"
+_SN_LIME_S = "sn.lime"
 
 
 def _make_progress() -> Progress:
@@ -122,7 +122,7 @@ def _make_progress() -> Progress:
 
 def _trunc(s: str, width: int) -> str:
     """Truncate a string to width characters, appending ellipsis if needed."""
-    return s if len(s) <= width else s[: width - 1] + "…"
+    return s if len(s) <= width else s[: width - 3] + "..."
 
 
 def _count_cell(n: int) -> str:
@@ -812,8 +812,6 @@ def capture_discover(
             return sum(s.table_counts.values())
 
         custom_s.sort(key=_total, reverse=True)
-        rest_s = [s for s in all_s if not s.scope.startswith(_CUSTOM_SCOPE_PREFIXES)]
-        rest_s.sort(key=_total, reverse=True)
 
         display = all_s if all_scopes else (custom_s if custom_s else all_s)
 
@@ -882,39 +880,43 @@ _UUID_RE = re.compile(r"^[0-9a-f]{32}$", re.IGNORECASE)
 
 async def _resolve_scope_ids(
     scope_args: list[str],
-    engine: CaptureEngine,
     client: ServiceNowClient,
-    instance_id: str,
-    group: str,
 ) -> list[str]:
     """Resolve scope keys (x_snc_*) or sys_ids to sys_ids.
 
-    If the arg is a 32-hex-char UUID it is used as-is.
-    Otherwise it is treated as a scope key and looked up via discover.
+    UUID args are passed through unchanged. Scope keys are resolved with a
+    single direct sys_scope lookup instead of a full grouped-count discover.
+
+    Args:
+        scope_args: List of scope keys or sys_ids from --scope options.
+        client: Open ServiceNowClient to use for key lookups.
+
+    Returns:
+        List of resolved sys_ids in the same order as scope_args.
     """
     keys_to_lookup = [s for s in scope_args if not _UUID_RE.match(s.replace("-", ""))]
 
     if not keys_to_lookup:
         return scope_args
 
-    # Discover to get the key -> sys_id mapping
-    with _make_progress() as progress:
-        task = progress.add_task("Resolving scope keys...", total=None)
+    # One direct query for all keys -- far cheaper than a full discover
+    in_query = f"scopeIN{','.join(keys_to_lookup)}"
+    async with client:
+        rows = await client.list_records(
+            "sys_scope",
+            query=in_query,
+            fields="sys_id,scope",
+            limit=len(keys_to_lookup) + 1,
+        )
+    key_map = {str(r.get("scope", "")): str(r.get("sys_id", "")) for r in rows}
 
-        def _prog(completed: int, total: int, message: str) -> None:
-            progress.update(task, description=message, total=total or None, completed=completed)
-
-        async with client:
-            manifest = await engine.discover_scopes(instance_id, group, on_progress=_prog)
-
-    key_map = {s.scope: s.sys_id for s in manifest.scopes}
     resolved: list[str] = []
     for arg in scope_args:
         if _UUID_RE.match(arg.replace("-", "")):
             resolved.append(arg)
         elif arg in key_map:
             resolved.append(key_map[arg])
-            console.print(f"  Resolved [cyan]{arg}[/cyan] -> {key_map[arg]}")
+            console.print(f"  Resolved [{_SN_BLUE_S}]{arg}[/{_SN_BLUE_S}] -> {key_map[arg]}")
         else:
             err_console.print(
                 f"Scope {arg!r} not found. Run 'nexus capture discover' to see available scopes."
@@ -947,8 +949,8 @@ def capture_pull(
         engine, client = _build_capture_engine(instance)
         resolved_instance = instance or _config_default()
 
-        # Resolve any scope keys to sys_ids (re-uses the same client)
-        scope_ids = await _resolve_scope_ids(scope, engine, client, resolved_instance, group)
+        # Resolve scope keys before opening the capture connection
+        scope_ids = await _resolve_scope_ids(scope, client)
 
         with _make_progress() as progress:
             task = progress.add_task("Preparing...", total=None)
@@ -1030,7 +1032,8 @@ def capture_push(
         manifest_path = Path(archive) / "manifest.yaml"
         result = engine.load_archive(manifest_path)
         async with client:
-            ref = await engine.push_to_update_set(result, instance, update_set)
+            resolved_instance = instance or _config_default()
+        ref = await engine.push_to_update_set(result, resolved_instance, update_set)
         console.print(f"Injected {ref.record_count} records into update set {ref.name!r}.")
         console.print(f"Update set sys_id: {ref.sys_id}")
 

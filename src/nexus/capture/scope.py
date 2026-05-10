@@ -103,12 +103,7 @@ class ScopeDiscoverer:
                 scope_counts[scope_sys_id][spec.name] = count
 
         n_with_configs = len(scope_counts)
-        log.info(
-            "%d/%d scopes have custom configs on %s",
-            n_with_configs,
-            len(scope_counts),
-            instance_id,
-        )
+        log.info("%d scopes have custom configs on %s", n_with_configs, instance_id)
 
         if not scope_counts:
             if on_progress:
