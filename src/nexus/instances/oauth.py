@@ -132,6 +132,25 @@ class SNOAuthClient:
         self._store_tokens(client_secret, response.access_token, response.refresh_token)
         return response.access_token, now + timedelta(seconds=response.expires_in)
 
+    def reconnect(self, password: str) -> tuple[str, datetime]:
+        """Re-authenticate via password grant when the session is fully expired.
+
+        Use this when get_bearer_token raises TokenExpiredError (refresh token
+        has expired). Stores new tokens in the keychain.
+
+        Args:
+            password: SN user password. Discarded after the exchange.
+
+        Returns:
+            (access_token, new_expiry) ready to pass to ServiceNowClient.
+
+        Raises:
+            OAuthError: If the password grant fails.
+        """
+        client_secret = self._keychain.get(f"sn-{self._profile}", _Account.CLIENT_SECRET)
+        response = self.exchange(client_secret, password)
+        return response.access_token, datetime.now(UTC) + timedelta(seconds=response.expires_in)
+
     def delete_tokens(self) -> None:
         """Remove all keychain entries for this profile."""
         for account in _Account:

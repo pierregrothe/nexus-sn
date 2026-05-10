@@ -53,6 +53,8 @@ from nexus.ui.theme import NEXUS_THEME
 from nexus.updater import check_and_maybe_update, current_version
 from nexus.updater.client import GitHubReleasesClient
 
+__all__: list[str] = []
+
 log = logging.getLogger(__name__)
 
 app = typer.Typer(
@@ -293,6 +295,47 @@ def _print_oauth_setup(url: str, profile: str) -> None:
     console.print("")
 
 
+def _warn_token_cap(url: str, username: str, password: str) -> None:
+    """Print a warning if the SN system access token cap is below 8 hours.
+
+    The property glide.oauth.access_token.expire_in.system_max_seconds overrides
+    the token_lifetime on any OAuth application. When it is set below 28800 (8h),
+    access tokens expire sooner, but NEXUS auto-refreshes using the 90-day refresh
+    token so this does not interrupt the user. The warning tells an admin how to
+    raise the cap if they want longer access tokens.
+
+    Args:
+        url: Full instance URL.
+        username: SN login for Basic auth.
+        password: SN password for Basic auth.
+    """
+    _CAP_PROP = "glide.oauth.access_token.expire_in.system_max_seconds"
+    try:
+        with httpx.Client(base_url=url, timeout=10.0) as sn:
+            r = sn.get(
+                "/api/now/table/sys_properties",
+                params={
+                    "sysparm_query": f"name={_CAP_PROP}",
+                    "sysparm_fields": "value",
+                    "sysparm_limit": "1",
+                },
+                auth=(username, password),
+            )
+        if r.status_code != 200:
+            return
+        rows = r.json().get("result", [])
+        if not rows:
+            return
+        cap = int(rows[0].get("value", "0"))
+        if 0 < cap < 28800:
+            console.print(f"  Note: SN system cap limits access tokens to {cap // 60} min.")
+            console.print("  NEXUS auto-refreshes silently -- this will not interrupt your work.")
+            console.print("  To set 8h tokens, an admin can run in a SN background script:")
+            console.print(f"    gs.setProperty('{_CAP_PROP}', '28800');")
+    except Exception:  # non-fatal -- registration already succeeded
+        pass
+
+
 def _provision_oauth(url: str, profile: str, username: str, password: str) -> tuple[str, str]:
     """Try to auto-create an OAuth app in SN; fall back to manual prompts on failure.
 
@@ -313,15 +356,16 @@ def _provision_oauth(url: str, profile: str, username: str, password: str) -> tu
     generated_secret = str(uuid.uuid4())
     fail_reason = ""
     try:
-        with httpx.Client(base_url=url, timeout=10.0) as client:
-            resp = client.post(
+        with httpx.Client(base_url=url, timeout=10.0) as sn:
+            resp = sn.post(
                 "/api/now/table/oauth_entity",
                 json={
                     "name": f"nexus-{profile}",
                     "type": "oauth2",
                     "client_secret": generated_secret,
                     "redirect_url": "https://localhost",
-                    "token_lifetime": "28800",
+                    "token_lifetime": "28800",  # 8h -- may be overridden by SN system cap
+                    "refresh_token_lifetime": "7776000",  # 90 days -- survives access token cap
                 },
                 auth=(username, password),
             )
@@ -330,6 +374,7 @@ def _provision_oauth(url: str, profile: str, username: str, password: str) -> tu
             client_id = str(result.get("client_id", ""))
             if client_id:
                 console.print(f"  Created OAuth application 'nexus-{profile}' automatically.")
+                _warn_token_cap(url, username, password)
                 return client_id, generated_secret
             fail_reason = "HTTP 201 but no client_id in response"
         else:
@@ -346,13 +391,15 @@ def _provision_oauth(url: str, profile: str, username: str, password: str) -> tu
 
 def _acquire_token(
     profile: str,
-    hint: str = "",
 ) -> tuple[InstanceRegistry, InstanceMeta, str, datetime]:
-    """Resolve profile, acquire bearer token, or exit with code 1.
+    """Resolve profile, acquire bearer token, reconnecting automatically if expired.
+
+    When both the access token and refresh token are expired, prompts the user
+    for their ServiceNow password and re-authenticates transparently so the
+    caller can continue without manual intervention.
 
     Args:
         profile: Instance profile name (empty string uses config default).
-        hint: Optional extra line printed after the error on TokenExpiredError.
 
     Returns:
         (registry, meta, bearer_token, token_expiry)
@@ -361,11 +408,17 @@ def _acquire_token(
     oauth = _oauth_for(meta.profile, meta)
     try:
         token, expiry = oauth.get_bearer_token(meta.token_expires_at)
-    except TokenExpiredError as exc:
-        err_console.print(str(exc))
-        if hint:
-            err_console.print(hint)
+        return registry, meta, token, expiry
+    except TokenExpiredError:
+        console.print(f"Session expired for {meta.profile!r}. Reconnecting...")
+    try:
+        password: str = typer.prompt("ServiceNow password", hide_input=True)
+        token, expiry = oauth.reconnect(password)
+    except OAuthError as exc:
+        err_console.print(f"Reconnect failed: {exc}")
         raise typer.Exit(1) from exc
+    registry.save(meta.model_copy(update={"token_expires_at": expiry}))
+    console.print(f"Reconnected. Token valid until {expiry.strftime('%H:%M UTC')}.")
     return registry, meta, token, expiry
 
 
@@ -381,7 +434,7 @@ def _build_capture_engine(profile: str) -> tuple[CaptureEngine, ServiceNowClient
     Raises:
         typer.Exit: With code 1 if the profile is not registered or expired.
     """
-    _, meta, token, _ = _acquire_token(profile, hint="  Refresh the token: nexus instance connect")
+    _, meta, token, _ = _acquire_token(profile)
     client = ServiceNowClient(
         instance_url=meta.url,
         username=meta.username,
@@ -657,7 +710,9 @@ def capture_callback(ctx: typer.Context) -> None:
 
 @capture_app.command("discover")
 def capture_discover(
-    instance: Annotated[str, typer.Argument(help="Instance profile name")],
+    instance: Annotated[
+        str, typer.Argument(help="Instance profile name (default: configured default)")
+    ] = "",
     group: Annotated[str, typer.Option(help="Table group")] = AI_AUTOMATION.key,
 ) -> None:
     """Discover application scopes on an instance and show per-table counts."""
@@ -665,13 +720,13 @@ def capture_discover(
     async def _run() -> None:
         engine, client = _build_capture_engine(instance)
         async with client:
-            manifest = await engine.discover_scopes(instance, group)
+            manifest = await engine.discover_scopes(instance or _config_default(), group)
 
         if not manifest.scopes:
             console.print("No application scopes found.")
             return
 
-        tbl = Table(title=f"Scopes on {instance}")
+        tbl = Table(title=f"Scopes on {manifest.instance_id}")
         tbl.add_column("Name")
         tbl.add_column("Scope Key")
         group_obj = DEFAULT_TABLE_GROUPS.get(group)
@@ -691,16 +746,23 @@ def capture_discover(
 
 @capture_app.command("pull")
 def capture_pull(
-    instance: Annotated[str, typer.Argument(help="Instance profile name")],
-    scope: Annotated[list[str], typer.Option(help="Scope sys_id (repeatable)")],
+    instance: Annotated[
+        str, typer.Argument(help="Instance profile name (default: configured default)")
+    ] = "",
+    scope: Annotated[list[str], typer.Option(help="Scope sys_id (repeatable)")] = [],
     group: Annotated[str, typer.Option(help="Table group")] = AI_AUTOMATION.key,
 ) -> None:
     """Capture custom configurations for selected scopes to a local archive."""
+    if not scope:
+        err_console.print("At least one --scope is required.")
+        err_console.print("  Run 'nexus capture discover' to find scope sys_ids.")
+        raise typer.Exit(1)
 
     async def _run() -> None:
         engine, client = _build_capture_engine(instance)
+        resolved = instance or _config_default()
         async with client:
-            result = await engine.capture(instance, scope, group)
+            result = await engine.capture(resolved, scope, group)
         manifest = engine.save_archive(result)
         console.print(f"Captured {manifest.record_count} records.")
         console.print(f"Archive: {manifest.archive_dir}")
@@ -745,7 +807,9 @@ def capture_list(
 @capture_app.command("push")
 def capture_push(
     archive: Annotated[str, typer.Argument(help="Path to archive directory")],
-    instance: Annotated[str, typer.Argument(help="Target instance profile")],
+    instance: Annotated[
+        str, typer.Argument(help="Target instance profile (default: configured default)")
+    ] = "",
     update_set: Annotated[str, typer.Option(help="Update set name")] = "NEXUS-capture",
 ) -> None:
     """Push a local archive into an update set on the target instance."""
