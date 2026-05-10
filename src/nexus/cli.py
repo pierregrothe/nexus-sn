@@ -112,11 +112,17 @@ def _make_progress() -> Progress:
             f"[{_SN_BLUE_S}]{{task.description}}",
             table_column=Column(min_width=50, no_wrap=True),
         ),
-        BarColumn(bar_width=30, complete_style=_SN_LIME_S, finished_style=_SN_LIME_S),
-        MofNCompleteColumn(),
-        TimeElapsedColumn(),
+        BarColumn(
+            bar_width=30,
+            style="bar.back",
+            complete_style=_SN_LIME_S,
+            finished_style=_SN_LIME_S,
+            pulse_style=_SN_LIME_S,  # fixes dark-purple pulse in indeterminate phase
+        ),
+        MofNCompleteColumn(table_column=Column(style=_SN_LIME_S, no_wrap=True)),
+        TimeElapsedColumn(table_column=Column(style="dim", no_wrap=True)),
         console=console,
-        transient=False,
+        transient=True,  # progress bar disappears when done; result takes its place
     )
 
 
@@ -522,8 +528,9 @@ def _print_command_guide(app_name: str, help_items: list[tuple[str, str]]) -> No
     for cmd, desc in help_items:
         tbl.add_row(f"{app_name} {cmd}", desc)
     console.print()
+    console.rule(f"[{_SN_BLUE_S}]{app_name}[/{_SN_BLUE_S}]", style=_SN_BLUE_S)
     console.print(tbl)
-    console.print()
+    console.rule(style=_SN_BLUE_S)
     console.print(f"  [dim]Run [bold]{app_name} <command> --help[/bold] for details.[/dim]")
 
 
@@ -598,8 +605,9 @@ def instance_list() -> None:
             meta.last_connected_at.strftime("%Y-%m-%d %H:%M"),
         )
     console.print()
+    console.rule(f"[{_SN_BLUE_S}]Instances[/{_SN_BLUE_S}]", style=_SN_BLUE_S)
     console.print(tbl)
-    console.print()
+    console.rule(style=_SN_BLUE_S)
 
 
 @instance_app.command("status")
@@ -856,7 +864,7 @@ def capture_discover(
         group_obj = DEFAULT_TABLE_GROUPS.get(group)
         tbl = Table(
             show_header=True,
-            header_style="bold",
+            header_style=_SN_BLUE_S,
             box=None,
             pad_edge=False,
             show_edge=False,
@@ -883,9 +891,12 @@ def capture_discover(
                     row.append(_count_cell(scope.table_counts.get(spec.name, 0)))
             tbl.add_row(*row)
 
-        console.print()
+        console.rule(
+            f"[{_SN_BLUE_S}]Custom scopes on {resolved}[/{_SN_BLUE_S}]",
+            style=_SN_BLUE_S,
+        )
         console.print(tbl)
-        console.print()
+        console.rule(style=_SN_BLUE_S)
 
         # Summary line
         if all_scopes or not custom_s:
@@ -1007,12 +1018,13 @@ def capture_pull(
                 )
 
         manifest = engine.save_archive(result)
-        console.print()
+        console.rule(f"[{_SN_LIME_S}]Capture complete[/{_SN_LIME_S}]", style=_SN_BLUE_S)
         console.print(
-            f"  [{_SN_LIME_S}][bold]{manifest.record_count} records captured[/bold][/{_SN_LIME_S}]"
+            f"  [{_SN_LIME_S}][bold]{manifest.record_count:,} records[/bold][/{_SN_LIME_S}]"
+            f"  [dim]saved to archive[/dim]"
         )
-        console.print(f"  [dim]Archive:[/dim] [white]{manifest.archive_dir}[/white]")
-        console.print()
+        console.print(f"  [dim]{manifest.archive_dir}[/dim]")
+        console.rule(style=_SN_BLUE_S)
         console.print(
             f"  [{_SN_LIME_S}]Next:[/{_SN_LIME_S}]"
             f" [bold white]nexus capture push {manifest.archive_dir}[/bold white]"
@@ -1028,7 +1040,7 @@ def capture_list(
     """List local capture archives."""
     archives_root = NexusPaths.from_env().archives_dir
     if not archives_root.exists():
-        console.print("No archives found.")
+        console.print("  [dim]No archives yet. Run [bold]nexus capture pull[/bold] first.[/dim]")
         return
 
     tbl = Table(
@@ -1059,9 +1071,9 @@ def capture_list(
             str(manifest.record_count),
             _trunc(str(manifest.archive_dir), 45),
         )
-    console.print()
+    console.rule(f"[{_SN_BLUE_S}]Archives[/{_SN_BLUE_S}]", style=_SN_BLUE_S)
     console.print(tbl)
-    console.print()
+    console.rule(style=_SN_BLUE_S)
 
 
 @capture_app.command("push")
