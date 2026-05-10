@@ -146,3 +146,21 @@ class FakeServiceNowClient:
             Total record count.
         """
         return len(self._tables.get(table, []))
+
+    async def count_grouped(self, table: str, *, query: str = "", group_by: str) -> dict[str, int]:
+        """Return per-group record counts by inspecting the group_by field.
+
+        Args:
+            table: Table name.
+            query: Ignored in fake.
+            group_by: Field name to group by.
+
+        Returns:
+            Mapping of field value to count.
+        """
+        result: dict[str, int] = {}
+        for record in self._tables.get(table, []):
+            value = str(record.get(group_by, ""))
+            if value:
+                result[value] = result.get(value, 0) + 1
+        return result

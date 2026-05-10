@@ -11,7 +11,8 @@ typed SNClientError subclasses.
 """
 
 import logging
-from typing import Any
+from collections.abc import Mapping
+from typing import Any, cast
 
 import httpx
 
@@ -95,7 +96,7 @@ class ServiceNowClient:
         query: str = "",
         limit: int = 10,
         fields: str = "",
-    ) -> list[dict[str, Any]]:
+    ) -> list[dict[str, object]]:
         """Query a ServiceNow table.
 
         Args:
@@ -114,7 +115,7 @@ class ServiceNowClient:
             params["sysparm_fields"] = fields
 
         response = await self._get(f"{_TABLE_API_BASE}/{table}", params=params)
-        return list(response.get("result", []))
+        return cast(list[dict[str, object]], response.get("result", []))
 
     async def list_records(
         self,
@@ -124,7 +125,7 @@ class ServiceNowClient:
         offset: int = 0,
         fields: str = "",
         display_value: str = "false",
-    ) -> list[dict[str, Any]]:
+    ) -> list[dict[str, object]]:
         """Query a ServiceNow table with full pagination support.
 
         Unlike query_table, this method applies no cap on limit and supports
@@ -151,7 +152,7 @@ class ServiceNowClient:
         if fields:
             sparams["sysparm_fields"] = fields
         response = await self._get(f"{_TABLE_API_BASE}/{table}", params=sparams)
-        return list(response.get("result", []))
+        return cast(list[dict[str, object]], response.get("result", []))
 
     async def count_records(self, table: str, query: str = "") -> int:
         """Return the total count of records matching the query via the Aggregate API.
@@ -167,10 +168,53 @@ class ServiceNowClient:
         if query:
             cparams["sysparm_query"] = query
         response = await self._get(f"{_STATS_API_BASE}/{table}", params=cparams)
-        count_str = response.get("result", {}).get("stats", {}).get("count", "0")
+        raw: Any = response
+        count_str = str(raw.get("result", {}).get("stats", {}).get("count", "0"))
         return int(count_str)
 
-    async def get_record(self, table: str, sys_id: str, fields: str = "") -> dict[str, Any]:
+    async def count_grouped(
+        self,
+        table: str,
+        *,
+        query: str = "",
+        group_by: str,
+    ) -> dict[str, int]:
+        """Return record counts per distinct field value via the Aggregate API.
+
+        A single call replaces N count_records calls when counting records
+        across many groups simultaneously. Example: count_grouped("sys_hub_flow",
+        group_by="sys_scope") returns {scope_sys_id: flow_count} for every
+        scope that has at least one matching flow.
+
+        Args:
+            table: Table API name.
+            query: Encoded query string applied before grouping.
+            group_by: Field name to group by (e.g. "sys_scope").
+
+        Returns:
+            Mapping of field value (sys_id string) to record count.
+            Groups with zero records are not included.
+        """
+        params: dict[str, str] = {
+            "sysparm_count": "true",
+            "sysparm_group_by": group_by,
+        }
+        if query:
+            params["sysparm_query"] = query
+        response = await self._get(f"{_STATS_API_BASE}/{table}", params=params)
+        raw: Any = response
+        result: dict[str, int] = {}
+        for group in raw.get("result", []):
+            fields_list = group.get("groupby_fields", [])
+            if not fields_list:
+                continue
+            value = str(fields_list[0].get("value", ""))
+            count_str = str(group.get("stats", {}).get("count", "0"))
+            if value:
+                result[value] = int(count_str)
+        return result
+
+    async def get_record(self, table: str, sys_id: str, fields: str = "") -> dict[str, object]:
         """Retrieve a single record by sys_id.
 
         Args:
@@ -185,34 +229,39 @@ class ServiceNowClient:
         if fields:
             params["sysparm_fields"] = fields
         response = await self._get(f"{_TABLE_API_BASE}/{table}/{sys_id}", params=params)
-        return dict(response.get("result", {}))
+        raw: Any = response
+        return cast(dict[str, object], raw.get("result", {}))
 
-    async def create_record(self, table: str, data: dict[str, Any]) -> dict[str, Any]:
+    async def create_record(self, table: str, data: dict[str, str]) -> dict[str, object]:
         """Create a record in a ServiceNow table.
 
         Args:
             table: Table API name.
-            data: Field values for the new record.
+            data: Field values for the new record (string values only).
 
         Returns:
             The created record dict including sys_id.
         """
         response = await self._post(f"{_TABLE_API_BASE}/{table}", json=data)
-        return dict(response.get("result", {}))
+        raw: Any = response
+        return cast(dict[str, object], raw.get("result", {}))
 
-    async def update_record(self, table: str, sys_id: str, data: dict[str, Any]) -> dict[str, Any]:
+    async def update_record(
+        self, table: str, sys_id: str, data: dict[str, str]
+    ) -> dict[str, object]:
         """Update an existing record.
 
         Args:
             table: Table API name.
             sys_id: Record sys_id.
-            data: Fields to update.
+            data: Fields to update (string values only).
 
         Returns:
             The updated record dict.
         """
         response = await self._patch(f"{_TABLE_API_BASE}/{table}/{sys_id}", json=data)
-        return dict(response.get("result", {}))
+        raw: Any = response
+        return cast(dict[str, object], raw.get("result", {}))
 
     async def delete_record(self, table: str, sys_id: str) -> None:
         """Delete a record.
@@ -223,32 +272,34 @@ class ServiceNowClient:
         """
         await self._delete(f"{_TABLE_API_BASE}/{table}/{sys_id}")
 
-    async def _get(self, path: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
-        return await self._request("GET", path, params=params)
+    async def _get(
+        self, path: str, params: Mapping[str, str | int] | None = None
+    ) -> dict[str, object]:
+        return cast(dict[str, object], await self._request("GET", path, params=params))
 
-    async def _post(self, path: str, json: dict[str, Any]) -> dict[str, Any]:
-        return await self._request("POST", path, json=json)
+    async def _post(self, path: str, json: dict[str, str]) -> dict[str, object]:
+        return cast(dict[str, object], await self._request("POST", path, json=json))
 
-    async def _patch(self, path: str, json: dict[str, Any]) -> dict[str, Any]:
-        return await self._request("PATCH", path, json=json)
+    async def _patch(self, path: str, json: dict[str, str]) -> dict[str, object]:
+        return cast(dict[str, object], await self._request("PATCH", path, json=json))
 
-    async def _delete(self, path: str) -> dict[str, Any]:
-        return await self._request("DELETE", path)
+    async def _delete(self, path: str) -> dict[str, object]:
+        return cast(dict[str, object], await self._request("DELETE", path))
 
     async def _request(
         self,
         method: str,
         path: str,
-        params: dict[str, Any] | None = None,
-        json: dict[str, Any] | None = None,
-    ) -> dict[str, Any]:
+        params: Mapping[str, str | int] | None = None,
+        json: dict[str, str] | None = None,
+    ) -> object:
         if self._client is None:
             raise SNClientError("Client not initialised. Use 'async with ServiceNowClient()'.")
 
         log.debug("SN %s %s params=%s", method, path, params)
         response = await self._client.request(method, path, params=params, json=json)
         self._raise_for_status(response)
-        return dict(response.json()) if response.content else {}
+        return response.json() if response.content else {}
 
     @staticmethod
     def _raise_for_status(response: httpx.Response) -> None:

@@ -50,3 +50,13 @@ class ServiceNowClientProtocol(Protocol):
     ) -> dict[str, object]:
         """Create a record in a ServiceNow table and return it."""
         ...
+
+    async def count_grouped(
+        self,
+        table: str,
+        *,
+        query: str = "",
+        group_by: str,
+    ) -> dict[str, int]:
+        """Return record counts per distinct field value via the Aggregate API."""
+        ...
