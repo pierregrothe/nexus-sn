@@ -54,6 +54,14 @@ def _row_to_record(
     )
 
 
+def _extract_ref_value(field_val: object) -> str:
+    """Extract the sys_id value from a plain string or SnRefField dict."""
+    if isinstance(field_val, dict):
+        v = cast(dict[str, object], field_val).get("value", "")
+        return str(v) if v else ""
+    return str(field_val) if field_val else ""
+
+
 class ConfigFetcher:
     """Fetches custom records for a given scope and table group.
 
@@ -102,9 +110,9 @@ class ConfigFetcher:
                 all_records.extend(root_records)
 
                 for related in spec.related:
-                    for root in root_records:
-                        child_records = await self._fetch_related(
-                            related, root.sys_id, scope_sys_id, now
+                    if root_records:
+                        child_records = await self._fetch_related_batch(
+                            related, root_records, scope_sys_id, now
                         )
                         all_records.extend(child_records)
 
@@ -125,34 +133,46 @@ class ConfigFetcher:
         log.info("captured %d records from %s (scope=%s)", len(records), spec.name, scope_sys_id)
         return records
 
-    async def _fetch_related(
+    async def _fetch_related_batch(
         self,
         related: RelatedTable,
-        parent_sys_id: str,
+        parent_records: list[ConfigRecord],
         scope_sys_id: str,
         now: datetime,
     ) -> list[ConfigRecord]:
-        query = f"sys_customer_update=true^{related.join_field}={parent_sys_id}"
+        """Fetch all child records in a single IN query instead of one per parent.
+
+        Args:
+            related: Related table spec with the join field name.
+            parent_records: Root records whose sys_ids form the IN filter.
+            scope_sys_id: Scope sys_id for the child ConfigRecord metadata.
+            now: Capture timestamp.
+
+        Returns:
+            Child ConfigRecords with parent_sys_id extracted from the join field.
+        """
+        # One IN query for all parents -- O(1) vs O(N) round-trips.
+        # TODO: chunk parent_ids in batches of ~50 if table groups grow to
+        #       DEVELOPER_PLATFORM scale (hundreds of parents per scope).
+        parent_ids = [r.sys_id for r in parent_records]
+        query = f"sys_customer_update=true^{related.join_field}IN{','.join(parent_ids)}"
         raw = await self._fetch_all_pages(related.name, query)
-        return [
-            _row_to_record(
-                cast(dict[str, object], row), related.name, scope_sys_id, now, parent_sys_id
-            )
-            for row in raw
-        ]
+        results: list[ConfigRecord] = []
+        for row in raw:
+            row_obj = cast(dict[str, object], row)
+            parent_sys_id: str | None = _extract_ref_value(row_obj.get(related.join_field)) or None
+            results.append(_row_to_record(row_obj, related.name, scope_sys_id, now, parent_sys_id))
+        return results
 
     async def _fetch_all_pages(self, table: str, query: str) -> list[dict[str, Any]]:
-        try:
-            total = await self._client.count_records(table, query=query)
-        except SNClientError as exc:
-            if exc.status_code in (400, 404):
-                log.warning("table %s unavailable (HTTP %s) -- skipping", table, exc.status_code)
-                return []
-            raise
+        """Fetch all pages from a table query without a pre-flight count call.
 
+        Terminates when a page is shorter than page_size (last page reached).
+        Tables returning HTTP 400/404 are treated as unavailable and return [].
+        """
         all_rows: list[dict[str, Any]] = []
         offset = 0
-        while offset < total:
+        while True:
             try:
                 page = await self._client.list_records(
                     table,
@@ -163,12 +183,16 @@ class ConfigFetcher:
                 )
             except SNClientError as exc:
                 if exc.status_code in (400, 404):
-                    log.warning(
-                        "table %s unavailable (HTTP %s) -- skipping", table, exc.status_code
-                    )
+                    if not all_rows:
+                        log.warning(
+                            "table %s unavailable (HTTP %s) -- skipping",
+                            table,
+                            exc.status_code,
+                        )
                     return all_rows
                 raise
             all_rows.extend(page)
+            if len(page) < self._page_size:
+                break
             offset += self._page_size
-
         return all_rows

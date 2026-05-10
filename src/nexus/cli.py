@@ -67,6 +67,13 @@ app.add_typer(instance_app)
 capture_app = typer.Typer(name="capture", help="Capture and deploy ServiceNow configurations.")
 app.add_typer(capture_app)
 
+_CAPTURE_HELP = [
+    ("discover <instance>", "List application scopes and custom record counts"),
+    ("pull <instance> --scope <sys_id>", "Capture custom configs to a local YAML archive"),
+    ("list [instance]", "Show local archives (optionally filtered by instance)"),
+    ("push <archive> <instance>", "Inject archive into an update set on the target instance"),
+]
+
 console = Console(theme=NEXUS_THEME)
 err_console = Console(stderr=True, theme=NEXUS_THEME)
 
@@ -633,6 +640,19 @@ def instance_register(profile: str) -> None:
     if not ConfigManager(paths).load().instances.default:
         _set_default_profile(paths, profile)
         console.print("  Set as default instance.")
+
+
+@capture_app.callback(invoke_without_command=True)
+def capture_callback(ctx: typer.Context) -> None:
+    """Show local archives and available commands."""
+    if ctx.invoked_subcommand is not None:
+        return
+    capture_list()
+    console.print("Commands:")
+    for cmd, desc in _CAPTURE_HELP:
+        console.print(f"  nexus capture {cmd:<40} {desc}")
+    console.print("")
+    console.print("Run 'nexus capture <command> --help' for usage details.")
 
 
 @capture_app.command("discover")

@@ -47,31 +47,6 @@ _LOGIC_L2: SnRecord = {
 }
 
 
-class _CountRaisesClient(FakeServiceNowClient):
-    """Fake that raises SNClientError on count_records for a specified table."""
-
-    def __init__(self, raise_table: str, status_code: int) -> None:
-        """Initialize with raise_table and status_code override."""
-        super().__init__()
-        self._raise_table = raise_table
-        self._status_code = status_code
-
-    async def count_records(self, table: str, query: str = "") -> int:
-        """Raise SNClientError for the configured table, delegate otherwise."""
-        if table == self._raise_table:
-            raise SNClientError(f"HTTP {self._status_code}", status_code=self._status_code)
-        return await super().count_records(table, query=query)
-
-
-class _CountRaisesWithDataClient(_CountRaisesClient):
-    """Variant with pre-seeded ai_skill data and count-raises on sys_hub_flow."""
-
-    def __init__(self) -> None:
-        """Seed ai_skill, raise 404 on sys_hub_flow count."""
-        super().__init__(raise_table="sys_hub_flow", status_code=404)
-        self._tables["ai_skill"] = [dict(r) for r in [_SKILL_S1]]
-
-
 class _ListRaisesClient(FakeServiceNowClient):
     """Fake that raises SNClientError on list_records for a specified table."""
 
@@ -80,7 +55,6 @@ class _ListRaisesClient(FakeServiceNowClient):
         super().__init__()
         self._raise_table = raise_table
         self._status_code = status_code
-        # Seed ai_skill and sys_hub_flow so count returns > 0 for the raise_table
         self._tables["ai_skill"] = [dict(r) for r in [_SKILL_S1]]
         self._tables["sys_hub_flow"] = [dict(r) for r in [_FLOW_F1]]
 
@@ -92,7 +66,7 @@ class _ListRaisesClient(FakeServiceNowClient):
         offset: int = 0,
         fields: str = "",
         display_value: str = "false",
-    ) -> list[SnRecord]:
+    ) -> list[dict[str, object]]:
         """Raise SNClientError for the configured table, delegate otherwise."""
         if table == self._raise_table:
             raise SNClientError(f"HTTP {self._status_code}", status_code=self._status_code)
@@ -144,12 +118,37 @@ async def test_fetch_records_includes_related_records() -> None:
 
 
 @pytest.mark.asyncio
+async def test_fetch_related_batch_assigns_parent_from_join_field() -> None:
+    flows = [
+        {"sys_id": "f1", "sys_scope": _SCOPE_ID, "sys_customer_update": "true"},
+        {"sys_id": "f2", "sys_scope": _SCOPE_ID, "sys_customer_update": "true"},
+    ]
+    logics = [
+        {"sys_id": "l1", "flow": "f1", "sys_scope": _SCOPE_ID, "sys_customer_update": "true"},
+        {"sys_id": "l2", "flow": "f1", "sys_scope": _SCOPE_ID, "sys_customer_update": "true"},
+        {"sys_id": "l3", "flow": "f2", "sys_scope": _SCOPE_ID, "sys_customer_update": "true"},
+    ]
+    client = FakeServiceNowClient(
+        initial_records={"sys_hub_flow": flows, "sys_hub_flow_logic": logics}
+    )
+    fetcher = ConfigFetcher(client, DEFAULT_TABLE_GROUPS)
+    async with client:
+        records = await fetcher.fetch(
+            instance_id="dev", scope_ids=[_SCOPE_ID], table_group="ai_automation"
+        )
+
+    logic_records = [r for r in records if r.table == "sys_hub_flow_logic"]
+    assert len(logic_records) == 3
+    # Batch IN query returns all children; parent_sys_id extracted from join field
+    by_id = {r.sys_id: r.parent_sys_id for r in logic_records}
+    assert by_id == {"l1": "f1", "l2": "f1", "l3": "f2"}
+
+
+@pytest.mark.asyncio
 async def test_fetch_records_unavailable_table_returns_empty_and_continues() -> None:
-    # FakeServiceNowClient returns [] for unknown tables -- simulates unavailable
     client = FakeServiceNowClient(
         initial_records={
             "ai_skill": [_SKILL_S1],
-            # sys_hub_flow not seeded -> returns [] (table absent = zero records)
         }
     )
     fetcher = ConfigFetcher(client, DEFAULT_TABLE_GROUPS)
@@ -177,31 +176,6 @@ async def test_fetch_records_paginates_large_result_set() -> None:
 
     skill_records = [r for r in records if r.table == "ai_skill"]
     assert len(skill_records) == 25
-
-
-@pytest.mark.asyncio
-async def test_fetch_404_on_count_returns_empty_and_continues() -> None:
-    client = _CountRaisesWithDataClient()
-    fetcher = ConfigFetcher(client, DEFAULT_TABLE_GROUPS)
-    async with client:
-        records = await fetcher.fetch(
-            instance_id="dev", scope_ids=[_SCOPE_ID], table_group="ai_automation"
-        )
-
-    tables_seen = {r.table for r in records}
-    assert "ai_skill" in tables_seen
-    assert "sys_hub_flow" not in tables_seen
-
-
-@pytest.mark.asyncio
-async def test_fetch_500_on_count_propagates() -> None:
-    client = _CountRaisesClient(raise_table="ai_skill", status_code=500)
-    fetcher = ConfigFetcher(client, DEFAULT_TABLE_GROUPS)
-    with pytest.raises(SNClientError):
-        async with client:
-            await fetcher.fetch(
-                instance_id="dev", scope_ids=[_SCOPE_ID], table_group="ai_automation"
-            )
 
 
 @pytest.mark.asyncio
