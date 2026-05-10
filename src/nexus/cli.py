@@ -29,7 +29,7 @@ from rich.progress import (
     TextColumn,
     TimeElapsedColumn,
 )
-from rich.table import Table
+from rich.table import Column, Table
 
 from nexus.auth.external_keychain import ExternalKeychainClient
 from nexus.cache import clear_cache
@@ -715,8 +715,8 @@ def capture_callback(ctx: typer.Context) -> None:
 def _make_progress() -> Progress:
     return Progress(
         SpinnerColumn(),
-        TextColumn("[cyan]{task.description}"),
-        BarColumn(),
+        TextColumn("[cyan]{task.description}", table_column=Column(min_width=50, no_wrap=True)),
+        BarColumn(bar_width=30),
         MofNCompleteColumn(),
         TimeElapsedColumn(),
         console=console,

@@ -12,13 +12,28 @@ from nexus.capture.tables import DEFAULT_TABLE_GROUPS
 from nexus.connectors.servicenow.errors import SNClientError
 from tests.fakes.fake_sn_client import FakeServiceNowClient
 
+_SCOPE_ROW = {
+    "sys_id": "scope001",
+    "name": "NowAssist HRSD",
+    "scope": "x_snc_nowassist_hrsd",
+    "version": "1.0.0",
+    "vendor": "ServiceNow",
+}
+
 
 class _CountRaisesClient(FakeServiceNowClient):
-    """Raises SNClientError for count_records on a specific table."""
+    """Raises SNClientError for count_records on a specific table, delegates otherwise."""
 
     def __init__(self, raise_table: str, status_code: int) -> None:
-        """Initialize with raise_table and status_code override."""
-        super().__init__(initial_records={"sys_scope": [_SCOPE_ROW]})
+        """Initialize with one table that raises and ai_skill seeded with data."""
+        super().__init__(
+            initial_records={
+                "sys_scope": [_SCOPE_ROW],
+                # Seed ai_skill so the scope has at least one non-zero count
+                # even when another table raises 400 -- scope stays in results.
+                "ai_skill": [{"sys_id": "s1"}],
+            }
+        )
         self._raise_table = raise_table
         self._status_code = status_code
 
@@ -27,27 +42,6 @@ class _CountRaisesClient(FakeServiceNowClient):
         if table == self._raise_table:
             raise SNClientError(f"HTTP {self._status_code}", status_code=self._status_code)
         return await super().count_records(table, query=query)
-
-
-@pytest.mark.asyncio
-async def test_discover_scopes_unavailable_table_returns_zero_count() -> None:
-    client = _CountRaisesClient(raise_table="ai_skill", status_code=400)
-    discoverer = ScopeDiscoverer(client, DEFAULT_TABLE_GROUPS)
-    async with client:
-        manifest = await discoverer.discover("dev-instance", "ai_automation")
-
-    scope = manifest.scopes[0]
-    assert scope.table_counts["ai_skill"] == 0
-    assert scope.table_counts["sys_hub_flow"] == 0  # also zero (not seeded)
-
-
-_SCOPE_ROW = {
-    "sys_id": "scope001",
-    "name": "NowAssist HRSD",
-    "scope": "x_snc_nowassist_hrsd",
-    "version": "1.0.0",
-    "vendor": "ServiceNow",
-}
 
 
 @pytest.mark.asyncio
@@ -84,12 +78,27 @@ async def test_discover_scopes_with_empty_instance_returns_empty_manifest() -> N
 
 
 @pytest.mark.asyncio
-async def test_discover_scopes_skips_table_not_in_group() -> None:
+async def test_discover_scopes_excludes_ootb_scopes_with_no_custom_records() -> None:
+    # Scope exists but has no custom records in any table -> excluded from manifest
     client = FakeServiceNowClient(initial_records={"sys_scope": [_SCOPE_ROW]})
     discoverer = ScopeDiscoverer(client, DEFAULT_TABLE_GROUPS)
     async with client:
         manifest = await discoverer.discover("dev-instance", "ai_automation")
 
+    assert len(manifest.scopes) == 0
+
+
+@pytest.mark.asyncio
+async def test_discover_scopes_unavailable_table_returns_zero_and_scope_included() -> None:
+    # ai_skill returns 400 (table absent) but ai_skill is seeded so count=1 from
+    # the non-raising path. sys_hub_flow raises -> count=0. Scope is included
+    # because at least one table has a non-zero count.
+    client = _CountRaisesClient(raise_table="sys_hub_flow", status_code=400)
+    discoverer = ScopeDiscoverer(client, DEFAULT_TABLE_GROUPS)
+    async with client:
+        manifest = await discoverer.discover("dev-instance", "ai_automation")
+
+    assert len(manifest.scopes) == 1
     scope = manifest.scopes[0]
-    # Tables not seeded return zero counts -- not missing from counts dict
-    assert scope.table_counts.get("ai_skill", 0) == 0
+    assert scope.table_counts["ai_skill"] == 1  # seeded, count works
+    assert scope.table_counts["sys_hub_flow"] == 0  # 400 -> _safe_count returns 0
