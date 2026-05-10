@@ -117,8 +117,18 @@ class ScopeDiscoverer:
                 table_counts=counts,
             )
 
-        results = await asyncio.gather(*[_count_scope(row) for row in raw_scopes])
-        entries = [e for e in results if e is not None]
+        # return_exceptions=True prevents one failing scope from cancelling all
+        # others mid-flight, which would hit the client after __aexit__ closes it.
+        raw_results = await asyncio.gather(
+            *[_count_scope(row) for row in raw_scopes],
+            return_exceptions=True,
+        )
+        entries: list[ScopeEntry] = []
+        for r in raw_results:
+            if isinstance(r, BaseException):
+                log.warning("scope count failed -- skipping: %s", r)
+            elif r is not None:
+                entries.append(r)
 
         if on_progress:
             on_progress(n_scopes, n_scopes, f"Done -- {len(entries)} scopes with custom configs")

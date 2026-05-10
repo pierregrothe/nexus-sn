@@ -253,7 +253,10 @@ class ServiceNowClient:
     @staticmethod
     def _raise_for_status(response: httpx.Response) -> None:
         match response.status_code:
-            case 200 | 201 | 204:
+            case 200 | 201 | 202 | 204:
+                # 202 Accepted: SN is processing the request asynchronously.
+                # Callers receive an empty or partial response body; count/list
+                # methods fall back to their zero/empty defaults naturally.
                 return
             case 401 | 403:
                 raise SNAuthError(
