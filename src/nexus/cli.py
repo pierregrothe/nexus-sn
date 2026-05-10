@@ -21,6 +21,14 @@ import typer
 import yaml as _yaml
 from packaging.version import InvalidVersion, parse
 from rich.console import Console
+from rich.progress import (
+    BarColumn,
+    MofNCompleteColumn,
+    Progress,
+    SpinnerColumn,
+    TextColumn,
+    TimeElapsedColumn,
+)
 from rich.table import Table
 
 from nexus.auth.external_keychain import ExternalKeychainClient
@@ -704,6 +712,18 @@ def capture_callback(ctx: typer.Context) -> None:
     console.print("Run 'nexus capture <command> --help' for usage details.")
 
 
+def _make_progress() -> Progress:
+    return Progress(
+        SpinnerColumn(),
+        TextColumn("[cyan]{task.description}"),
+        BarColumn(),
+        MofNCompleteColumn(),
+        TimeElapsedColumn(),
+        console=console,
+        transient=False,
+    )
+
+
 @capture_app.command("discover")
 def capture_discover(
     instance: Annotated[
@@ -715,8 +735,21 @@ def capture_discover(
 
     async def _run() -> None:
         engine, client = _build_capture_engine(instance)
-        async with client:
-            manifest = await engine.discover_scopes(instance or _config_default(), group)
+        resolved = instance or _config_default()
+
+        with _make_progress() as progress:
+            task = progress.add_task(f"Connecting to {resolved}...", total=None)
+
+            def on_progress(completed: int, total: int, message: str) -> None:
+                progress.update(
+                    task,
+                    description=message,
+                    total=total if total > 0 else None,
+                    completed=completed,
+                )
+
+            async with client:
+                manifest = await engine.discover_scopes(resolved, group, on_progress=on_progress)
 
         if not manifest.scopes:
             console.print("No application scopes found.")
@@ -757,8 +790,21 @@ def capture_pull(
     async def _run() -> None:
         engine, client = _build_capture_engine(instance)
         resolved = instance or _config_default()
-        async with client:
-            result = await engine.capture(resolved, scope, group)
+
+        with _make_progress() as progress:
+            task = progress.add_task("Preparing...", total=None)
+
+            def on_progress(completed: int, total: int, message: str) -> None:
+                progress.update(
+                    task,
+                    description=message,
+                    total=total if total > 0 else None,
+                    completed=completed,
+                )
+
+            async with client:
+                result = await engine.capture(resolved, scope, group, on_progress=on_progress)
+
         manifest = engine.save_archive(result)
         console.print(f"Captured {manifest.record_count} records.")
         console.print(f"Archive: {manifest.archive_dir}")

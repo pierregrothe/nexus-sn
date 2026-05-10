@@ -5,6 +5,7 @@
 
 """CaptureProtocol: the interface CLI, TUI, and Web UI bind to."""
 
+from collections.abc import Callable
 from pathlib import Path
 from typing import Protocol
 
@@ -16,9 +17,14 @@ from nexus.capture.models import (
 )
 from nexus.capture.tables import AI_AUTOMATION
 
-__all__ = ["CaptureProtocol"]
+__all__ = ["CaptureProtocol", "ProgressCallback"]
 
 _DEFAULT_GROUP = AI_AUTOMATION.key
+
+# Progress callback: (completed, total, status_message) -> None
+# completed and total are item counts; message is a human-readable status line.
+# total=0 means indeterminate (spinner only).
+type ProgressCallback = Callable[[int, int, str], None]
 
 
 class CaptureProtocol(Protocol):
@@ -28,12 +34,16 @@ class CaptureProtocol(Protocol):
         self,
         instance_id: str,
         table_group: str = _DEFAULT_GROUP,
+        *,
+        on_progress: ProgressCallback | None = None,
     ) -> ScopeManifest:
         """Discover all application scopes on the instance with per-table counts.
 
         Args:
             instance_id: Registered instance profile name.
             table_group: Which table group to count records for.
+            on_progress: Optional callback (completed, total, message) fired after
+                each scope is counted. Pass to show a live progress bar.
 
         Returns:
             ScopeManifest listing all scopes and per-table record counts.
@@ -45,6 +55,8 @@ class CaptureProtocol(Protocol):
         instance_id: str,
         scope_ids: list[str],
         table_group: str = _DEFAULT_GROUP,
+        *,
+        on_progress: ProgressCallback | None = None,
     ) -> CaptureResult:
         """Fetch all custom configurations in the given scopes from a live instance.
 
@@ -54,6 +66,8 @@ class CaptureProtocol(Protocol):
             instance_id: Registered instance profile name.
             scope_ids: sys_id values of application scopes to capture.
             table_group: Which table group to scan.
+            on_progress: Optional callback (completed, total, message) fired after
+                each table is fetched. Pass to show a live progress bar.
 
         Returns:
             CaptureResult with all matching records.

@@ -59,13 +59,18 @@ class FakeCaptureEngine:
         )
 
     async def discover_scopes(
-        self, instance_id: str, table_group: str = "ai_automation"
+        self,
+        instance_id: str,
+        table_group: str = "ai_automation",
+        *,
+        on_progress: object = None,
     ) -> ScopeManifest:
         """Return the preset scope manifest.
 
         Args:
             instance_id: Ignored -- returns preset manifest.
             table_group: Ignored.
+            on_progress: Ignored.
 
         Returns:
             The preset ScopeManifest.
@@ -73,7 +78,12 @@ class FakeCaptureEngine:
         return self.scope_manifest
 
     async def capture(
-        self, instance_id: str, scope_ids: list[str], table_group: str = "ai_automation"
+        self,
+        instance_id: str,
+        scope_ids: list[str],
+        table_group: str = "ai_automation",
+        *,
+        on_progress: object = None,
     ) -> CaptureResult:
         """Return the preset capture result.
 

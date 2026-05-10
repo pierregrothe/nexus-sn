@@ -7,6 +7,7 @@
 
 import asyncio
 import logging
+from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any
 
@@ -40,21 +41,34 @@ class ScopeDiscoverer:
         self._client = client
         self._groups = table_groups
 
-    async def discover(self, instance_id: str, table_group: str) -> ScopeManifest:
+    async def discover(
+        self,
+        instance_id: str,
+        table_group: str,
+        *,
+        on_progress: Callable[[int, int, str], None] | None = None,
+    ) -> ScopeManifest:
         """Return all application scopes with custom record counts.
 
         Args:
             instance_id: Registered instance profile name (used in manifest).
             table_group: Key into table_groups to count records for.
+            on_progress: Optional callback (completed, total, message). Called
+                after each scope is counted so callers can show a progress bar.
+                total=0 means indeterminate (scope list not yet known).
 
         Returns:
             ScopeManifest with one ScopeEntry per discovered scope.
         """
         group = self._groups[table_group]
-        total = await self._client.count_records("sys_scope")
+
+        if on_progress:
+            on_progress(0, 0, f"Fetching scope list from {instance_id}...")
+
+        total_scopes = await self._client.count_records("sys_scope")
         raw_scopes: list[dict[str, Any]] = []
         offset = 0
-        while offset < total:
+        while offset < total_scopes:
             page = await self._client.list_records(
                 "sys_scope",
                 fields=_SCOPE_FIELDS,
@@ -65,8 +79,16 @@ class ScopeDiscoverer:
             offset += _SCOPE_PAGE
         log.info("discovered %d scopes on %s", len(raw_scopes), instance_id)
 
+        n_scopes = len(raw_scopes)
         entries: list[ScopeEntry] = []
-        for row in raw_scopes:
+        for i, row in enumerate(raw_scopes):
+            scope_name = str(row.get("name", str(row.get("scope", ""))))
+            if on_progress:
+                on_progress(
+                    i,
+                    n_scopes,
+                    f"Counting records in {scope_name!r} ({i + 1}/{n_scopes})",
+                )
             scope_sys_id = str(row.get("sys_id", ""))
             query = f"sys_customer_update=true^sys_scope={scope_sys_id}"
             counts_list: list[int] = await asyncio.gather(
@@ -83,6 +105,9 @@ class ScopeDiscoverer:
                     table_counts=counts,
                 )
             )
+
+        if on_progress:
+            on_progress(n_scopes, n_scopes, f"Done -- {n_scopes} scopes")
 
         return ScopeManifest(
             instance_id=instance_id,

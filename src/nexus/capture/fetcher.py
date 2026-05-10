@@ -6,6 +6,7 @@
 """ConfigFetcher: fetches custom records per scope+table with pagination."""
 
 import logging
+from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any, cast
 
@@ -89,6 +90,8 @@ class ConfigFetcher:
         instance_id: str,
         scope_ids: list[str],
         table_group: str,
+        *,
+        on_progress: Callable[[int, int, str], None] | None = None,
     ) -> list[ConfigRecord]:
         """Fetch all custom records for the given scopes.
 
@@ -96,6 +99,8 @@ class ConfigFetcher:
             instance_id: Instance profile name used in ConfigRecord metadata.
             scope_ids: Application scope sys_ids to capture.
             table_group: Key into the table group registry.
+            on_progress: Optional callback (completed, total, message) fired
+                after each table is fetched. Pass to show a live progress bar.
 
         Returns:
             Flat list of ConfigRecord (root records and related records).
@@ -103,11 +108,22 @@ class ConfigFetcher:
         group = self._groups[table_group]
         now = datetime.now(UTC)
         all_records: list[ConfigRecord] = []
+        total_steps = len(scope_ids) * len(group.tables)
+        completed = 0
 
         for scope_sys_id in scope_ids:
             for spec in group.tables:
+                if on_progress:
+                    on_progress(
+                        completed,
+                        total_steps,
+                        f"Fetching {spec.display} in scope {scope_sys_id[:8]}...",
+                    )
                 root_records = await self._fetch_table(spec, scope_sys_id, now)
                 all_records.extend(root_records)
+                completed += 1
+                if on_progress:
+                    on_progress(completed, total_steps, f"Fetched {spec.display}")
 
                 for related in spec.related:
                     if root_records:

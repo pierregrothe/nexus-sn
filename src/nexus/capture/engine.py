@@ -6,6 +6,7 @@
 """CaptureEngine: concrete implementation of CaptureProtocol."""
 
 import logging
+from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -59,23 +60,28 @@ class CaptureEngine:
         self,
         instance_id: str,
         table_group: str = AI_AUTOMATION.key,
+        *,
+        on_progress: Callable[[int, int, str], None] | None = None,
     ) -> ScopeManifest:
         """Discover all application scopes on the instance with per-table counts.
 
         Args:
             instance_id: Registered instance profile name.
             table_group: Which table group to count records for.
+            on_progress: Optional callback (completed, total, message).
 
         Returns:
             ScopeManifest listing all scopes and per-table record counts.
         """
-        return await self._discoverer.discover(instance_id, table_group)
+        return await self._discoverer.discover(instance_id, table_group, on_progress=on_progress)
 
     async def capture(
         self,
         instance_id: str,
         scope_ids: list[str],
         table_group: str = AI_AUTOMATION.key,
+        *,
+        on_progress: Callable[[int, int, str], None] | None = None,
     ) -> CaptureResult:
         """Fetch all custom configurations in the given scopes.
 
@@ -83,11 +89,14 @@ class CaptureEngine:
             instance_id: Registered instance profile name.
             scope_ids: Application scope sys_ids to capture.
             table_group: Which table group to scan.
+            on_progress: Optional callback (completed, total, message).
 
         Returns:
             CaptureResult with all matching records.
         """
-        records = await self._fetcher.fetch(instance_id, scope_ids, table_group)
+        records = await self._fetcher.fetch(
+            instance_id, scope_ids, table_group, on_progress=on_progress
+        )
         return CaptureResult(
             instance_id=instance_id,
             captured_at=datetime.now(UTC),
