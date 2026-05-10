@@ -12,6 +12,7 @@ from typing import Any
 
 from nexus.capture.models import ScopeEntry, ScopeManifest
 from nexus.capture.tables import TableGroup
+from nexus.connectors.servicenow.errors import SNClientError
 from nexus.connectors.servicenow.protocol import ServiceNowClientProtocol
 
 log = logging.getLogger(__name__)
@@ -69,7 +70,7 @@ class ScopeDiscoverer:
             scope_sys_id = str(row.get("sys_id", ""))
             query = f"sys_customer_update=true^sys_scope={scope_sys_id}"
             counts_list: list[int] = await asyncio.gather(
-                *[self._client.count_records(spec.name, query=query) for spec in group.tables]
+                *[self._safe_count(spec.name, query) for spec in group.tables]
             )
             counts = {spec.name: n for spec, n in zip(group.tables, counts_list, strict=True)}
             entries.append(
@@ -88,3 +89,21 @@ class ScopeDiscoverer:
             captured_at=datetime.now(UTC),
             scopes=tuple(entries),
         )
+
+    async def _safe_count(self, table: str, query: str) -> int:
+        """Count records, returning 0 for unavailable tables (HTTP 400/404).
+
+        Args:
+            table: Table API name.
+            query: Encoded query string.
+
+        Returns:
+            Record count, or 0 if the table is absent on this instance.
+        """
+        try:
+            return await self._client.count_records(table, query=query)
+        except SNClientError as exc:
+            if exc.status_code in (400, 404):
+                log.debug("table %s unavailable on this instance -- count=0", table)
+                return 0
+            raise

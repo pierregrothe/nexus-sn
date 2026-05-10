@@ -49,7 +49,7 @@
     "nexus.capture.fetcher": {"covered_lines": 76, "total_lines": 76},
     "nexus.capture.models": {"covered_lines": 61, "total_lines": 61},
     "nexus.capture.protocol": {"covered_lines": 0, "total_lines": 15},
-    "nexus.capture.scope": {"covered_lines": 26, "total_lines": 26},
+    "nexus.capture.scope": {"covered_lines": 41, "total_lines": 42},
     "nexus.capture.tables": {"covered_lines": 13, "total_lines": 13},
     "nexus.capture.update_set": {"covered_lines": 32, "total_lines": 34},
     "nexus.capture.xml_builder": {"covered_lines": 14, "total_lines": 14}
