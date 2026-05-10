@@ -11,6 +11,7 @@ Features requiring unavailable MCP servers are hidden from help text.
 
 import asyncio
 import logging
+import re
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
@@ -39,7 +40,7 @@ from nexus.capabilities.registry import CapabilitySet
 from nexus.capabilities.status_reporter import StatusReporter
 from nexus.capabilities.tier import TierDetection, TierDetector
 from nexus.capture.engine import CaptureEngine
-from nexus.capture.models import ArchiveManifest
+from nexus.capture.models import ArchiveManifest, ScopeEntry
 from nexus.capture.tables import AI_AUTOMATION, DEFAULT_TABLE_GROUPS
 from nexus.config.manager import ConfigManager
 from nexus.config.paths import NexusPaths
@@ -57,7 +58,7 @@ from nexus.instances.registry import InstanceRegistry
 from nexus.instances.scanner import InstanceScanner
 from nexus.ui.app import start_ui
 from nexus.ui.banner import print_banner
-from nexus.ui.theme import NEXUS_THEME
+from nexus.ui.theme import NEXUS_THEME, SN_BLUE, SN_LIME
 from nexus.updater import check_and_maybe_update, current_version
 from nexus.updater.client import GitHubReleasesClient
 
@@ -78,11 +79,56 @@ capture_app = typer.Typer(name="capture", help="Capture and deploy ServiceNow co
 app.add_typer(capture_app)
 
 _CAPTURE_HELP = [
-    ("discover <instance>", "List application scopes and custom record counts"),
-    ("pull <instance> --scope <sys_id>", "Capture custom configs to a local YAML archive"),
-    ("list [instance]", "Show local archives (optionally filtered by instance)"),
-    ("push <archive> <instance>", "Inject archive into an update set on the target instance"),
+    ("discover [instance]", "List scopes with custom AI/automation configs"),
+    ("pull [instance] --scope <key>", "Capture a scope to a YAML archive"),
+    ("list [instance]", "Show local archives"),
+    ("push <archive> [instance]", "Push an archive into an update set on the target"),
 ]
+
+# Custom scope prefixes -- anything else is an OOTB ServiceNow application.
+_CUSTOM_SCOPE_PREFIXES = ("x_", "u_")
+
+_SCOPE_KEY_WIDTH = 26  # column width for scope key (the identifier users copy)
+_SCOPE_NAME_WIDTH = 20  # column width for display name
+
+# Short column header per table spec name -- wide enough to be readable, narrow to fit 80-col
+_TABLE_HEADER: dict[str, str] = {
+    "ai_skill": "Skl",
+    "sys_hub_flow": "Flow",
+    "sys_hub_action_type_definition": "Act",
+    "virtual_agent_conversation_topic": "VA",
+    "sys_ai_agent": "AI",
+}
+
+# Derived hex strings -- used throughout the capture UI layer.
+_SN_BLUE_S = f"rgb({SN_BLUE[0]},{SN_BLUE[1]},{SN_BLUE[2]})"
+_SN_LIME_S = f"rgb({SN_LIME[0]},{SN_LIME[1]},{SN_LIME[2]})"
+
+
+def _make_progress() -> Progress:
+    return Progress(
+        SpinnerColumn(style=_SN_BLUE_S),
+        TextColumn(
+            f"[{_SN_BLUE_S}]{{task.description}}",
+            table_column=Column(min_width=50, no_wrap=True),
+        ),
+        BarColumn(bar_width=30, complete_style=_SN_LIME_S, finished_style=_SN_LIME_S),
+        MofNCompleteColumn(),
+        TimeElapsedColumn(),
+        console=console,
+        transient=False,
+    )
+
+
+def _trunc(s: str, width: int) -> str:
+    """Truncate a string to width characters, appending ellipsis if needed."""
+    return s if len(s) <= width else s[: width - 1] + "…"
+
+
+def _count_cell(n: int) -> str:
+    """Dim zero counts; SN lime for non-zero (positive/active)."""
+    return "[dim]0[/dim]" if n == 0 else f"[{_SN_LIME_S}][bold]{n}[/bold][/{_SN_LIME_S}]"
+
 
 console = Console(theme=NEXUS_THEME)
 err_console = Console(stderr=True, theme=NEXUS_THEME)
@@ -416,6 +462,9 @@ def _acquire_token(
     oauth = _oauth_for(meta.profile, meta)
     try:
         token, expiry = oauth.get_bearer_token(meta.token_expires_at)
+        # Persist the refreshed expiry so nexus instance list shows the correct status.
+        if expiry != meta.token_expires_at:
+            registry.save(meta.model_copy(update={"token_expires_at": expiry}))
         return registry, meta, token, expiry
     except TokenExpiredError:
         console.print(f"Session expired for {meta.profile!r}. Reconnecting...")
@@ -705,23 +754,16 @@ def capture_callback(ctx: typer.Context) -> None:
     if ctx.invoked_subcommand is not None:
         return
     capture_list()
-    console.print("Commands:")
+    console.print()
+    console.print(f"  [{_SN_BLUE_S}]Commands[/{_SN_BLUE_S}]")
     for cmd, desc in _CAPTURE_HELP:
-        console.print(f"  nexus capture {cmd:<40} {desc}")
-    console.print("")
-    console.print("Run 'nexus capture <command> --help' for usage details.")
-
-
-def _make_progress() -> Progress:
-    return Progress(
-        SpinnerColumn(),
-        TextColumn("[cyan]{task.description}", table_column=Column(min_width=50, no_wrap=True)),
-        BarColumn(bar_width=30),
-        MofNCompleteColumn(),
-        TimeElapsedColumn(),
-        console=console,
-        transient=False,
-    )
+        console.print(
+            f"  [{_SN_BLUE_S}]nexus capture[/{_SN_BLUE_S}]"
+            f" [white]{cmd:<40}[/white]"
+            f" [dim]{desc}[/dim]"
+        )
+    console.print()
+    console.print("  [dim]Run [bold]nexus capture <command> --help[/bold] for details.[/dim]")
 
 
 @capture_app.command("discover")
@@ -730,8 +772,15 @@ def capture_discover(
         str, typer.Argument(help="Instance profile name (default: configured default)")
     ] = "",
     group: Annotated[str, typer.Option(help="Table group")] = AI_AUTOMATION.key,
+    all_scopes: Annotated[
+        bool,
+        typer.Option(
+            "--all",
+            help="Show all scopes, not just your custom ones (x_*, u_*)",
+        ),
+    ] = False,
 ) -> None:
-    """Discover application scopes on an instance and show per-table counts."""
+    """Discover which of your scopes have custom AI/automation configs."""
 
     async def _run() -> None:
         engine, client = _build_capture_engine(instance)
@@ -752,25 +801,126 @@ def capture_discover(
                 manifest = await engine.discover_scopes(resolved, group, on_progress=on_progress)
 
         if not manifest.scopes:
-            console.print("No application scopes found.")
+            console.print("No scopes with custom configurations found.")
             return
 
-        tbl = Table(title=f"Scopes on {manifest.instance_id}")
-        tbl.add_column("Name")
-        tbl.add_column("Scope Key")
+        all_s = list(manifest.scopes)
+        custom_s = [s for s in all_s if s.scope.startswith(_CUSTOM_SCOPE_PREFIXES)]
+
+        # Sort: custom scopes first (by total count desc), then rest by total count desc
+        def _total(s: ScopeEntry) -> int:
+            return sum(s.table_counts.values())
+
+        custom_s.sort(key=_total, reverse=True)
+        rest_s = [s for s in all_s if not s.scope.startswith(_CUSTOM_SCOPE_PREFIXES)]
+        rest_s.sort(key=_total, reverse=True)
+
+        display = all_s if all_scopes else (custom_s if custom_s else all_s)
+
         group_obj = DEFAULT_TABLE_GROUPS.get(group)
+        tbl = Table(
+            show_header=True,
+            header_style="bold",
+            box=None,
+            pad_edge=False,
+            show_edge=False,
+        )
+        tbl.add_column(
+            "Scope Key",
+            style=_SN_BLUE_S,
+            no_wrap=True,
+            width=_SCOPE_KEY_WIDTH,
+        )
+        tbl.add_column("Name", style="white", no_wrap=True, width=_SCOPE_NAME_WIDTH)
         if group_obj:
             for spec in group_obj.tables:
-                tbl.add_column(spec.display, justify="right")
-        for scope in manifest.scopes:
-            row = [scope.name, scope.scope]
+                hdr = _TABLE_HEADER.get(spec.name, spec.display[:4])
+                tbl.add_column(hdr, justify="right", no_wrap=True, width=5)
+
+        for scope in display:
+            row: list[str] = [
+                _trunc(scope.scope, _SCOPE_KEY_WIDTH),
+                _trunc(scope.name, _SCOPE_NAME_WIDTH),
+            ]
             if group_obj:
                 for spec in group_obj.tables:
-                    row.append(str(scope.table_counts.get(spec.name, 0)))
+                    row.append(_count_cell(scope.table_counts.get(spec.name, 0)))
             tbl.add_row(*row)
+
+        console.print()
         console.print(tbl)
+        console.print()
+
+        # Summary line
+        if all_scopes or not custom_s:
+            console.print(f"  [dim]{len(display)} scopes with custom configs on {resolved}[/dim]")
+        else:
+            console.print(
+                f"  [dim]Showing {len(custom_s)} of your custom scopes"
+                f" ({len(all_s)} total with configs)."
+                f"  Use [bold]--all[/bold] to show all.[/dim]"
+            )
+
+        # Next step hint -- SN blue label, white command
+        if display:
+            example = display[0].scope
+            console.print()
+            console.print(
+                f"  [{_SN_LIME_S}]Next:[/{_SN_LIME_S}]"
+                f" [bold white]nexus capture pull --scope {example}[/bold white]"
+            )
+            if len(display) > 1:
+                console.print(
+                    "  [dim]Use --scope multiple times to capture several scopes at once.[/dim]"
+                )
 
     asyncio.run(_run())
+
+
+_UUID_RE = re.compile(r"^[0-9a-f]{32}$", re.IGNORECASE)
+
+
+async def _resolve_scope_ids(
+    scope_args: list[str],
+    engine: CaptureEngine,
+    client: ServiceNowClient,
+    instance_id: str,
+    group: str,
+) -> list[str]:
+    """Resolve scope keys (x_snc_*) or sys_ids to sys_ids.
+
+    If the arg is a 32-hex-char UUID it is used as-is.
+    Otherwise it is treated as a scope key and looked up via discover.
+    """
+    keys_to_lookup = [s for s in scope_args if not _UUID_RE.match(s.replace("-", ""))]
+
+    if not keys_to_lookup:
+        return scope_args
+
+    # Discover to get the key -> sys_id mapping
+    with _make_progress() as progress:
+        task = progress.add_task("Resolving scope keys...", total=None)
+
+        def _prog(completed: int, total: int, message: str) -> None:
+            progress.update(task, description=message, total=total or None, completed=completed)
+
+        async with client:
+            manifest = await engine.discover_scopes(instance_id, group, on_progress=_prog)
+
+    key_map = {s.scope: s.sys_id for s in manifest.scopes}
+    resolved: list[str] = []
+    for arg in scope_args:
+        if _UUID_RE.match(arg.replace("-", "")):
+            resolved.append(arg)
+        elif arg in key_map:
+            resolved.append(key_map[arg])
+            console.print(f"  Resolved [cyan]{arg}[/cyan] -> {key_map[arg]}")
+        else:
+            err_console.print(
+                f"Scope {arg!r} not found. Run 'nexus capture discover' to see available scopes."
+            )
+            raise typer.Exit(1)
+    return resolved
 
 
 @capture_app.command("pull")
@@ -778,18 +928,27 @@ def capture_pull(
     instance: Annotated[
         str, typer.Argument(help="Instance profile name (default: configured default)")
     ] = "",
-    scope: Annotated[list[str], typer.Option(help="Scope sys_id (repeatable)")] = [],
+    scope: Annotated[
+        list[str],
+        typer.Option(help="Scope key (e.g. x_snc_my_app) or sys_id -- repeatable, from 'discover'"),
+    ] = [],
     group: Annotated[str, typer.Option(help="Table group")] = AI_AUTOMATION.key,
 ) -> None:
-    """Capture custom configurations for selected scopes to a local archive."""
+    """Capture custom configurations for one or more scopes to a local archive.
+
+    Run 'nexus capture discover' first to see scope keys.
+    """
     if not scope:
         err_console.print("At least one --scope is required.")
-        err_console.print("  Run 'nexus capture discover' to find scope sys_ids.")
+        err_console.print("  Run 'nexus capture discover' to see your scope keys.")
         raise typer.Exit(1)
 
     async def _run() -> None:
         engine, client = _build_capture_engine(instance)
-        resolved = instance or _config_default()
+        resolved_instance = instance or _config_default()
+
+        # Resolve any scope keys to sys_ids (re-uses the same client)
+        scope_ids = await _resolve_scope_ids(scope, engine, client, resolved_instance, group)
 
         with _make_progress() as progress:
             task = progress.add_task("Preparing...", total=None)
@@ -803,11 +962,21 @@ def capture_pull(
                 )
 
             async with client:
-                result = await engine.capture(resolved, scope, group, on_progress=on_progress)
+                result = await engine.capture(
+                    resolved_instance, scope_ids, group, on_progress=on_progress
+                )
 
         manifest = engine.save_archive(result)
-        console.print(f"Captured {manifest.record_count} records.")
-        console.print(f"Archive: {manifest.archive_dir}")
+        console.print()
+        console.print(
+            f"  [{_SN_LIME_S}][bold]{manifest.record_count} records captured[/bold][/{_SN_LIME_S}]"
+        )
+        console.print(f"  [dim]Archive:[/dim] [white]{manifest.archive_dir}[/white]")
+        console.print()
+        console.print(
+            f"  [{_SN_LIME_S}]Next:[/{_SN_LIME_S}]"
+            f" [bold white]nexus capture push {manifest.archive_dir}[/bold white]"
+        )
 
     asyncio.run(_run())
 
