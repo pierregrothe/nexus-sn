@@ -344,32 +344,44 @@ def _provision_oauth(url: str, profile: str, username: str, password: str) -> tu
     return client_id, client_secret
 
 
+def _acquire_token(
+    profile: str,
+    hint: str = "",
+) -> tuple[InstanceRegistry, InstanceMeta, str, datetime]:
+    """Resolve profile, acquire bearer token, or exit with code 1.
+
+    Args:
+        profile: Instance profile name (empty string uses config default).
+        hint: Optional extra line printed after the error on TokenExpiredError.
+
+    Returns:
+        (registry, meta, bearer_token, token_expiry)
+    """
+    registry, meta = _resolve_profile(profile)
+    oauth = _oauth_for(meta.profile, meta)
+    try:
+        token, expiry = oauth.get_bearer_token(meta.token_expires_at)
+    except TokenExpiredError as exc:
+        err_console.print(str(exc))
+        if hint:
+            err_console.print(hint)
+        raise typer.Exit(1) from exc
+    return registry, meta, token, expiry
+
+
 def _build_capture_engine(profile: str) -> tuple[CaptureEngine, ServiceNowClient]:
     """Build a CaptureEngine for the given registered instance profile.
-
-    Gets the OAuth bearer token for the profile and constructs both a
-    ServiceNowClient (used as an async context manager by callers) and a
-    CaptureEngine wired to the same client.
 
     Args:
         profile: Instance profile name from InstanceRegistry.
 
     Returns:
-        Tuple of (CaptureEngine, ServiceNowClient). The caller must use the
-        client as an async context manager before awaiting engine methods.
+        Tuple of (CaptureEngine, ServiceNowClient) for the caller to use.
 
     Raises:
-        typer.Exit: With code 1 if the profile is not registered or the
-            OAuth token is expired.
+        typer.Exit: With code 1 if the profile is not registered or expired.
     """
-    _, meta = _resolve_profile(profile)
-    oauth = _oauth_for(profile, meta)
-    try:
-        token, _ = oauth.get_bearer_token(meta.token_expires_at)
-    except TokenExpiredError as exc:
-        err_console.print(str(exc))
-        err_console.print("  Refresh the token: nexus instance connect")
-        raise typer.Exit(1) from exc
+    _, meta, token, _ = _acquire_token(profile, hint="  Refresh the token: nexus instance connect")
     client = ServiceNowClient(
         instance_url=meta.url,
         username=meta.username,
@@ -518,14 +530,8 @@ def instance_use(profile: str) -> None:
 @instance_app.command("connect")
 def instance_connect(profile: str = typer.Argument("")) -> None:
     """Verify connectivity and refresh token if near expiry."""
-    registry, meta = _resolve_profile(profile)
+    registry, meta, token, new_expiry = _acquire_token(profile)
     profile = meta.profile
-    oauth = _oauth_for(profile, meta)
-    try:
-        token, new_expiry = oauth.get_bearer_token(meta.token_expires_at)
-    except TokenExpiredError as exc:
-        err_console.print(str(exc))
-        raise typer.Exit(1) from exc
 
     try:
         with httpx.Client(
@@ -557,14 +563,8 @@ def instance_connect(profile: str = typer.Argument("")) -> None:
 @instance_app.command("refresh")
 def instance_refresh(profile: str = typer.Argument("")) -> None:
     """Pull a fresh artifact snapshot from the instance."""
-    registry, meta = _resolve_profile(profile)
+    registry, meta, token, new_expiry = _acquire_token(profile)
     profile = meta.profile
-    oauth = _oauth_for(profile, meta)
-    try:
-        token, new_expiry = oauth.get_bearer_token(meta.token_expires_at)
-    except TokenExpiredError as exc:
-        err_console.print(str(exc))
-        raise typer.Exit(1) from exc
 
     console.print(f"Capturing snapshot from {profile!r}...")
     try:

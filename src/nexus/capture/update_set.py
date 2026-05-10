@@ -5,10 +5,11 @@
 
 """UpdateSetWriter: creates or reuses a sys_update_set and injects records."""
 
+import asyncio
 import logging
 
 from nexus.capture.errors import UpdateSetError
-from nexus.capture.models import CaptureResult, UpdateSetRef
+from nexus.capture.models import CaptureResult, ConfigRecord, UpdateSetRef
 from nexus.capture.xml_builder import UpdateSetXmlBuilder
 from nexus.connectors.servicenow.errors import SNClientError
 from nexus.connectors.servicenow.protocol import ServiceNowClientProtocol
@@ -55,29 +56,32 @@ class UpdateSetWriter:
             UpdateSetError: If any record injection fails.
         """
         update_set_sys_id = await self._get_or_create_update_set(update_set_name)
-        count = 0
-        for record in result.records:
-            payload = self._builder.build(record)
-            try:
-                await self._client.create_record(
-                    "sys_update_xml",
-                    data={
-                        "update_set": update_set_sys_id,
-                        "name": f"{record.table}_{record.sys_id}",
-                        "type": record.table,
-                        "payload": payload,
-                        "action": "INSERT_OR_UPDATE",
-                    },
-                )
-                count += 1
-            except SNClientError as exc:
-                raise UpdateSetError(
-                    update_set_name=update_set_name,
-                    instance_id=instance_id,
-                    failed_record_sys_id=record.sys_id,
-                    failed_table=record.table,
-                ) from exc
+        sem = asyncio.Semaphore(20)  # matches ServiceNowClient stated concurrency limit
 
+        async def _inject(record: ConfigRecord) -> None:
+            payload = self._builder.build(record)
+            async with sem:
+                try:
+                    await self._client.create_record(
+                        "sys_update_xml",
+                        data={
+                            "update_set": update_set_sys_id,
+                            "name": f"{record.table}_{record.sys_id}",
+                            "type": record.table,
+                            "payload": payload,
+                            "action": "INSERT_OR_UPDATE",
+                        },
+                    )
+                except SNClientError as exc:
+                    raise UpdateSetError(
+                        update_set_name=update_set_name,
+                        instance_id=instance_id,
+                        failed_record_sys_id=record.sys_id,
+                        failed_table=record.table,
+                    ) from exc
+
+        await asyncio.gather(*[_inject(r) for r in result.records])
+        count = len(result.records)
         log.info(
             "injected %d records into update set %r on %s",
             count,
