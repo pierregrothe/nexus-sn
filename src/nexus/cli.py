@@ -79,10 +79,10 @@ capture_app = typer.Typer(name="capture", help="Capture and deploy ServiceNow co
 app.add_typer(capture_app)
 
 _CAPTURE_HELP = [
-    ("discover [instance]", "List scopes with custom AI/automation configs"),
-    ("pull [instance] --scope <key>", "Capture a scope to a YAML archive"),
-    ("list [instance]", "Show local archives"),
-    ("push <archive> [instance]", "Push an archive into an update set on the target"),
+    ("discover", "List scopes with custom AI/automation configs"),
+    ("pull --scope <key>", "Capture a scope to a YAML archive"),
+    ("list", "Show local archives"),
+    ("push <archive>", "Push an archive into an update set"),
 ]
 
 # Custom scope prefixes -- anything else is an OOTB ServiceNow application.
@@ -498,14 +498,46 @@ def _build_capture_engine(profile: str) -> tuple[CaptureEngine, ServiceNowClient
 
 
 _INSTANCE_HELP = [
-    ("register <profile>", "Add an instance -- wizard prompts for URL, credentials"),
-    ("connect [profile]", "Verify connectivity, refresh token if near expiry"),
+    ("register <profile>", "Add an instance (wizard: URL, credentials)"),
+    ("connect [profile]", "Verify connection and refresh token"),
     ("refresh [profile]", "Pull a fresh artifact snapshot"),
-    ("status [profile]", "Show instance metadata and snapshot detail"),
-    ("use <profile>", "Set the default instance (* marker)"),
-    ("delete <profile>", "Remove an instance and its keychain entries"),
-    ("list", "Show all instances in tabular form"),
+    ("status [profile]", "Show metadata and snapshot detail"),
+    ("use <profile>", "Set as the default instance"),
+    ("delete <profile>", "Remove an instance and its credentials"),
+    ("list", "Show all registered instances"),
 ]
+
+
+def _print_command_guide(app_name: str, help_items: list[tuple[str, str]]) -> None:
+    """Print a consistently SN-branded command guide using a no-wrap table."""
+    tbl = Table(
+        box=None,
+        pad_edge=False,
+        show_header=False,
+        show_edge=False,
+        padding=(0, 2),
+    )
+    tbl.add_column("cmd", style=_SN_BLUE_S, no_wrap=True, width=36)
+    tbl.add_column("desc", style="dim", no_wrap=True)
+    for cmd, desc in help_items:
+        tbl.add_row(f"{app_name} {cmd}", desc)
+    console.print()
+    console.print(tbl)
+    console.print()
+    console.print(f"  [dim]Run [bold]{app_name} <command> --help[/bold] for details.[/dim]")
+
+
+def _token_cell(meta: InstanceMeta) -> str:
+    """Return a colored token status string based on remaining validity."""
+    now = datetime.now(UTC)
+    if now >= meta.token_expires_at:
+        return "[red]EXPIRED[/red]"
+    mins = int((meta.token_expires_at - now).total_seconds() / 60)
+    if mins < 30:
+        return f"[yellow]{mins} min left[/yellow]"
+    hrs = mins // 60
+    label = f"{hrs}h {mins % 60}m" if hrs else f"{mins} min"
+    return f"[{_SN_LIME_S}]{label}[/{_SN_LIME_S}]"
 
 
 @instance_app.callback(invoke_without_command=True)
@@ -515,31 +547,20 @@ def instance_callback(ctx: typer.Context) -> None:
         return
 
     if not _instance_registry().list_all():
-        console.print("No instances registered.")
-        console.print("")
-        console.print("Quickstart:")
-        console.print("  nexus instance register dev")
-        console.print("")
-        console.print("  You will be prompted for:")
-        console.print("    Profile  -- already supplied above ('dev', 'prod', or any alias)")
-        console.print("    Instance -- subdomain, FQDN, or full URL, e.g.:")
-        console.print("                  dev12345")
-        console.print("                  dev12345.service-now.com")
-        console.print("                  https://dev12345.service-now.com")
-        console.print("    Username -- your ServiceNow login (e.g. admin)")
-        console.print("    Password -- your ServiceNow password (not stored)")
-        console.print("")
-        console.print("  NEXUS will auto-create OAuth credentials using your username and")
-        console.print("  password. If auto-creation fails, you will be shown setup steps.")
-        console.print("")
+        console.print()
+        console.print(
+            f"  [{_SN_LIME_S}]Get started -- register your first instance:[/{_SN_LIME_S}]"
+        )
+        console.print()
+        console.print(f"  [{_SN_BLUE_S}]nexus instance register dev[/{_SN_BLUE_S}]")
+        console.print()
+        console.print("  [dim]You will be prompted for your instance URL, username,[/dim]")
+        console.print("  [dim]password. OAuth credentials are created automatically.[/dim]")
+        console.print()
     else:
         instance_list()
 
-    console.print("Commands:")
-    for cmd, desc in _INSTANCE_HELP:
-        console.print(f"  nexus instance {cmd:<25} {desc}")
-    console.print("")
-    console.print("Run 'nexus instance <command> --help' for usage details.")
+    _print_command_guide("nexus instance", _INSTANCE_HELP)
 
 
 @instance_app.command("list")
@@ -548,27 +569,37 @@ def instance_list() -> None:
     registry = _instance_registry()
     metas = registry.list_all()
     if not metas:
-        console.print("No instances registered. Run 'nexus instance register <profile>'.")
+        console.print(
+            f"  No instances registered.  [{_SN_LIME_S}]nexus instance register <profile>[/{_SN_LIME_S}]"
+        )
         return
 
     default = _config_default()
-    tbl = Table("Profile", "URL", "Version", "Token", "Last Connected")
+    tbl = Table(
+        show_header=True,
+        header_style=_SN_BLUE_S,
+        box=None,
+        pad_edge=False,
+        show_edge=False,
+    )
+    tbl.add_column("Profile", style=_SN_BLUE_S, no_wrap=True, width=12)
+    tbl.add_column("URL", style="white", no_wrap=True, width=30)
+    tbl.add_column("Version", style="white", no_wrap=True, width=9)
+    tbl.add_column("Token", no_wrap=True, width=12)
+    tbl.add_column("Connected", style="dim", no_wrap=True, width=17)
+
     for meta in metas:
-        now = datetime.now(UTC)
-        if now >= meta.token_expires_at:
-            token_str = "EXPIRED"
-        else:
-            mins = int((meta.token_expires_at - now).total_seconds() / 60)
-            token_str = f"{mins} min left"
-        prefix = "* " if meta.profile == default else "  "
+        marker = f"[{_SN_LIME_S}]*[/{_SN_LIME_S}] " if meta.profile == default else "  "
         tbl.add_row(
-            f"{prefix}{meta.profile}",
-            meta.url,
+            f"{marker}{meta.profile}",
+            _trunc(meta.url.replace("https://", ""), 36),
             meta.sn_version,
-            token_str,
-            meta.last_connected_at.strftime("%Y-%m-%d %H:%M UTC"),
+            _token_cell(meta),
+            meta.last_connected_at.strftime("%Y-%m-%d %H:%M"),
         )
+    console.print()
     console.print(tbl)
+    console.print()
 
 
 @instance_app.command("status")
@@ -576,30 +607,46 @@ def instance_status(profile: str = typer.Argument("")) -> None:
     """Show metadata and snapshot summary for an instance."""
     registry, meta = _resolve_profile(profile)
 
-    now = datetime.now(UTC)
-    remaining = (meta.token_expires_at - now).total_seconds() / 60
-    token_str = f"valid ({int(remaining)} min remaining)" if remaining > 0 else "EXPIRED"
-
-    console.print(f"Instance:  {meta.profile}")
-    console.print(f"URL:       {meta.url}")
-    console.print(f"Version:   {meta.sn_version} ({meta.sn_build})")
-    console.print(f"Token:     {token_str}")
-    console.print(f"Connected: {meta.last_connected_at.strftime('%Y-%m-%d %H:%M UTC')}")
+    console.print()
+    console.print(
+        f"  [{_SN_BLUE_S}]Instance :[/{_SN_BLUE_S}] [bold white]{meta.profile}[/bold white]"
+    )
+    console.print(f"  [{_SN_BLUE_S}]URL      :[/{_SN_BLUE_S}] [dim]{meta.url}[/dim]")
+    console.print(f"  [{_SN_BLUE_S}]Version  :[/{_SN_BLUE_S}] [white]{meta.sn_version}[/white]")
+    console.print(f"  [{_SN_BLUE_S}]Token    :[/{_SN_BLUE_S}] {_token_cell(meta)}")
+    console.print(
+        f"  [{_SN_BLUE_S}]Connected:[/{_SN_BLUE_S}] [dim]{meta.last_connected_at.strftime('%Y-%m-%d %H:%M UTC')}[/dim]"
+    )
 
     snapshot = registry.load_snapshot(meta.profile)
     if snapshot is None:
-        console.print("\nNo snapshot. Run 'nexus instance refresh' to capture one.")
+        console.print()
+        console.print(
+            "  [dim]No snapshot. Run [bold]nexus instance refresh[/bold] to capture one.[/dim]"
+        )
         return
 
     c = snapshot.counts
     custom_flows = sum(1 for f in snapshot.flows if f.is_custom)
     custom_brs = sum(1 for r in snapshot.business_rules if r.is_custom)
     custom_sis = sum(1 for s in snapshot.script_includes if s.is_custom)
-    console.print(f"\nSnapshot ({snapshot.captured_at.strftime('%Y-%m-%d %H:%M UTC')}):")
-    console.print(f"  AI Skills:        {c.ai_skills}")
-    console.print(f"  Flows:           {c.flows}  ({custom_flows} custom)")
-    console.print(f"  Business Rules:  {c.business_rules}  ({custom_brs} custom)")
-    console.print(f"  Script Includes: {c.script_includes}  ({custom_sis} custom)")
+    console.print()
+    console.print(
+        f"  [{_SN_BLUE_S}]Snapshot  :[/{_SN_BLUE_S}] [dim]{snapshot.captured_at.strftime('%Y-%m-%d %H:%M UTC')}[/dim]"
+    )
+    console.print(f"    [dim]AI Skills       [/dim] [{_SN_LIME_S}]{c.ai_skills}[/{_SN_LIME_S}]")
+    console.print(
+        f"    [dim]Flows           [/dim] [{_SN_LIME_S}]{c.flows}[/{_SN_LIME_S}]"
+        f"  [dim]({custom_flows} custom)[/dim]"
+    )
+    console.print(
+        f"    [dim]Business Rules  [/dim] [{_SN_LIME_S}]{c.business_rules}[/{_SN_LIME_S}]"
+        f"  [dim]({custom_brs} custom)[/dim]"
+    )
+    console.print(
+        f"    [dim]Script Includes [/dim] [{_SN_LIME_S}]{c.script_includes}[/{_SN_LIME_S}]"
+        f"  [dim]({custom_sis} custom)[/dim]"
+    )
 
 
 @instance_app.command("delete")
@@ -754,16 +801,7 @@ def capture_callback(ctx: typer.Context) -> None:
     if ctx.invoked_subcommand is not None:
         return
     capture_list()
-    console.print()
-    console.print(f"  [{_SN_BLUE_S}]Commands[/{_SN_BLUE_S}]")
-    for cmd, desc in _CAPTURE_HELP:
-        console.print(
-            f"  [{_SN_BLUE_S}]nexus capture[/{_SN_BLUE_S}]"
-            f" [white]{cmd:<40}[/white]"
-            f" [dim]{desc}[/dim]"
-        )
-    console.print()
-    console.print("  [dim]Run [bold]nexus capture <command> --help[/bold] for details.[/dim]")
+    _print_command_guide("nexus capture", _CAPTURE_HELP)
 
 
 @capture_app.command("discover")
@@ -993,11 +1031,18 @@ def capture_list(
         console.print("No archives found.")
         return
 
-    tbl = Table(title="Local Archives")
-    tbl.add_column("Instance")
-    tbl.add_column("Timestamp")
-    tbl.add_column("Records", justify="right")
-    tbl.add_column("Path")
+    tbl = Table(
+        box=None,
+        pad_edge=False,
+        show_header=True,
+        show_edge=False,
+        padding=(0, 2),
+        header_style=_SN_BLUE_S,
+    )
+    tbl.add_column("Instance", style=_SN_BLUE_S, no_wrap=True, min_width=10)
+    tbl.add_column("Captured", style="dim", no_wrap=True, min_width=19)
+    tbl.add_column("Recs", style=_SN_LIME_S, justify="right", no_wrap=True, min_width=6)
+    tbl.add_column("Archive", style="white", no_wrap=True)
 
     for manifest_path in sorted(archives_root.rglob("manifest.yaml")):
         try:
@@ -1012,9 +1057,11 @@ def capture_list(
             manifest.instance_id,
             str(manifest.captured_at)[:19],
             str(manifest.record_count),
-            str(manifest.archive_dir),
+            _trunc(str(manifest.archive_dir), 45),
         )
+    console.print()
     console.print(tbl)
+    console.print()
 
 
 @capture_app.command("push")
