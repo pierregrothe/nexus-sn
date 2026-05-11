@@ -10,6 +10,7 @@ Features requiring unavailable MCP servers are hidden from help text.
 """
 
 import asyncio
+import csv
 import logging
 import re
 import uuid
@@ -1105,6 +1106,76 @@ def plugins_info(
                 command=", ".join(plugin.depends_on),
             )
         )
+
+
+_PLUGIN_CSV_FIELDS = (
+    "plugin_id",
+    "name",
+    "version",
+    "state",
+    "source",
+    "product_family",
+    "sys_id",
+    "installed_at",
+)
+
+
+@plugins_app.command("export")
+def plugins_export(
+    instance: Annotated[
+        str, typer.Option("--instance", help="Instance profile (default: configured default)")
+    ] = "",
+    fmt: Annotated[
+        str, typer.Option("--format", help="Output format (yaml|csv)")
+    ] = "yaml",
+    out: Annotated[
+        str, typer.Option("--out", help="Output file path (default: plugins.<ext>)")
+    ] = "",
+) -> None:
+    """Write the plugin inventory to a YAML or CSV file."""
+    if fmt not in ("yaml", "csv"):
+        err_console.print(Notice.error(f"Unknown format {fmt!r}; use yaml or csv."))
+        raise typer.Exit(1)
+    resolved = _plugins_for(instance)
+    if resolved is None:
+        console.print(Notice.warn("Plugin inventory empty."))
+        console.print(Hint(label="Refresh", command="nexus instance refresh"))
+        raise typer.Exit(1)
+    _, plugins = resolved
+    path = Path(out) if out else Path(f"plugins.{fmt}")
+    if fmt == "yaml":
+        payload = {
+            "plugins": [
+                {
+                    field: (
+                        (p.installed_at.isoformat() if p.installed_at else None)
+                        if field == "installed_at"
+                        else getattr(p, field)
+                    )
+                    for field in _PLUGIN_CSV_FIELDS
+                }
+                for p in plugins
+            ]
+        }
+        path.write_text(_yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
+    else:
+        with path.open("w", encoding="utf-8", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow(_PLUGIN_CSV_FIELDS)
+            for p in plugins:
+                writer.writerow(
+                    [
+                        p.plugin_id,
+                        p.name,
+                        p.version,
+                        p.state,
+                        p.source,
+                        p.product_family,
+                        p.sys_id,
+                        p.installed_at.isoformat() if p.installed_at else "",
+                    ]
+                )
+    console.print(Notice.info(f"Wrote {len(plugins)} plugins to {path}"))
 
 
 @capture_app.callback(invoke_without_command=True)
