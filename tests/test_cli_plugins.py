@@ -140,3 +140,42 @@ def test_plugins_list_warns_when_no_inventory(
     runner.invoke(app, ["instance", "use", "dev"])
     result = runner.invoke(app, ["plugins", "list"])
     assert "nexus instance refresh" in result.output
+
+
+def test_plugins_info_renders_full_metadata(
+    runner: CliRunner, tmp_path: Path
+) -> None:
+    _seed(
+        tmp_path,
+        "dev",
+        (
+            PluginInfo(
+                plugin_id="com.snc.discovery",
+                name="Discovery",
+                version="2.0",
+                state="active",
+                source="servicenow",
+                product_family="ITOM",
+                depends_on=("com.snc.cmdb",),
+                sys_id="abc",
+                installed_at=None,
+            ),
+        ),
+    )
+    runner.invoke(app, ["instance", "use", "dev"])
+    result = runner.invoke(app, ["plugins", "info", "com.snc.discovery"])
+    assert result.exit_code == 0
+    assert "com.snc.discovery" in result.output
+    assert "Discovery" in result.output
+    assert "ITOM" in result.output
+    assert "com.snc.cmdb" in result.output
+
+
+def test_plugins_info_with_unknown_plugin_exits_nonzero(
+    runner: CliRunner, tmp_path: Path
+) -> None:
+    _seed(tmp_path, "dev", (_info("com.snc.incident"),))
+    runner.invoke(app, ["instance", "use", "dev"])
+    result = runner.invoke(app, ["plugins", "info", "com.snc.missing"])
+    assert result.exit_code != 0
+    assert "com.snc.missing" in result.output
