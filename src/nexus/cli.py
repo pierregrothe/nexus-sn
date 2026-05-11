@@ -22,15 +22,6 @@ import typer
 import yaml as _yaml
 from packaging.version import InvalidVersion, parse
 from rich.console import Console, RenderableType
-from rich.progress import (
-    BarColumn,
-    MofNCompleteColumn,
-    Progress,
-    SpinnerColumn,
-    TextColumn,
-    TimeElapsedColumn,
-)
-from rich.table import Column, Table
 from rich.text import Text
 
 from nexus.auth.external_keychain import ExternalKeychainClient
@@ -67,11 +58,11 @@ from nexus.ui import (
     KvRow,
     Notice,
     default_marker,
+    nexus_progress,
 )
 from nexus.ui.app import start_ui
 from nexus.ui.banner import print_banner
-from nexus.ui.gradient_panel import GradientPanel
-from nexus.ui.theme import NEXUS_THEME, SN_BLUE, SN_LIME
+from nexus.ui.theme import NEXUS_THEME
 from nexus.updater import check_and_maybe_update, current_version
 from nexus.updater.client import GitHubReleasesClient
 
@@ -113,45 +104,18 @@ _TABLE_HEADER: dict[str, str] = {
     "sys_ai_agent": "AI",
 }
 
-# Named Rich styles registered in NEXUS_THEME -- use as [sn.blue]...[/sn.blue]
-_SN_BLUE_S = "sn.blue"
-_SN_LIME_S = "sn.lime"
-
-
-def _make_progress() -> Progress:
-    return Progress(
-        SpinnerColumn(style=_SN_BLUE_S),
-        TextColumn(
-            f"[{_SN_BLUE_S}]{{task.description}}",
-            table_column=Column(min_width=50, no_wrap=True),
-        ),
-        BarColumn(
-            bar_width=30,
-            style="bar.back",
-            complete_style=_SN_LIME_S,
-            finished_style=_SN_LIME_S,
-            pulse_style=_SN_LIME_S,  # fixes dark-purple pulse in indeterminate phase
-        ),
-        MofNCompleteColumn(table_column=Column(style=_SN_LIME_S, no_wrap=True)),
-        TimeElapsedColumn(table_column=Column(style="dim", no_wrap=True)),
-        console=console,
-        transient=True,  # progress bar disappears when done; result takes its place
-    )
-
-
-def _sn_panel(content: RenderableType, title: str) -> GradientPanel:
-    """Wrap content in a ServiceNow-branded gradient panel."""
-    return GradientPanel(content, title=title, start=SN_BLUE, end=SN_LIME)
-
-
 def _trunc(s: str, width: int) -> str:
-    """Truncate a string to width characters, appending ellipsis if needed."""
+    """Truncate ``s`` to ``width`` characters, appending an ellipsis if needed.
+
+    Args:
+        s: Source string.
+        width: Maximum width including the ellipsis.
+
+    Returns:
+        ``s`` unchanged if its length fits, otherwise the first ``width - 3``
+        characters followed by ``"..."``.
+    """
     return s if len(s) <= width else s[: width - 3] + "..."
-
-
-def _count_cell(n: int) -> str:
-    """Dim zero counts; SN lime for non-zero (positive/active)."""
-    return "[dim]0[/dim]" if n == 0 else f"[{_SN_LIME_S}][bold]{n}[/bold][/{_SN_LIME_S}]"
 
 
 console = Console(theme=NEXUS_THEME)
@@ -944,7 +908,7 @@ def capture_discover(
         engine, client = _build_capture_engine(instance)
         resolved = instance or _config_default()
 
-        with _make_progress() as progress:
+        with nexus_progress(console) as progress:
             task = progress.add_task(f"Connecting to {resolved}...", total=None)
 
             def on_progress(completed: int, total: int, message: str) -> None:
@@ -959,73 +923,65 @@ def capture_discover(
                 manifest = await engine.discover_scopes(resolved, group, on_progress=on_progress)
 
         if not manifest.scopes:
-            console.print("No scopes with custom configurations found.")
+            console.print(Notice.info(f"No scopes with custom configurations found on {resolved}."))
             return
 
         all_s = list(manifest.scopes)
         custom_s = [s for s in all_s if s.scope.startswith(_CUSTOM_SCOPE_PREFIXES)]
 
-        # Sort: custom scopes first (by total count desc), then rest by total count desc
         def _total(s: ScopeEntry) -> int:
             return sum(s.table_counts.values())
 
         custom_s.sort(key=_total, reverse=True)
-
         display = all_s if all_scopes else (custom_s if custom_s else all_s)
 
         group_obj = DEFAULT_TABLE_GROUPS.get(group)
-        tbl = Table(
-            show_header=True,
-            header_style=_SN_BLUE_S,
-            box=None,
-            pad_edge=False,
-            show_edge=False,
-        )
-        tbl.add_column(
-            "Scope Key",
-            style=_SN_BLUE_S,
-            no_wrap=True,
-            width=_SCOPE_KEY_WIDTH,
-        )
-        tbl.add_column("Name", style="white", no_wrap=True, width=_SCOPE_NAME_WIDTH)
+        columns: list[DataColumn] = [
+            DataColumn(header="Scope Key", width=_SCOPE_KEY_WIDTH),
+            DataColumn(header="Name", width=_SCOPE_NAME_WIDTH),
+        ]
         if group_obj:
             for spec in group_obj.tables:
                 hdr = _TABLE_HEADER.get(spec.name, spec.display[:4])
-                tbl.add_column(hdr, justify="right", no_wrap=True, width=5)
+                columns.append(DataColumn(header=hdr, width=5, justify="right"))
 
+        rows: list[list[RenderableType]] = []
         for scope in display:
-            row: list[str] = [
+            row: list[RenderableType] = [
                 _trunc(scope.scope, _SCOPE_KEY_WIDTH),
                 _trunc(scope.name, _SCOPE_NAME_WIDTH),
             ]
             if group_obj:
                 for spec in group_obj.tables:
-                    row.append(_count_cell(scope.table_counts.get(spec.name, 0)))
-            tbl.add_row(*row)
+                    row.append(str(scope.table_counts.get(spec.name, 0)))
+            rows.append(row)
 
-        console.print(_sn_panel(tbl, title=f"Custom scopes on {resolved}"))
+        console.print(
+            DataTable(title=f"Custom scopes on {resolved}", columns=columns, rows=rows)
+        )
 
-        # Summary line
         if all_scopes or not custom_s:
-            console.print(f"  [dim]{len(display)} scopes with custom configs on {resolved}[/dim]")
+            summary = f"{len(display)} scopes with custom configs on {resolved}"
         else:
-            console.print(
-                f"  [dim]Showing {len(custom_s)} of your custom scopes"
-                f" ({len(all_s)} total with configs)."
-                f"  Use [bold]--all[/bold] to show all.[/dim]"
+            summary = (
+                f"Showing {len(custom_s)} of your custom scopes "
+                f"({len(all_s)} total with configs). Use --all to show all."
             )
+        console.print(Notice.info(summary))
 
-        # Next step hint -- SN blue label, white command
         if display:
             example = display[0].scope
             console.print()
             console.print(
-                f"  [{_SN_LIME_S}]Next:[/{_SN_LIME_S}]"
-                f" [bold white]nexus capture pull --scope {example}[/bold white]"
+                Hint(label="Next", command=f"nexus capture pull --scope {example}")
             )
             if len(display) > 1:
                 console.print(
-                    "  [dim]Use --scope multiple times to capture several scopes at once.[/dim]"
+                    Hint(
+                        label="Tip",
+                        command="--scope x_a --scope x_b",
+                        suffix="captures multiple at once",
+                    )
                 )
 
     asyncio.run(_run())
@@ -1072,10 +1028,13 @@ async def _resolve_scope_ids(
             resolved.append(arg)
         elif arg in key_map:
             resolved.append(key_map[arg])
-            console.print(f"  Resolved [{_SN_BLUE_S}]{arg}[/{_SN_BLUE_S}] -> {key_map[arg]}")
+            console.print(Notice.info(f"Resolved {arg} -> {key_map[arg]}"))
         else:
             err_console.print(
-                f"Scope {arg!r} not found. Run 'nexus capture discover' to see available scopes."
+                Notice.error(
+                    f"Scope {arg!r} not found. "
+                    f"Run 'nexus capture discover' to see available scopes."
+                )
             )
             raise typer.Exit(1)
     return resolved
@@ -1108,7 +1067,7 @@ def capture_pull(
         # Resolve scope keys before opening the capture connection
         scope_ids = await _resolve_scope_ids(scope, client)
 
-        with _make_progress() as progress:
+        with nexus_progress(console) as progress:
             task = progress.add_task("Preparing...", total=None)
 
             def on_progress(completed: int, total: int, message: str) -> None:
@@ -1125,17 +1084,19 @@ def capture_pull(
                 )
 
         manifest = engine.save_archive(result)
-        summary = Table(box=None, pad_edge=False, show_header=False, show_edge=False)
-        summary.add_column(style=_SN_BLUE_S, no_wrap=True)
-        summary.add_column(style="white", no_wrap=True)
-        summary.add_row(
-            "Records", f"[{_SN_LIME_S}][bold]{manifest.record_count:,}[/bold][/{_SN_LIME_S}]"
+        console.print(
+            KeyValuePanel(
+                title="Capture complete",
+                rows=[
+                    KvRow(label="Records", value=f"{manifest.record_count:,}"),
+                    KvRow(label="Archive", value=str(manifest.archive_dir)),
+                    KvRow(
+                        label="Next",
+                        value=f"nexus capture push {manifest.archive_dir}",
+                    ),
+                ],
+            )
         )
-        summary.add_row("Archive", f"[dim]{manifest.archive_dir}[/dim]")
-        summary.add_row(
-            "Next", f"[bold white]nexus capture push {manifest.archive_dir}[/bold white]"
-        )
-        console.print(_sn_panel(summary, title="Capture complete"))
 
     asyncio.run(_run())
 
@@ -1147,38 +1108,43 @@ def capture_list(
     """List local capture archives."""
     archives_root = NexusPaths.from_env().archives_dir
     if not archives_root.exists():
-        console.print("  [dim]No archives yet. Run [bold]nexus capture pull[/bold] first.[/dim]")
+        console.print(
+            Hint(label="No archives yet", command="nexus capture pull", suffix="to capture one")
+        )
         return
 
-    tbl = Table(
-        box=None,
-        pad_edge=False,
-        show_header=True,
-        show_edge=False,
-        padding=(0, 2),
-        header_style=_SN_BLUE_S,
-    )
-    tbl.add_column("Instance", style=_SN_BLUE_S, no_wrap=True, min_width=10)
-    tbl.add_column("Captured", style="dim", no_wrap=True, min_width=19)
-    tbl.add_column("Recs", style=_SN_LIME_S, justify="right", no_wrap=True, min_width=6)
-    tbl.add_column("Archive", style="white", no_wrap=True)
-
+    rows: list[list[RenderableType]] = []
     for manifest_path in sorted(archives_root.rglob("manifest.yaml")):
         try:
             raw = _yaml.safe_load(manifest_path.read_text(encoding="utf-8"))
             manifest = ArchiveManifest.model_validate(raw, strict=False)
         except Exception as exc:
-            err_console.print(f"Skipping corrupt manifest {manifest_path.parent}: {exc}")
+            err_console.print(
+                Notice.warn(f"Skipping corrupt manifest {manifest_path.parent}: {exc}")
+            )
             continue
         if instance and manifest.instance_id != instance:
             continue
-        tbl.add_row(
-            manifest.instance_id,
-            str(manifest.captured_at)[:19],
-            str(manifest.record_count),
-            _trunc(str(manifest.archive_dir), 45),
+        rows.append(
+            [
+                manifest.instance_id,
+                str(manifest.captured_at)[:19],
+                str(manifest.record_count),
+                _trunc(str(manifest.archive_dir), 45),
+            ]
         )
-    console.print(_sn_panel(tbl, title="Archives"))
+    console.print(
+        DataTable(
+            title="Archives",
+            columns=[
+                DataColumn(header="Instance", width=12),
+                DataColumn(header="Captured", width=20),
+                DataColumn(header="Recs", width=6, justify="right"),
+                DataColumn(header="Archive"),
+            ],
+            rows=rows,
+        )
+    )
 
 
 @capture_app.command("push")
@@ -1198,8 +1164,16 @@ def capture_push(
         async with client:
             resolved_instance = instance or _config_default()
         ref = await engine.push_to_update_set(result, resolved_instance, update_set)
-        console.print(f"Injected {ref.record_count} records into update set {ref.name!r}.")
-        console.print(f"Update set sys_id: {ref.sys_id}")
+        console.print(
+            KeyValuePanel(
+                title="Push complete",
+                rows=[
+                    KvRow(label="Records", value=str(ref.record_count)),
+                    KvRow(label="Update set", value=ref.name),
+                    KvRow(label="sys_id", value=ref.sys_id),
+                ],
+            )
+        )
 
     asyncio.run(_run())
 
@@ -1237,19 +1211,28 @@ def reauth(
         target = next((srv for srv in detection.needs_reauth_servers if srv.value == server), None)
         if target is None:
             err_console.print(
-                f"[error]Server {server!r} is not currently flagged for re-auth.[/error] "
-                "Run `nexus status --refresh` if you think this is wrong."
+                Notice.error(
+                    f"Server {server!r} is not currently flagged for re-auth. "
+                    f"Run `nexus status --refresh` if you think this is wrong."
+                )
             )
             raise typer.Exit(code=1)
         console.print(f'claude /mcp "{claude_ai_name_for(target)}"')
         return
 
     if not detection.needs_reauth_servers:
-        console.print("All MCP servers authenticated. Nothing to do.")
+        console.print(Notice.info("All MCP servers authenticated. Nothing to do."))
         return
 
-    for srv in sorted(detection.needs_reauth_servers, key=lambda s: s.value):
-        console.print(f'  {srv.value}: claude /mcp "{claude_ai_name_for(srv)}"')
+    console.print(
+        KeyValuePanel(
+            title="Re-auth commands",
+            rows=[
+                KvRow(label=srv.value, value=f'claude /mcp "{claude_ai_name_for(srv)}"')
+                for srv in sorted(detection.needs_reauth_servers, key=lambda s: s.value)
+            ],
+        )
+    )
 
 
 @app.command()
@@ -1270,36 +1253,36 @@ def update(
 
     current = current_version()
     if current is None:
-        console.print("nexus-sn is not installed as a distribution; cannot check.")
+        console.print(Notice.info("nexus-sn is not installed as a distribution; cannot check."))
         return
 
     info = GitHubReleasesClient().fetch_latest()
     if info is None:
-        console.print("Could not reach GitHub. No update info available.")
+        console.print(Notice.info("Could not reach GitHub. No update info available."))
         return
 
     try:
         if parse(info.tag_name) <= parse(current):
-            console.print(f"Up to date ({current})")
+            console.print(Notice.info(f"Up to date ({current})"))
             return
     except InvalidVersion:
-        console.print(f"Latest tag {info.tag_name!r} is not a valid version; skipping")
+        console.print(Notice.warn(f"Latest tag {info.tag_name!r} is not a valid version; skipping"))
         return
 
-    console.print(f"Update available: {current} -> {info.tag_name}")
+    console.print(Notice.info(f"Update available: {current} -> {info.tag_name}"))
 
 
 @app.command()
 def sync() -> None:
     """Pull the latest templates from the GitHub registry."""
-    console.print("Syncing templates -- not yet implemented.")
-    console.print("Configure github_repo in ~/.nexus/config.yaml first.")
+    console.print(Notice.info("Syncing templates -- not yet implemented."))
+    console.print(Notice.info("Configure github_repo in ~/.nexus/config.yaml first."))
 
 
 @app.command("templates")
 def templates_cmd() -> None:
     """Browse and inspect available templates."""
-    console.print("Template browser -- not yet implemented. Run 'nexus sync' first.")
+    console.print(Notice.info("Template browser -- not yet implemented. Run 'nexus sync' first."))
 
 
 @app.command()
@@ -1311,11 +1294,15 @@ def assess(
 ) -> None:
     """Run an instance health scan or targeted assessment."""
     if for_template:
-        console.print(f"Readiness check for template: {for_template!r} -- not yet implemented.")
+        console.print(
+            Notice.info(f"Readiness check for template: {for_template!r} -- not yet implemented.")
+        )
     elif job:
-        console.print(f"Post-deploy validation for job: {job!r} -- not yet implemented.")
+        console.print(
+            Notice.info(f"Post-deploy validation for job: {job!r} -- not yet implemented.")
+        )
     else:
-        console.print("Instance health scan -- not yet implemented.")
+        console.print(Notice.info("Instance health scan -- not yet implemented."))
 
 
 @app.command()
@@ -1324,7 +1311,9 @@ def apply(
     dry_run: Annotated[bool, typer.Option("--dry-run")] = False,
 ) -> None:
     """Deploy a template to the configured ServiceNow instance."""
-    console.print(f"Applying template: {template!r} (dry_run={dry_run}) -- not yet implemented.")
+    console.print(
+        Notice.info(f"Applying template: {template!r} (dry_run={dry_run}) -- not yet implemented.")
+    )
 
 
 @app.command()
@@ -1332,7 +1321,7 @@ def run(
     request: Annotated[str, typer.Argument(help="Free-form orchestration request")],
 ) -> None:
     """Free-form AI orchestration request."""
-    console.print(f"Running: {request!r} -- not yet implemented.")
+    console.print(Notice.info(f"Running: {request!r} -- not yet implemented."))
 
 
 @app.command()
@@ -1340,7 +1329,7 @@ def rollback(
     job_id: Annotated[str, typer.Argument(help="Job ID to roll back")],
 ) -> None:
     """Undo a previous deployment by job ID."""
-    console.print(f"Rolling back job: {job_id!r} -- not yet implemented.")
+    console.print(Notice.info(f"Rolling back job: {job_id!r} -- not yet implemented."))
 
 
 @app.command()
@@ -1349,7 +1338,7 @@ def ui() -> None:
     try:
         start_ui()
     except ImportError as exc:
-        err_console.print(f"[error]{exc}[/error]")
+        err_console.print(Notice.error(str(exc)))
         raise typer.Exit(code=1) from exc
 
 
