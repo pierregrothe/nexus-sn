@@ -4,20 +4,34 @@
 # Date: 2026-05-11
 """nexus.plugins: read-only plugin inventory layer.
 
-Exports the data models, scanner, error type, and product-family lookup.
-The layer imports from cache/, config/, and connectors/ only -- never up.
+Exports the data models, scanner, error type, product-family lookup,
+and the cross-instance diff/promote helpers.
 """
 
+from nexus.plugins.diff import (
+    PluginDiff,
+    PluginDiffEntry,
+    PromoteAction,
+    PromotionPlan,
+    compute_diff,
+    project_to_promote_plan,
+)
 from nexus.plugins.errors import PluginScanError
 from nexus.plugins.models import PluginInfo, PluginInventory, ProductFamily
 from nexus.plugins.product_families import product_family_for
 from nexus.plugins.scanner import PluginScanner
 
 __all__ = [
+    "PluginDiff",
+    "PluginDiffEntry",
     "PluginInfo",
     "PluginInventory",
     "PluginScanError",
     "PluginScanner",
     "ProductFamily",
+    "PromoteAction",
+    "PromotionPlan",
+    "compute_diff",
     "product_family_for",
+    "project_to_promote_plan",
 ]
