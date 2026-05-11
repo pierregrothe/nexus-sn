@@ -48,7 +48,7 @@ def test_datacolumn_rejects_extra_fields() -> None:
 def test_datacolumn_is_frozen() -> None:
     col = DataColumn(header="x")
     with pytest.raises(ValidationError):
-        col.header = "y"  # type: ignore[misc]
+        col.header = "y"
 
 
 def test_datatable_construction_holds_columns_and_rows() -> None:
@@ -65,7 +65,7 @@ def test_datatable_construction_holds_columns_and_rows() -> None:
 def test_datatable_is_frozen() -> None:
     tbl = DataTable(title="x", columns=[DataColumn(header="A")], rows=[["1"]])
     with pytest.raises(ValidationError):
-        tbl.title = "y"  # type: ignore[misc]
+        tbl.title = "y"
 
 
 def test_datatable_renders_title_headers_and_data() -> None:

@@ -45,7 +45,7 @@ def test_notice_rejects_extra_fields() -> None:
 def test_notice_is_frozen() -> None:
     notice = Notice(severity="info", message="x")
     with pytest.raises(ValidationError):
-        notice.message = "y"  # type: ignore[misc]
+        notice.message = "y"
 
 
 def test_notice_error_classmethod_sets_severity() -> None:
