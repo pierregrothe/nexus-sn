@@ -1052,6 +1052,61 @@ def plugins_list(
     )
 
 
+@plugins_app.command("info")
+def plugins_info(
+    plugin_id: str,
+    instance: Annotated[
+        str, typer.Option("--instance", help="Instance profile (default: configured default)")
+    ] = "",
+) -> None:
+    """Show full details and direct dependencies for one plugin."""
+    resolved = _plugins_for(instance)
+    if resolved is None:
+        console.print(Notice.warn("Plugin inventory empty."))
+        console.print(Hint(label="Refresh", command="nexus instance refresh"))
+        raise typer.Exit(1)
+    _, plugins = resolved
+    plugin = next((p for p in plugins if p.plugin_id == plugin_id), None)
+    if plugin is None:
+        err_console.print(Notice.error(f"Plugin {plugin_id!r} not found in inventory."))
+        raise typer.Exit(1)
+    console.print(
+        KeyValuePanel(
+            title=plugin.name,
+            rows=[
+                KvRow(label="Plugin ID", value=plugin.plugin_id),
+                KvRow(label="Version", value=plugin.version),
+                KvRow(
+                    label="State",
+                    value=(
+                        StatusBadge.ok(plugin.state)
+                        if plugin.state == "active"
+                        else StatusBadge.warn(plugin.state)
+                    ),
+                ),
+                KvRow(label="Source", value=plugin.source),
+                KvRow(label="Product family", value=plugin.product_family),
+                KvRow(label="sys_id", value=plugin.sys_id),
+                KvRow(
+                    label="Installed at",
+                    value=(
+                        plugin.installed_at.strftime("%Y-%m-%d %H:%M UTC")
+                        if plugin.installed_at
+                        else "-"
+                    ),
+                ),
+            ],
+        )
+    )
+    if plugin.depends_on:
+        console.print(
+            Hint(
+                label="Depends on",
+                command=", ".join(plugin.depends_on),
+            )
+        )
+
+
 @capture_app.callback(invoke_without_command=True)
 def capture_callback(ctx: typer.Context) -> None:
     """Show local archives and available commands."""
