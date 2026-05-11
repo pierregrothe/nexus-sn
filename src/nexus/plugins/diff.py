@@ -50,9 +50,7 @@ class PluginDiffEntry(BaseModel):
     plugin_id: str
     name: str
     product_family: str
-    status: Literal[
-        "only_in_a", "only_in_b", "version_mismatch", "state_mismatch"
-    ]
+    status: Literal["only_in_a", "only_in_b", "version_mismatch", "state_mismatch"]
     a_version: str | None
     b_version: str | None
     a_state: Literal["active", "inactive"] | None
@@ -190,9 +188,9 @@ def _diff_entry(
     if a is None or b is None:
         return None  # both None is impossible by construction
     if a.version != b.version:
-        status: Literal[
-            "only_in_a", "only_in_b", "version_mismatch", "state_mismatch"
-        ] = "version_mismatch"
+        status: Literal["only_in_a", "only_in_b", "version_mismatch", "state_mismatch"] = (
+            "version_mismatch"
+        )
     elif a.state != b.state:
         status = "state_mismatch"
     else:
@@ -237,9 +235,7 @@ def project_to_promote_plan(diff: PluginDiff) -> PromotionPlan:
         action = _project_entry(entry)
         if action is not None:
             actions.append(action)
-    actions.sort(
-        key=lambda a: (_ACTION_ORDER[a.action], a.product_family, a.plugin_id)
-    )
+    actions.sort(key=lambda a: (_ACTION_ORDER[a.action], a.product_family, a.plugin_id))
     return PromotionPlan(
         source_profile=diff.profile_a,
         target_profile=diff.profile_b,
