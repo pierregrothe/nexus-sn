@@ -11,7 +11,12 @@ import typer
 from typer.testing import CliRunner
 
 from nexus.cache import clear_cache
-from nexus.cli import _pick_existing_oauth_app, app
+from nexus.cli import (
+    _pick_existing_oauth_app,
+    _print_generated_secret,
+    _print_secret_recovery_steps,
+    app,
+)
 from nexus.config.paths import NexusPaths
 from nexus.instances.models import InstanceMeta
 from tests.conftest import scripted_prompt
@@ -180,7 +185,9 @@ def test_pick_existing_oauth_app_returns_picked_entry_with_prompted_secret(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(typer, "prompt", scripted_prompt(["1", "user-pasted-secret"]))
-    result = _pick_existing_oauth_app([_OAUTH_ENTRY], profile="dev")
+    result = _pick_existing_oauth_app(
+        [_OAUTH_ENTRY], profile="dev", url="https://dev.service-now.com"
+    )
     assert result == ("existing-client-id", "user-pasted-secret")
 
 
@@ -188,7 +195,9 @@ def test_pick_existing_oauth_app_returns_none_when_user_picks_new(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(typer, "prompt", scripted_prompt(["n"]))
-    result = _pick_existing_oauth_app([_OAUTH_ENTRY], profile="dev")
+    result = _pick_existing_oauth_app(
+        [_OAUTH_ENTRY], profile="dev", url="https://dev.service-now.com"
+    )
     assert result is None
 
 
@@ -196,7 +205,9 @@ def test_pick_existing_oauth_app_returns_none_on_invalid_choice(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(typer, "prompt", scripted_prompt(["abc"]))
-    result = _pick_existing_oauth_app([_OAUTH_ENTRY], profile="dev")
+    result = _pick_existing_oauth_app(
+        [_OAUTH_ENTRY], profile="dev", url="https://dev.service-now.com"
+    )
     assert result is None
 
 
@@ -204,7 +215,9 @@ def test_pick_existing_oauth_app_returns_none_on_out_of_range_choice(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(typer, "prompt", scripted_prompt(["5"]))
-    result = _pick_existing_oauth_app([_OAUTH_ENTRY], profile="dev")
+    result = _pick_existing_oauth_app(
+        [_OAUTH_ENTRY], profile="dev", url="https://dev.service-now.com"
+    )
     assert result is None
 
 
@@ -218,5 +231,31 @@ def test_pick_existing_oauth_app_uses_picked_index_among_multiple(
         "sys_created_on": "2026-05-02",
     }
     monkeypatch.setattr(typer, "prompt", scripted_prompt(["2", "second-secret"]))
-    result = _pick_existing_oauth_app([_OAUTH_ENTRY, second], profile="dev")
+    result = _pick_existing_oauth_app(
+        [_OAUTH_ENTRY, second], profile="dev", url="https://dev.service-now.com"
+    )
     assert result == ("second-client", "second-secret")
+
+
+def test_print_generated_secret_includes_value_and_save_warning(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    _print_generated_secret("super-secret-abc")
+    out = capsys.readouterr().out
+    assert "super-secret-abc" in out
+    assert "Save this client secret" in out
+
+
+def test_print_secret_recovery_steps_includes_sys_id_url_and_script(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    _print_secret_recovery_steps(
+        url="https://dev.service-now.com",
+        sys_id="abc123",
+        name="nexus-prod",
+    )
+    out = capsys.readouterr().out
+    assert "https://dev.service-now.com/sys.scripts.do" in out
+    assert "abc123" in out
+    assert "getDecryptedValue" in out
+    assert "nexus-prod" in out
