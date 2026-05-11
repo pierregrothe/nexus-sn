@@ -12,6 +12,7 @@ import pytest
 from nexus.instances.errors import InstanceNotFoundError
 from nexus.instances.models import ArtifactRecord, InstanceMeta, InstanceSnapshot
 from nexus.instances.registry import InstanceRegistry
+from nexus.plugins.models import PluginInfo, PluginInventory
 
 
 def _meta(profile: str = "dev12345") -> InstanceMeta:
@@ -39,6 +40,25 @@ def _snapshot() -> InstanceSnapshot:
         captured_at=datetime.now(UTC),
         sn_version="Xanadu",
         ai_skills=[record],
+    )
+
+
+def _inventory() -> PluginInventory:
+    plugin = PluginInfo(
+        plugin_id="com.snc.incident",
+        name="Incident Management",
+        version="1.0.0",
+        state="active",
+        source="servicenow",
+        product_family="ITSM",
+        depends_on=(),
+        sys_id="sys-1",
+        installed_at=datetime.now(UTC),
+    )
+    return PluginInventory(
+        captured_at=datetime.now(UTC),
+        sn_version="Xanadu",
+        plugins=(plugin,),
     )
 
 
@@ -171,3 +191,27 @@ def test_registry_save_snapshot_cleans_tmp_on_oserror(tmp_path: Path) -> None:
     with pytest.raises(IsADirectoryError, match="Is a directory"):
         registry.save_snapshot("dev12345", _snapshot())
     assert not any(p.suffix == ".tmp" for p in profile_dir.iterdir())
+
+
+def test_load_plugin_inventory_returns_none_when_file_missing(tmp_path: Path) -> None:
+    registry = InstanceRegistry(tmp_path)
+    registry.register(_meta())
+    assert registry.load_plugin_inventory("dev12345") is None
+
+
+def test_save_and_load_plugin_inventory_round_trips(tmp_path: Path) -> None:
+    registry = InstanceRegistry(tmp_path)
+    registry.register(_meta())
+    inventory = _inventory()
+    registry.save_plugin_inventory("dev12345", inventory)
+    loaded = registry.load_plugin_inventory("dev12345")
+    assert loaded is not None
+    assert len(loaded.plugins) == 1
+    assert loaded.plugins[0].plugin_id == "com.snc.incident"
+    assert loaded.sn_version == "Xanadu"
+
+
+def test_load_plugin_inventory_raises_when_profile_missing(tmp_path: Path) -> None:
+    registry = InstanceRegistry(tmp_path)
+    with pytest.raises(InstanceNotFoundError):
+        registry.load_plugin_inventory("nonexistent")
