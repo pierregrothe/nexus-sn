@@ -36,3 +36,6 @@ htmlcov/
 
 # Remember plugin runtime
 .remember/
+
+# Claude Code per-machine permissions
+.claude/settings.local.json
