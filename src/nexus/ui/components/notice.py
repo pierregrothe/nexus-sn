@@ -39,17 +39,38 @@ class Notice(BaseModel):
 
     @classmethod
     def error(cls, message: str) -> Self:
-        """Build an ``error`` notice (red bold prefix)."""
+        """Build an ``error`` notice (red bold prefix).
+
+        Args:
+            message: The neutral text rendered after the prefix.
+
+        Returns:
+            A frozen ``Notice`` with ``severity="error"``.
+        """
         return cls(severity="error", message=message)
 
     @classmethod
     def warn(cls, message: str) -> Self:
-        """Build a ``warn`` notice (yellow bold prefix)."""
+        """Build a ``warn`` notice (yellow bold prefix).
+
+        Args:
+            message: The neutral text rendered after the prefix.
+
+        Returns:
+            A frozen ``Notice`` with ``severity="warn"``.
+        """
         return cls(severity="warn", message=message)
 
     @classmethod
     def info(cls, message: str) -> Self:
-        """Build an ``info`` notice (blue label-style prefix)."""
+        """Build an ``info`` notice (blue label-style prefix).
+
+        Args:
+            message: The neutral text rendered after the prefix.
+
+        Returns:
+            A frozen ``Notice`` with ``severity="info"``.
+        """
         return cls(severity="info", message=message)
 
     def __rich_console__(self, console: Console, options: ConsoleOptions) -> RenderResult:
