@@ -45,10 +45,11 @@ from nexus.instances.errors import (
     SnapshotError,
     TokenExpiredError,
 )
-from nexus.instances.models import InstanceMeta
+from nexus.instances.models import InstanceMeta, InstanceSnapshot
 from nexus.instances.oauth import SNOAuthClient
 from nexus.instances.registry import InstanceRegistry
 from nexus.instances.scanner import InstanceScanner
+from nexus.plugins import PluginInventory, PluginScanError, PluginScanner
 from nexus.ui import (
     CommandGuide,
     DataColumn,
@@ -858,15 +859,38 @@ def instance_refresh(profile: str = typer.Argument("")) -> None:
     profile = meta.profile
 
     console.print(Notice.info(f"Capturing snapshot from {profile!r}..."))
+
+    async def _run() -> tuple[InstanceSnapshot, PluginInventory | None]:
+        scanner = InstanceScanner()
+        plugin_scanner = PluginScanner()
+        snapshot_task = scanner.scan(meta.url, token, meta.sn_version)
+        plugin_task = plugin_scanner.scan(meta.url, token, meta.sn_version)
+        results = await asyncio.gather(snapshot_task, plugin_task, return_exceptions=True)
+        snap_result, plugin_result = results
+        if isinstance(snap_result, BaseException):
+            raise snap_result
+        if isinstance(plugin_result, PluginScanError):
+            err_console.print(Notice.warn(f"Plugin scan failed: {plugin_result}"))
+            return snap_result, None
+        if isinstance(plugin_result, BaseException):
+            raise plugin_result
+        return snap_result, plugin_result
+
     try:
-        snapshot = asyncio.run(InstanceScanner().scan(meta.url, token, meta.sn_version))
+        snapshot, plugin_inventory = asyncio.run(_run())
     except SnapshotError as exc:
         err_console.print(Notice.error(str(exc)))
         raise typer.Exit(1) from exc
 
     registry.save_snapshot(profile, snapshot)
+    if plugin_inventory is not None:
+        registry.save_plugin_inventory(profile, plugin_inventory)
     c = snapshot.counts
-    registry.save(meta.model_copy(update={"token_expires_at": new_expiry, "snapshot_counts": c}))
+    plugin_count = len(plugin_inventory.plugins) if plugin_inventory else 0
+    counts = c.model_copy(update={"plugins": plugin_count})
+    registry.save(
+        meta.model_copy(update={"token_expires_at": new_expiry, "snapshot_counts": counts})
+    )
     console.print(
         Notice.info(
             f"Snapshot captured: {c.ai_skills} AI skills, {c.flows} flows, "
