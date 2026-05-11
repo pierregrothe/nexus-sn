@@ -119,6 +119,45 @@ def test_status_reporter_multi_server_reauth_footer_lists_each() -> None:
     assert "bt1" in out
 
 
+def test_status_reporter_identity_panel_shows_kv_labels() -> None:
+    """Identity rows render their KvRow labels in the plain output."""
+    out = _render(_detection(tier=Tier.PRO, detected=frozenset(), reauth=frozenset()))
+    for label in ("User:", "Org:", "Tier:", "Version:"):
+        assert label in out
+
+
+def test_status_reporter_system_panel_shows_python_platform_install_labels() -> None:
+    out = _render(_detection(tier=Tier.PRO, detected=frozenset(), reauth=frozenset()))
+    for label in ("Python:", "Platform:", "Install:"):
+        assert label in out
+
+
+def test_status_reporter_servers_row_includes_reauth_badge_when_any_need_reauth() -> None:
+    """When any detected server needs reauth, the Servers row shows the count badge."""
+    out = _render(
+        _detection(
+            tier=Tier.ENTERPRISE,
+            detected=frozenset({MCPServer.VALUE_MELODY, MCPServer.MARKETING}),
+            reauth=frozenset({MCPServer.MARKETING}),
+        )
+    )
+    assert "1/2 ready" in out
+    assert "1 need reauth" in out
+
+
+def test_status_reporter_single_server_reauth_footer_uses_warning_prefix() -> None:
+    """The Notice.warn footer is rendered with the 'Warning:' prefix."""
+    out = _render(
+        _detection(
+            tier=Tier.ENTERPRISE,
+            detected=frozenset({MCPServer.MARKETING}),
+            reauth=frozenset({MCPServer.MARKETING}),
+        )
+    )
+    assert "Warning:" in out
+    assert "nexus reauth --server marketing" in out
+
+
 def test_humanize_bytes_covers_all_size_buckets() -> None:
     assert _humanize_bytes(0) == "0 B"
     assert _humanize_bytes(2048).endswith("KB")
