@@ -31,6 +31,7 @@ from rich.progress import (
     TimeElapsedColumn,
 )
 from rich.table import Column, Table
+from rich.text import Text
 
 from nexus.auth.external_keychain import ExternalKeychainClient
 from nexus.cache import clear_cache
@@ -46,6 +47,7 @@ from nexus.config.manager import ConfigManager
 from nexus.config.paths import NexusPaths
 from nexus.config.settings import InstancesConfig
 from nexus.connectors.servicenow.client import ServiceNowClient
+from nexus.instances.badges import token_badge
 from nexus.instances.errors import (
     InstanceNotFoundError,
     OAuthError,
@@ -56,6 +58,16 @@ from nexus.instances.models import InstanceMeta
 from nexus.instances.oauth import SNOAuthClient
 from nexus.instances.registry import InstanceRegistry
 from nexus.instances.scanner import InstanceScanner
+from nexus.ui import (
+    CommandGuide,
+    DataColumn,
+    DataTable,
+    Hint,
+    KeyValuePanel,
+    KvRow,
+    Notice,
+    default_marker,
+)
 from nexus.ui.app import start_ui
 from nexus.ui.banner import print_banner
 from nexus.ui.gradient_panel import GradientPanel
@@ -622,36 +634,6 @@ _INSTANCE_HELP = [
 ]
 
 
-def _print_command_guide(app_name: str, help_items: list[tuple[str, str]]) -> None:
-    """Print a consistently SN-branded command guide using a no-wrap table."""
-    tbl = Table(
-        box=None,
-        pad_edge=False,
-        show_header=False,
-        show_edge=False,
-        padding=(0, 2),
-    )
-    tbl.add_column("cmd", style=_SN_BLUE_S, no_wrap=True, width=36)
-    tbl.add_column("desc", style="dim", no_wrap=True)
-    for cmd, desc in help_items:
-        tbl.add_row(f"{app_name} {cmd}", desc)
-    console.print(_sn_panel(tbl, title=app_name))
-    console.print(f"  [dim]Run [bold]{app_name} <command> --help[/bold] for details.[/dim]")
-
-
-def _token_cell(meta: InstanceMeta) -> str:
-    """Return a colored token status string based on remaining validity."""
-    now = datetime.now(UTC)
-    if now >= meta.token_expires_at:
-        return "[red]EXPIRED[/red]"
-    mins = int((meta.token_expires_at - now).total_seconds() / 60)
-    if mins < 30:
-        return f"[yellow]{mins} min left[/yellow]"
-    hrs = mins // 60
-    label = f"{hrs}h {mins % 60}m" if hrs else f"{mins} min"
-    return f"[{_SN_LIME_S}]{label}[/{_SN_LIME_S}]"
-
-
 @instance_app.callback(invoke_without_command=True)
 def instance_callback(ctx: typer.Context) -> None:
     """Show registered instances and available commands."""
@@ -661,18 +643,17 @@ def instance_callback(ctx: typer.Context) -> None:
     if not _instance_registry().list_all():
         console.print()
         console.print(
-            f"  [{_SN_LIME_S}]Get started -- register your first instance:[/{_SN_LIME_S}]"
+            Hint(
+                label="Get started",
+                command="nexus instance register dev",
+                suffix="(you will be prompted for URL, username, password)",
+            )
         )
-        console.print()
-        console.print(f"  [{_SN_BLUE_S}]nexus instance register dev[/{_SN_BLUE_S}]")
-        console.print()
-        console.print("  [dim]You will be prompted for your instance URL, username,[/dim]")
-        console.print("  [dim]password. OAuth credentials are created automatically.[/dim]")
         console.print()
     else:
         instance_list()
 
-    _print_command_guide("nexus instance", _INSTANCE_HELP)
+    console.print(CommandGuide(app_name="nexus instance", items=_INSTANCE_HELP))
 
 
 @instance_app.command("list")
@@ -682,34 +663,44 @@ def instance_list() -> None:
     metas = registry.list_all()
     if not metas:
         console.print(
-            f"  No instances registered.  [{_SN_LIME_S}]nexus instance register <profile>[/{_SN_LIME_S}]"
+            Hint(
+                label="No instances registered",
+                command="nexus instance register <profile>",
+            )
         )
         return
 
     default = _config_default()
-    tbl = Table(
-        show_header=True,
-        header_style=_SN_BLUE_S,
-        box=None,
-        pad_edge=False,
-        show_edge=False,
-    )
-    tbl.add_column("Profile", style=_SN_BLUE_S, no_wrap=True, width=12)
-    tbl.add_column("URL", style="white", no_wrap=True, width=30)
-    tbl.add_column("Version", style="white", no_wrap=True, width=9)
-    tbl.add_column("Token", no_wrap=True, width=12)
-    tbl.add_column("Connected", style="dim", no_wrap=True, width=17)
-
+    rows: list[list[RenderableType]] = []
     for meta in metas:
-        marker = f"[{_SN_LIME_S}]*[/{_SN_LIME_S}] " if meta.profile == default else "  "
-        tbl.add_row(
-            f"{marker}{meta.profile}",
-            _trunc(meta.url.replace("https://", ""), 36),
-            meta.sn_version,
-            _token_cell(meta),
-            meta.last_connected_at.strftime("%Y-%m-%d %H:%M"),
+        profile_cell = Text()
+        if meta.profile == default:
+            profile_cell.append_text(default_marker())
+        else:
+            profile_cell.append("  ")
+        profile_cell.append(meta.profile)
+        rows.append(
+            [
+                profile_cell,
+                _trunc(meta.url.replace("https://", ""), 36),
+                meta.sn_version,
+                token_badge(meta),
+                meta.last_connected_at.strftime("%Y-%m-%d %H:%M"),
+            ]
         )
-    console.print(_sn_panel(tbl, title="Instances"))
+    console.print(
+        DataTable(
+            title="Instances",
+            columns=[
+                DataColumn(header="Profile", width=14),
+                DataColumn(header="URL", width=30),
+                DataColumn(header="Version", width=9),
+                DataColumn(header="Token", width=14),
+                DataColumn(header="Connected", width=17),
+            ],
+            rows=rows,
+        )
+    )
 
 
 @instance_app.command("status")
@@ -719,20 +710,26 @@ def instance_status(profile: str = typer.Argument("")) -> None:
 
     console.print()
     console.print(
-        f"  [{_SN_BLUE_S}]Instance :[/{_SN_BLUE_S}] [bold white]{meta.profile}[/bold white]"
-    )
-    console.print(f"  [{_SN_BLUE_S}]URL      :[/{_SN_BLUE_S}] [dim]{meta.url}[/dim]")
-    console.print(f"  [{_SN_BLUE_S}]Version  :[/{_SN_BLUE_S}] [white]{meta.sn_version}[/white]")
-    console.print(f"  [{_SN_BLUE_S}]Token    :[/{_SN_BLUE_S}] {_token_cell(meta)}")
-    console.print(
-        f"  [{_SN_BLUE_S}]Connected:[/{_SN_BLUE_S}] [dim]{meta.last_connected_at.strftime('%Y-%m-%d %H:%M UTC')}[/dim]"
+        KeyValuePanel(
+            title="Instance",
+            rows=[
+                KvRow(label="Instance", value=meta.profile),
+                KvRow(label="URL", value=meta.url),
+                KvRow(label="Version", value=meta.sn_version),
+                KvRow(label="Token", value=token_badge(meta)),
+                KvRow(
+                    label="Connected",
+                    value=meta.last_connected_at.strftime("%Y-%m-%d %H:%M UTC"),
+                ),
+            ],
+        )
     )
 
     snapshot = registry.load_snapshot(meta.profile)
     if snapshot is None:
         console.print()
         console.print(
-            "  [dim]No snapshot. Run [bold]nexus instance refresh[/bold] to capture one.[/dim]"
+            Hint(label="No snapshot", command="nexus instance refresh", suffix="to capture one")
         )
         return
 
@@ -742,20 +739,25 @@ def instance_status(profile: str = typer.Argument("")) -> None:
     custom_sis = sum(1 for s in snapshot.script_includes if s.is_custom)
     console.print()
     console.print(
-        f"  [{_SN_BLUE_S}]Snapshot  :[/{_SN_BLUE_S}] [dim]{snapshot.captured_at.strftime('%Y-%m-%d %H:%M UTC')}[/dim]"
-    )
-    console.print(f"    [dim]AI Skills       [/dim] [{_SN_LIME_S}]{c.ai_skills}[/{_SN_LIME_S}]")
-    console.print(
-        f"    [dim]Flows           [/dim] [{_SN_LIME_S}]{c.flows}[/{_SN_LIME_S}]"
-        f"  [dim]({custom_flows} custom)[/dim]"
-    )
-    console.print(
-        f"    [dim]Business Rules  [/dim] [{_SN_LIME_S}]{c.business_rules}[/{_SN_LIME_S}]"
-        f"  [dim]({custom_brs} custom)[/dim]"
-    )
-    console.print(
-        f"    [dim]Script Includes [/dim] [{_SN_LIME_S}]{c.script_includes}[/{_SN_LIME_S}]"
-        f"  [dim]({custom_sis} custom)[/dim]"
+        KeyValuePanel(
+            title="Snapshot",
+            rows=[
+                KvRow(
+                    label="Captured",
+                    value=snapshot.captured_at.strftime("%Y-%m-%d %H:%M UTC"),
+                ),
+                KvRow(label="AI Skills", value=str(c.ai_skills)),
+                KvRow(label="Flows", value=f"{c.flows} ({custom_flows} custom)"),
+                KvRow(
+                    label="Business Rules",
+                    value=f"{c.business_rules} ({custom_brs} custom)",
+                ),
+                KvRow(
+                    label="Script Includes",
+                    value=f"{c.script_includes} ({custom_sis} custom)",
+                ),
+            ],
+        )
     )
 
 
@@ -779,7 +781,7 @@ def instance_delete(
     if cfg.instances.default == profile:
         manager.save(cfg.model_copy(update={"instances": InstancesConfig(default="")}))
 
-    console.print(f"Deleted instance {profile!r}.")
+    console.print(Notice.info(f"Deleted instance {profile!r}."))
 
 
 @instance_app.command("use")
@@ -787,7 +789,7 @@ def instance_use(profile: str) -> None:
     """Set the default instance."""
     _resolve_profile(profile)
     _set_default_profile(NexusPaths.from_env(), profile)
-    console.print(f"Default instance set to {profile!r}.")
+    console.print(Notice.info(f"Default instance set to {profile!r}."))
 
 
 @instance_app.command("connect")
@@ -804,10 +806,10 @@ def instance_connect(profile: str = typer.Argument("")) -> None:
         ) as client:
             resp = client.get("/api/now/table/sys_properties", params={"sysparm_limit": 1})
         if resp.status_code != 200:
-            err_console.print(f"Probe failed: HTTP {resp.status_code}")
+            err_console.print(Notice.error(f"Probe failed: HTTP {resp.status_code}"))
             raise typer.Exit(1)
     except httpx.RequestError as exc:
-        err_console.print(f"Cannot reach {meta.url}: {exc}")
+        err_console.print(Notice.error(f"Cannot reach {meta.url}: {exc}"))
         raise typer.Exit(1) from exc
 
     now = datetime.now(UTC)
@@ -819,7 +821,9 @@ def instance_connect(profile: str = typer.Argument("")) -> None:
         update["instance_name"] = instance_name
     registry.save(meta.model_copy(update=update))
     console.print(
-        f"Connected to {profile!r}. Token valid until {new_expiry.strftime('%H:%M UTC')}."
+        Notice.info(
+            f"Connected to {profile!r}. Token valid until {new_expiry.strftime('%H:%M UTC')}."
+        )
     )
 
 
@@ -829,19 +833,21 @@ def instance_refresh(profile: str = typer.Argument("")) -> None:
     registry, meta, token, new_expiry = _acquire_token(profile)
     profile = meta.profile
 
-    console.print(f"Capturing snapshot from {profile!r}...")
+    console.print(Notice.info(f"Capturing snapshot from {profile!r}..."))
     try:
         snapshot = asyncio.run(InstanceScanner().scan(meta.url, token, meta.sn_version))
     except SnapshotError as exc:
-        err_console.print(str(exc))
+        err_console.print(Notice.error(str(exc)))
         raise typer.Exit(1) from exc
 
     registry.save_snapshot(profile, snapshot)
     c = snapshot.counts
     registry.save(meta.model_copy(update={"token_expires_at": new_expiry, "snapshot_counts": c}))
     console.print(
-        f"Snapshot captured: {c.ai_skills} AI skills, {c.flows} flows, "
-        f"{c.business_rules} business rules, {c.script_includes} script includes."
+        Notice.info(
+            f"Snapshot captured: {c.ai_skills} AI skills, {c.flows} flows, "
+            f"{c.business_rules} business rules, {c.script_includes} script includes."
+        )
     )
 
 
@@ -851,8 +857,10 @@ def instance_register(profile: str) -> None:
     paths = NexusPaths.from_env()
     if (paths.instances_dir / profile).exists():
         err_console.print(
-            f"Profile {profile!r} already exists. "
-            f"Delete it first with 'nexus instance delete {profile}'."
+            Notice.error(
+                f"Profile {profile!r} already exists. "
+                f"Delete it first with 'nexus instance delete {profile}'."
+            )
         )
         raise typer.Exit(1)
 
@@ -874,7 +882,7 @@ def instance_register(profile: str) -> None:
     try:
         token_response = oauth.exchange(client_secret, password)
     except OAuthError as exc:
-        err_console.print(str(exc))
+        err_console.print(Notice.error(str(exc)))
         raise typer.Exit(1) from exc
 
     sn_version, sn_build, instance_name = _detect_sn_version(
@@ -882,8 +890,10 @@ def instance_register(profile: str) -> None:
     )
     if sn_version == "unknown":
         console.print(
-            "  Version: unknown (glide.buildtag not in sys_properties -- "
-            "run with --log-level DEBUG to diagnose)"
+            Notice.warn(
+                "Version: unknown (glide.buildtag not in sys_properties -- "
+                "run with --log-level DEBUG to diagnose)"
+            )
         )
 
     registry = InstanceRegistry(paths.instances_dir)
@@ -898,11 +908,11 @@ def instance_register(profile: str) -> None:
         token_expires_in=token_response.expires_in,
     )
     registry.register(meta)
-    console.print(f"  Registered {profile} ({sn_version}).")
+    console.print(Notice.info(f"Registered {profile} ({sn_version})."))
 
     if not ConfigManager(paths).load().instances.default:
         _set_default_profile(paths, profile)
-        console.print("  Set as default instance.")
+        console.print(Notice.info("Set as default instance."))
 
 
 @capture_app.callback(invoke_without_command=True)
@@ -911,7 +921,7 @@ def capture_callback(ctx: typer.Context) -> None:
     if ctx.invoked_subcommand is not None:
         return
     capture_list()
-    _print_command_guide("nexus capture", _CAPTURE_HELP)
+    console.print(CommandGuide(app_name="nexus capture", items=_CAPTURE_HELP))
 
 
 @capture_app.command("discover")
