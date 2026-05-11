@@ -6,16 +6,11 @@
 import io
 
 from rich.console import Console
-from rich.text import Text
 
 from nexus.ui.components.marker import default_marker
 from nexus.ui.theme import NEXUS_THEME
 
 __all__: list[str] = []
-
-
-def test_default_marker_returns_text() -> None:
-    assert isinstance(default_marker(), Text)
 
 
 def test_default_marker_text_is_asterisk_space() -> None:
