@@ -56,12 +56,17 @@ class CommandGuide(BaseModel):
         table.add_column("desc", style="dim", no_wrap=True)
         for cmd, desc in self.items:
             cmd_text = gradient_text(
-                f"{self.app_name} {cmd}", start=SN_BLUE, end=SN_LIME,
+                f"{self.app_name} {cmd}",
+                start=SN_BLUE,
+                end=SN_LIME,
             )
             cmd_text.stylize("bold")
             table.add_row(cmd_text, desc)
         panel = GradientPanel(
-            table, title=self.app_name, start=SN_BLUE, end=SN_LIME,
+            table,
+            title=self.app_name,
+            start=SN_BLUE,
+            end=SN_LIME,
         )
         footer = Text(
             f"  Run {self.app_name} <command> --help for details.",

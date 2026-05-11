@@ -63,9 +63,7 @@ class StatusReporter:
             two_col(self._identity_panel(detection, runtime), self._system_panel(runtime))
         )
         self._console.print(self._integrations_panel(detection))
-        self._console.print(
-            two_col(self._diagnostics_panel(runtime), self._update_panel(runtime))
-        )
+        self._console.print(two_col(self._diagnostics_panel(runtime), self._update_panel(runtime)))
         if detection.needs_reauth_servers:
             servers = sorted(s.value for s in detection.needs_reauth_servers)
             if len(servers) == 1:
@@ -74,9 +72,7 @@ class StatusReporter:
                 msg = f"Run `nexus reauth --server <name>` for: {', '.join(servers)}"
             self._console.print(Notice.warn(msg))
 
-    def _identity_panel(
-        self, detection: TierDetection, runtime: RuntimeInfo
-    ) -> KeyValuePanel:
+    def _identity_panel(self, detection: TierDetection, runtime: RuntimeInfo) -> KeyValuePanel:
         """Build the Identity panel.
 
         Args:
@@ -98,13 +94,9 @@ class StatusReporter:
         ]
         if total:
             suffix: RenderableType | None = (
-                StatusBadge.warn(f"{len(reauth_detected)} need reauth")
-                if reauth_detected
-                else None
+                StatusBadge.warn(f"{len(reauth_detected)} need reauth") if reauth_detected else None
             )
-            rows.append(
-                KvRow(label="Servers", value=f"{ready}/{total} ready", suffix=suffix)
-            )
+            rows.append(KvRow(label="Servers", value=f"{ready}/{total} ready", suffix=suffix))
         return KeyValuePanel(title="Identity", rows=rows)
 
     def _system_panel(self, runtime: RuntimeInfo) -> KeyValuePanel:
@@ -125,9 +117,7 @@ class StatusReporter:
             ],
         )
 
-    def _integrations_panel(
-        self, detection: TierDetection
-    ) -> KeyValuePanel | DataTable:
+    def _integrations_panel(self, detection: TierDetection) -> KeyValuePanel | DataTable:
         """Build the Integrations panel.
 
         Args:
@@ -198,9 +188,7 @@ class StatusReporter:
             ),
         ]
         if runtime.install_mode == "editable":
-            rows.append(
-                KvRow(label="Note", value="editable install: auto-update disabled")
-            )
+            rows.append(KvRow(label="Note", value="editable install: auto-update disabled"))
         return KeyValuePanel(title="Auto-update", rows=rows)
 
 
