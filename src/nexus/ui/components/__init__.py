@@ -12,5 +12,6 @@ plain factory functions returning a ``rich.text.Text``. Callers do
 
 from nexus.ui.components.badge import StatusBadge
 from nexus.ui.components.marker import default_marker
+from nexus.ui.components.notice import Notice
 
-__all__ = ["StatusBadge", "default_marker"]
+__all__ = ["Notice", "StatusBadge", "default_marker"]
