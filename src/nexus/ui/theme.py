@@ -38,27 +38,24 @@ SN_TEXT_START: tuple[int, int, int] = (
     int(SN_BLUE[2] + (SN_LIME[2] - SN_BLUE[2]) * 0.40),
 )
 
-_SN_BLUE_RGB = f"rgb({SN_BLUE[0]},{SN_BLUE[1]},{SN_BLUE[2]})"
-_SN_LIME_RGB = f"rgb({SN_LIME[0]},{SN_LIME[1]},{SN_LIME[2]})"
-
 NEXUS_THEME = Theme(
     {
         # New semantic names -- preferred going forward.
-        "label": f"{_SN_BLUE_RGB} bold",
+        "label": f"rgb({SN_BLUE[0]},{SN_BLUE[1]},{SN_BLUE[2]}) bold",
         "value": "default",
         "dim": "bright_black",
-        "ok": f"{_SN_LIME_RGB} bold",
+        "ok": f"rgb({SN_LIME[0]},{SN_LIME[1]},{SN_LIME[2]}) bold",
         "warn": "yellow bold",
         "error": "red bold",
-        "border.start": _SN_BLUE_RGB,
-        "border.end": _SN_LIME_RGB,
+        "border.start": f"rgb({SN_BLUE[0]},{SN_BLUE[1]},{SN_BLUE[2]})",
+        "border.end": f"rgb({SN_LIME[0]},{SN_LIME[1]},{SN_LIME[2]})",
         # Legacy brand-named styles -- removed in cleanup commit.
         "primary": f"rgb({NEXUS_BLUE[0]},{NEXUS_BLUE[1]},{NEXUS_BLUE[2]})",
         "accent": f"rgb({NEXUS_CYAN[0]},{NEXUS_CYAN[1]},{NEXUS_CYAN[2]})",
-        "sn.blue": _SN_BLUE_RGB,
-        "sn.lime": _SN_LIME_RGB,
+        "sn.blue": f"rgb({SN_BLUE[0]},{SN_BLUE[1]},{SN_BLUE[2]})",
+        "sn.lime": f"rgb({SN_LIME[0]},{SN_LIME[1]},{SN_LIME[2]})",
         "info": "blue",
         "muted": "bright_black",
-        "warning": "yellow",
+        "warning": "yellow bold",
     }
 )
