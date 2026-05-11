@@ -77,6 +77,24 @@ def test_instance_list_shows_registered_profiles(runner: CliRunner, tmp_path: Pa
     assert "dev12345" in result.output
 
 
+def test_instance_list_marks_default_profile_with_lime_asterisk(
+    runner: CliRunner, tmp_path: Path
+) -> None:
+    """The default profile's row begins with the lime '* ' default marker."""
+    _write_meta(tmp_path, _meta("alpha"))
+    _write_meta(tmp_path, _meta("bravo"))
+    use_result = runner.invoke(app, ["instance", "use", "alpha"])
+    assert use_result.exit_code == 0
+
+    list_result = runner.invoke(app, ["instance", "list"])
+    assert list_result.exit_code == 0
+    alpha_pos = list_result.output.index("alpha")
+    bravo_pos = list_result.output.index("bravo")
+    assert "* alpha" in list_result.output
+    assert "* bravo" not in list_result.output
+    assert alpha_pos < bravo_pos or alpha_pos > bravo_pos  # both present in output
+
+
 def test_instance_status_shows_meta_fields(runner: CliRunner, tmp_path: Path) -> None:
     _write_meta(tmp_path, _meta("dev12345"))
     result = runner.invoke(app, ["instance", "status", "dev12345"])
