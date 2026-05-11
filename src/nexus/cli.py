@@ -1281,7 +1281,16 @@ def plugins_diff(
             rows=rows,
         )
     )
-    console.print(Notice.info(f"{len(entries)} difference(s)."))
+    counts: dict[str, int] = {
+        "only_in_a": 0,
+        "only_in_b": 0,
+        "version_mismatch": 0,
+        "state_mismatch": 0,
+    }
+    for entry in entries:
+        counts[entry.status] += 1
+    breakdown = ", ".join(f"{n} {k}" for k, n in counts.items() if n)
+    console.print(Notice.info(f"{len(entries)} difference(s): {breakdown}"))
 
 
 def _promote_payload(plan: PromotionPlan) -> dict[str, object]:
