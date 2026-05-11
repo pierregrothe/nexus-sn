@@ -9,19 +9,19 @@ import io
 from rich.console import Console
 
 from nexus.ui.banner import banner_text, gradient, print_banner
-from nexus.ui.theme import NEXUS_BLUE, NEXUS_CYAN
+from nexus.ui.theme import SN_BLUE, SN_LIME
 
 
 def test_gradient_returns_empty_text_for_empty_input() -> None:
-    text = gradient("", start=NEXUS_BLUE, end=NEXUS_CYAN)
+    text = gradient("", start=SN_BLUE, end=SN_LIME)
     assert str(text) == ""
 
 
 def test_gradient_handles_single_character() -> None:
-    text = gradient("A", start=NEXUS_BLUE, end=NEXUS_CYAN)
+    text = gradient("A", start=SN_BLUE, end=SN_LIME)
     assert str(text) == "A"
     # Single-char path bakes the start RGB into the Text's own style.
-    assert str(NEXUS_BLUE[0]) in str(text.style)
+    assert str(SN_BLUE[0]) in str(text.style)
 
 
 def test_gradient_first_segment_uses_start_color() -> None:

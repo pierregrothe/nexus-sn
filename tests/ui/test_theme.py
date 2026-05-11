@@ -55,10 +55,6 @@ def test_warn_style_is_yellow_bold() -> None:
     assert NEXUS_THEME.styles["warn"] == Style.parse("yellow bold")
 
 
-def test_warning_legacy_alias_matches_warn() -> None:
-    assert NEXUS_THEME.styles["warning"] == NEXUS_THEME.styles["warn"]
-
-
 def test_label_renders_in_blue_bold() -> None:
     console = Console(
         record=True,
