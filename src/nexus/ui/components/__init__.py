@@ -15,5 +15,16 @@ from nexus.ui.components.hint import Hint
 from nexus.ui.components.marker import default_marker
 from nexus.ui.components.notice import Notice
 from nexus.ui.components.panel import KeyValuePanel, KvRow, two_col
+from nexus.ui.components.table import DataColumn, DataTable
 
-__all__ = ["Hint", "KeyValuePanel", "KvRow", "Notice", "StatusBadge", "default_marker", "two_col"]
+__all__ = [
+    "DataColumn",
+    "DataTable",
+    "Hint",
+    "KeyValuePanel",
+    "KvRow",
+    "Notice",
+    "StatusBadge",
+    "default_marker",
+    "two_col",
+]
