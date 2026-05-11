@@ -402,13 +402,109 @@ def _warn_token_cap(url: str, username: str, password: str) -> None:
         pass
 
 
-def _provision_oauth(url: str, profile: str, username: str, password: str) -> tuple[str, str]:
-    """Try to auto-create an OAuth app in SN; fall back to manual prompts on failure.
+def _fetch_existing_nexus_oauth_apps(
+    url: str, username: str, password: str
+) -> list[dict[str, str]]:
+    """Return oauth_entity records whose name starts with ``nexus-``.
 
-    Posts to the oauth_entity Table API using HTTP Basic auth. If the instance
-    returns 201 with a client_id, the caller receives those credentials without
-    any interactive prompts. On any failure the user is shown setup instructions
-    and prompted to enter the credentials manually.
+    Lists OAuth applications already provisioned on the SN instance (e.g. by
+    another Nexus install registered against the same instance). Returns ``[]``
+    on any failure -- the caller treats that as 'no existing apps'.
+
+    Args:
+        url: Full instance URL.
+        username: SN login for Basic auth.
+        password: SN password for Basic auth.
+
+    Returns:
+        Each entry has keys ``name``, ``client_id``, ``sys_id``, ``sys_created_on``.
+        Entries without a ``client_id`` are dropped.
+    """
+    try:
+        with httpx.Client(base_url=url, timeout=10.0) as sn:
+            resp = sn.get(
+                "/api/now/table/oauth_entity",
+                params={
+                    "sysparm_query": "nameSTARTSWITHnexus-",
+                    "sysparm_fields": "name,client_id,sys_id,sys_created_on",
+                    "sysparm_limit": "100",
+                },
+                auth=(username, password),
+            )
+        if resp.status_code != 200:
+            return []
+        rows = resp.json().get("result", [])
+        return [
+            {
+                "name": str(r.get("name", "")),
+                "client_id": str(r.get("client_id", "")),
+                "sys_id": str(r.get("sys_id", "")),
+                "sys_created_on": str(r.get("sys_created_on", "")),
+            }
+            for r in rows
+            if r.get("client_id")
+        ]
+    except (httpx.RequestError, ValueError):
+        return []
+
+
+def _pick_existing_oauth_app(
+    entries: list[dict[str, str]], profile: str
+) -> tuple[str, str] | None:
+    """Prompt the user to reuse an existing Nexus OAuth app or create a new one.
+
+    The client_secret is not retrievable from ServiceNow (the Table API returns
+    a masked value), so the user must paste it from the other Nexus install
+    that originally provisioned the app.
+
+    Args:
+        entries: Output of ``_fetch_existing_nexus_oauth_apps``. Must be non-empty.
+        profile: Profile being registered -- shown in the "create new" option.
+
+    Returns:
+        ``(client_id, client_secret)`` if the user picks an existing entry and
+        supplies the secret, or ``None`` if they choose to create a new app.
+    """
+    console.print("")
+    console.print(f"  Found {len(entries)} existing Nexus OAuth app(s) on this instance:")
+    for i, entry in enumerate(entries, 1):
+        console.print(
+            f"    {i}. {entry['name']}  "
+            f"(client_id={entry['client_id']}, created {entry['sys_created_on']})"
+        )
+    console.print(f"    n. Create a new app named 'nexus-{profile}'")
+    console.print("")
+    raw: str = typer.prompt(f"  Pick one (1-{len(entries)}) or 'n' for new")
+    choice = raw.strip().lower()
+    if choice == "n":
+        return None
+    try:
+        idx = int(choice)
+    except ValueError:
+        console.print(f"  Invalid choice {raw!r}; will create a new app.")
+        return None
+    if not 1 <= idx <= len(entries):
+        console.print(f"  Choice {idx} out of range; will create a new app.")
+        return None
+    picked = entries[idx - 1]
+    console.print(f"  Reusing OAuth app '{picked['name']}' (client_id={picked['client_id']}).")
+    console.print(
+        "  The client secret is not readable from ServiceNow -- "
+        "paste it from your other Nexus install."
+    )
+    secret: str = typer.prompt("  OAuth Client Secret", hide_input=True)
+    return picked["client_id"], secret
+
+
+def _provision_oauth(url: str, profile: str, username: str, password: str) -> tuple[str, str]:
+    """Reuse or auto-create an OAuth app in SN; fall back to manual prompts on failure.
+
+    First queries the instance for any existing ``nexus-*`` OAuth apps and, if
+    found, offers to reuse one (prompting the user for its client_secret since
+    SN won't return it). If the user declines or no entry is found, POSTs a new
+    record to the oauth_entity Table API using HTTP Basic auth. On any failure
+    the user is shown setup instructions and prompted to enter the credentials
+    manually.
 
     Args:
         url: Full instance URL.
@@ -419,6 +515,12 @@ def _provision_oauth(url: str, profile: str, username: str, password: str) -> tu
     Returns:
         Tuple of (client_id, client_secret).
     """
+    existing = _fetch_existing_nexus_oauth_apps(url, username, password)
+    if existing:
+        picked = _pick_existing_oauth_app(existing, profile)
+        if picked is not None:
+            return picked
+
     generated_secret = str(uuid.uuid4())
     fail_reason = ""
     try:
