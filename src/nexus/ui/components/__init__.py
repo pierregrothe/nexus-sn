@@ -9,5 +9,6 @@ Callers do `console.print(StatusBadge.warn("EXPIRED"))`.
 """
 
 from nexus.ui.components.badge import StatusBadge
+from nexus.ui.components.marker import default_marker
 
-__all__ = ["StatusBadge"]
+__all__ = ["StatusBadge", "default_marker"]
