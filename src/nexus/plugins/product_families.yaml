@@ -1,0 +1,82 @@
+# src/nexus/plugins/product_families.yaml
+# Curated mapping of ServiceNow plugin IDs to product families.
+# Author: Pierre Grothe
+# Date: 2026-05-11
+#
+# Keys are plugin_id values seen in v_plugin.id or sys_store_app.scope.
+# Values must match one of the ProductFamily enum names exactly.
+# Unknown plugin IDs fall through to ``Uncategorized`` in code.
+
+# ITSM
+"com.snc.incident":                    ITSM
+"com.snc.problem":                     ITSM
+"com.snc.change_management":           ITSM
+"com.snc.change_request_calendar":     ITSM
+"com.snc.service_catalog":             ITSM
+"com.snc.knowledge":                   ITSM
+"com.snc.knowledge_advanced":          ITSM
+"com.snc.itil":                        ITSM
+
+# ITOM
+"com.snc.discovery":                   ITOM
+"com.snc.event_management":            ITOM
+"com.snc.cmdb":                        ITOM
+"com.snc.service_mapping":             ITOM
+"com.snc.cloud_management":            ITOM
+"com.snc.itom_licensing":              ITOM
+"com.snc.health_log_analytics":        ITOM
+
+# ITAM
+"com.snc.asset_management":            ITAM
+"com.snc.software_asset_management":   ITAM
+"com.snc.hardware_asset_management":   ITAM
+"com.snc.contract_management":         ITAM
+
+# SPM
+"com.snc.financial_planning":          SPM
+"com.snc.demand_management":           SPM
+"com.snc.project_management":          SPM
+"com.snc.resource_management":         SPM
+"com.snc.agile":                       SPM
+"com.snc.test_management":             SPM
+
+# CSM
+"sn_customerservice":                  CSM
+"com.snc.customerservice":             CSM
+"sn_csm_customer_portal":              CSM
+"sn_omnichannel":                      CSM
+
+# HRSD
+"sn_hr_core":                          HRSD
+"sn_hr_lifecycle_events":              HRSD
+"sn_hr_case_management":               HRSD
+"sn_hr_employee_service_center":       HRSD
+
+# FSM
+"sn_fsm":                              FSM
+"sn_fsm_dispatch":                     FSM
+
+# GRC
+"com.sn_grc":                          GRC
+"com.snc.audit":                       GRC
+"com.snc.policy_compliance":           GRC
+
+# IRM
+"sn_irm_core":                         IRM
+"sn_irm_risk":                         IRM
+"sn_irm_advanced_risk":                IRM
+
+# SecOps
+"sn_si":                               SecOps
+"sn_vul":                              SecOps
+"sn_ti":                               SecOps
+"com.snc.threat_intelligence":         SecOps
+
+# Platform
+"com.servicenow.dashboards":           Platform
+"com.snc.performance_analytics":       Platform
+"com.snc.platform_security":           Platform
+"com.snc.notification":                Platform
+"com.snc.virtualagent":                Platform
+"com.snc.ai_search":                   Platform
+"com.snc.now_assist":                  Platform
