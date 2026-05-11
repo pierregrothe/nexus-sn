@@ -32,8 +32,18 @@ def _info(**overrides: object) -> PluginInfo:
 
 def test_product_family_includes_all_curated_families() -> None:
     for name in (
-        "ITSM", "ITOM", "ITAM", "SPM", "CSM", "HRSD",
-        "FSM", "GRC", "IRM", "SecOps", "Platform", "Uncategorized",
+        "ITSM",
+        "ITOM",
+        "ITAM",
+        "SPM",
+        "CSM",
+        "HRSD",
+        "FSM",
+        "GRC",
+        "IRM",
+        "SecOps",
+        "Platform",
+        "Uncategorized",
     ):
         assert any(f.value == name for f in ProductFamily)
 
@@ -67,24 +77,18 @@ def test_plugin_info_rejects_unknown_source() -> None:
 
 def test_plugin_inventory_holds_captured_at_and_plugins() -> None:
     now = datetime.now(UTC)
-    inv = PluginInventory(
-        captured_at=now, sn_version="Xanadu", plugins=(_info(),)
-    )
+    inv = PluginInventory(captured_at=now, sn_version="Xanadu", plugins=(_info(),))
     assert inv.captured_at == now
     assert inv.plugins[0].plugin_id == "com.snc.incident"
 
 
 def test_plugin_inventory_is_frozen() -> None:
-    inv = PluginInventory(
-        captured_at=datetime.now(UTC), sn_version="Xanadu", plugins=()
-    )
+    inv = PluginInventory(captured_at=datetime.now(UTC), sn_version="Xanadu", plugins=())
     with pytest.raises(ValidationError):
         inv.sn_version = "Yokohama"
 
 
 def test_plugin_inventory_round_trips_through_json() -> None:
-    inv = PluginInventory(
-        captured_at=datetime.now(UTC), sn_version="Xanadu", plugins=(_info(),)
-    )
+    inv = PluginInventory(captured_at=datetime.now(UTC), sn_version="Xanadu", plugins=(_info(),))
     re = PluginInventory.model_validate_json(inv.model_dump_json())
     assert re == inv

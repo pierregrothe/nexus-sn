@@ -59,12 +59,8 @@ def _seed(tmp_path: Path, profile: str, plugins: tuple[PluginInfo, ...]) -> None
     (profile_dir / "meta.json").write_text(
         _meta(profile).model_dump_json(indent=2), encoding="utf-8"
     )
-    inv = PluginInventory(
-        captured_at=datetime.now(UTC), sn_version="Xanadu", plugins=plugins
-    )
-    (profile_dir / "plugins.json").write_text(
-        inv.model_dump_json(indent=2), encoding="utf-8"
-    )
+    inv = PluginInventory(captured_at=datetime.now(UTC), sn_version="Xanadu", plugins=plugins)
+    (profile_dir / "plugins.json").write_text(inv.model_dump_json(indent=2), encoding="utf-8")
 
 
 @pytest.fixture
@@ -129,22 +125,16 @@ def test_plugins_list_filters_by_state(runner: CliRunner, tmp_path: Path) -> Non
     assert "com.snc.incident" not in result.output
 
 
-def test_plugins_list_warns_when_no_inventory(
-    runner: CliRunner, tmp_path: Path
-) -> None:
+def test_plugins_list_warns_when_no_inventory(runner: CliRunner, tmp_path: Path) -> None:
     profile_dir = tmp_path / "instances" / "dev"
     profile_dir.mkdir(parents=True)
-    (profile_dir / "meta.json").write_text(
-        _meta("dev").model_dump_json(indent=2), encoding="utf-8"
-    )
+    (profile_dir / "meta.json").write_text(_meta("dev").model_dump_json(indent=2), encoding="utf-8")
     runner.invoke(app, ["instance", "use", "dev"])
     result = runner.invoke(app, ["plugins", "list"])
     assert "nexus instance refresh" in result.output
 
 
-def test_plugins_info_renders_full_metadata(
-    runner: CliRunner, tmp_path: Path
-) -> None:
+def test_plugins_info_renders_full_metadata(runner: CliRunner, tmp_path: Path) -> None:
     _seed(
         tmp_path,
         "dev",
@@ -171,9 +161,7 @@ def test_plugins_info_renders_full_metadata(
     assert "com.snc.cmdb" in result.output
 
 
-def test_plugins_info_with_unknown_plugin_exits_nonzero(
-    runner: CliRunner, tmp_path: Path
-) -> None:
+def test_plugins_info_with_unknown_plugin_exits_nonzero(runner: CliRunner, tmp_path: Path) -> None:
     _seed(tmp_path, "dev", (_info("com.snc.incident"),))
     runner.invoke(app, ["instance", "use", "dev"])
     result = runner.invoke(app, ["plugins", "info", "com.snc.missing"])
@@ -197,9 +185,7 @@ def test_plugins_export_yaml_round_trips_through_plugin_inventory(
     assert "Plugins:" in content or "plugins:" in content
 
 
-def test_plugins_export_csv_emits_one_row_per_plugin(
-    runner: CliRunner, tmp_path: Path
-) -> None:
+def test_plugins_export_csv_emits_one_row_per_plugin(runner: CliRunner, tmp_path: Path) -> None:
     _seed(
         tmp_path,
         "dev",
@@ -217,9 +203,7 @@ def test_plugins_export_csv_emits_one_row_per_plugin(
     assert lines[0].startswith("plugin_id,")
 
 
-def test_plugins_export_rejects_unknown_format(
-    runner: CliRunner, tmp_path: Path
-) -> None:
+def test_plugins_export_rejects_unknown_format(runner: CliRunner, tmp_path: Path) -> None:
     _seed(tmp_path, "dev", (_info("com.snc.incident"),))
     runner.invoke(app, ["instance", "use", "dev"])
     result = runner.invoke(
