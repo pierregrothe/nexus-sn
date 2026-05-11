@@ -50,6 +50,7 @@ from nexus.instances.oauth import SNOAuthClient
 from nexus.instances.registry import InstanceRegistry
 from nexus.instances.scanner import InstanceScanner
 from nexus.plugins import PluginInventory, PluginScanError, PluginScanner
+from nexus.plugins.models import PluginInfo
 from nexus.ui import (
     CommandGuide,
     DataColumn,
@@ -58,6 +59,7 @@ from nexus.ui import (
     KeyValuePanel,
     KvRow,
     Notice,
+    StatusBadge,
     default_marker,
     nexus_progress,
 )
@@ -82,6 +84,17 @@ app.add_typer(instance_app)
 
 capture_app = typer.Typer(name="capture", help="Capture and deploy ServiceNow configurations.")
 app.add_typer(capture_app)
+
+plugins_app = typer.Typer(
+    name="plugins", help="Inspect the plugin inventory of registered instances."
+)
+app.add_typer(plugins_app)
+
+_PLUGINS_HELP = [
+    ("list", "Show all plugins with optional --product / --source / --state filters"),
+    ("info <plugin_id>", "Show full details and dependencies for one plugin"),
+    ("export", "Write the inventory to YAML or CSV"),
+]
 
 _CAPTURE_HELP = [
     ("discover", "List scopes with custom AI/automation configs"),
@@ -961,6 +974,82 @@ def instance_register(profile: str) -> None:
     if not ConfigManager(paths).load().instances.default:
         _set_default_profile(paths, profile)
         console.print(Notice.info("Set as default instance."))
+
+
+def _plugins_for(profile: str) -> tuple[InstanceMeta, tuple[PluginInfo, ...]] | None:
+    """Resolve a profile and return its plugin inventory, or None when missing.
+
+    Args:
+        profile: Instance profile name, or empty string to use the config default.
+
+    Returns:
+        Tuple of (meta, plugins) when an inventory exists, or ``None`` when the
+        instance has no captured ``plugins.json``.
+    """
+    registry, meta = _resolve_profile(profile)
+    inv = registry.load_plugin_inventory(meta.profile)
+    if inv is None:
+        return None
+    return meta, inv.plugins
+
+
+@plugins_app.command("list")
+def plugins_list(
+    instance: Annotated[
+        str,
+        typer.Option("--instance", help="Instance profile (default: configured default)"),
+    ] = "",
+    product: Annotated[
+        str, typer.Option("--product", help="Filter by product family (e.g. ITSM)")
+    ] = "",
+    source: Annotated[
+        str, typer.Option("--source", help="Filter by source (servicenow|store|custom)")
+    ] = "",
+    state: Annotated[
+        str, typer.Option("--state", help="Filter by state (active|inactive)")
+    ] = "",
+) -> None:
+    """Show all plugins installed on the resolved instance."""
+    resolved = _plugins_for(instance)
+    if resolved is None:
+        console.print(Notice.warn("Plugin inventory empty."))
+        console.print(Hint(label="Refresh", command="nexus instance refresh"))
+        return
+    _, plugins = resolved
+    if product:
+        plugins = tuple(p for p in plugins if p.product_family == product)
+    if source:
+        plugins = tuple(p for p in plugins if p.source == source)
+    if state:
+        plugins = tuple(p for p in plugins if p.state == state)
+    if not plugins:
+        console.print(Notice.info("No plugins match the requested filters."))
+        return
+    rows: list[list[RenderableType]] = [
+        [
+            p.plugin_id,
+            p.name,
+            p.version,
+            StatusBadge.ok(p.state) if p.state == "active" else StatusBadge.warn(p.state),
+            p.source,
+            p.product_family,
+        ]
+        for p in sorted(plugins, key=lambda x: (x.product_family, x.plugin_id))
+    ]
+    console.print(
+        DataTable(
+            title="Plugins",
+            columns=[
+                DataColumn(header="Plugin ID", width=32),
+                DataColumn(header="Name", width=24),
+                DataColumn(header="Version", width=10),
+                DataColumn(header="State", width=10),
+                DataColumn(header="Source", width=11),
+                DataColumn(header="Product", width=14),
+            ],
+            rows=rows,
+        )
+    )
 
 
 @capture_app.callback(invoke_without_command=True)
