@@ -57,7 +57,7 @@ def test_kvrow_rejects_extra_fields() -> None:
 def test_kvrow_is_frozen() -> None:
     row = KvRow(label="x", value="y")
     with pytest.raises(ValidationError):
-        row.label = "z"  # type: ignore[misc]
+        row.label = "z"
 
 
 def test_keyvaluepanel_renders_title_and_rows() -> None:
@@ -133,7 +133,7 @@ def test_keyvaluepanel_renders_suffix_after_value() -> None:
 def test_keyvaluepanel_is_frozen() -> None:
     panel = KeyValuePanel(title="x", rows=[KvRow(label="a", value="b")])
     with pytest.raises(ValidationError):
-        panel.title = "y"  # type: ignore[misc]
+        panel.title = "y"
 
 
 def test_two_col_renders_both_panels_side_by_side() -> None:

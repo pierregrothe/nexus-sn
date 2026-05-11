@@ -39,7 +39,7 @@ def test_hint_rejects_extra_fields() -> None:
 def test_hint_is_frozen() -> None:
     hint = Hint(label="Next", command="x")
     with pytest.raises(ValidationError):
-        hint.command = "y"  # type: ignore[misc]
+        hint.command = "y"
 
 
 def test_hint_renders_with_two_space_leading_indent() -> None:

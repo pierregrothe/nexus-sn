@@ -45,7 +45,7 @@ def test_status_badge_rejects_extra_fields() -> None:
 def test_status_badge_is_frozen() -> None:
     badge = StatusBadge(text="READY", variant="ok")
     with pytest.raises(ValidationError):
-        badge.text = "OTHER"  # type: ignore[misc]
+        badge.text = "OTHER"
 
 
 def test_status_badge_ok_classmethod_sets_variant() -> None:
