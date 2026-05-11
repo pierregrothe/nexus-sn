@@ -2,7 +2,6 @@
 # Tests for nexus.ui.theme tokens and Rich Theme map.
 # Author: Pierre Grothe
 # Date: 2026-05-11
-"""Tests for nexus.ui.theme tokens and Rich Theme map."""
 
 from rich.console import Console
 
