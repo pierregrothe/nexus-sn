@@ -225,6 +225,21 @@ def _set_default_profile(paths: NexusPaths, profile: str) -> None:
     manager.save(manager.load().model_copy(update={"instances": InstancesConfig(default=profile)}))
 
 
+def _parse_buildtag_version(value: str) -> str:
+    """Extract the human-readable SN release name from a glide.buildtag value.
+
+    Args:
+        value: Raw property value, e.g. ``"glide-xanadu-..."`` or ``"xanadu-..."``.
+
+    Returns:
+        Capitalised release name (e.g. ``"Xanadu"``), or the first dash-separated
+        token when the value does not start with ``glide-``.
+    """
+    parts = value.split("-")
+    word = parts[1] if parts[0].lower() == "glide" and len(parts) > 1 else parts[0]
+    return word.capitalize()
+
+
 def _detect_sn_version(url: str, token: str, profile: str) -> tuple[str, str, str]:
     """Query sys_properties to detect the SN version, build tag, and instance name.
 
@@ -277,9 +292,7 @@ def _detect_sn_version(url: str, token: str, profile: str) -> tuple[str, str, st
                     continue
                 if prop in _BUILDTAG_PROPS:
                     sn_build = val
-                    parts = val.split("-")
-                    word = parts[1] if parts[0].lower() == "glide" and len(parts) > 1 else parts[0]
-                    sn_version = word.capitalize()
+                    sn_version = _parse_buildtag_version(val)
                 else:
                     instance_name = val
 
@@ -298,13 +311,7 @@ def _detect_sn_version(url: str, token: str, profile: str) -> tuple[str, str, st
                         val = str(row.get("value", "")).strip()
                         if val:
                             sn_build = val
-                            parts = val.split("-")
-                            word = (
-                                parts[1]
-                                if parts[0].lower() == "glide" and len(parts) > 1
-                                else parts[0]
-                            )
-                            sn_version = word.capitalize()
+                            sn_version = _parse_buildtag_version(val)
                             break
 
     except httpx.RequestError:
@@ -338,7 +345,10 @@ def _print_oauth_setup(url: str, profile: str) -> None:
     console.print("")
 
 
-def _warn_token_cap(url: str, username: str, password: str) -> None:
+_CAP_PROP = "glide.oauth.access_token.expire_in.system_max_seconds"
+
+
+def _warn_token_cap(sn: httpx.Client, username: str, password: str) -> None:
     """Print a warning if the SN system access token cap is below 8 hours.
 
     The property glide.oauth.access_token.expire_in.system_max_seconds overrides
@@ -348,22 +358,20 @@ def _warn_token_cap(url: str, username: str, password: str) -> None:
     raise the cap if they want longer access tokens.
 
     Args:
-        url: Full instance URL.
+        sn: Open httpx.Client bound to the instance base URL.
         username: SN login for Basic auth.
         password: SN password for Basic auth.
     """
-    _CAP_PROP = "glide.oauth.access_token.expire_in.system_max_seconds"
     try:
-        with httpx.Client(base_url=url, timeout=10.0) as sn:
-            r = sn.get(
-                "/api/now/table/sys_properties",
-                params={
-                    "sysparm_query": f"name={_CAP_PROP}",
-                    "sysparm_fields": "value",
-                    "sysparm_limit": "1",
-                },
-                auth=(username, password),
-            )
+        r = sn.get(
+            "/api/now/table/sys_properties",
+            params={
+                "sysparm_query": f"name={_CAP_PROP}",
+                "sysparm_fields": "value",
+                "sysparm_limit": "1",
+            },
+            auth=(username, password),
+        )
         if r.status_code != 200:
             return
         rows = r.json().get("result", [])
@@ -512,16 +520,16 @@ def _provision_oauth(url: str, profile: str, username: str, password: str) -> tu
                 },
                 auth=(username, password),
             )
-        if resp.status_code == 201:
-            result = resp.json().get("result", {})
-            client_id = str(result.get("client_id", ""))
-            if client_id:
-                console.print(f"  Created OAuth application 'nexus-{profile}' automatically.")
-                _warn_token_cap(url, username, password)
-                return client_id, generated_secret
-            fail_reason = "HTTP 201 but no client_id in response"
-        else:
-            fail_reason = f"HTTP {resp.status_code}"
+            if resp.status_code == 201:
+                result = resp.json().get("result", {})
+                client_id = str(result.get("client_id", ""))
+                if client_id:
+                    console.print(f"  Created OAuth application 'nexus-{profile}' automatically.")
+                    _warn_token_cap(sn, username, password)
+                    return client_id, generated_secret
+                fail_reason = "HTTP 201 but no client_id in response"
+            else:
+                fail_reason = f"HTTP {resp.status_code}"
     except httpx.RequestError as exc:
         fail_reason = str(exc)
 
@@ -1006,15 +1014,13 @@ async def _resolve_scope_ids(
     if not keys_to_lookup:
         return scope_args
 
-    # One direct query for all keys -- far cheaper than a full discover
     in_query = f"scopeIN{','.join(keys_to_lookup)}"
-    async with client:
-        rows = await client.list_records(
-            "sys_scope",
-            query=in_query,
-            fields="sys_id,scope",
-            limit=len(keys_to_lookup) + 1,
-        )
+    rows = await client.list_records(
+        "sys_scope",
+        query=in_query,
+        fields="sys_id,scope",
+        limit=len(keys_to_lookup) + 1,
+    )
     key_map = {str(r.get("scope", "")): str(r.get("sys_id", "")) for r in rows}
 
     resolved: list[str] = []
@@ -1059,21 +1065,20 @@ def capture_pull(
         engine, client = _build_capture_engine(instance)
         resolved_instance = instance or _config_default()
 
-        # Resolve scope keys before opening the capture connection
-        scope_ids = await _resolve_scope_ids(scope, client)
+        async with client:
+            scope_ids = await _resolve_scope_ids(scope, client)
 
-        with nexus_progress(console) as progress:
-            task = progress.add_task("Preparing...", total=None)
+            with nexus_progress(console) as progress:
+                task = progress.add_task("Preparing...", total=None)
 
-            def on_progress(completed: int, total: int, message: str) -> None:
-                progress.update(
-                    task,
-                    description=message,
-                    total=total if total > 0 else None,
-                    completed=completed,
-                )
+                def on_progress(completed: int, total: int, message: str) -> None:
+                    progress.update(
+                        task,
+                        description=message,
+                        total=total if total > 0 else None,
+                        completed=completed,
+                    )
 
-            async with client:
                 result = await engine.capture(
                     resolved_instance, scope_ids, group, on_progress=on_progress
                 )
@@ -1156,9 +1161,9 @@ def capture_push(
         engine, client = _build_capture_engine(instance)
         manifest_path = Path(archive) / "manifest.yaml"
         result = engine.load_archive(manifest_path)
+        resolved_instance = instance or _config_default()
         async with client:
-            resolved_instance = instance or _config_default()
-        ref = await engine.push_to_update_set(result, resolved_instance, update_set)
+            ref = await engine.push_to_update_set(result, resolved_instance, update_set)
         console.print(
             KeyValuePanel(
                 title="Push complete",

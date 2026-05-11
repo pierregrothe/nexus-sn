@@ -65,3 +65,24 @@ def transport_raising(exc: Exception) -> httpx.MockTransport:
         raise exc
 
     return httpx.MockTransport(handler)
+
+
+def scripted_prompt(answers: list[str]) -> object:
+    """Return a ``typer.prompt`` replacement that yields ``answers`` in order.
+
+    Use with ``monkeypatch.setattr(typer, "prompt", scripted_prompt([...]))`` to
+    drive a Typer command's interactive prompts from a test.
+
+    Args:
+        answers: Strings to return on successive prompt calls.
+
+    Returns:
+        A callable with the same surface as ``typer.prompt`` that returns
+        ``answers[i]`` on the ``i``-th invocation.
+    """
+    queue = iter(answers)
+
+    def _prompt(*_args: object, **_kwargs: object) -> str:
+        return next(queue)
+
+    return _prompt
