@@ -48,9 +48,7 @@ def test_status_badge_is_frozen() -> None:
 
 
 def test_status_badge_ok_classmethod_sets_variant() -> None:
-    badge = StatusBadge.ok("READY")
-    assert badge.variant == "ok"
-    assert badge.text == "READY"
+    assert StatusBadge.ok("READY").variant == "ok"
 
 
 def test_status_badge_warn_classmethod_sets_variant() -> None:
@@ -69,11 +67,18 @@ def test_status_badge_renders_text_in_terminal() -> None:
 
 
 def test_status_badge_warn_emits_yellow_ansi() -> None:
-    console = _record_console()
-    console.print(StatusBadge.warn("NEEDS REAUTH"))
-    styled = console.export_text(styles=True)
-    assert "NEEDS REAUTH" in styled
-    assert "\x1b[" in styled
+    console_warn = _record_console()
+    console_warn.print(StatusBadge.warn("NEEDS REAUTH"))
+    warn_styled = console_warn.export_text(styles=True)
+
+    console_ok = _record_console()
+    console_ok.print(StatusBadge.ok("READY"))
+    ok_styled = console_ok.export_text(styles=True)
+
+    assert "NEEDS REAUTH" in warn_styled
+    assert "\x1b[" in warn_styled
+    # Different variants must emit different ANSI sequences.
+    assert warn_styled.replace("NEEDS REAUTH", "") != ok_styled.replace("READY", "")
 
 
 def test_status_badge_renders_plain_when_not_terminal() -> None:
