@@ -14,7 +14,9 @@ from nexus.plugins.diff import (
     PluginDiffEntry,
     PromoteAction,
     PromotionPlan,
+    compute_diff,
 )
+from nexus.plugins.models import PluginInfo, PluginInventory
 
 __all__: list[str] = []
 
@@ -137,3 +139,102 @@ def test_promotion_plan_round_trips_through_json() -> None:
     )
     re = PromotionPlan.model_validate_json(plan.model_dump_json())
     assert re == plan
+
+
+def _info(
+    plugin_id: str,
+    *,
+    version: str = "1.0.0",
+    state: str = "active",
+    product_family: str = "ITSM",
+    name: str = "",
+) -> PluginInfo:
+    return PluginInfo.model_validate(
+        {
+            "plugin_id": plugin_id,
+            "name": name or plugin_id,
+            "version": version,
+            "state": state,
+            "source": "servicenow",
+            "product_family": product_family,
+            "depends_on": (),
+            "sys_id": f"sys-{plugin_id}",
+            "installed_at": None,
+        }
+    )
+
+
+def _inventory(*plugins: PluginInfo) -> PluginInventory:
+    return PluginInventory(
+        captured_at=datetime.now(UTC),
+        sn_version="Xanadu",
+        plugins=plugins,
+    )
+
+
+def test_compute_diff_returns_empty_entries_for_identical_inventories() -> None:
+    inv = _inventory(_info("com.snc.incident"))
+    diff = compute_diff(inv, inv, profile_a="prod", profile_b="dev")
+    assert diff.entries == ()
+    assert diff.profile_a == "prod"
+    assert diff.profile_b == "dev"
+
+
+def test_compute_diff_reports_only_in_a_when_a_has_extra_plugin() -> None:
+    a = _inventory(_info("com.snc.incident"), _info("com.snc.problem"))
+    b = _inventory(_info("com.snc.incident"))
+    diff = compute_diff(a, b, profile_a="prod", profile_b="dev")
+    assert len(diff.entries) == 1
+    only = diff.entries[0]
+    assert only.plugin_id == "com.snc.problem"
+    assert only.status == "only_in_a"
+    assert only.a_version == "1.0.0"
+    assert only.b_version is None
+    assert only.a_state == "active"
+    assert only.b_state is None
+
+
+def test_compute_diff_reports_only_in_b_when_b_has_extra_plugin() -> None:
+    a = _inventory(_info("com.snc.incident"))
+    b = _inventory(_info("com.snc.incident"), _info("com.snc.problem"))
+    diff = compute_diff(a, b, profile_a="prod", profile_b="dev")
+    only = next(e for e in diff.entries if e.plugin_id == "com.snc.problem")
+    assert only.status == "only_in_b"
+    assert only.a_version is None
+    assert only.b_version == "1.0.0"
+
+
+def test_compute_diff_reports_version_mismatch() -> None:
+    a = _inventory(_info("com.snc.incident", version="1.2.0"))
+    b = _inventory(_info("com.snc.incident", version="1.0.0"))
+    diff = compute_diff(a, b, profile_a="prod", profile_b="dev")
+    assert len(diff.entries) == 1
+    e = diff.entries[0]
+    assert e.status == "version_mismatch"
+    assert e.a_version == "1.2.0"
+    assert e.b_version == "1.0.0"
+    assert e.a_state == "active"
+    assert e.b_state == "active"
+
+
+def test_compute_diff_reports_state_mismatch() -> None:
+    a = _inventory(_info("com.snc.incident", state="active"))
+    b = _inventory(_info("com.snc.incident", state="inactive"))
+    diff = compute_diff(a, b, profile_a="prod", profile_b="dev")
+    assert len(diff.entries) == 1
+    e = diff.entries[0]
+    assert e.status == "state_mismatch"
+    assert e.a_state == "active"
+    assert e.b_state == "inactive"
+
+
+def test_compute_diff_sorts_entries_by_product_then_plugin_id() -> None:
+    a = _inventory(
+        _info("com.snc.discovery", product_family="ITOM"),
+        _info("com.snc.problem", product_family="ITSM"),
+        _info("com.snc.incident", product_family="ITSM"),
+    )
+    b = _inventory()
+    diff = compute_diff(a, b, profile_a="prod", profile_b="dev")
+    ids = [e.plugin_id for e in diff.entries]
+    assert ids == ["com.snc.discovery", "com.snc.incident", "com.snc.problem"]
