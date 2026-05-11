@@ -15,6 +15,7 @@ from nexus.plugins.diff import (
     PromoteAction,
     PromotionPlan,
     compute_diff,
+    project_to_promote_plan,
 )
 from nexus.plugins.models import PluginInfo, PluginInventory
 
@@ -238,3 +239,112 @@ def test_compute_diff_sorts_entries_by_product_then_plugin_id() -> None:
     diff = compute_diff(a, b, profile_a="prod", profile_b="dev")
     ids = [e.plugin_id for e in diff.entries]
     assert ids == ["com.snc.discovery", "com.snc.incident", "com.snc.problem"]
+
+
+def test_project_to_promote_plan_includes_install_for_only_in_a() -> None:
+    diff = compute_diff(
+        _inventory(_info("com.snc.problem")),
+        _inventory(),
+        profile_a="prod",
+        profile_b="dev",
+    )
+    plan = project_to_promote_plan(diff)
+    assert plan.source_profile == "prod"
+    assert plan.target_profile == "dev"
+    assert len(plan.actions) == 1
+    a = plan.actions[0]
+    assert a.action == "install"
+    assert a.plugin_id == "com.snc.problem"
+    assert a.target_version == "1.0.0"
+    assert a.current_version is None
+
+
+def test_project_to_promote_plan_includes_activate_for_active_on_a_inactive_on_b() -> None:
+    diff = compute_diff(
+        _inventory(_info("com.snc.problem", state="active")),
+        _inventory(_info("com.snc.problem", state="inactive")),
+        profile_a="prod",
+        profile_b="dev",
+    )
+    plan = project_to_promote_plan(diff)
+    assert len(plan.actions) == 1
+    assert plan.actions[0].action == "activate"
+
+
+def test_project_to_promote_plan_skips_deactivate_direction() -> None:
+    diff = compute_diff(
+        _inventory(_info("com.snc.problem", state="inactive")),
+        _inventory(_info("com.snc.problem", state="active")),
+        profile_a="prod",
+        profile_b="dev",
+    )
+    plan = project_to_promote_plan(diff)
+    assert plan.actions == ()
+
+
+def test_project_to_promote_plan_includes_upgrade_when_a_version_newer() -> None:
+    diff = compute_diff(
+        _inventory(_info("com.snc.incident", version="2.0.0")),
+        _inventory(_info("com.snc.incident", version="1.0.0")),
+        profile_a="prod",
+        profile_b="dev",
+    )
+    plan = project_to_promote_plan(diff)
+    assert len(plan.actions) == 1
+    a = plan.actions[0]
+    assert a.action == "upgrade"
+    assert a.target_version == "2.0.0"
+    assert a.current_version == "1.0.0"
+
+
+def test_project_to_promote_plan_skips_downgrade_when_a_version_older() -> None:
+    diff = compute_diff(
+        _inventory(_info("com.snc.incident", version="1.0.0")),
+        _inventory(_info("com.snc.incident", version="2.0.0")),
+        profile_a="prod",
+        profile_b="dev",
+    )
+    plan = project_to_promote_plan(diff)
+    assert plan.actions == ()
+
+
+def test_project_to_promote_plan_skips_only_in_b() -> None:
+    diff = compute_diff(
+        _inventory(),
+        _inventory(_info("com.snc.problem")),
+        profile_a="prod",
+        profile_b="dev",
+    )
+    plan = project_to_promote_plan(diff)
+    assert plan.actions == ()
+
+
+def test_project_to_promote_plan_sorts_install_then_activate_then_upgrade() -> None:
+    diff = compute_diff(
+        _inventory(
+            _info("com.snc.aaa"),  # only_in_a -> install
+            _info("com.snc.bbb", version="2.0.0"),  # upgrade
+            _info("com.snc.ccc", state="active"),  # activate
+        ),
+        _inventory(
+            _info("com.snc.bbb", version="1.0.0"),
+            _info("com.snc.ccc", state="inactive"),
+        ),
+        profile_a="prod",
+        profile_b="dev",
+    )
+    plan = project_to_promote_plan(diff)
+    actions = [a.action for a in plan.actions]
+    assert actions == ["install", "activate", "upgrade"]
+
+
+def test_project_to_promote_plan_handles_unparseable_versions_safely() -> None:
+    """Unparseable versions yield a diff entry but no upgrade action."""
+    diff = compute_diff(
+        _inventory(_info("com.snc.incident", version="rolling-feature-x")),
+        _inventory(_info("com.snc.incident", version="rolling-feature-y")),
+        profile_a="prod",
+        profile_b="dev",
+    )
+    plan = project_to_promote_plan(diff)
+    assert plan.actions == ()
