@@ -11,6 +11,8 @@ borders, padding labels to a common width. two_col composes two panels
 side-by-side at equal height.
 """
 
+import io
+
 from pydantic import BaseModel, ConfigDict
 from rich.console import Console, ConsoleOptions, RenderableType, RenderResult
 from rich.table import Table
@@ -40,7 +42,7 @@ class KvRow(BaseModel):
     )
 
     label: str
-    value: str | RenderableType
+    value: RenderableType
     suffix: RenderableType | None = None
 
 
@@ -146,7 +148,9 @@ def _render_inline(renderable: RenderableType) -> Text:
     """
     if isinstance(renderable, Text):
         return renderable
-    capture_console = Console(file=None, force_terminal=False, color_system=None, width=200)
+    capture_console = Console(
+        file=io.StringIO(), force_terminal=False, color_system=None, width=200
+    )
     with capture_console.capture() as cap:
         capture_console.print(renderable, end="")
     return Text(cap.get())
