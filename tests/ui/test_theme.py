@@ -4,6 +4,7 @@
 # Date: 2026-05-11
 
 from rich.console import Console
+from rich.style import Style
 
 from nexus.ui.theme import NEXUS_THEME, SN_BLUE, SN_LIME
 
@@ -48,6 +49,14 @@ def test_theme_exposes_border_start_style() -> None:
 
 def test_theme_exposes_border_end_style() -> None:
     assert "border.end" in NEXUS_THEME.styles
+
+
+def test_warn_style_is_yellow_bold() -> None:
+    assert NEXUS_THEME.styles["warn"] == Style.parse("yellow bold")
+
+
+def test_warning_legacy_alias_matches_warn() -> None:
+    assert NEXUS_THEME.styles["warning"] == NEXUS_THEME.styles["warn"]
 
 
 def test_label_renders_in_blue_bold() -> None:
