@@ -51,6 +51,13 @@ from nexus.instances.oauth import SNOAuthClient
 from nexus.instances.registry import InstanceRegistry
 from nexus.instances.scanner import InstanceScanner
 from nexus.plugins import PluginInventory, PluginScanError, PluginScanner
+from nexus.plugins.diff import (
+    PluginDiff,
+    PluginDiffEntry,
+    PromotionPlan,
+    compute_diff,
+    project_to_promote_plan,
+)
 from nexus.plugins.models import PluginInfo
 from nexus.ui import (
     CommandGuide,
@@ -95,6 +102,8 @@ _PLUGINS_HELP = [
     ("list", "Show all plugins with optional --product / --source / --state filters"),
     ("info <plugin_id>", "Show full details and dependencies for one plugin"),
     ("export", "Write the inventory to YAML or CSV"),
+    ("diff <a> <b>", "Show cross-instance plugin differences"),
+    ("promote <src> --to <dst>", "Write an action plan to make <dst> match <src>"),
 ]
 
 _CAPTURE_HELP = [
@@ -1181,6 +1190,103 @@ def plugins_export(
                     ]
                 )
     console.print(Notice.info(f"Wrote {len(plugins)} plugins to {path}"))
+
+
+def _diff_status_badge(status: str) -> StatusBadge:
+    """Return a StatusBadge for a PluginDiffEntry.status value.
+
+    Args:
+        status: One of ``only_in_a``, ``only_in_b``, ``version_mismatch``,
+            or ``state_mismatch``.
+
+    Returns:
+        StatusBadge styled per the status category.
+    """
+    if status == "version_mismatch":
+        return StatusBadge.error(status)
+    if status == "state_mismatch":
+        return StatusBadge.ok(status)
+    return StatusBadge.warn(status)
+
+
+def _load_inventory_or_exit(profile: str) -> tuple[InstanceMeta, PluginInventory]:
+    """Resolve a profile and load its plugin inventory, exiting with a Hint when empty.
+
+    Args:
+        profile: Profile name to resolve.
+
+    Returns:
+        Tuple of (meta, inventory) once the inventory is loaded.
+
+    Raises:
+        typer.Exit: When the profile has no captured plugin inventory.
+    """
+    registry, meta = _resolve_profile(profile)
+    inv = registry.load_plugin_inventory(meta.profile)
+    if inv is None:
+        console.print(Notice.warn(f"Plugin inventory empty for {meta.profile!r}."))
+        console.print(Hint(label="Refresh", command=f"nexus instance refresh {meta.profile}"))
+        raise typer.Exit(1)
+    return meta, inv
+
+
+@plugins_app.command("diff")
+def plugins_diff(
+    profile_a: str,
+    profile_b: str,
+    status: Annotated[
+        str,
+        typer.Option(
+            "--status",
+            help="Filter by status (only_in_a|only_in_b|version_mismatch|state_mismatch)",
+        ),
+    ] = "",
+) -> None:
+    """Show cross-instance plugin differences."""
+    meta_a, inv_a = _load_inventory_or_exit(profile_a)
+    meta_b, inv_b = _load_inventory_or_exit(profile_b)
+    diff: PluginDiff = compute_diff(inv_a, inv_b, meta_a.profile, meta_b.profile)
+    entries: tuple[PluginDiffEntry, ...] = diff.entries
+    if status:
+        entries = tuple(e for e in entries if e.status == status)
+    if not entries:
+        console.print(Notice.info("No differences found."))
+        return
+    rows: list[list[RenderableType]] = [
+        [
+            e.plugin_id,
+            e.name,
+            e.product_family,
+            _diff_status_badge(e.status),
+            e.a_version or "-",
+            e.b_version or "-",
+            e.a_state or "-",
+            e.b_state or "-",
+        ]
+        for e in entries
+    ]
+    console.print(
+        DataTable(
+            title=f"Plugins: {meta_a.profile} vs {meta_b.profile}",
+            columns=[
+                DataColumn(header="Plugin ID", width=32),
+                DataColumn(header="Name", width=20),
+                DataColumn(header="Product", width=14),
+                DataColumn(header="Status", width=18),
+                DataColumn(header="A version", width=10),
+                DataColumn(header="B version", width=10),
+                DataColumn(header="A state", width=9),
+                DataColumn(header="B state", width=9),
+            ],
+            rows=rows,
+        )
+    )
+    console.print(Notice.info(f"{len(entries)} difference(s)."))
+
+
+# PromotionPlan and project_to_promote_plan are reserved for the
+# promote subcommand added in Task 6 (same file, next commit).
+_DIFF_RESERVED: tuple[object, ...] = (PromotionPlan, project_to_promote_plan)
 
 
 @capture_app.callback(invoke_without_command=True)
