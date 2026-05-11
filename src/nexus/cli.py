@@ -1284,9 +1284,93 @@ def plugins_diff(
     console.print(Notice.info(f"{len(entries)} difference(s)."))
 
 
-# PromotionPlan and project_to_promote_plan are reserved for the
-# promote subcommand added in Task 6 (same file, next commit).
-_DIFF_RESERVED: tuple[object, ...] = (PromotionPlan, project_to_promote_plan)
+def _promote_payload(plan: PromotionPlan) -> dict[str, object]:
+    """Serialise a PromotionPlan into the YAML payload shape."""
+    bucket: dict[str, list[dict[str, object]]] = {
+        "install": [],
+        "activate": [],
+        "upgrade": [],
+    }
+    for action in plan.actions:
+        row: dict[str, object] = {
+            "plugin_id": action.plugin_id,
+            "name": action.name,
+            "product_family": action.product_family,
+            "target_version": action.target_version,
+        }
+        if action.current_version is not None:
+            row["current_version"] = action.current_version
+        bucket[action.action].append(row)
+    return {
+        "source_profile": plan.source_profile,
+        "target_profile": plan.target_profile,
+        "actions": bucket,
+    }
+
+
+@plugins_app.command("promote")
+def plugins_promote(
+    source: str,
+    target: Annotated[
+        str, typer.Option("--to", help="Target profile to bring up to match source.")
+    ],
+    out: Annotated[
+        str,
+        typer.Option(
+            "--out",
+            help="Output YAML file (default: promote-<src>-to-<dst>.yaml)",
+        ),
+    ] = "",
+) -> None:
+    """Write an additive action plan to make <target> match <source>."""
+    if source == target:
+        err_console.print(
+            Notice.error("Source and target are the same profile; nothing to promote.")
+        )
+        raise typer.Exit(1)
+    meta_src, inv_src = _load_inventory_or_exit(source)
+    meta_dst, inv_dst = _load_inventory_or_exit(target)
+    diff = compute_diff(inv_src, inv_dst, meta_src.profile, meta_dst.profile)
+    plan = project_to_promote_plan(diff)
+    if not plan.actions:
+        console.print(
+            Notice.info(
+                f"Target {meta_dst.profile!r} already matches "
+                f"{meta_src.profile!r}. No actions written."
+            )
+        )
+        return
+    path = Path(out) if out else Path(f"promote-{meta_src.profile}-to-{meta_dst.profile}.yaml")
+    payload = _promote_payload(plan)
+    path.write_text(_yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
+    counts: dict[str, int] = {"install": 0, "activate": 0, "upgrade": 0}
+    for action in plan.actions:
+        counts[action.action] += 1
+    console.print(
+        KeyValuePanel(
+            title="Promotion plan",
+            rows=[
+                KvRow(
+                    label="Source",
+                    value=(
+                        f"{meta_src.profile} "
+                        f"(captured {inv_src.captured_at.strftime('%Y-%m-%d %H:%M UTC')})"
+                    ),
+                ),
+                KvRow(
+                    label="Target",
+                    value=(
+                        f"{meta_dst.profile} "
+                        f"(captured {inv_dst.captured_at.strftime('%Y-%m-%d %H:%M UTC')})"
+                    ),
+                ),
+                KvRow(label="Install", value=str(counts["install"])),
+                KvRow(label="Activate", value=str(counts["activate"])),
+                KvRow(label="Upgrade", value=str(counts["upgrade"])),
+                KvRow(label="Output", value=str(path)),
+            ],
+        )
+    )
 
 
 @capture_app.callback(invoke_without_command=True)

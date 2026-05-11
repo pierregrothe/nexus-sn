@@ -8,6 +8,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
+import yaml as _yaml
 from typer.testing import CliRunner
 
 from nexus.cache import clear_cache
@@ -143,3 +144,83 @@ def test_plugins_diff_with_identical_inventories_prints_no_differences(
     result = runner.invoke(app, ["plugins", "diff", "prod", "dev"])
     assert result.exit_code == 0
     assert "No differences" in result.output
+
+
+def test_plugins_promote_writes_yaml_with_install_activate_upgrade_sections(
+    runner: CliRunner, tmp_path: Path
+) -> None:
+    _seed(
+        tmp_path,
+        "prod",
+        (
+            _info("com.snc.aaa"),  # install
+            _info("com.snc.bbb", version="2.0.0"),  # upgrade
+            _info("com.snc.ccc", state="active"),  # activate
+        ),
+    )
+    _seed(
+        tmp_path,
+        "dev",
+        (
+            _info("com.snc.bbb", version="1.0.0"),
+            _info("com.snc.ccc", state="inactive"),
+        ),
+    )
+    out_file = tmp_path / "plan.yaml"
+    result = runner.invoke(
+        app,
+        ["plugins", "promote", "prod", "--to", "dev", "--out", str(out_file)],
+    )
+    assert result.exit_code == 0
+    payload = _yaml.safe_load(out_file.read_text(encoding="utf-8"))
+    assert payload["source_profile"] == "prod"
+    assert payload["target_profile"] == "dev"
+    assert {a["plugin_id"] for a in payload["actions"]["install"]} == {"com.snc.aaa"}
+    assert {a["plugin_id"] for a in payload["actions"]["activate"]} == {"com.snc.ccc"}
+    assert {a["plugin_id"] for a in payload["actions"]["upgrade"]} == {"com.snc.bbb"}
+
+
+def test_plugins_promote_default_out_path_is_promote_src_to_dst_yaml(
+    runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _seed(tmp_path, "prod", (_info("com.snc.aaa"),))
+    _seed(tmp_path, "dev", ())
+    monkeypatch.chdir(tmp_path)
+    result = runner.invoke(app, ["plugins", "promote", "prod", "--to", "dev"])
+    assert result.exit_code == 0
+    expected = tmp_path / "promote-prod-to-dev.yaml"
+    assert expected.exists()
+
+
+def test_plugins_promote_with_zero_actions_prints_already_matches_notice(
+    runner: CliRunner, tmp_path: Path
+) -> None:
+    _seed(tmp_path, "prod", (_info("com.snc.incident"),))
+    _seed(tmp_path, "dev", (_info("com.snc.incident"),))
+    out_file = tmp_path / "plan.yaml"
+    result = runner.invoke(
+        app,
+        ["plugins", "promote", "prod", "--to", "dev", "--out", str(out_file)],
+    )
+    assert result.exit_code == 0
+    assert "already matches" in result.output
+    assert not out_file.exists()
+
+
+def test_plugins_promote_rejects_same_source_and_target(
+    runner: CliRunner, tmp_path: Path
+) -> None:
+    _seed(tmp_path, "prod", (_info("com.snc.incident"),))
+    result = runner.invoke(app, ["plugins", "promote", "prod", "--to", "prod"])
+    assert result.exit_code != 0
+    assert "same profile" in result.output.lower()
+
+
+def test_plugins_promote_errors_when_either_inventory_missing(
+    runner: CliRunner, tmp_path: Path
+) -> None:
+    _seed(tmp_path, "prod", (_info("com.snc.incident"),))
+    _seed(tmp_path, "dev", None)
+    result = runner.invoke(app, ["plugins", "promote", "prod", "--to", "dev"])
+    assert result.exit_code != 0
+    assert "nexus instance refresh" in result.output
