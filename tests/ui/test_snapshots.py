@@ -47,9 +47,7 @@ def _assert_snapshot(name: str, console: Console) -> None:
         path.write_text(actual, encoding="utf-8")
         return
     expected = path.read_text(encoding="utf-8")
-    assert actual == expected, (
-        f"Snapshot drift for {name}. Update {path} if change is intentional."
-    )
+    assert actual == expected, f"Snapshot drift for {name}. Update {path} if change is intentional."
 
 
 def test_snapshot_status_dashboard_renders_identity_panel() -> None:

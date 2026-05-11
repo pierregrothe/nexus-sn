@@ -104,6 +104,7 @@ _TABLE_HEADER: dict[str, str] = {
     "sys_ai_agent": "AI",
 }
 
+
 def _trunc(s: str, width: int) -> str:
     """Truncate ``s`` to ``width`` characters, appending an ellipsis if needed.
 
@@ -420,13 +421,11 @@ def _fetch_existing_nexus_oauth_apps(
             for r in rows
             if r.get("client_id")
         ]
-    except (httpx.RequestError, ValueError):
+    except httpx.RequestError, ValueError:
         return []
 
 
-def _pick_existing_oauth_app(
-    entries: list[dict[str, str]], profile: str
-) -> tuple[str, str] | None:
+def _pick_existing_oauth_app(entries: list[dict[str, str]], profile: str) -> tuple[str, str] | None:
     """Prompt the user to reuse an existing Nexus OAuth app or create a new one.
 
     The client_secret is not retrievable from ServiceNow (the Table API returns
@@ -956,9 +955,7 @@ def capture_discover(
                     row.append(str(scope.table_counts.get(spec.name, 0)))
             rows.append(row)
 
-        console.print(
-            DataTable(title=f"Custom scopes on {resolved}", columns=columns, rows=rows)
-        )
+        console.print(DataTable(title=f"Custom scopes on {resolved}", columns=columns, rows=rows))
 
         if all_scopes or not custom_s:
             summary = f"{len(display)} scopes with custom configs on {resolved}"
@@ -972,9 +969,7 @@ def capture_discover(
         if display:
             example = display[0].scope
             console.print()
-            console.print(
-                Hint(label="Next", command=f"nexus capture pull --scope {example}")
-            )
+            console.print(Hint(label="Next", command=f"nexus capture pull --scope {example}"))
             if len(display) > 1:
                 console.print(
                     Hint(
