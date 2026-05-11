@@ -40,9 +40,7 @@ def _transport_for(
 async def _scan(transport: httpx.MockTransport) -> PluginInventory:
     """Run a scan against the given mock transport."""
     scanner = PluginScanner(transport=transport)
-    return await scanner.scan(
-        url="https://dev.service-now.com", token="t", sn_version="Xanadu"
-    )
+    return await scanner.scan(url="https://dev.service-now.com", token="t", sn_version="Xanadu")
 
 
 def test_scan_returns_inventory_with_captured_at_and_sn_version() -> None:
@@ -120,9 +118,7 @@ def test_scan_falls_back_to_v_plugin_when_store_unreadable() -> None:
 
 def test_scan_raises_plugin_scan_error_when_both_tables_fail() -> None:
     with pytest.raises(PluginScanError):
-        asyncio.run(
-            _scan(_transport_for(v_plugin_status=500, store_status=500))
-        )
+        asyncio.run(_scan(_transport_for(v_plugin_status=500, store_status=500)))
 
 
 def test_scan_resolves_scope_dict_form_to_plugin_id() -> None:
@@ -139,8 +135,6 @@ def test_scan_resolves_scope_dict_form_to_plugin_id() -> None:
             "sys_created_on": "2024-05-01 08:00:00",
         }
     ]
-    inv = asyncio.run(
-        _scan(_transport_for(store_rows=dict_scope_rows, v_plugin_rows=[]))
-    )
+    inv = asyncio.run(_scan(_transport_for(store_rows=dict_scope_rows, v_plugin_rows=[])))
     ids = {p.plugin_id for p in inv.plugins}
     assert "com.snc.problem" in ids

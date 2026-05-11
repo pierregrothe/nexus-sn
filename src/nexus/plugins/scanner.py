@@ -145,9 +145,7 @@ def _scope_value(value: object) -> str:
     return str(value)
 
 
-def _source_for(
-    plugin_id: str, vendor: str
-) -> Literal["servicenow", "store", "custom"]:
+def _source_for(plugin_id: str, vendor: str) -> Literal["servicenow", "store", "custom"]:
     """Derive source from plugin_id prefix and vendor string."""
     if plugin_id.startswith(_CUSTOM_SCOPE_PREFIXES):
         return "custom"

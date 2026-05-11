@@ -33,8 +33,7 @@ def load_product_families() -> dict[str, str]:
     for plugin_id, family in raw.items():
         if family not in valid_values:
             raise ValueError(
-                f"Invalid product family {family!r} for {plugin_id!r} "
-                f"in product_families.yaml"
+                f"Invalid product family {family!r} for {plugin_id!r} " f"in product_families.yaml"
             )
     return raw
 

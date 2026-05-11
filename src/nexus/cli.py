@@ -1015,9 +1015,7 @@ def plugins_list(
     source: Annotated[
         str, typer.Option("--source", help="Filter by source (servicenow|store|custom)")
     ] = "",
-    state: Annotated[
-        str, typer.Option("--state", help="Filter by state (active|inactive)")
-    ] = "",
+    state: Annotated[str, typer.Option("--state", help="Filter by state (active|inactive)")] = "",
 ) -> None:
     """Show all plugins installed on the resolved instance."""
     resolved = _plugins_for(instance)
@@ -1134,9 +1132,7 @@ def plugins_export(
     instance: Annotated[
         str, typer.Option("--instance", help="Instance profile (default: configured default)")
     ] = "",
-    fmt: Annotated[
-        str, typer.Option("--format", help="Output format (yaml|csv)")
-    ] = "yaml",
+    fmt: Annotated[str, typer.Option("--format", help="Output format (yaml|csv)")] = "yaml",
     out: Annotated[
         str, typer.Option("--out", help="Output file path (default: plugins.<ext>)")
     ] = "",
