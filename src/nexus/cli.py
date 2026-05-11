@@ -433,16 +433,71 @@ def _fetch_existing_nexus_oauth_apps(
         return []
 
 
-def _pick_existing_oauth_app(entries: list[dict[str, str]], profile: str) -> tuple[str, str] | None:
+def _print_generated_secret(secret: str) -> None:
+    """Print a freshly-generated OAuth client_secret with save-it instructions.
+
+    ServiceNow stores ``client_secret`` as a ``password2`` field, so the value
+    we just POSTed is the last time it will be readable. The user must save it
+    somewhere durable (password manager) before continuing; otherwise reusing
+    this OAuth app from another machine requires either re-rotating the secret
+    or running the background-script recovery recipe.
+
+    Args:
+        secret: The cleartext client_secret we just provisioned.
+    """
+    console.print("")
+    console.print(Notice.warn("Save this client secret -- ServiceNow will mask it after now."))
+    console.print(f"    Client secret: {secret}")
+    console.print(
+        "    Store it in your password manager so you can register this same "
+        "OAuth app from other machines."
+    )
+    console.print("")
+
+
+def _print_secret_recovery_steps(url: str, sys_id: str, name: str) -> None:
+    """Print copy-paste instructions for retrieving an existing OAuth secret.
+
+    ServiceNow stores ``oauth_entity.client_secret`` as a ``password2`` (encrypted)
+    field and the Table API masks it on every GET, by design. The only way to
+    read the cleartext is via a server-side script context that can call
+    ``GlideElement.getDecryptedValue()`` -- typically a background script.
+
+    Args:
+        url: Full instance URL.
+        sys_id: ``oauth_entity.sys_id`` of the picked app.
+        name: OAuth app name (e.g. ``nexus-prod``), shown for visual context.
+    """
+    console.print("")
+    console.print(
+        f"  ServiceNow does not return client secrets via REST. To recover the "
+        f"secret for '{name}', run this in your SN instance:"
+    )
+    console.print("")
+    console.print(f"    1. Open  {url}/sys.scripts.do  (System Definition > Scripts - Background).")
+    console.print("    2. Paste this script and click Run script:")
+    console.print("")
+    console.print("       var gr = new GlideRecord('oauth_entity');")
+    console.print(f"       gr.get('{sys_id}');")
+    console.print("       gs.print(gr.client_secret.getDecryptedValue());")
+    console.print("")
+    console.print("    3. Copy the line printed below '*** Script:' and paste it here.")
+    console.print("")
+
+
+def _pick_existing_oauth_app(
+    entries: list[dict[str, str]], profile: str, url: str
+) -> tuple[str, str] | None:
     """Prompt the user to reuse an existing Nexus OAuth app or create a new one.
 
-    The client_secret is not retrievable from ServiceNow (the Table API returns
-    a masked value), so the user must paste it from the other Nexus install
-    that originally provisioned the app.
+    The client_secret is not retrievable from ServiceNow (the Table API masks
+    password2 fields), so the user must either paste it from another Nexus
+    install or run the background-script recipe printed below the prompt.
 
     Args:
         entries: Output of ``_fetch_existing_nexus_oauth_apps``. Must be non-empty.
         profile: Profile being registered -- shown in the "create new" option.
+        url: Full instance URL, used to build the Scripts - Background link.
 
     Returns:
         ``(client_id, client_secret)`` if the user picks an existing entry and
@@ -471,10 +526,7 @@ def _pick_existing_oauth_app(entries: list[dict[str, str]], profile: str) -> tup
         return None
     picked = entries[idx - 1]
     console.print(f"  Reusing OAuth app '{picked['name']}' (client_id={picked['client_id']}).")
-    console.print(
-        "  The client secret is not readable from ServiceNow -- "
-        "paste it from your other Nexus install."
-    )
+    _print_secret_recovery_steps(url=url, sys_id=picked["sys_id"], name=picked["name"])
     secret: str = typer.prompt("  OAuth Client Secret", hide_input=True)
     return picked["client_id"], secret
 
@@ -500,7 +552,7 @@ def _provision_oauth(url: str, profile: str, username: str, password: str) -> tu
     """
     existing = _fetch_existing_nexus_oauth_apps(url, username, password)
     if existing:
-        picked = _pick_existing_oauth_app(existing, profile)
+        picked = _pick_existing_oauth_app(existing, profile, url)
         if picked is not None:
             return picked
 
@@ -525,6 +577,7 @@ def _provision_oauth(url: str, profile: str, username: str, password: str) -> tu
                 client_id = str(result.get("client_id", ""))
                 if client_id:
                     console.print(f"  Created OAuth application 'nexus-{profile}' automatically.")
+                    _print_generated_secret(generated_secret)
                     _warn_token_cap(sn, username, password)
                     return client_id, generated_secret
                 fail_reason = "HTTP 201 but no client_id in response"
