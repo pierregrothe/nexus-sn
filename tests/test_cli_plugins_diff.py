@@ -207,9 +207,7 @@ def test_plugins_promote_with_zero_actions_prints_already_matches_notice(
     assert not out_file.exists()
 
 
-def test_plugins_promote_rejects_same_source_and_target(
-    runner: CliRunner, tmp_path: Path
-) -> None:
+def test_plugins_promote_rejects_same_source_and_target(runner: CliRunner, tmp_path: Path) -> None:
     _seed(tmp_path, "prod", (_info("com.snc.incident"),))
     result = runner.invoke(app, ["plugins", "promote", "prod", "--to", "prod"])
     assert result.exit_code != 0
