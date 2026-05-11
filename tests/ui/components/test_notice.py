@@ -17,6 +17,7 @@ __all__: list[str] = []
 
 def _record_console() -> Console:
     return Console(
+        file=io.StringIO(),
         record=True,
         force_terminal=True,
         color_system="truecolor",
