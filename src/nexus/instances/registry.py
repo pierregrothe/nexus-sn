@@ -13,6 +13,7 @@ from pydantic import ValidationError
 
 from nexus.instances.errors import InstanceNotFoundError
 from nexus.instances.models import InstanceMeta, InstanceSnapshot
+from nexus.plugins.models import PluginInventory
 
 log = logging.getLogger(__name__)
 
@@ -20,6 +21,7 @@ __all__ = ["InstanceRegistry"]
 
 _META = "meta.json"
 _SNAPSHOT = "snapshot.json"
+_PLUGIN_INVENTORY = "plugins.json"
 
 
 class InstanceRegistry:
@@ -149,6 +151,51 @@ class InstanceRegistry:
             with open(fd, "w", encoding="utf-8") as f:
                 f.write(snapshot.model_dump_json(indent=2))
             Path(tmp).replace(snap_file)
+        except OSError:
+            Path(tmp).unlink(missing_ok=True)
+            raise
+
+    def load_plugin_inventory(self, profile: str) -> PluginInventory | None:
+        """Read plugins.json for a profile if it exists.
+
+        Args:
+            profile: Profile name.
+
+        Returns:
+            PluginInventory or None if the profile exists but no inventory captured yet.
+
+        Raises:
+            InstanceNotFoundError: If the profile directory does not exist.
+        """
+        profile_dir = self._dir(profile)
+        if not profile_dir.exists():
+            raise InstanceNotFoundError(profile)
+        inv_file = profile_dir / _PLUGIN_INVENTORY
+        if not inv_file.exists():
+            return None
+        return PluginInventory.model_validate_json(inv_file.read_text(encoding="utf-8"))
+
+    def save_plugin_inventory(self, profile: str, inventory: PluginInventory) -> None:
+        """Atomically write plugins.json for a profile.
+
+        Writes to a temp file then renames to avoid partial writes on failure.
+
+        Args:
+            profile: Profile name.
+            inventory: Plugin inventory to persist.
+
+        Raises:
+            InstanceNotFoundError: If the profile directory does not exist.
+        """
+        profile_dir = self._dir(profile)
+        if not profile_dir.exists():
+            raise InstanceNotFoundError(profile)
+        inv_file = profile_dir / _PLUGIN_INVENTORY
+        fd, tmp = tempfile.mkstemp(dir=profile_dir, suffix=".tmp")
+        try:
+            with open(fd, "w", encoding="utf-8") as f:
+                f.write(inventory.model_dump_json(indent=2))
+            Path(tmp).replace(inv_file)
         except OSError:
             Path(tmp).unlink(missing_ok=True)
             raise
