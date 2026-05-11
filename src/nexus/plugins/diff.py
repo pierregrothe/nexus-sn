@@ -12,6 +12,8 @@ functions that operate on already-loaded inventories.
 
 from typing import Literal
 
+from packaging.version import InvalidVersion
+from packaging.version import parse as parse_version
 from pydantic import BaseModel, ConfigDict
 
 from nexus.config.types import UtcDatetime
@@ -23,6 +25,7 @@ __all__ = [
     "PromoteAction",
     "PromotionPlan",
     "compute_diff",
+    "project_to_promote_plan",
 ]
 
 _FROZEN = ConfigDict(frozen=True, strict=True, extra="forbid")
@@ -204,3 +207,95 @@ def _diff_entry(
         a_state=a.state,
         b_state=b.state,
     )
+
+
+_ACTION_ORDER: dict[str, int] = {"install": 0, "activate": 1, "upgrade": 2}
+
+
+def project_to_promote_plan(diff: PluginDiff) -> PromotionPlan:
+    """Project a diff into an additive set of install/activate/upgrade actions.
+
+    Rules:
+        - ``only_in_a`` -> ``install``.
+        - ``state_mismatch`` where ``a_state == "active"`` and
+          ``b_state == "inactive"`` -> ``activate``.
+        - ``version_mismatch`` where ``a_version`` is strictly newer than
+          ``b_version`` per ``packaging.version.parse`` -> ``upgrade``.
+        - All other entries (deactivations, downgrades, ``only_in_b``,
+          and entries with unparseable versions on either side) are
+          skipped.
+
+    Args:
+        diff: The diff produced by ``compute_diff``.
+
+    Returns:
+        A frozen ``PromotionPlan`` whose actions are sorted by
+        ``(install < activate < upgrade, product_family, plugin_id)``.
+    """
+    actions: list[PromoteAction] = []
+    for entry in diff.entries:
+        action = _project_entry(entry)
+        if action is not None:
+            actions.append(action)
+    actions.sort(
+        key=lambda a: (_ACTION_ORDER[a.action], a.product_family, a.plugin_id)
+    )
+    return PromotionPlan(
+        source_profile=diff.profile_a,
+        target_profile=diff.profile_b,
+        actions=tuple(actions),
+    )
+
+
+def _project_entry(entry: PluginDiffEntry) -> PromoteAction | None:
+    """Return the matching PromoteAction for a diff entry, or None to skip."""
+    if entry.status == "only_in_a" and entry.a_version is not None:
+        return PromoteAction(
+            action="install",
+            plugin_id=entry.plugin_id,
+            name=entry.name,
+            product_family=entry.product_family,
+            target_version=entry.a_version,
+            current_version=None,
+        )
+    if (
+        entry.status == "state_mismatch"
+        and entry.a_state == "active"
+        and entry.b_state == "inactive"
+        and entry.a_version is not None
+    ):
+        return PromoteAction(
+            action="activate",
+            plugin_id=entry.plugin_id,
+            name=entry.name,
+            product_family=entry.product_family,
+            target_version=entry.a_version,
+            current_version=entry.b_version,
+        )
+    if (
+        entry.status == "version_mismatch"
+        and entry.a_version is not None
+        and entry.b_version is not None
+        and _is_newer(entry.a_version, entry.b_version)
+    ):
+        return PromoteAction(
+            action="upgrade",
+            plugin_id=entry.plugin_id,
+            name=entry.name,
+            product_family=entry.product_family,
+            target_version=entry.a_version,
+            current_version=entry.b_version,
+        )
+    return None
+
+
+def _is_newer(candidate: str, baseline: str) -> bool:
+    """True when ``candidate`` is strictly newer than ``baseline``.
+
+    Returns ``False`` when either string fails to parse as a version --
+    skipping unparseable strings is safer than guessing.
+    """
+    try:
+        return parse_version(candidate) > parse_version(baseline)
+    except InvalidVersion:
+        return False
