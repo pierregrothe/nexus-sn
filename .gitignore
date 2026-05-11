@@ -33,3 +33,6 @@ htmlcov/
 
 # Superpowers brainstorm sessions
 .superpowers/
+
+# Remember plugin runtime
+.remember/
