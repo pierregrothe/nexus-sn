@@ -59,5 +59,6 @@ NEXUS_THEME = Theme(
         "sn.lime": _SN_LIME_RGB,
         "info": "blue",
         "muted": "bright_black",
+        "warning": "yellow",
     }
 )
