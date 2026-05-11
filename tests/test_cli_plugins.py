@@ -179,3 +179,51 @@ def test_plugins_info_with_unknown_plugin_exits_nonzero(
     result = runner.invoke(app, ["plugins", "info", "com.snc.missing"])
     assert result.exit_code != 0
     assert "com.snc.missing" in result.output
+
+
+def test_plugins_export_yaml_round_trips_through_plugin_inventory(
+    runner: CliRunner, tmp_path: Path
+) -> None:
+    _seed(tmp_path, "dev", (_info("com.snc.incident"),))
+    runner.invoke(app, ["instance", "use", "dev"])
+    out_file = tmp_path / "out.yaml"
+    result = runner.invoke(
+        app,
+        ["plugins", "export", "--format", "yaml", "--out", str(out_file)],
+    )
+    assert result.exit_code == 0
+    content = out_file.read_text(encoding="utf-8")
+    assert "com.snc.incident" in content
+    assert "Plugins:" in content or "plugins:" in content
+
+
+def test_plugins_export_csv_emits_one_row_per_plugin(
+    runner: CliRunner, tmp_path: Path
+) -> None:
+    _seed(
+        tmp_path,
+        "dev",
+        (_info("com.snc.incident"), _info("com.snc.problem")),
+    )
+    runner.invoke(app, ["instance", "use", "dev"])
+    out_file = tmp_path / "out.csv"
+    result = runner.invoke(
+        app,
+        ["plugins", "export", "--format", "csv", "--out", str(out_file)],
+    )
+    assert result.exit_code == 0
+    lines = out_file.read_text(encoding="utf-8").splitlines()
+    assert len(lines) == 3  # header + 2 rows
+    assert lines[0].startswith("plugin_id,")
+
+
+def test_plugins_export_rejects_unknown_format(
+    runner: CliRunner, tmp_path: Path
+) -> None:
+    _seed(tmp_path, "dev", (_info("com.snc.incident"),))
+    runner.invoke(app, ["instance", "use", "dev"])
+    result = runner.invoke(
+        app,
+        ["plugins", "export", "--format", "xml", "--out", str(tmp_path / "x")],
+    )
+    assert result.exit_code != 0
