@@ -4,8 +4,10 @@
 # Date: 2026-05-11
 """NEXUS CLI component library.
 
-Each module exposes a frozen Pydantic model with a __rich_console__ method.
-Callers do `console.print(StatusBadge.warn("EXPIRED"))`.
+Exports are either frozen Pydantic models with a ``__rich_console__`` method or
+plain factory functions returning a ``rich.text.Text``. Callers do
+``console.print(StatusBadge.warn("EXPIRED"))`` or
+``console.print(default_marker())``.
 """
 
 from nexus.ui.components.badge import StatusBadge
