@@ -194,3 +194,14 @@ def test_utc_datetime_alias_is_annotated_type() -> None:
     # UtcDatetime must be an Annotated type wrapping datetime.
     args = get_args(UtcDatetime)
     assert args[0] is datetime
+
+
+def test_snapshot_counts_plugins_defaults_to_zero() -> None:
+    counts = SnapshotCounts()
+    assert counts.plugins == 0
+
+
+def test_snapshot_counts_plugins_round_trips() -> None:
+    counts = SnapshotCounts(plugins=42)
+    re = SnapshotCounts.model_validate_json(counts.model_dump_json())
+    assert re.plugins == 42

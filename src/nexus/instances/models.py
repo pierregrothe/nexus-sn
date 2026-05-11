@@ -27,6 +27,7 @@ class SnapshotCounts(BaseModel):
     flows: Annotated[int, Field(ge=0)] = 0
     business_rules: Annotated[int, Field(ge=0)] = 0
     script_includes: Annotated[int, Field(ge=0)] = 0
+    plugins: Annotated[int, Field(ge=0)] = 0
 
 
 class InstanceMeta(BaseModel):
