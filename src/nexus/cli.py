@@ -994,6 +994,15 @@ def _plugins_for(profile: str) -> tuple[InstanceMeta, tuple[PluginInfo, ...]] | 
     return meta, inv.plugins
 
 
+@plugins_app.callback(invoke_without_command=True)
+def plugins_callback(ctx: typer.Context) -> None:
+    """Show the plugin inventory and the available subcommands."""
+    if ctx.invoked_subcommand is not None:
+        return
+    plugins_list()  # default flags: empty strings, no filtering
+    console.print(CommandGuide(app_name="nexus plugins", items=_PLUGINS_HELP))
+
+
 @plugins_app.command("list")
 def plugins_list(
     instance: Annotated[
