@@ -891,7 +891,16 @@ def instance_connect(profile: str = typer.Argument("")) -> None:
 
 
 @instance_app.command("refresh")
-def instance_refresh(profile: str = typer.Argument("")) -> None:
+def instance_refresh(
+    profile: str = typer.Argument(""),
+    no_counts: Annotated[
+        bool,
+        typer.Option(
+            "--no-counts",
+            help="Skip per-plugin record-count capture for a faster refresh.",
+        ),
+    ] = False,
+) -> None:
     """Pull a fresh artifact snapshot from the instance."""
     registry, meta, token, new_expiry = _acquire_token(profile)
     profile = meta.profile
@@ -902,7 +911,9 @@ def instance_refresh(profile: str = typer.Argument("")) -> None:
         scanner = InstanceScanner()
         plugin_scanner = PluginScanner()
         snapshot_task = scanner.scan(meta.url, token, meta.sn_version)
-        plugin_task = plugin_scanner.scan(meta.url, token, meta.sn_version)
+        plugin_task = plugin_scanner.scan(
+            meta.url, token, meta.sn_version, capture_counts=not no_counts
+        )
         results = await asyncio.gather(snapshot_task, plugin_task, return_exceptions=True)
         snap_result, plugin_result = results
         if isinstance(snap_result, BaseException):

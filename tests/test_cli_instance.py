@@ -4,6 +4,7 @@
 # Date: 2026-05-08
 """Tests for the nexus instance sub-app."""
 
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -18,7 +19,9 @@ from nexus.cli import (
     app,
 )
 from nexus.config.paths import NexusPaths
-from nexus.instances.models import InstanceMeta
+from nexus.instances.models import InstanceMeta, InstanceSnapshot
+from nexus.instances.registry import InstanceRegistry
+from nexus.plugins.models import PluginInventory
 from tests.conftest import scripted_prompt
 
 
@@ -259,3 +262,89 @@ def test_print_secret_recovery_steps_includes_sys_id_url_and_script(
     assert "abc123" in out
     assert "getDecryptedValue" in out
     assert "nexus-prod" in out
+
+
+def _empty_snapshot() -> InstanceSnapshot:
+    return InstanceSnapshot(
+        captured_at=datetime.now(UTC),
+        sn_version="Xanadu",
+    )
+
+
+def _setup_refresh_stubs(
+    monkeypatch: pytest.MonkeyPatch,
+    captured: dict[str, object],
+) -> None:
+    """Stub _acquire_token, PluginScanner, and InstanceScanner for refresh tests."""
+
+    def fake_acquire(
+        profile: str,
+    ) -> tuple[InstanceRegistry, InstanceMeta, str, datetime]:
+        paths = NexusPaths.from_env()
+        registry = InstanceRegistry(paths.instances_dir)
+        meta = registry.load(profile if profile else "prod")
+        return registry, meta, "fake-token", datetime.now(UTC)
+
+    class _FakePluginScanner:
+        def __init__(self, *args: object, **kwargs: object) -> None:
+            pass
+
+        async def scan(
+            self,
+            url: str,
+            token: str,
+            sn_version: str,
+            *,
+            capture_counts: bool = True,
+        ) -> PluginInventory:
+            captured["capture_counts"] = capture_counts
+            return PluginInventory(
+                captured_at=datetime.now(UTC),
+                sn_version=sn_version,
+                plugins=(),
+            )
+
+    class _FakeInstanceScanner:
+        def __init__(self, *args: object, **kwargs: object) -> None:
+            pass
+
+        async def scan(self, url: str, token: str, sn_version: str) -> InstanceSnapshot:
+            return _empty_snapshot()
+
+    monkeypatch.setattr("nexus.cli._acquire_token", fake_acquire)
+    monkeypatch.setattr("nexus.cli.PluginScanner", _FakePluginScanner)
+    monkeypatch.setattr("nexus.cli.InstanceScanner", _FakeInstanceScanner)
+
+
+def test_instance_refresh_no_counts_flag_skips_count_capture(
+    runner: CliRunner,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`nexus instance refresh --no-counts` calls plugin scanner with capture_counts=False."""
+    _write_meta(tmp_path, _meta("prod"))
+    runner.invoke(app, ["instance", "use", "prod"])
+
+    captured: dict[str, object] = {}
+    _setup_refresh_stubs(monkeypatch, captured)
+
+    result = runner.invoke(app, ["instance", "refresh", "prod", "--no-counts"])
+    assert result.exit_code == 0, result.output
+    assert captured.get("capture_counts") is False
+
+
+def test_instance_refresh_without_no_counts_flag_captures_counts_by_default(
+    runner: CliRunner,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Default behavior: capture_counts=True when --no-counts is not passed."""
+    _write_meta(tmp_path, _meta("prod"))
+    runner.invoke(app, ["instance", "use", "prod"])
+
+    captured: dict[str, object] = {}
+    _setup_refresh_stubs(monkeypatch, captured)
+
+    result = runner.invoke(app, ["instance", "refresh", "prod"])
+    assert result.exit_code == 0, result.output
+    assert captured.get("capture_counts") is True

@@ -48,13 +48,26 @@ class PluginScanner:
         """See class docstring."""
         self._transport = transport
 
-    async def scan(self, url: str, token: str, sn_version: str) -> PluginInventory:
+    async def scan(
+        self,
+        url: str,
+        token: str,
+        sn_version: str,
+        *,
+        capture_counts: bool = True,
+    ) -> PluginInventory:
         """Capture the full plugin inventory.
 
         Args:
             url: Instance base URL.
             token: OAuth bearer token.
             sn_version: SN release name copied verbatim into the inventory.
+            capture_counts: When True (default), fan out one
+                ``/api/now/stats/sys_metadata`` call per plugin to
+                populate ``PluginInfo.record_count``. When False, skip
+                the fan-out -- every plugin's ``record_count`` stays at
+                ``None``. Used by ``nexus instance refresh --no-counts``
+                for faster refreshes when orphan detection is not needed.
 
         Returns:
             PluginInventory with deduped plugins from both tables. Each
@@ -89,11 +102,12 @@ class PluginScanner:
                 # sys_store_app wins on conflict because it carries vendor.
                 by_id[info.plugin_id] = info
 
-            counts = await _fetch_counts(client, tuple(by_id.keys()))
-            by_id = {
-                pid: info.model_copy(update={"record_count": counts.get(pid)})
-                for pid, info in by_id.items()
-            }
+            if capture_counts:
+                counts = await _fetch_counts(client, tuple(by_id.keys()))
+                by_id = {
+                    pid: info.model_copy(update={"record_count": counts.get(pid)})
+                    for pid, info in by_id.items()
+                }
 
         return PluginInventory(
             captured_at=datetime.now(UTC),
