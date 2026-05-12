@@ -1690,8 +1690,13 @@ def plugins_advisories(
             help="Show only findings at or above this severity (critical|high|medium|low).",
         ),
     ] = "",
+    output_format: Annotated[
+        str,
+        typer.Option("--format", help="Output format: text | json (default: text)"),
+    ] = "text",
 ) -> None:
     """Show EOL / CVE / license findings for plugins on an instance."""
+    _validate_format(output_format)
     _, inventory = _load_inventory_or_exit(instance)
     try:
         db = AdvisoryDatabase.load()
@@ -1719,6 +1724,10 @@ def plugins_advisories(
             raise typer.Exit(1) from exc
         keep = _severity_at_or_above(floor)
         findings = tuple(f for f in findings if f.severity in keep)
+
+    if output_format == "json":
+        _emit_json(result.model_copy(update={"findings": findings}))
+        return
 
     if not findings:
         console.print(Notice.info("No advisories found."))

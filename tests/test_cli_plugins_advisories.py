@@ -4,6 +4,7 @@
 # Date: 2026-05-11
 """Tests for nexus plugins advisories."""
 
+import json
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -201,3 +202,28 @@ def test_advisories_errors_when_data_files_corrupted(
     result = runner.invoke(app, ["plugins", "advisories"])
     assert result.exit_code == 1
     assert "Advisory data corrupted" in result.output
+
+
+def test_advisories_emits_json_when_format_flag_provided(
+    runner: CliRunner, tmp_path: Path
+) -> None:
+    _seed(
+        tmp_path,
+        "prod",
+        (_info("com.snc.ess", version="1.0", vendor="ServiceNow"),),
+    )
+    runner.invoke(app, ["instance", "use", "prod"])
+    result = runner.invoke(app, ["plugins", "advisories", "--format", "json"])
+    assert result.exit_code == 0
+    payload = json.loads(result.output.strip().split("\n")[-1])
+    assert "findings" in payload
+
+
+def test_advisories_errors_on_unknown_format_value(
+    runner: CliRunner, tmp_path: Path
+) -> None:
+    _seed(tmp_path, "prod", (_info("com.x", vendor="ServiceNow"),))
+    runner.invoke(app, ["instance", "use", "prod"])
+    result = runner.invoke(app, ["plugins", "advisories", "--format", "yaml"])
+    assert result.exit_code == 1
+    assert "Unknown --format" in result.output
