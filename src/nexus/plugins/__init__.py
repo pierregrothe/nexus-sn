@@ -49,6 +49,12 @@ from nexus.plugins.models import (
     Severity,
 )
 from nexus.plugins.orphans import orphan_candidates
+from nexus.plugins.recommendations import (
+    AI_MODEL,
+    build_deactivation_context,
+    build_explain_context,
+    build_roadmap_context,
+)
 from nexus.plugins.overrides import AdvisoryOverride, AdvisoryOverrideSet, apply_overrides
 from nexus.plugins.product_families import product_family_for
 from nexus.plugins.scanner import PluginScanner
@@ -89,6 +95,10 @@ __all__ = [
     "compute_diff",
     "compute_drift",
     "compute_impact",
+    "AI_MODEL",
+    "build_deactivation_context",
+    "build_explain_context",
+    "build_roadmap_context",
     "orphan_candidates",
     "plugins_with_updates",
     "product_family_for",
