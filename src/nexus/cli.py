@@ -55,6 +55,7 @@ from nexus.instances.registry import InstanceRegistry
 from nexus.instances.scanner import InstanceScanner
 from nexus.plugins import PluginInventory, PluginScanError, PluginScanner
 from nexus.plugins.advisories import AdvisoryDatabase, compute_advisories
+from nexus.plugins.baselines import DEFAULT_BASELINE_NAME, validate_baseline_name
 from nexus.plugins.diff import (
     PluginDiff,
     PluginDiffEntry,
@@ -65,7 +66,12 @@ from nexus.plugins.diff import (
 from nexus.plugins.drift import (
     compute_drift,
 )
-from nexus.plugins.errors import PluginAdvisoryDataError, PluginImpactError
+from nexus.plugins.errors import (
+    BaselineNotFoundError,
+    InvalidBaselineNameError,
+    PluginAdvisoryDataError,
+    PluginImpactError,
+)
 from nexus.plugins.impact import compute_impact
 from nexus.plugins.models import (
     AdvisoryFinding,
@@ -2202,25 +2208,42 @@ def plugins_drift(
             help="Exit with code 1 if any drift is detected.",
         ),
     ] = False,
+    baseline_name: Annotated[
+        str,
+        typer.Option(
+            "--baseline",
+            help=f"Named baseline to compare against (default: {DEFAULT_BASELINE_NAME}).",
+        ),
+    ] = DEFAULT_BASELINE_NAME,
 ) -> None:
     """Show plugin drift on an instance since the last baseline."""
     _validate_format(output_format)
+    try:
+        validate_baseline_name(baseline_name)
+    except InvalidBaselineNameError as exc:
+        err_console.print(Notice.error(str(exc)))
+        raise typer.Exit(1) from exc
     meta, inventory = _load_inventory_or_exit(instance)
     paths = NexusPaths.from_env()
     registry = InstanceRegistry(paths.instances_dir)
 
     if ack:
-        registry.save_plugin_baseline(meta.profile, inventory)
+        registry.save_plugin_baseline(meta.profile, baseline_name, inventory)
         captured = inventory.captured_at.strftime("%Y-%m-%d")
         console.print(
             Notice.info(f"Baseline set: {len(inventory.plugins)} plugins captured {captured}.")
         )
         return
 
-    baseline = registry.load_plugin_baseline(meta.profile)
+    baseline = registry.load_plugin_baseline(meta.profile, baseline_name)
     if baseline is None:
         err_console.print(Notice.error(f"No baseline set for {meta.profile!r}."))
-        console.print(Hint(label="Set baseline", command="nexus plugins drift --ack"))
+        console.print(
+            Hint(
+                label="Set baseline",
+                command=f"nexus plugins drift --ack --baseline {baseline_name}",
+            )
+        )
         raise typer.Exit(1)
 
     report = compute_drift(baseline, inventory, meta.profile)
@@ -2267,6 +2290,82 @@ def plugins_drift(
     console.print(Notice.info(_status_breakdown((e.status for e in report.entries), "drift")))
     if strict and report.entries:
         raise typer.Exit(1)
+
+
+# ---------------------------------------------------------------------------
+# nexus plugins baselines
+# ---------------------------------------------------------------------------
+
+baselines_app = typer.Typer(no_args_is_help=True, help="Manage plugin drift baselines.")
+plugins_app.add_typer(baselines_app, name="baselines")
+
+
+@baselines_app.command("list")
+def plugins_baselines_list(
+    instance: Annotated[
+        str,
+        typer.Option("--instance", help="Instance profile (default: configured default)"),
+    ] = "",
+) -> None:
+    """Show all named baselines for an instance."""
+    paths = NexusPaths.from_env()
+    registry = InstanceRegistry(paths.instances_dir)
+    meta, _ = _load_inventory_or_exit(instance)
+    names = registry.list_plugin_baselines(meta.profile)
+    if not names:
+        console.print(Notice.info(f"No baselines saved for {meta.profile}."))
+        return
+    rows: list[list[RenderableType]] = []
+    for n in names:
+        inv = registry.load_plugin_baseline(meta.profile, n)
+        if inv is None:
+            continue
+        rows.append([n, str(inv.captured_at)[:19], str(len(inv.plugins))])
+    console.print(
+        DataTable(
+            title=f"Baselines for instance {meta.profile}",
+            columns=[
+                DataColumn(header="Name", width=24),
+                DataColumn(header="Captured", width=20),
+                DataColumn(header="Plugins", width=8),
+            ],
+            rows=rows,
+        )
+    )
+
+
+@baselines_app.command("delete")
+def plugins_baselines_delete(
+    name: Annotated[str, typer.Argument(help="Baseline name to delete.")],
+    instance: Annotated[
+        str,
+        typer.Option("--instance", help="Instance profile (default: configured default)"),
+    ] = "",
+    yes: Annotated[
+        bool,
+        typer.Option("--yes", "-y", help="Skip confirmation."),
+    ] = False,
+) -> None:
+    """Delete a named baseline."""
+    try:
+        validate_baseline_name(name)
+    except InvalidBaselineNameError as exc:
+        err_console.print(Notice.error(str(exc)))
+        raise typer.Exit(1) from exc
+    paths = NexusPaths.from_env()
+    registry = InstanceRegistry(paths.instances_dir)
+    meta, _ = _load_inventory_or_exit(instance)
+    if not yes:
+        confirmed = typer.confirm(f"Delete baseline {name!r} for {meta.profile}?")
+        if not confirmed:
+            console.print(Notice.info("Aborted."))
+            return
+    try:
+        registry.delete_plugin_baseline(meta.profile, name)
+    except BaselineNotFoundError as exc:
+        err_console.print(Notice.error(str(exc)))
+        raise typer.Exit(1) from exc
+    console.print(Notice.info(f"Deleted baseline {name}"))
 
 
 @capture_app.callback(invoke_without_command=True)

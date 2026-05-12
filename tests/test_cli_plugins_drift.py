@@ -76,8 +76,9 @@ def _seed_current(
 def _seed_baseline(
     profile: str,
     plugins: tuple[PluginInfo, ...],
+    name: str = "default",
 ) -> None:
-    """Write plugins.baseline.json for a profile (profile dir must already exist)."""
+    """Write baselines/<name>.json for a profile (profile dir must already exist)."""
     paths = NexusPaths.from_env()
     registry = InstanceRegistry(paths.instances_dir)
     inv = PluginInventory(
@@ -85,7 +86,7 @@ def _seed_baseline(
         sn_version="Xanadu",
         plugins=plugins,
     )
-    registry.save_plugin_baseline(profile, inv)
+    registry.save_plugin_baseline(profile, name, inv)
 
 
 @pytest.fixture
@@ -122,7 +123,7 @@ def test_drift_ack_sets_baseline(runner: CliRunner, tmp_path: Path) -> None:
     assert "Baseline set" in result.output
     paths = NexusPaths.from_env()
     registry = InstanceRegistry(paths.instances_dir)
-    baseline = registry.load_plugin_baseline("prod")
+    baseline = registry.load_plugin_baseline("prod", "default")
     assert baseline is not None
     assert len(baseline.plugins) == 1
     assert baseline.plugins[0].plugin_id == "com.snc.x"
@@ -247,3 +248,44 @@ def test_drift_strict_json_emits_report_and_exits_1(runner: CliRunner, tmp_path:
     assert result.exit_code == 1
     payload = json.loads(result.output.strip().split("\n")[-1])
     assert len(payload["entries"]) == 1
+
+
+def test_drift_uses_default_baseline_when_no_flag(runner: CliRunner, tmp_path: Path) -> None:
+    """No --baseline flag compares against the 'default' named baseline."""
+    plugins = (_info("com.snc.x"),)
+    _seed_current("prod", plugins)
+    _seed_baseline("prod", plugins)
+    runner.invoke(app, ["instance", "use", "prod"])
+    result = runner.invoke(app, ["plugins", "drift"])
+    assert result.exit_code == 0
+    assert "No drift detected" in result.output
+
+
+def test_drift_with_baseline_flag_compares_against_named(runner: CliRunner, tmp_path: Path) -> None:
+    """--baseline custom compares against the named baseline, not default."""
+    baseline_plugins = (_info("com.snc.x", version="1.0.0"),)
+    current_plugins = (_info("com.snc.x", version="2.0.0"),)
+    _seed_current("prod", current_plugins)
+    _seed_baseline("prod", baseline_plugins, name="custom")
+    runner.invoke(app, ["instance", "use", "prod"])
+    result = runner.invoke(app, ["plugins", "drift", "--baseline", "custom"])
+    assert result.exit_code == 0
+    assert "com.snc.x" in result.output
+
+
+def test_drift_with_invalid_baseline_name_exits_one(runner: CliRunner, tmp_path: Path) -> None:
+    """An invalid --baseline value exits 1 with an explanatory message."""
+    _seed_current("prod", (_info("com.snc.x"),))
+    runner.invoke(app, ["instance", "use", "prod"])
+    result = runner.invoke(app, ["plugins", "drift", "--baseline", "BAD NAME"])
+    assert result.exit_code == 1
+    assert "invalid baseline name" in result.output.lower()
+
+
+def test_drift_with_missing_baseline_exits_one(runner: CliRunner, tmp_path: Path) -> None:
+    """Seed inventory only -- no baseline. drift --baseline missing -> exit 1."""
+    _seed_current("prod", (_info("com.snc.x"),))
+    runner.invoke(app, ["instance", "use", "prod"])
+    result = runner.invoke(app, ["plugins", "drift", "--baseline", "missing"])
+    assert result.exit_code == 1
+    assert "--ack" in result.output

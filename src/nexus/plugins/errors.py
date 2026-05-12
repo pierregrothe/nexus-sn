@@ -6,6 +6,8 @@
 
 __all__ = [
     "AdvisoryOverrideError",
+    "BaselineNotFoundError",
+    "InvalidBaselineNameError",
     "PluginAdvisoryDataError",
     "PluginBaselineNotFoundError",
     "PluginImpactError",
@@ -82,6 +84,36 @@ class AdvisoryOverrideError(Exception):
             f"override {reason_code} for plugin={plugin_id} "
             f"type={advisory_type} details={details!r}"
         )
+
+
+class InvalidBaselineNameError(ValueError):
+    """Raised when a baseline name fails the safe-filename validation.
+
+    Attributes:
+        name: The invalid baseline name as supplied by the caller.
+    """
+
+    def __init__(self, name: str) -> None:
+        """Store the invalid name and a human-readable message."""
+        self.name = name
+        super().__init__(
+            f"invalid baseline name {name!r} -- " "must match ^[a-z0-9][a-z0-9_-]{0,62}$"
+        )
+
+
+class BaselineNotFoundError(Exception):
+    """Raised when a named baseline file does not exist on disk.
+
+    Attributes:
+        profile: Instance profile name.
+        name: Baseline name that was requested.
+    """
+
+    def __init__(self, profile: str, name: str) -> None:
+        """Store the profile and baseline name alongside the message."""
+        self.profile = profile
+        self.name = name
+        super().__init__(f"no baseline named {name!r} for profile={profile!r}")
 
 
 class PluginBaselineNotFoundError(Exception):

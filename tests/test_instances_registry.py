@@ -14,6 +14,7 @@ import pytest
 from nexus.instances.errors import InstanceNotFoundError
 from nexus.instances.models import ArtifactRecord, InstanceMeta, InstanceSnapshot
 from nexus.instances.registry import InstanceRegistry
+from nexus.plugins.errors import BaselineNotFoundError
 from nexus.plugins.models import PluginInfo, PluginInventory
 
 
@@ -221,29 +222,38 @@ def test_load_plugin_inventory_raises_when_profile_missing(tmp_path: Path) -> No
 
 
 def test_load_plugin_baseline_returns_none_when_missing(tmp_path: Path) -> None:
-    """A profile dir exists but no plugins.baseline.json -> None."""
+    """A profile dir exists but no baselines/default.json -> None."""
     registry = InstanceRegistry(tmp_path)
-    registry.register(_meta("prod"))
-    assert registry.load_plugin_baseline("prod") is None
+    registry.register(_meta("dev12345"))
+    assert registry.load_plugin_baseline("dev12345", "default") is None
 
 
-def test_save_plugin_baseline_round_trip(tmp_path: Path) -> None:
+def test_save_and_load_plugin_baseline_round_trip(tmp_path: Path) -> None:
     """save_plugin_baseline writes the inventory; load_plugin_baseline reads it back."""
     registry = InstanceRegistry(tmp_path)
-    registry.register(_meta("prod"))
+    registry.register(_meta("dev12345"))
     inv = _inventory()
-    registry.save_plugin_baseline("prod", inv)
-    loaded = registry.load_plugin_baseline("prod")
+    registry.save_plugin_baseline("dev12345", "default", inv)
+    loaded = registry.load_plugin_baseline("dev12345", "default")
     assert loaded is not None
-    assert loaded.plugins == inv.plugins
+    assert loaded.plugins[0].plugin_id == "com.snc.incident"
+
+
+def test_save_creates_baselines_dir_lazily(tmp_path: Path) -> None:
+    """baselines/ directory is created on first save."""
+    registry = InstanceRegistry(tmp_path)
+    registry.register(_meta("dev12345"))
+    profile_dir = tmp_path / "dev12345"
+    assert not (profile_dir / "baselines").exists()
+    registry.save_plugin_baseline("dev12345", "default", _inventory())
+    assert (profile_dir / "baselines" / "default.json").exists()
 
 
 def test_save_plugin_baseline_overwrites_existing(tmp_path: Path) -> None:
     """A second save replaces the first baseline."""
     registry = InstanceRegistry(tmp_path)
     registry.register(_meta("prod"))
-    first = _inventory()
-    registry.save_plugin_baseline("prod", first)
+    registry.save_plugin_baseline("prod", "default", _inventory())
     second_plugin = PluginInfo(
         plugin_id="com.snc.other",
         name="Other",
@@ -260,8 +270,8 @@ def test_save_plugin_baseline_overwrites_existing(tmp_path: Path) -> None:
         sn_version="Xanadu",
         plugins=(second_plugin,),
     )
-    registry.save_plugin_baseline("prod", second)
-    loaded = registry.load_plugin_baseline("prod")
+    registry.save_plugin_baseline("prod", "default", second)
+    loaded = registry.load_plugin_baseline("prod", "default")
     assert loaded is not None
     assert len(loaded.plugins) == 1
     assert loaded.plugins[0].plugin_id == "com.snc.other"
@@ -271,7 +281,7 @@ def test_load_plugin_baseline_raises_when_profile_missing(tmp_path: Path) -> Non
     """Profile directory does not exist -> InstanceNotFoundError."""
     registry = InstanceRegistry(tmp_path)
     with pytest.raises(InstanceNotFoundError):
-        registry.load_plugin_baseline("ghost")
+        registry.load_plugin_baseline("ghost", "default")
 
 
 def test_save_plugin_baseline_raises_when_profile_missing(tmp_path: Path) -> None:
@@ -279,7 +289,48 @@ def test_save_plugin_baseline_raises_when_profile_missing(tmp_path: Path) -> Non
     registry = InstanceRegistry(tmp_path)
     inv = _inventory()
     with pytest.raises(InstanceNotFoundError):
-        registry.save_plugin_baseline("ghost", inv)
+        registry.save_plugin_baseline("ghost", "default", inv)
+
+
+def test_list_plugin_baselines_returns_empty_tuple_when_dir_missing(tmp_path: Path) -> None:
+    registry = InstanceRegistry(tmp_path)
+    registry.register(_meta("dev12345"))
+    assert registry.list_plugin_baselines("dev12345") == ()
+
+
+def test_list_plugin_baselines_sorts_names(tmp_path: Path) -> None:
+    registry = InstanceRegistry(tmp_path)
+    registry.register(_meta("dev12345"))
+    registry.save_plugin_baseline("dev12345", "zzz", _inventory())
+    registry.save_plugin_baseline("dev12345", "aaa", _inventory())
+    registry.save_plugin_baseline("dev12345", "mmm", _inventory())
+    assert registry.list_plugin_baselines("dev12345") == ("aaa", "mmm", "zzz")
+
+
+def test_delete_plugin_baseline_removes_file(tmp_path: Path) -> None:
+    registry = InstanceRegistry(tmp_path)
+    registry.register(_meta("dev12345"))
+    registry.save_plugin_baseline("dev12345", "default", _inventory())
+    registry.delete_plugin_baseline("dev12345", "default")
+    assert registry.load_plugin_baseline("dev12345", "default") is None
+
+
+def test_delete_plugin_baseline_raises_when_missing(tmp_path: Path) -> None:
+    registry = InstanceRegistry(tmp_path)
+    registry.register(_meta("dev12345"))
+    with pytest.raises(BaselineNotFoundError):
+        registry.delete_plugin_baseline("dev12345", "nope")
+
+
+def test_legacy_baseline_file_logged_and_ignored(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    registry = InstanceRegistry(tmp_path)
+    registry.register(_meta("dev12345"))
+    (tmp_path / "dev12345" / "plugins.baseline.json").write_text("{}", encoding="utf-8")
+    with caplog.at_level(logging.WARNING, logger="nexus.instances.registry"):
+        assert registry.load_plugin_baseline("dev12345", "default") is None
+    assert any("legacy" in r.message.lower() for r in caplog.records)
 
 
 def test_load_plugin_inventory_with_legacy_shape_returns_none_and_warns(
@@ -316,12 +367,13 @@ def test_load_plugin_inventory_with_legacy_shape_returns_none_and_warns(
     assert any("schema outdated" in rec.message for rec in caplog.records)
 
 
-def test_load_plugin_baseline_with_legacy_shape_returns_none_and_warns(
+def test_load_plugin_baseline_with_stale_schema_returns_none_and_warns(
     tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
-    """A plugins.baseline.json file with the old record_count field is treated as absent."""
+    """A baselines/default.json file with the old record_count field is treated as absent."""
     registry = InstanceRegistry(tmp_path)
     registry.register(_meta("dev"))
+    (tmp_path / "dev" / "baselines").mkdir()
 
     legacy_baseline: dict[str, object] = {
         "captured_at": "2026-05-01T12:00:00+00:00",
@@ -341,15 +393,15 @@ def test_load_plugin_baseline_with_legacy_shape_returns_none_and_warns(
             }
         ],
     }
-    (tmp_path / "dev" / "plugins.baseline.json").write_text(
+    (tmp_path / "dev" / "baselines" / "default.json").write_text(
         json.dumps(legacy_baseline), encoding="utf-8"
     )
 
     with caplog.at_level(logging.WARNING, logger="nexus.instances.registry"):
-        result = registry.load_plugin_baseline("dev")
+        result = registry.load_plugin_baseline("dev", "default")
 
     assert result is None
-    assert any("baseline" in rec.message.lower() for rec in caplog.records)
+    assert any("schema outdated" in rec.message.lower() for rec in caplog.records)
 
 
 # ---------------------------------------------------------------------------
