@@ -4,7 +4,7 @@
 # Date: 2026-05-11
 """Tests for src/nexus/plugins/advisories.py and PluginAdvisoryDataError."""
 
-from datetime import date
+from datetime import UTC, date, datetime
 from pathlib import Path
 
 import pytest
@@ -17,9 +17,11 @@ from nexus.plugins.advisories import (
     _check_cves,
     _check_eol,
     _check_license,
+    compute_advisories,
 )
 from nexus.plugins.errors import PluginAdvisoryDataError
-from nexus.plugins.models import AdvisoryType, PluginInfo, Severity
+from nexus.plugins.models import AdvisoryType, PluginInfo, PluginInventory, Severity
+from tests.fakes.fake_advisory_data import make_advisory_database
 
 __all__: list[str] = []
 
@@ -240,3 +242,48 @@ def test_load_database_raises_on_invalid_cve_specifier(
     monkeypatch.setattr("nexus.plugins.advisories._data_path", _fake_path)
     with pytest.raises(PluginAdvisoryDataError):
         AdvisoryDatabase.load()
+
+
+def _inventory(*plugins: PluginInfo) -> PluginInventory:
+    return PluginInventory(
+        captured_at=datetime(2026, 5, 11, tzinfo=UTC),
+        sn_version="Washington",
+        plugins=plugins,
+    )
+
+
+def test_compute_advisories_returns_empty_set_when_no_findings() -> None:
+    db = make_advisory_database()
+    inv = _inventory(
+        _info("com.unaffected", "1.0").model_copy(update={"vendor": "ServiceNow"}),
+    )
+    result = compute_advisories(inv, db, today=date(2026, 5, 11))
+    assert result.findings == ()
+
+
+def test_compute_advisories_aggregates_all_three_checker_outputs() -> None:
+    db = make_advisory_database()
+    inv = _inventory(
+        _info("com.cms", "1.5").model_copy(update={"vendor": "Unknown"}),
+        _info("com.legacy", "1.0"),
+    )
+    result = compute_advisories(inv, db, today=date(2026, 5, 11))
+    types = {f.advisory_type for f in result.findings}
+    assert types == {AdvisoryType.EOL, AdvisoryType.CVE, AdvisoryType.LICENSE}
+
+
+def test_compute_advisories_sorts_findings_by_severity_then_plugin_id() -> None:
+    db = make_advisory_database()
+    inv = _inventory(
+        _info("com.cms", "1.5").model_copy(update={"vendor": "ServiceNow"}),
+        _info("com.legacy", "1.0"),
+    )
+    result = compute_advisories(inv, db, today=date(2026, 5, 11))
+    sev_indices = [
+        ("critical", "high", "medium", "low").index(f.severity.value)
+        for f in result.findings
+    ]
+    assert sev_indices == sorted(sev_indices)
+    high_ones = [f for f in result.findings if f.severity is Severity.HIGH]
+    plugin_ids = [f.plugin_id for f in high_ones]
+    assert plugin_ids == sorted(plugin_ids)
