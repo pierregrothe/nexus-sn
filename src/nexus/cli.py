@@ -59,10 +59,12 @@ from nexus.plugins.diff import (
     compute_diff,
     project_to_promote_plan,
 )
-from nexus.plugins.errors import PluginAdvisoryDataError
+from nexus.plugins.errors import PluginAdvisoryDataError, PluginImpactError
+from nexus.plugins.impact import compute_impact
 from nexus.plugins.models import (
     AdvisoryFinding,
     AdvisoryType,
+    PluginImpact,
     PluginInfo,
     Severity,
 )
@@ -114,6 +116,7 @@ _PLUGINS_HELP = [
     ("promote <src> --to <dst>", "Write an action plan to make <dst> match <src>"),
     ("updates", "Show plugins with newer versions available"),
     ("advisories", "Show EOL / CVE / license findings"),
+    ("impact <plugin_id>", "Show reverse-deps + scope record counts"),
 ]
 
 _CAPTURE_HELP = [
@@ -1627,6 +1630,119 @@ def plugins_advisories(
 
     _render_advisory_sections(findings)
     _render_advisory_summary(findings)
+
+
+def _impact_transport() -> httpx.AsyncBaseTransport | None:
+    """Return the async transport used by the impact command.
+
+    In production this returns ``None`` so httpx uses the real network.
+    Tests monkeypatch this to inject an ``httpx.MockTransport``.
+    """
+    return None
+
+
+@plugins_app.command("impact")
+def plugins_impact(
+    plugin_id: Annotated[
+        str,
+        typer.Argument(help="Plugin identifier (e.g. com.acme.helper)"),
+    ],
+    instance: Annotated[
+        str,
+        typer.Option(
+            "--instance",
+            help="Instance profile (default: configured default)",
+        ),
+    ] = "",
+) -> None:
+    """Show reverse dependencies + scope-owned record counts for a plugin."""
+    _, inventory = _load_inventory_or_exit(instance)
+    _registry, meta, token, _expiry = _acquire_token(instance)
+    transport = _impact_transport()
+    try:
+        impact = asyncio.run(
+            compute_impact(
+                inventory,
+                plugin_id,
+                url=meta.url,
+                token=token,
+                transport=transport,
+            )
+        )
+    except PluginImpactError as exc:
+        console.print(Notice.error(f"Plugin not found: {plugin_id}"))
+        raise typer.Exit(1) from exc
+
+    _render_impact(impact)
+
+
+def _render_impact(impact: PluginImpact) -> None:
+    """Render the two impact DataTables + trailing summary Notice.
+
+    Args:
+        impact: PluginImpact from compute_impact.
+    """
+    if impact.reverse_deps:
+        dep_rows: list[list[RenderableType]] = [
+            [
+                d.plugin_id,
+                d.name,
+                d.state,
+                str(d.depth),
+                _trunc("->".join(d.via), 60),
+            ]
+            for d in impact.reverse_deps
+        ]
+        console.print(
+            DataTable(
+                title="Reverse dependencies",
+                columns=[
+                    DataColumn(header="Plugin ID", width=32),
+                    DataColumn(header="Name", width=20),
+                    DataColumn(header="State", width=10),
+                    DataColumn(header="Depth", width=7),
+                    DataColumn(header="Via", width=60),
+                ],
+                rows=dep_rows,
+            )
+        )
+    else:
+        console.print(Notice.info(f"No plugins depend on {impact.target_plugin_id}."))
+
+    total_records = 0
+    if not impact.counts_available:
+        console.print(
+            Notice.warn("Record counts unavailable -- could not reach instance.")
+        )
+    elif not impact.record_counts:
+        console.print(Notice.info("No scope-owned records."))
+    else:
+        count_rows: list[list[RenderableType]] = [
+            [c.table, f"{c.count:,}"] for c in impact.record_counts
+        ]
+        console.print(
+            DataTable(
+                title="Scope-owned records",
+                columns=[
+                    DataColumn(header="Table", width=32),
+                    DataColumn(header="Count", width=12),
+                ],
+                rows=count_rows,
+            )
+        )
+        total_records = sum(c.count for c in impact.record_counts)
+
+    if impact.counts_available:
+        console.print(
+            Notice.info(
+                f"{len(impact.reverse_deps)} dependent plugin(s); "
+                f"{total_records:,} records in scope {impact.target_plugin_id}."
+            )
+        )
+    else:
+        console.print(
+            Notice.info(f"{len(impact.reverse_deps)} dependent plugin(s).")
+        )
 
 
 @capture_app.callback(invoke_without_command=True)
