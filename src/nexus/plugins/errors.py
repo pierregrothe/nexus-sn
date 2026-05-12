@@ -2,9 +2,9 @@
 # Error types raised by the plugins layer.
 # Author: Pierre Grothe
 # Date: 2026-05-11
-"""PluginScanError for SN-side plugin scan failures."""
+"""Error types for the plugins layer."""
 
-__all__ = ["PluginScanError"]
+__all__ = ["PluginAdvisoryDataError", "PluginScanError"]
 
 
 class PluginScanError(Exception):
@@ -20,3 +20,18 @@ class PluginScanError(Exception):
         super().__init__(f"Plugin scan failed: HTTP {status_code} reading {table}")
         self.table = table
         self.status_code = status_code
+
+
+class PluginAdvisoryDataError(Exception):
+    """Raised when a bundled advisory YAML file is unreadable or invalid.
+
+    The original yaml/Pydantic/Specifier error message is preserved in the
+    exception message.
+
+    Args:
+        message: Human-readable description of what failed.
+    """
+
+    def __init__(self, message: str) -> None:
+        """Store the reason message."""
+        super().__init__(message)
