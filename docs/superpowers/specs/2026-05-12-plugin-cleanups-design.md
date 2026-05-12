@@ -354,7 +354,7 @@ def plugins_advisories(
         bool,
         typer.Option(
             "--strict",
-            help="Exit with code 2 if any findings remain after filters.",
+            help="Exit with code 1 if any findings remain after filters.",
         ),
     ] = False,
 ) -> None:
@@ -367,12 +367,22 @@ def plugins_advisories(
     # Render (text or json)
     ...
     if strict:
-        raise typer.Exit(2)
+        raise typer.Exit(1)
 ```
 
-Exit code 2 distinguishes "findings present" from 1 (= error). CI
-hooks can branch on the code: 0 = clean, 1 = command failed, 2 =
-findings present. Documented in the command's docstring.
+Exit code 1 for "findings present" matches the modern Python tooling
+convention (ruff, mypy, black --check, flake8): 0 = clean, 1 =
+findings / policy violations / tool failure, 2 = misuse / Typer
+UsageError.
+
+Without `--strict`, exit is always 0 even when findings exist
+(informational mode). The error paths (corrupted advisory data,
+missing inventory) already exit 1 -- this is an acceptable conflation
+because a CI step using `--strict` only checks "did the command
+succeed cleanly" which is true for both "no findings" and "tool
+worked correctly". If the user needs strict separation, they can
+parse the JSON output (item 6) for an explicit `findings == []`
+check.
 
 The `--strict` flag interacts with `--format json` cleanly: JSON is
 still emitted on stdout, then the non-zero exit fires.
@@ -432,7 +442,7 @@ Item 3:
 - `test_compute_impact_calls_live_when_cached_record_count_is_positive`
 - `test_compute_impact_calls_live_when_cached_record_count_is_none`
 
-### `tests/test_cli_instance_refresh.py` (or wherever refresh CLI lives)
+### `tests/test_cli_instance.py` (existing -- the refresh CLI tests live here)
 
 Item 4:
 - `test_instance_refresh_no_counts_flag_skips_count_capture`
@@ -450,7 +460,7 @@ Item 6 (one positive + one negative per command):
 
 Item 7:
 - `tests/test_cli_plugins_advisories.py` (append):
-  - `test_advisories_strict_exits_2_when_findings_present`
+  - `test_advisories_strict_exits_1_when_findings_present`
   - `test_advisories_strict_exits_0_when_no_findings`
   - `test_advisories_strict_respects_severity_filter`
 
@@ -469,7 +479,7 @@ src/nexus/cli.py                         -- --no-counts on refresh,
                                             _validate_format / _emit_json helpers
 tests/test_plugins_scanner.py            -- 3 new tests
 tests/test_plugins_impact.py             -- 4 new tests
-tests/test_cli_instance_refresh.py       -- 1 new test
+tests/test_cli_instance.py               -- 1 new test (refresh tests live here)
 tests/test_cli_plugins_*.py              -- 14 new tests (2 per command * 7 commands)
 .ratchet.json                            -- new baselines for cli.py, scanner.py, impact.py
 ```
@@ -480,6 +490,26 @@ tests/test_cli_plugins_*.py              -- 14 new tests (2 per command * 7 comm
   plugins. Real instances typically have <500 plugins, so the cap is
   comfortable. Larger instances would still see partial data with a
   warning, not a crash.
+
+- **Page size of 200 is conservative.** ServiceNow's own performance
+  guidance (KB2296506) recommends 2,000-3,000 rows per Table API
+  page for bulk extracts. We keep 200 in v1 to stay well under any
+  instance-level cap and to match the existing
+  `_PAGE_LIMIT` constant; bumping to 1,000 is a future optimization
+  if refresh latency becomes a concern.
+
+- **`Link` header pagination is more robust than empty-result
+  probing.** The Table API returns RFC 5988 `Link` headers with
+  `rel="next"` indicating the next-page URL. v1 uses the simpler
+  empty-result + short-page check (matches pysnow-style clients).
+  Switching to Link-header parsing is a future improvement.
+
+- **Deep-offset performance degradation.** SN's `sysparm_offset` has
+  classic OFFSET-N latency growth on large tables. For `v_plugin` /
+  `sys_store_app` (small tables, <500 rows typical) this never
+  bites. For large `sys_metadata` queries (not in scope for this
+  cleanup) one would prefer keyset-style pagination with a sorted
+  unique field.
 - **Item 2 cross-module import.** Scanner.py importing from impact.py
   (locally inside a function) is unusual in this codebase. The
   alternative is a third module
@@ -493,9 +523,14 @@ tests/test_cli_plugins_*.py              -- 14 new tests (2 per command * 7 comm
 - **Item 6 wrapper models for orphans/updates.** Defining inline
   Pydantic models in cli.py creates a small precedent. Acceptable
   because they're not part of the public `nexus.plugins` API.
-- **Item 7 exit code 2.** Some CI systems already use exit code 2 for
-  other meanings (e.g. shell builtins). Documented; users can re-map
-  via `|| true` or wrapper scripts.
+- **Item 7 exit code 1 conflation.** `--strict` exits 1 on findings;
+  the existing error paths (corrupted advisory data, missing
+  inventory) also exit 1. A CI script that needs to distinguish
+  "policy violation" from "tool failure" must parse the JSON output
+  (item 6) for an explicit `findings == []` check. This matches the
+  ruff / mypy / black convention and is more useful than the
+  reversed grep convention (0 = match, 1 = no match) for a
+  CI-gating tool.
 
 ## Out of scope (deferred)
 
@@ -504,6 +539,9 @@ tests/test_cli_plugins_*.py              -- 14 new tests (2 per command * 7 comm
 - Global `--format` option.
 - YAML stdout output.
 - `--format csv` (use `nexus plugins export` for CSV).
+- **Larger page size / Link-header pagination.** Both are
+  performance optimizations on top of the basic loop introduced
+  by item 1.
 
 ## Open questions
 
