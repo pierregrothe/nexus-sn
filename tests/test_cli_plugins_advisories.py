@@ -227,3 +227,42 @@ def test_advisories_errors_on_unknown_format_value(
     result = runner.invoke(app, ["plugins", "advisories", "--format", "yaml"])
     assert result.exit_code == 1
     assert "Unknown --format" in result.output
+
+
+def test_advisories_strict_exits_1_when_findings_present(
+    runner: CliRunner, tmp_path: Path
+) -> None:
+    _seed(
+        tmp_path,
+        "prod",
+        (_info("com.snc.ess", version="1.0", vendor="ServiceNow"),),
+    )
+    runner.invoke(app, ["instance", "use", "prod"])
+    result = runner.invoke(app, ["plugins", "advisories", "--strict"])
+    assert result.exit_code == 1
+
+
+def test_advisories_strict_exits_0_when_no_findings(
+    runner: CliRunner, tmp_path: Path
+) -> None:
+    _seed(tmp_path, "prod", (_info("com.unaffected", vendor="ServiceNow"),))
+    runner.invoke(app, ["instance", "use", "prod"])
+    result = runner.invoke(app, ["plugins", "advisories", "--strict"])
+    assert result.exit_code == 0
+    assert "No advisories found" in result.output
+
+
+def test_advisories_strict_respects_severity_filter(
+    runner: CliRunner, tmp_path: Path
+) -> None:
+    """--strict + --severity that filters out all findings exits 0."""
+    _seed(
+        tmp_path,
+        "prod",
+        (_info("com.snc.ess", version="1.0", vendor="ServiceNow"),),
+    )
+    runner.invoke(app, ["instance", "use", "prod"])
+    result = runner.invoke(
+        app, ["plugins", "advisories", "--strict", "--severity", "critical"]
+    )
+    assert result.exit_code == 0

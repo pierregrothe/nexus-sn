@@ -1702,6 +1702,13 @@ def plugins_advisories(
         str,
         typer.Option("--format", help="Output format: text | json (default: text)"),
     ] = "text",
+    strict: Annotated[
+        bool,
+        typer.Option(
+            "--strict",
+            help="Exit with code 1 if any findings remain after filters.",
+        ),
+    ] = False,
 ) -> None:
     """Show EOL / CVE / license findings for plugins on an instance."""
     _validate_format(output_format)
@@ -1735,6 +1742,8 @@ def plugins_advisories(
 
     if output_format == "json":
         _emit_json(result.model_copy(update={"findings": findings}))
+        if strict and findings:
+            raise typer.Exit(1)
         return
 
     if not findings:
@@ -1743,6 +1752,8 @@ def plugins_advisories(
 
     _render_advisory_sections(findings)
     _render_advisory_summary(findings)
+    if strict and findings:
+        raise typer.Exit(1)
 
 
 def _impact_transport() -> httpx.AsyncBaseTransport | None:
