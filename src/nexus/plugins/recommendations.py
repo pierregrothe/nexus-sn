@@ -83,6 +83,7 @@ def _summarize_finding(finding: AdvisoryFinding) -> str:
 def build_deactivation_context(
     inventory: PluginInventory,
     advisories: AdvisorySet,
+    *,
     orphans: tuple[PluginInfo, ...],
 ) -> str:
     """Build the user prompt for `plugins recommend deactivate`.

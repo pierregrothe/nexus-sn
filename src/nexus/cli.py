@@ -18,7 +18,7 @@ import re
 import uuid
 from collections import Counter
 from collections.abc import Iterable
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated
 
@@ -170,6 +170,11 @@ _TABLE_HEADER: dict[str, str] = {
     "virtual_agent_conversation_topic": "VA",
     "sys_ai_agent": "AI",
 }
+
+
+def _today() -> date:
+    """Current UTC calendar date. Single point for monkeypatching in tests."""
+    return datetime.now(UTC).date()
 
 
 def _trunc(s: str, width: int) -> str:
@@ -1786,7 +1791,7 @@ def plugins_advisories(
         console.print(Notice.error(f"Advisory data corrupted: {exc}"))
         raise typer.Exit(1) from exc
 
-    today = datetime.now(UTC).date()
+    today = _today()
     result = compute_advisories(inventory, db, today=today)
 
     paths = NexusPaths.from_env()
@@ -1877,7 +1882,7 @@ def plugins_advisories_defer(
     except PluginAdvisoryDataError as exc:
         console.print(Notice.error(f"Advisory data corrupted: {exc}"))
         raise typer.Exit(1) from exc
-    today = datetime.now(UTC).date()
+    today = _today()
     advisories = compute_advisories(inventory, db, today=today)
 
     if not any(
@@ -2394,8 +2399,8 @@ def plugins_explain(
         )
     )
     db = AdvisoryDatabase.load()
-    advisories = compute_advisories(inventory, db, today=datetime.now(UTC).date())
-    plugin_findings = tuple(f for f in advisories.findings if f.plugin_id == plugin_id)
+    single_plugin_inventory = inventory.model_copy(update={"plugins": (plugin,)})
+    plugin_findings = compute_advisories(single_plugin_inventory, db, today=_today()).findings
     prompt = build_explain_context(plugin, impact, plugin_findings)
     client = _agent_client_factory()
     try:
@@ -2416,7 +2421,7 @@ def plugins_roadmap(
     """Draft an AI-generated remediation roadmap."""
     meta, inventory = _load_inventory_or_exit(instance)
     db = AdvisoryDatabase.load()
-    advisories = compute_advisories(inventory, db, today=datetime.now(UTC).date())
+    advisories = compute_advisories(inventory, db, today=_today())
     orphans = orphan_candidates(inventory)
 
     paths = NexusPaths.from_env()
@@ -2455,7 +2460,7 @@ def plugins_recommend_deactivate(
     """List plugins safest to deactivate, with AI rationale."""
     _, inventory = _load_inventory_or_exit(instance)
     db = AdvisoryDatabase.load()
-    advisories = compute_advisories(inventory, db, today=datetime.now(UTC).date())
+    advisories = compute_advisories(inventory, db, today=_today())
     orphans = orphan_candidates(inventory)
     if not orphans and not advisories.findings:
         console.print(Notice.info("No orphans or advisories -- nothing to recommend."))
@@ -2488,16 +2493,13 @@ def plugins_baselines_list(
     paths = NexusPaths.from_env()
     registry = InstanceRegistry(paths.instances_dir)
     meta, _ = _load_inventory_or_exit(instance)
-    names = registry.list_plugin_baselines(meta.profile)
-    if not names:
+    summaries = registry.list_plugin_baseline_summaries(meta.profile)
+    if not summaries:
         console.print(Notice.info(f"No baselines saved for {meta.profile}."))
         return
-    rows: list[list[RenderableType]] = []
-    for n in names:
-        inv = registry.load_plugin_baseline(meta.profile, n)
-        if inv is None:
-            continue
-        rows.append([n, str(inv.captured_at)[:19], str(len(inv.plugins))])
+    rows: list[list[RenderableType]] = [
+        [name, captured[:19], str(count)] for name, captured, count in summaries
+    ]
     console.print(
         DataTable(
             title=f"Baselines for instance {meta.profile}",

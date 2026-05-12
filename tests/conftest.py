@@ -67,6 +67,18 @@ def transport_raising(exc: Exception) -> httpx.MockTransport:
     return httpx.MockTransport(handler)
 
 
+def isolate_home(monkeypatch: pytest.MonkeyPatch, home: Path) -> None:
+    """Redirect ``Path.home()`` to ``home`` on POSIX and Windows.
+
+    Sets both ``HOME`` (POSIX) and ``USERPROFILE`` (Windows) so
+    ``Path.home()`` resolves identically on both platforms. Setting only
+    ``HOME`` is insufficient on Windows where ``Path.home()`` consults
+    ``USERPROFILE``.
+    """
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("USERPROFILE", str(home))
+
+
 def scripted_prompt(answers: list[str]) -> object:
     """Return a ``typer.prompt`` replacement that yields ``answers`` in order.
 
