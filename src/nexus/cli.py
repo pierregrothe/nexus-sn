@@ -1998,9 +1998,7 @@ def plugins_drift(
         registry.save_plugin_baseline(meta.profile, inventory)
         captured = inventory.captured_at.strftime("%Y-%m-%d")
         console.print(
-            Notice.info(
-                f"Baseline set: {len(inventory.plugins)} plugins captured {captured}."
-            )
+            Notice.info(f"Baseline set: {len(inventory.plugins)} plugins captured {captured}.")
         )
         return
 

@@ -179,9 +179,7 @@ def test_drift_renders_added_removed_version_state_changes(
     assert "com.bump" in result.output
 
 
-def test_drift_emits_json_when_format_flag_provided(
-    runner: CliRunner, tmp_path: Path
-) -> None:
+def test_drift_emits_json_when_format_flag_provided(runner: CliRunner, tmp_path: Path) -> None:
     """--format json emits a PluginDriftReport JSON to stdout."""
     baseline = (_info("com.snc.x", version="1.0.0"),)
     current = (_info("com.snc.x", version="2.0.0"),)
@@ -197,9 +195,7 @@ def test_drift_emits_json_when_format_flag_provided(
     assert payload["entries"][0]["status"] == "version_changed"
 
 
-def test_drift_emits_empty_entries_json_when_no_drift(
-    runner: CliRunner, tmp_path: Path
-) -> None:
+def test_drift_emits_empty_entries_json_when_no_drift(runner: CliRunner, tmp_path: Path) -> None:
     """--format json emits {"entries": []} when no drift -- CI-parseable."""
     plugins = (_info("com.snc.x"),)
     _seed_current(tmp_path, "prod", plugins)
@@ -242,9 +238,7 @@ def test_drift_strict_exits_0_when_no_drift(runner: CliRunner, tmp_path: Path) -
     assert "No drift detected" in result.output
 
 
-def test_drift_strict_json_emits_report_and_exits_1(
-    runner: CliRunner, tmp_path: Path
-) -> None:
+def test_drift_strict_json_emits_report_and_exits_1(runner: CliRunner, tmp_path: Path) -> None:
     """--strict --format json with drift -> emits JSON to stdout, exits 1."""
     baseline = (_info("com.snc.x", version="1.0.0"),)
     current = (_info("com.snc.x", version="2.0.0"),)
