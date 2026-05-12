@@ -147,3 +147,34 @@ def test_advisory_set_is_frozen() -> None:
     s = AdvisorySet(findings=())
     with pytest.raises(ValidationError):
         s.findings = (finding,)
+
+
+def test_plugin_info_accepts_vendor_field() -> None:
+    info = PluginInfo(
+        plugin_id="com.x",
+        name="X",
+        version="1.0",
+        state="active",
+        source="store",
+        product_family="ITSM",
+        depends_on=(),
+        sys_id="abc",
+        installed_at=None,
+        vendor="Acme Corp",
+    )
+    assert info.vendor == "Acme Corp"
+
+
+def test_plugin_info_defaults_vendor_to_empty_string() -> None:
+    info = PluginInfo(
+        plugin_id="com.x",
+        name="X",
+        version="1.0",
+        state="active",
+        source="servicenow",
+        product_family="ITSM",
+        depends_on=(),
+        sys_id="abc",
+        installed_at=None,
+    )
+    assert info.vendor == ""

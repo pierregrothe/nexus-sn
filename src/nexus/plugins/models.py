@@ -57,6 +57,8 @@ class PluginInfo(BaseModel):
         latest_version: The newest available version per ``sys_store_app``;
             ``None`` for v_plugin-only records (core SN plugins) and for
             store apps where the field is empty.
+        vendor: Publisher name from ``sys_store_app.vendor``. Empty string
+            for v_plugin-only records or when the field is absent.
     """
 
     model_config = _FROZEN
@@ -71,6 +73,7 @@ class PluginInfo(BaseModel):
     sys_id: str
     installed_at: UtcDatetime | None
     latest_version: str | None = None
+    vendor: str = ""
 
 
 class PluginInventory(BaseModel):
