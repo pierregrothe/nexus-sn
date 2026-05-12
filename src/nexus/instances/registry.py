@@ -157,21 +157,9 @@ class InstanceRegistry:
         Raises:
             InstanceNotFoundError: If the profile directory does not exist.
         """
-        profile_dir = self._dir(profile)
-        if not profile_dir.exists():
-            raise InstanceNotFoundError(profile)
-        inv_file = profile_dir / _PLUGIN_INVENTORY
-        if not inv_file.exists():
-            return None
-        try:
-            return PluginInventory.model_validate_json(inv_file.read_text(encoding="utf-8"))
-        except ValidationError:
-            log.warning(
-                "plugins.json schema outdated for profile=%s -- "
-                "run 'nexus instance refresh' to rebuild",
-                profile,
-            )
-            return None
+        return self._load_plugin_file(
+            profile, _PLUGIN_INVENTORY, "run 'nexus instance refresh' to rebuild"
+        )
 
     def save_plugin_inventory(self, profile: str, inventory: PluginInventory) -> None:
         """Atomically write plugins.json for a profile.
@@ -199,20 +187,38 @@ class InstanceRegistry:
         Raises:
             InstanceNotFoundError: If the profile directory does not exist.
         """
+        return self._load_plugin_file(
+            profile, _PLUGIN_BASELINE, "run 'nexus plugins drift --ack' to re-ack the baseline"
+        )
+
+    def _load_plugin_file(
+        self, profile: str, filename: str, refresh_hint: str
+    ) -> PluginInventory | None:
+        """Shared loader: read+validate a PluginInventory file, log on schema mismatch.
+
+        Args:
+            profile: Profile name.
+            filename: File under the profile directory (e.g. ``plugins.json``).
+            refresh_hint: One-line action sentence appended to the WARNING log
+                when the file fails Pydantic validation.
+
+        Returns:
+            ``None`` when the file is missing or has a stale schema. The
+            validated PluginInventory otherwise.
+
+        Raises:
+            InstanceNotFoundError: If the profile directory does not exist.
+        """
         profile_dir = self._dir(profile)
         if not profile_dir.exists():
             raise InstanceNotFoundError(profile)
-        baseline_file = profile_dir / _PLUGIN_BASELINE
-        if not baseline_file.exists():
+        file_path = profile_dir / filename
+        if not file_path.exists():
             return None
         try:
-            return PluginInventory.model_validate_json(baseline_file.read_text(encoding="utf-8"))
+            return PluginInventory.model_validate_json(file_path.read_text(encoding="utf-8"))
         except ValidationError:
-            log.warning(
-                "plugins.baseline.json schema outdated for profile=%s -- "
-                "run 'nexus plugins drift --ack' to re-ack the baseline",
-                profile,
-            )
+            log.warning("%s schema outdated for profile=%s -- %s", filename, profile, refresh_hint)
             return None
 
     def save_plugin_baseline(self, profile: str, inventory: PluginInventory) -> None:

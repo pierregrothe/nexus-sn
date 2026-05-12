@@ -1813,7 +1813,7 @@ def plugins_impact(
         bool,
         typer.Option(
             "--live",
-            help="Force re-query of SN record counts; ignore the cached breakdown.",
+            help="Force a live re-query of SN record counts instead of using the cached breakdown.",
         ),
     ] = False,
 ) -> None:

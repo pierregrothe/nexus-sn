@@ -148,11 +148,13 @@ class PluginScanner:
             ``_MAX_PAGES`` aborts runaway loops with a WARNING.
         """
         rows: list[dict[str, object]] = []
-        resp = await client.get(
-            f"/api/now/table/{table}",
-            params={"sysparm_fields": fields, "sysparm_limit": _PAGE_LIMIT},
-        )
+        url = f"/api/now/table/{table}"
+        params: dict[str, str | int] | None = {
+            "sysparm_fields": fields,
+            "sysparm_limit": _PAGE_LIMIT,
+        }
         for _ in range(_MAX_PAGES):
+            resp = await client.get(url, params=params)
             if resp.status_code != 200:
                 log.warning("plugin scan: %s returned HTTP %d", table, resp.status_code)
                 return [], (table, resp.status_code)
@@ -160,14 +162,14 @@ class PluginScanner:
             next_url = _parse_next_link(resp.headers.get("Link", ""))
             if next_url is None:
                 return rows, None
-            resp = await client.get(next_url)
-        else:
-            log.warning(
-                "plugin scan: %s exceeded %d pages (%d rows); truncating",
-                table,
-                _MAX_PAGES,
-                len(rows),
-            )
+            url = next_url
+            params = None
+        log.warning(
+            "plugin scan: %s exceeded %d pages (%d rows); truncating",
+            table,
+            _MAX_PAGES,
+            len(rows),
+        )
         return rows, None
 
     def _from_v_plugin(self, row: dict[str, object]) -> PluginInfo:
