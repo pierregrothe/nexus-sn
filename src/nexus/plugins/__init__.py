@@ -11,7 +11,6 @@ the advisory checkers (EOL, CVE, license), the impact analyzer
 """
 
 from nexus.plugins.advisories import AdvisoryDatabase, compute_advisories
-from nexus.plugins.overrides import AdvisoryOverride, AdvisoryOverrideSet, apply_overrides
 from nexus.plugins.diff import (
     PluginDiff,
     PluginDiffEntry,
@@ -46,6 +45,7 @@ from nexus.plugins.models import (
     Severity,
 )
 from nexus.plugins.orphans import orphan_candidates
+from nexus.plugins.overrides import AdvisoryOverride, AdvisoryOverrideSet, apply_overrides
 from nexus.plugins.product_families import product_family_for
 from nexus.plugins.scanner import PluginScanner
 from nexus.plugins.updates import plugins_with_updates

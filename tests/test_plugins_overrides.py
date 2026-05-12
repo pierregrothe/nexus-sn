@@ -9,6 +9,7 @@ from datetime import UTC, datetime
 import pytest
 from pydantic import ValidationError
 
+import nexus.plugins as plugins_pkg
 from nexus.plugins.models import AdvisoryFinding, AdvisorySet, AdvisoryType, Severity
 from nexus.plugins.overrides import (
     AdvisoryOverride,
@@ -140,8 +141,6 @@ def test_apply_overrides_multi_match_filters_all() -> None:
 
 
 def test_public_api_reexports() -> None:
-    import nexus.plugins as plugins_pkg
-
     for name in ("AdvisoryOverride", "AdvisoryOverrideSet", "apply_overrides"):
         assert name in plugins_pkg.__all__
         assert hasattr(plugins_pkg, name)
