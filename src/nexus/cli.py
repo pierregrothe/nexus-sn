@@ -1767,8 +1767,13 @@ def plugins_impact(
             help="Instance profile (default: configured default)",
         ),
     ] = "",
+    output_format: Annotated[
+        str,
+        typer.Option("--format", help="Output format: text | json (default: text)"),
+    ] = "text",
 ) -> None:
     """Show reverse dependencies + scope-owned record counts for a plugin."""
+    _validate_format(output_format)
     _, inventory = _load_inventory_or_exit(instance)
     _registry, meta, token, _expiry = _acquire_token(instance)
     transport = _impact_transport()
@@ -1786,6 +1791,9 @@ def plugins_impact(
         console.print(Notice.error(f"Plugin not found: {plugin_id}"))
         raise typer.Exit(1) from exc
 
+    if output_format == "json":
+        _emit_json(impact)
+        return
     _render_impact(impact)
 
 
