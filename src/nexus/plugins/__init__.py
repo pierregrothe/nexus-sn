@@ -19,8 +19,14 @@ from nexus.plugins.diff import (
     compute_diff,
     project_to_promote_plan,
 )
+from nexus.plugins.drift import (
+    PluginDriftEntry,
+    PluginDriftReport,
+    compute_drift,
+)
 from nexus.plugins.errors import (
     PluginAdvisoryDataError,
+    PluginBaselineNotFoundError,
     PluginImpactError,
     PluginScanError,
 )
@@ -48,8 +54,11 @@ __all__ = [
     "AdvisorySet",
     "AdvisoryType",
     "PluginAdvisoryDataError",
+    "PluginBaselineNotFoundError",
     "PluginDiff",
     "PluginDiffEntry",
+    "PluginDriftEntry",
+    "PluginDriftReport",
     "PluginImpact",
     "PluginImpactError",
     "PluginInfo",
@@ -64,6 +73,7 @@ __all__ = [
     "Severity",
     "compute_advisories",
     "compute_diff",
+    "compute_drift",
     "compute_impact",
     "orphan_candidates",
     "plugins_with_updates",

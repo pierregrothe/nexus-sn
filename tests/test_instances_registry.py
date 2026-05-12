@@ -215,3 +215,65 @@ def test_load_plugin_inventory_raises_when_profile_missing(tmp_path: Path) -> No
     registry = InstanceRegistry(tmp_path)
     with pytest.raises(InstanceNotFoundError):
         registry.load_plugin_inventory("nonexistent")
+
+
+def test_load_plugin_baseline_returns_none_when_missing(tmp_path: Path) -> None:
+    """A profile dir exists but no plugins.baseline.json -> None."""
+    registry = InstanceRegistry(tmp_path)
+    registry.register(_meta("prod"))
+    assert registry.load_plugin_baseline("prod") is None
+
+
+def test_save_plugin_baseline_round_trip(tmp_path: Path) -> None:
+    """save_plugin_baseline writes the inventory; load_plugin_baseline reads it back."""
+    registry = InstanceRegistry(tmp_path)
+    registry.register(_meta("prod"))
+    inv = _inventory()
+    registry.save_plugin_baseline("prod", inv)
+    loaded = registry.load_plugin_baseline("prod")
+    assert loaded is not None
+    assert loaded.plugins == inv.plugins
+
+
+def test_save_plugin_baseline_overwrites_existing(tmp_path: Path) -> None:
+    """A second save replaces the first baseline."""
+    registry = InstanceRegistry(tmp_path)
+    registry.register(_meta("prod"))
+    first = _inventory()
+    registry.save_plugin_baseline("prod", first)
+    second_plugin = PluginInfo(
+        plugin_id="com.snc.other",
+        name="Other",
+        version="2.0.0",
+        state="active",
+        source="servicenow",
+        product_family="ITSM",
+        depends_on=(),
+        sys_id="sys-other",
+        installed_at=None,
+    )
+    second = PluginInventory(
+        captured_at=datetime.now(UTC) + timedelta(days=1),
+        sn_version="Xanadu",
+        plugins=(second_plugin,),
+    )
+    registry.save_plugin_baseline("prod", second)
+    loaded = registry.load_plugin_baseline("prod")
+    assert loaded is not None
+    assert len(loaded.plugins) == 1
+    assert loaded.plugins[0].plugin_id == "com.snc.other"
+
+
+def test_load_plugin_baseline_raises_when_profile_missing(tmp_path: Path) -> None:
+    """Profile directory does not exist -> InstanceNotFoundError."""
+    registry = InstanceRegistry(tmp_path)
+    with pytest.raises(InstanceNotFoundError):
+        registry.load_plugin_baseline("ghost")
+
+
+def test_save_plugin_baseline_raises_when_profile_missing(tmp_path: Path) -> None:
+    """save with no profile dir -> InstanceNotFoundError."""
+    registry = InstanceRegistry(tmp_path)
+    inv = _inventory()
+    with pytest.raises(InstanceNotFoundError):
+        registry.save_plugin_baseline("ghost", inv)

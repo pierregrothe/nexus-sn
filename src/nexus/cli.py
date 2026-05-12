@@ -60,6 +60,9 @@ from nexus.plugins.diff import (
     compute_diff,
     project_to_promote_plan,
 )
+from nexus.plugins.drift import (
+    compute_drift,
+)
 from nexus.plugins.errors import PluginAdvisoryDataError, PluginImpactError
 from nexus.plugins.impact import compute_impact
 from nexus.plugins.models import (
@@ -1308,6 +1311,21 @@ def _diff_status_badge(status: str) -> StatusBadge:
     return StatusBadge.warn(status)
 
 
+def _drift_status_badge(status: str) -> StatusBadge:
+    """Return a StatusBadge for a PluginDriftEntry.status value.
+
+    Args:
+        status: One of ``added``, ``removed``, ``version_changed``,
+            or ``state_changed``.
+
+    Returns:
+        StatusBadge styled per the status category.
+    """
+    if status == "added":
+        return StatusBadge.ok(status)
+    return StatusBadge.warn(status)
+
+
 def _load_inventory_or_exit(profile: str) -> tuple[InstanceMeta, PluginInventory]:
     """Resolve a profile and load its plugin inventory, exiting with a Hint when empty.
 
@@ -1940,6 +1958,109 @@ def plugins_orphans(
         )
     )
     console.print(Notice.info(f"{len(candidates)} orphan candidate(s)."))
+
+
+@plugins_app.command("drift")
+def plugins_drift(
+    instance: Annotated[
+        str,
+        typer.Option(
+            "--instance",
+            help="Instance profile (default: configured default)",
+        ),
+    ] = "",
+    ack: Annotated[
+        bool,
+        typer.Option(
+            "--ack",
+            help="Set the current snapshot as the new baseline and exit.",
+        ),
+    ] = False,
+    output_format: Annotated[
+        str,
+        typer.Option("--format", help="Output format: text | json (default: text)"),
+    ] = "text",
+    strict: Annotated[
+        bool,
+        typer.Option(
+            "--strict",
+            help="Exit with code 1 if any drift is detected.",
+        ),
+    ] = False,
+) -> None:
+    """Show plugin drift on an instance since the last baseline."""
+    _validate_format(output_format)
+    meta, inventory = _load_inventory_or_exit(instance)
+    paths = NexusPaths.from_env()
+    registry = InstanceRegistry(paths.instances_dir)
+
+    if ack:
+        registry.save_plugin_baseline(meta.profile, inventory)
+        captured = inventory.captured_at.strftime("%Y-%m-%d")
+        console.print(
+            Notice.info(f"Baseline set: {len(inventory.plugins)} plugins captured {captured}.")
+        )
+        return
+
+    baseline = registry.load_plugin_baseline(meta.profile)
+    if baseline is None:
+        err_console.print(Notice.error(f"No baseline set for {meta.profile!r}."))
+        console.print(Hint(label="Set baseline", command="nexus plugins drift --ack"))
+        raise typer.Exit(1)
+
+    report = compute_drift(baseline, inventory, meta.profile)
+
+    if output_format == "json":
+        _emit_json(report)
+        if strict and report.entries:
+            raise typer.Exit(1)
+        return
+
+    if not report.entries:
+        console.print(Notice.info("No drift detected."))
+        return
+
+    rows: list[list[RenderableType]] = [
+        [
+            e.plugin_id,
+            e.name,
+            e.product_family,
+            _drift_status_badge(e.status),
+            (e.baseline_version or "-"),
+            (e.current_version or "-"),
+            (e.baseline_state or "-"),
+            (e.current_state or "-"),
+        ]
+        for e in report.entries
+    ]
+    console.print(
+        DataTable(
+            title=f"Plugin drift: {meta.profile}",
+            columns=[
+                DataColumn(header="Plugin ID", width=32),
+                DataColumn(header="Name", width=20),
+                DataColumn(header="Product", width=14),
+                DataColumn(header="Status", width=16),
+                DataColumn(header="Baseline ver", width=12),
+                DataColumn(header="Current ver", width=12),
+                DataColumn(header="Baseline state", width=14),
+                DataColumn(header="Current state", width=14),
+            ],
+            rows=rows,
+        )
+    )
+    counts: dict[str, int] = {
+        "added": 0,
+        "removed": 0,
+        "version_changed": 0,
+        "state_changed": 0,
+    }
+    for entry in report.entries:
+        counts[entry.status] += 1
+    breakdown = ", ".join(f"{n} {k}" for k, n in counts.items() if n)
+    console.print(Notice.info(f"{len(report.entries)} drift(s): {breakdown}"))
+    if strict and report.entries:
+        raise typer.Exit(1)
 
 
 @capture_app.callback(invoke_without_command=True)
