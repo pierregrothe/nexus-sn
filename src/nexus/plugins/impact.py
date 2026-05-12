@@ -28,6 +28,7 @@ from nexus.plugins.models import (
 __all__ = [
     "ScopeRecordCountError",
     "compute_impact",
+    "fetch_scope_counts_with_client",
     "fetch_scope_record_counts",
     "reverse_dependencies",
 ]
@@ -102,6 +103,61 @@ class ScopeRecordCountError(Exception):
     """
 
 
+async def fetch_scope_counts_with_client(
+    client: httpx.AsyncClient,
+    plugin_id: str,
+) -> tuple[ScopeRecordCount, ...]:
+    """Aggregate query over sys_metadata using an existing client.
+
+    Shared inner helper. ``fetch_scope_record_counts`` wraps this with
+    its own client; ``scanner._sum_scope_records`` calls this directly
+    with its scan-time client and sums the buckets.
+
+    Args:
+        client: Open httpx.AsyncClient bound to the instance URL.
+        plugin_id: Scope identifier (e.g. ``com.snc.incident``).
+
+    Returns:
+        Per-table counts sorted by ``(count desc, table asc)``.
+
+    Raises:
+        ScopeRecordCountError: On non-200 status or malformed response.
+    """
+    params = {
+        "sysparm_query": f"sys_scope.scope={plugin_id}",
+        "sysparm_count": "true",
+        "sysparm_group_by": "sys_class_name",
+    }
+    response = await client.get("/api/now/stats/sys_metadata", params=params)
+    if response.status_code != 200:
+        raise ScopeRecordCountError(
+            f"aggregate API returned HTTP {response.status_code}"
+        )
+    try:
+        payload = response.json()
+        rows = payload["result"]
+    except (KeyError, ValueError) as exc:
+        raise ScopeRecordCountError(f"malformed response: {exc}") from exc
+
+    counts: list[ScopeRecordCount] = []
+    for row in rows:
+        try:
+            stats = row["stats"]
+            count = int(stats["count"])
+            groupby = row["groupby_fields"]
+            table = next(
+                entry["value"]
+                for entry in groupby
+                if entry.get("field") == "sys_class_name"
+            )
+        except (KeyError, StopIteration, TypeError, ValueError) as exc:
+            raise ScopeRecordCountError(f"malformed row: {exc}") from exc
+        counts.append(ScopeRecordCount(table=table, count=count))
+
+    counts.sort(key=lambda c: (-c.count, c.table))
+    return tuple(counts)
+
+
 async def fetch_scope_record_counts(
     url: str,
     token: str,
@@ -124,11 +180,6 @@ async def fetch_scope_record_counts(
         ScopeRecordCountError: On non-200 status, network error, or
             malformed response.
     """
-    params = {
-        "sysparm_query": f"sys_scope.scope={plugin_id}",
-        "sysparm_count": "true",
-        "sysparm_group_by": "sys_class_name",
-    }
     headers = {"Authorization": f"Bearer {token}", "Accept": "application/json"}
     try:
         async with httpx.AsyncClient(
@@ -137,34 +188,9 @@ async def fetch_scope_record_counts(
             timeout=30.0,
             transport=transport,
         ) as client:
-            response = await client.get("/api/now/stats/sys_metadata", params=params)
+            return await fetch_scope_counts_with_client(client, plugin_id)
     except httpx.RequestError as exc:
         raise ScopeRecordCountError(f"network error: {exc}") from exc
-
-    if response.status_code != 200:
-        raise ScopeRecordCountError(f"aggregate API returned HTTP {response.status_code}")
-
-    try:
-        payload = response.json()
-        rows = payload["result"]
-    except (KeyError, ValueError) as exc:
-        raise ScopeRecordCountError(f"malformed response: {exc}") from exc
-
-    counts: list[ScopeRecordCount] = []
-    for row in rows:
-        try:
-            stats = row["stats"]
-            count = int(stats["count"])
-            groupby = row["groupby_fields"]
-            table = next(
-                entry["value"] for entry in groupby if entry.get("field") == "sys_class_name"
-            )
-        except (KeyError, StopIteration, TypeError, ValueError) as exc:
-            raise ScopeRecordCountError(f"malformed row: {exc}") from exc
-        counts.append(ScopeRecordCount(table=table, count=count))
-
-    counts.sort(key=lambda c: (-c.count, c.table))
-    return tuple(counts)
 
 
 async def compute_impact(

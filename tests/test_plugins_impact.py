@@ -15,6 +15,7 @@ from nexus.plugins.errors import PluginImpactError
 from nexus.plugins.impact import (
     ScopeRecordCountError,
     compute_impact,
+    fetch_scope_counts_with_client,
     fetch_scope_record_counts,
     reverse_dependencies,
 )
@@ -289,3 +290,22 @@ def test_public_api_reexports_impact_symbols() -> None:
     assert expected.issubset(set(plugins_pkg.__all__))
     for name in expected:
         assert hasattr(plugins_pkg, name), f"missing re-export: {name}"
+
+
+async def _direct(transport: httpx.MockTransport) -> tuple[ScopeRecordCount, ...]:
+    async with httpx.AsyncClient(
+        base_url="https://x.example",
+        headers={"Authorization": "Bearer t"},
+        transport=transport,
+    ) as client:
+        return await fetch_scope_counts_with_client(client, "com.x")
+
+
+def test_fetch_scope_counts_with_client_returns_typed_buckets() -> None:
+    transport = _stats_transport(
+        payload=_stats_response([_row("sys_script", 7)]),
+    )
+    buckets = asyncio.run(_direct(transport))
+    assert len(buckets) == 1
+    assert buckets[0].table == "sys_script"
+    assert buckets[0].count == 7

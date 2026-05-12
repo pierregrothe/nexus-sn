@@ -14,6 +14,12 @@ from typing import Literal, cast
 import httpx
 
 from nexus.plugins.errors import PluginScanError
+from nexus.plugins.impact import (
+    ScopeRecordCountError as _ImpactScopeRecordCountError,
+)
+from nexus.plugins.impact import (
+    fetch_scope_counts_with_client as _fetch_scope_counts_with_client,
+)
 from nexus.plugins.models import PluginInfo, PluginInventory
 from nexus.plugins.product_families import product_family_for
 
@@ -228,42 +234,26 @@ class _ScopeRecordCountError(Exception):
 
 
 async def _sum_scope_records(client: httpx.AsyncClient, plugin_id: str) -> int:
-    """Return total records in ``plugin_id``'s scope via the Aggregate API.
+    """Return total records in ``plugin_id``'s scope (sum of per-table buckets).
 
-    Sums per-``sys_class_name`` bucket counts from one
-    ``/api/now/stats/sys_metadata`` call.
+    Delegates to ``nexus.plugins.impact._fetch_scope_counts_with_client``
+    so the aggregate-API request shape lives in exactly one place.
 
     Args:
         client: Open httpx.AsyncClient bound to the instance URL.
-        plugin_id: Scope identifier (e.g. ``com.snc.incident``).
+        plugin_id: Scope identifier.
 
     Returns:
-        Total record count across all sys_class_name buckets.
+        Sum of per-table record counts in the plugin's scope.
 
     Raises:
         _ScopeRecordCountError: On non-200 status or malformed response.
     """
-    resp = await client.get(
-        "/api/now/stats/sys_metadata",
-        params={
-            "sysparm_query": f"sys_scope.scope={plugin_id}",
-            "sysparm_count": "true",
-            "sysparm_group_by": "sys_class_name",
-        },
-    )
-    if resp.status_code != 200:
-        raise _ScopeRecordCountError(f"HTTP {resp.status_code}")
     try:
-        rows = resp.json()["result"]
-    except (KeyError, ValueError) as exc:
-        raise _ScopeRecordCountError(f"malformed response: {exc}") from exc
-    total = 0
-    for row in rows:
-        try:
-            total += int(row["stats"]["count"])
-        except (KeyError, TypeError, ValueError) as exc:
-            raise _ScopeRecordCountError(f"bad row: {exc}") from exc
-    return total
+        buckets = await _fetch_scope_counts_with_client(client, plugin_id)
+    except _ImpactScopeRecordCountError as exc:
+        raise _ScopeRecordCountError(str(exc)) from exc
+    return sum(b.count for b in buckets)
 
 
 _DEFAULT_COUNTS_CONCURRENCY = 16
