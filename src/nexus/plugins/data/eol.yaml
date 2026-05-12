@@ -1,0 +1,22 @@
+# src/nexus/plugins/data/eol.yaml
+# Curated end-of-life and deprecated plugin list.
+# Author: Pierre Grothe
+# Date: 2026-05-11
+#
+# Each entry: plugin_id, status (end_of_life|deprecated), effective (ISO date),
+#   optional replacement plugin_id, optional notes.
+- plugin_id: com.snc.ess
+  status: end_of_life
+  effective: 2024-12-31
+  replacement: com.snc.now_experience
+  notes: ESS portal retired in Vancouver release.
+- plugin_id: com.snc.legacy_change_calendar
+  status: deprecated
+  effective: 2024-06-30
+  replacement: com.snc.change_request_calendar
+  notes: Use the modern Change Calendar.
+- plugin_id: com.snc.mobile_classic
+  status: end_of_life
+  effective: 2023-11-30
+  replacement: com.snc.now_mobile_app
+  notes: Classic mobile retired; switch to Now Mobile.

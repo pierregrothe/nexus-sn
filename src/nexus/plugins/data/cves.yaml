@@ -1,0 +1,19 @@
+# src/nexus/plugins/data/cves.yaml
+# Curated CVE entries that affect specific ServiceNow plugin versions.
+# Author: Pierre Grothe
+# Date: 2026-05-11
+#
+# Each entry: cve_id, plugin_id, severity (critical|high|medium|low),
+#   affected_versions (PEP 440 SpecifierSet), optional fixed_in, summary.
+- cve_id: CVE-2024-EXAMPLE-1
+  plugin_id: com.snc.cms
+  severity: high
+  affected_versions: ">=1.0,<2.2.1"
+  fixed_in: "2.2.1"
+  summary: Example reflected XSS in CMS portal renderer.
+- cve_id: CVE-2024-EXAMPLE-2
+  plugin_id: com.snc.knowledge
+  severity: medium
+  affected_versions: "<3.0.0"
+  fixed_in: "3.0.0"
+  summary: Example authorization bypass on draft articles.
