@@ -22,6 +22,7 @@ import httpx
 import typer
 import yaml as _yaml
 from packaging.version import InvalidVersion, parse
+from pydantic import BaseModel, ConfigDict
 from rich.console import Console, RenderableType
 from rich.text import Text
 
@@ -160,6 +161,59 @@ def _trunc(s: str, width: int) -> str:
 
 console = Console(theme=NEXUS_THEME)
 err_console = Console(stderr=True, theme=NEXUS_THEME)
+
+_FORMATS = ("text", "json")
+
+
+def _validate_format(value: str) -> None:  # pyright: ignore[reportUnusedFunction]
+    """Reject unknown ``--format`` values with a clear error.
+
+    Args:
+        value: User-provided format string.
+
+    Raises:
+        typer.Exit: With code 1 on unknown values, after printing
+            a Notice.error to the console.
+    """
+    if value not in _FORMATS:
+        console.print(Notice.error(f"Unknown --format: {value}"))
+        raise typer.Exit(1)
+
+
+def _emit_json(model: BaseModel) -> None:  # pyright: ignore[reportUnusedFunction]
+    """Print model JSON serialization to stdout, one line.
+
+    Uses ``model.model_dump_json()`` (not Rich's print_json) so the
+    output is single-line and CI-script-friendly.
+
+    Args:
+        model: Any Pydantic model to serialize.
+    """
+    print(model.model_dump_json())
+
+
+class _OrphansReport(BaseModel):  # pyright: ignore[reportUnusedClass]
+    """Inline wrapper for JSON output of nexus plugins orphans.
+
+    Attributes:
+        candidates: Plugins identified as orphan candidates.
+    """
+
+    model_config = ConfigDict(frozen=True, strict=True, extra="forbid")
+
+    candidates: tuple[PluginInfo, ...]
+
+
+class _UpdatesReport(BaseModel):  # pyright: ignore[reportUnusedClass]
+    """Inline wrapper for JSON output of nexus plugins updates.
+
+    Attributes:
+        updates: Plugins with newer versions available.
+    """
+
+    model_config = ConfigDict(frozen=True, strict=True, extra="forbid")
+
+    updates: tuple[PluginInfo, ...]
 
 
 def _configure_logging(level: str = "WARNING") -> None:
