@@ -6,7 +6,14 @@
 
 from datetime import date
 
-from nexus.plugins.advisories import CveEntry, EolEntry, _check_cves, _check_eol
+from nexus.plugins.advisories import (
+    CveEntry,
+    EolEntry,
+    LicensePolicy,
+    _check_cves,
+    _check_eol,
+    _check_license,
+)
 from nexus.plugins.errors import PluginAdvisoryDataError
 from nexus.plugins.models import AdvisoryType, PluginInfo, Severity
 
@@ -140,4 +147,44 @@ def test_check_cves_returns_multiple_findings_for_multiple_cves() -> None:
 def test_check_cves_skips_unparseable_plugin_version() -> None:
     table = {"com.x": (_cve("CVE-1", "com.x", Severity.HIGH, ">=1.0"),)}
     findings = _check_cves(_info(version="not-a-version-string!!!"), table)
+    assert findings == ()
+
+
+def test_check_license_flags_forbidden_vendor_as_high() -> None:
+    policy = LicensePolicy(
+        allowed_vendors=("ServiceNow",),
+        forbidden_vendors=("Sketchy LLC",),
+    )
+    sketchy = _info().model_copy(update={"vendor": "Sketchy LLC"})
+    findings = _check_license(sketchy, policy)
+    assert len(findings) == 1
+    assert findings[0].severity is Severity.HIGH
+    assert findings[0].advisory_type is AdvisoryType.LICENSE
+    assert "Sketchy LLC" in findings[0].details
+
+
+def test_check_license_flags_unknown_vendor_as_medium() -> None:
+    policy = LicensePolicy(allowed_vendors=("ServiceNow",), forbidden_vendors=())
+    findings = _check_license(_info(), policy)
+    assert len(findings) == 1
+    assert findings[0].severity is Severity.MEDIUM
+
+
+def test_check_license_skips_allowed_vendor() -> None:
+    policy = LicensePolicy(allowed_vendors=("Acme Corp",), forbidden_vendors=())
+    findings = _check_license(_info(), policy)
+    assert findings == ()
+
+
+def test_check_license_skips_empty_vendor_when_allow_list_empty() -> None:
+    policy = LicensePolicy(allowed_vendors=(), forbidden_vendors=())
+    no_vendor = _info().model_copy(update={"vendor": ""})
+    findings = _check_license(no_vendor, policy)
+    assert findings == ()
+
+
+def test_check_license_skips_empty_vendor_when_allow_list_non_empty() -> None:
+    policy = LicensePolicy(allowed_vendors=("ServiceNow",), forbidden_vendors=())
+    no_vendor = _info().model_copy(update={"vendor": ""})
+    findings = _check_license(no_vendor, policy)
     assert findings == ()
