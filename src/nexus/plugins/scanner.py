@@ -184,9 +184,7 @@ class _ScopeRecordCountError(Exception):
     """
 
 
-async def _sum_scope_records(  # pyright: ignore[reportUnusedFunction]
-    client: httpx.AsyncClient, plugin_id: str
-) -> int:
+async def _sum_scope_records(client: httpx.AsyncClient, plugin_id: str) -> int:
     """Return total records in ``plugin_id``'s scope via the Aggregate API.
 
     Sums per-``sys_class_name`` bucket counts from one
@@ -223,3 +221,39 @@ async def _sum_scope_records(  # pyright: ignore[reportUnusedFunction]
         except (KeyError, TypeError, ValueError) as exc:
             raise _ScopeRecordCountError(f"bad row: {exc}") from exc
     return total
+
+
+_DEFAULT_COUNTS_CONCURRENCY = 16
+
+
+async def _fetch_counts(
+    client: httpx.AsyncClient,
+    plugin_ids: tuple[str, ...],
+    *,
+    max_concurrency: int = _DEFAULT_COUNTS_CONCURRENCY,
+) -> dict[str, int | None]:
+    """Fan out aggregate-API calls for each plugin under a concurrency cap.
+
+    Args:
+        client: Open httpx.AsyncClient bound to the instance URL.
+        plugin_ids: Plugins to fetch counts for.
+        max_concurrency: Maximum number of in-flight stats calls.
+
+    Returns:
+        ``plugin_id -> total record count`` mapping. Per-plugin failures
+        surface as ``None`` so the whole refresh can succeed with
+        partial data.
+    """
+    semaphore = asyncio.Semaphore(max_concurrency)
+
+    async def _one(pid: str) -> tuple[str, int | None]:
+        async with semaphore:
+            try:
+                total = await _sum_scope_records(client, pid)
+            except _ScopeRecordCountError as exc:
+                log.warning("scan: count fetch failed for %s -- %s", pid, exc)
+                return pid, None
+            return pid, total
+
+    results = await asyncio.gather(*(_one(pid) for pid in plugin_ids))
+    return dict(results)
