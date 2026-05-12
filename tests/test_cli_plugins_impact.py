@@ -226,11 +226,12 @@ def test_plugins_impact_default_uses_cache(
     runner: CliRunner,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Default invocation serves from cached record_counts without hitting the network."""
-    call_count = {"n": 0}
+    """Default invocation serves from cached record_counts without hitting stats/sys_metadata."""
+    stats_calls: list[str] = []
 
     def handler(req: httpx.Request) -> httpx.Response:
-        call_count["n"] += 1
+        if "/api/now/stats/sys_metadata" in req.url.path:
+            stats_calls.append(str(req.url))
         return httpx.Response(200, json={"result": []})
 
     transport = httpx.MockTransport(handler)
@@ -251,7 +252,7 @@ def test_plugins_impact_default_uses_cache(
 
     result = runner.invoke(app, ["plugins", "impact", "com.target", "--instance", "dev"])
     assert result.exit_code == 0
-    assert call_count["n"] == 0
+    assert stats_calls == []
 
 
 def test_plugins_impact_live_flag_passes_through(
@@ -259,22 +260,24 @@ def test_plugins_impact_live_flag_passes_through(
     runner: CliRunner,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """--live forces a fresh aggregate API call even when cache is populated."""
-    call_count = {"n": 0}
+    """--live forces a fresh stats/sys_metadata call even when cache is populated."""
+    stats_calls: list[str] = []
 
     def handler(req: httpx.Request) -> httpx.Response:
-        call_count["n"] += 1
-        return httpx.Response(
-            200,
-            json={
-                "result": [
-                    {
-                        "stats": {"count": "99"},
-                        "groupby_fields": [{"field": "sys_class_name", "value": "sys_script"}],
-                    }
-                ]
-            },
-        )
+        if "/api/now/stats/sys_metadata" in req.url.path:
+            stats_calls.append(str(req.url))
+            return httpx.Response(
+                200,
+                json={
+                    "result": [
+                        {
+                            "stats": {"count": "99"},
+                            "groupby_fields": [{"field": "sys_class_name", "value": "sys_script"}],
+                        }
+                    ]
+                },
+            )
+        return httpx.Response(200, json={"result": []})
 
     transport = httpx.MockTransport(handler)
     monkeypatch.setattr("nexus.cli._impact_transport", lambda: transport)
@@ -294,4 +297,4 @@ def test_plugins_impact_live_flag_passes_through(
 
     result = runner.invoke(app, ["plugins", "impact", "com.target", "--instance", "dev", "--live"])
     assert result.exit_code == 0
-    assert call_count["n"] == 1
+    assert len(stats_calls) == 1

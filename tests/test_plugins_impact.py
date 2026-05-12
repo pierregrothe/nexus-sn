@@ -15,11 +15,12 @@ from nexus.plugins.errors import PluginImpactError
 from nexus.plugins.impact import (
     ScopeRecordCountError,
     compute_impact,
+    fetch_cross_scope_refs,
     fetch_scope_counts_with_client,
     fetch_scope_record_counts,
     reverse_dependencies,
 )
-from nexus.plugins.models import PluginImpact, PluginInfo, PluginInventory, ScopeRecordCount
+from nexus.plugins.models import CrossScopeRef, PluginImpact, PluginInfo, PluginInventory, ScopeRecordCount
 
 __all__: list[str] = []
 
@@ -320,11 +321,12 @@ def _inventory_with_target(
 
 
 def test_compute_impact_serves_empty_tuple_when_record_counts_is_empty() -> None:
-    """record_counts=() means scope owns zero records -- serve cache, no live call."""
-    call_count = {"n": 0}
+    """record_counts=() means scope owns zero records -- serve cache, no stats/sys_metadata call."""
+    stats_calls: list[str] = []
 
     def handler(req: httpx.Request) -> httpx.Response:
-        call_count["n"] += 1
+        if "/api/now/stats/sys_metadata" in req.url.path:
+            stats_calls.append(str(req.url))
         return httpx.Response(200, json={"result": []})
 
     transport = httpx.MockTransport(handler)
@@ -342,7 +344,7 @@ def test_compute_impact_serves_empty_tuple_when_record_counts_is_empty() -> None
         )
     )
 
-    assert call_count["n"] == 0
+    assert stats_calls == []
     assert result.record_counts == ()
     assert result.counts_available is True
 
@@ -409,11 +411,12 @@ def test_compute_impact_calls_live_when_cached_record_count_is_none() -> None:
 
 
 def test_compute_impact_serves_from_cache_when_record_counts_populated() -> None:
-    """Cached record_counts -> no live call, returned directly with counts_available=True."""
-    call_count = {"n": 0}
+    """Cached record_counts -> no stats/sys_metadata call, returned directly with counts_available=True."""
+    stats_calls: list[str] = []
 
     def handler(req: httpx.Request) -> httpx.Response:
-        call_count["n"] += 1
+        if "/api/now/stats/sys_metadata" in req.url.path:
+            stats_calls.append(str(req.url))
         return httpx.Response(200, json={"result": []})
 
     transport = httpx.MockTransport(handler)
@@ -435,7 +438,7 @@ def test_compute_impact_serves_from_cache_when_record_counts_populated() -> None
         )
     )
 
-    assert call_count["n"] == 0
+    assert stats_calls == []
     assert result.counts_available is True
     assert result.record_counts == cached
 
@@ -450,11 +453,13 @@ def test_compute_impact_live_flag_forces_refetch_despite_cache() -> None:
             }
         ]
     }
-    call_count = {"n": 0}
+    stats_calls: list[str] = []
 
     def handler(req: httpx.Request) -> httpx.Response:
-        call_count["n"] += 1
-        return httpx.Response(200, json=live_payload)
+        if "/api/now/stats/sys_metadata" in req.url.path:
+            stats_calls.append(str(req.url))
+            return httpx.Response(200, json=live_payload)
+        return httpx.Response(200, json={"result": []})
 
     transport = httpx.MockTransport(handler)
 
@@ -473,13 +478,13 @@ def test_compute_impact_live_flag_forces_refetch_despite_cache() -> None:
         )
     )
 
-    assert call_count["n"] == 1
+    assert len(stats_calls) == 1
     assert result.counts_available is True
     assert result.record_counts == (ScopeRecordCount(table="sys_script", count=999),)
 
 
 def test_compute_impact_falls_back_to_live_when_record_counts_none() -> None:
-    """record_counts=None (uncaptured) triggers a live call, like today."""
+    """record_counts=None (uncaptured) triggers a live stats/sys_metadata call."""
     live_payload = {
         "result": [
             {
@@ -488,11 +493,13 @@ def test_compute_impact_falls_back_to_live_when_record_counts_none() -> None:
             }
         ]
     }
-    call_count = {"n": 0}
+    stats_calls: list[str] = []
 
     def handler(req: httpx.Request) -> httpx.Response:
-        call_count["n"] += 1
-        return httpx.Response(200, json=live_payload)
+        if "/api/now/stats/sys_metadata" in req.url.path:
+            stats_calls.append(str(req.url))
+            return httpx.Response(200, json=live_payload)
+        return httpx.Response(200, json={"result": []})
 
     transport = httpx.MockTransport(handler)
 
@@ -508,6 +515,213 @@ def test_compute_impact_falls_back_to_live_when_record_counts_none() -> None:
         )
     )
 
-    assert call_count["n"] == 1
+    assert len(stats_calls) == 1
     assert result.counts_available is True
     assert result.record_counts[0].count == 7
+
+
+def _sys_db_object_response(tables: list[str]) -> dict[str, object]:
+    return {"result": [{"name": t} for t in tables]}
+
+
+def _sys_dictionary_response(
+    rows: list[tuple[str, str, str]],
+) -> dict[str, object]:
+    """Each row: (source_table, field, source_scope)."""
+    return {
+        "result": [
+            {
+                "name": src,
+                "element": field,
+                "sys_scope.scope": scope,
+            }
+            for src, field, scope in rows
+        ]
+    }
+
+
+def _stats_count_response(count: int) -> dict[str, object]:
+    return {"result": {"stats": {"count": str(count)}}}
+
+
+def test_fetch_cross_scope_refs_returns_empty_when_no_target_tables() -> None:
+    def handler(req: httpx.Request) -> httpx.Response:
+        if "sys_db_object" in req.url.path:
+            return httpx.Response(200, json=_sys_db_object_response([]))
+        return httpx.Response(404, json={"result": []})
+
+    transport = httpx.MockTransport(handler)
+    result = asyncio.run(
+        fetch_cross_scope_refs(
+            "https://x.example", "t", "com.x", transport=transport
+        )
+    )
+    assert result == ()
+
+
+def test_fetch_cross_scope_refs_returns_empty_when_no_inbound_refs() -> None:
+    def handler(req: httpx.Request) -> httpx.Response:
+        if "sys_db_object" in req.url.path:
+            return httpx.Response(200, json=_sys_db_object_response(["cmdb_ci"]))
+        if "sys_dictionary" in req.url.path:
+            return httpx.Response(200, json=_sys_dictionary_response([]))
+        return httpx.Response(404, json={"result": []})
+
+    transport = httpx.MockTransport(handler)
+    result = asyncio.run(
+        fetch_cross_scope_refs(
+            "https://x.example", "t", "com.x", transport=transport
+        )
+    )
+    assert result == ()
+
+
+def test_fetch_cross_scope_refs_returns_single_match() -> None:
+    def handler(req: httpx.Request) -> httpx.Response:
+        if "sys_db_object" in req.url.path:
+            return httpx.Response(200, json=_sys_db_object_response(["cmdb_ci"]))
+        if "sys_dictionary" in req.url.path:
+            return httpx.Response(
+                200,
+                json=_sys_dictionary_response([("incident", "cmdb_ci", "com.snc.incident")]),
+            )
+        if "/api/now/stats/" in req.url.path:
+            return httpx.Response(200, json=_stats_count_response(42))
+        return httpx.Response(404, json={"result": []})
+
+    transport = httpx.MockTransport(handler)
+    result = asyncio.run(
+        fetch_cross_scope_refs(
+            "https://x.example", "t", "com.x", transport=transport
+        )
+    )
+    assert len(result) == 1
+    assert result[0].source_table == "incident"
+    assert result[0].field == "cmdb_ci"
+    assert result[0].source_scope == "com.snc.incident"
+    assert result[0].target_table == "cmdb_ci"
+    assert result[0].record_count == 42
+
+
+def test_fetch_cross_scope_refs_sorts_by_count_desc() -> None:
+    def handler(req: httpx.Request) -> httpx.Response:
+        if "sys_db_object" in req.url.path:
+            return httpx.Response(200, json=_sys_db_object_response(["t1"]))
+        if "sys_dictionary" in req.url.path:
+            return httpx.Response(
+                200,
+                json=_sys_dictionary_response(
+                    [
+                        ("low_count_table", "f", "com.a"),
+                        ("high_count_table", "f", "com.b"),
+                    ]
+                ),
+            )
+        if "low_count_table" in req.url.path:
+            return httpx.Response(200, json=_stats_count_response(5))
+        if "high_count_table" in req.url.path:
+            return httpx.Response(200, json=_stats_count_response(500))
+        return httpx.Response(404, json={"result": []})
+
+    transport = httpx.MockTransport(handler)
+    result = asyncio.run(
+        fetch_cross_scope_refs(
+            "https://x.example", "t", "com.x", transport=transport
+        )
+    )
+    assert [r.record_count for r in result] == [500, 5]
+
+
+def test_fetch_cross_scope_refs_raises_on_phase1_failure() -> None:
+    def handler(req: httpx.Request) -> httpx.Response:
+        if "sys_db_object" in req.url.path:
+            return httpx.Response(500, json={})
+        return httpx.Response(200, json={"result": []})
+
+    transport = httpx.MockTransport(handler)
+    with pytest.raises(ScopeRecordCountError):
+        asyncio.run(
+            fetch_cross_scope_refs(
+                "https://x.example", "t", "com.x", transport=transport
+            )
+        )
+
+
+def test_compute_impact_includes_cross_scope_when_enabled() -> None:
+    def handler(req: httpx.Request) -> httpx.Response:
+        if "sys_db_object" in req.url.path:
+            return httpx.Response(200, json=_sys_db_object_response(["target_table"]))
+        if "sys_dictionary" in req.url.path:
+            return httpx.Response(
+                200,
+                json=_sys_dictionary_response([("other_table", "ref", "com.other")]),
+            )
+        if "/api/now/stats/sys_metadata" in req.url.path:
+            return httpx.Response(200, json={"result": []})
+        if "/api/now/stats/other_table" in req.url.path:
+            return httpx.Response(200, json=_stats_count_response(7))
+        return httpx.Response(404, json={"result": []})
+
+    transport = httpx.MockTransport(handler)
+    inv = _inventory(_plugin("com.target"))
+    result = asyncio.run(
+        compute_impact(
+            inv,
+            "com.target",
+            url="https://x.example",
+            token="t",
+            transport=transport,
+        )
+    )
+    assert result.cross_scope_available is True
+    assert len(result.cross_scope_refs) == 1
+    assert result.cross_scope_refs[0].source_table == "other_table"
+
+
+def test_compute_impact_skips_cross_scope_when_disabled() -> None:
+    call_count = {"n": 0}
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        call_count["n"] += 1
+        if "/api/now/stats/sys_metadata" in req.url.path:
+            return httpx.Response(200, json={"result": []})
+        return httpx.Response(200, json={"result": []})
+
+    transport = httpx.MockTransport(handler)
+    inv = _inventory(_plugin("com.target"))
+    result = asyncio.run(
+        compute_impact(
+            inv,
+            "com.target",
+            url="https://x.example",
+            token="t",
+            transport=transport,
+            cross_scope=False,
+        )
+    )
+    assert result.cross_scope_available is False
+    assert result.cross_scope_refs == ()
+
+
+def test_compute_impact_marks_cross_scope_unavailable_on_failure() -> None:
+    def handler(req: httpx.Request) -> httpx.Response:
+        if "sys_db_object" in req.url.path:
+            return httpx.Response(500, json={})
+        if "/api/now/stats/sys_metadata" in req.url.path:
+            return httpx.Response(200, json={"result": []})
+        return httpx.Response(404, json={"result": []})
+
+    transport = httpx.MockTransport(handler)
+    target_info = _plugin("com.target").model_copy(update={"record_counts": ()})
+    inv = _inventory(target_info)
+    result = asyncio.run(
+        compute_impact(
+            inv,
+            "com.target",
+            url="https://x.example",
+            token="t",
+            transport=transport,
+        )
+    )
+    assert result.cross_scope_available is False
+    assert result.cross_scope_refs == ()
