@@ -298,3 +298,97 @@ def test_plugins_impact_live_flag_passes_through(
     result = runner.invoke(app, ["plugins", "impact", "com.target", "--instance", "dev", "--live"])
     assert result.exit_code == 0
     assert len(stats_calls) == 1
+
+
+def _cross_scope_transport(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Patch _impact_transport and _acquire_token with cross-scope-aware mock."""
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        if "sys_db_object" in req.url.path:
+            return httpx.Response(200, json={"result": [{"name": "target_table"}]})
+        if "sys_dictionary" in req.url.path:
+            return httpx.Response(
+                200,
+                json={
+                    "result": [
+                        {
+                            "name": "other_table",
+                            "element": "ref_field",
+                            "sys_scope.scope": "com.other",
+                        }
+                    ]
+                },
+            )
+        if "/api/now/stats/other_table" in req.url.path:
+            return httpx.Response(200, json={"result": {"stats": {"count": "99"}}})
+        if "/api/now/stats/sys_metadata" in req.url.path:
+            return httpx.Response(200, json={"result": []})
+        return httpx.Response(200, json={"result": []})
+
+    monkeypatch.setattr("nexus.cli._impact_transport", lambda: httpx.MockTransport(handler))
+
+
+def _fake_acquire(profile: str) -> tuple[InstanceRegistry, InstanceMeta, str, datetime]:
+    paths = NexusPaths.from_env()
+    registry = InstanceRegistry(paths.instances_dir)
+    meta = registry.load(profile if profile else "prod")
+    return registry, meta, "fake-token", datetime.now(UTC)
+
+
+def test_impact_renders_cross_scope_refs_table_when_refs_exist(
+    runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _seed(tmp_path, "prod", (_info("com.target"),))
+    runner.invoke(app, ["instance", "use", "prod"])
+    _cross_scope_transport(monkeypatch)
+    monkeypatch.setattr("nexus.cli._acquire_token", _fake_acquire)
+    result = runner.invoke(app, ["plugins", "impact", "com.target"])
+    assert result.exit_code == 0
+    assert "Cross-scope references" in result.output
+    assert "other_table" in result.output
+    assert "com.other" in result.output
+
+
+def test_impact_no_cross_scope_flag_omits_refs_table(
+    runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _seed(tmp_path, "prod", (_info("com.target"),))
+    runner.invoke(app, ["instance", "use", "prod"])
+    _cross_scope_transport(monkeypatch)
+    monkeypatch.setattr("nexus.cli._acquire_token", _fake_acquire)
+    result = runner.invoke(app, ["plugins", "impact", "com.target", "--no-cross-scope"])
+    assert result.exit_code == 0
+    assert "Cross-scope references" not in result.output
+
+
+def test_impact_summary_includes_cross_scope_count_when_refs_exist(
+    runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _seed(tmp_path, "prod", (_info("com.target"),))
+    runner.invoke(app, ["instance", "use", "prod"])
+    _cross_scope_transport(monkeypatch)
+    monkeypatch.setattr("nexus.cli._acquire_token", _fake_acquire)
+    result = runner.invoke(app, ["plugins", "impact", "com.target"])
+    assert result.exit_code == 0
+    assert "cross-scope refs" in result.output
+
+
+def test_impact_warns_when_cross_scope_unavailable_and_not_opted_out(
+    runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """When cross-scope scan fails (not opted out), warn the user."""
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        if "sys_db_object" in req.url.path:
+            return httpx.Response(500, json={})
+        if "/api/now/stats/sys_metadata" in req.url.path:
+            return httpx.Response(200, json={"result": []})
+        return httpx.Response(200, json={"result": []})
+
+    monkeypatch.setattr("nexus.cli._impact_transport", lambda: httpx.MockTransport(handler))
+    monkeypatch.setattr("nexus.cli._acquire_token", _fake_acquire)
+    _seed(tmp_path, "prod", (_info("com.target"),))
+    runner.invoke(app, ["instance", "use", "prod"])
+    result = runner.invoke(app, ["plugins", "impact", "com.target"])
+    assert result.exit_code == 0
+    assert "Cross-scope refs unavailable" in result.output
