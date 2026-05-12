@@ -9,6 +9,8 @@ All commands validate config and credentials at startup.
 Features requiring unavailable MCP servers are hidden from help text.
 """
 
+from __future__ import annotations
+
 import asyncio
 import csv
 import logging
@@ -18,7 +20,10 @@ from collections import Counter
 from collections.abc import Iterable
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Annotated
+from typing import TYPE_CHECKING, Annotated
+
+if TYPE_CHECKING:
+    from nexus.api.agent_client import AgentClientProtocol
 
 import httpx
 import typer
@@ -1996,6 +2001,17 @@ def _impact_transport() -> httpx.AsyncBaseTransport | None:
     return None
 
 
+def _agent_client_factory() -> AgentClientProtocol:
+    """Return a real AgentClient; monkeypatched in tests.
+
+    Returns:
+        AgentClient instance for LLM calls.
+    """
+    from nexus.api.agent_client import AgentClient  # noqa: PLC0415
+
+    return AgentClient()
+
+
 @plugins_app.command("impact")
 def plugins_impact(
     plugin_id: Annotated[
@@ -2337,6 +2353,150 @@ def plugins_drift(
 
 
 # ---------------------------------------------------------------------------
+# nexus plugins explain / roadmap
+# ---------------------------------------------------------------------------
+
+
+@plugins_app.command("explain")
+def plugins_explain(
+    plugin_id: Annotated[str, typer.Argument(help="Plugin to explain.")],
+    instance: Annotated[
+        str,
+        typer.Option("--instance", help="Instance profile (default: configured default)"),
+    ] = "",
+) -> None:
+    """Explain what a plugin does and whether the user likely needs it."""
+    from nexus.api.errors import AnthropicError  # noqa: PLC0415
+    from nexus.plugins.advisories import AdvisoryDatabase, compute_advisories  # noqa: PLC0415
+    from nexus.plugins.impact import compute_impact  # noqa: PLC0415
+    from nexus.plugins.recommendations import (  # noqa: PLC0415
+        AI_MODEL,
+        EXPLAIN_SYSTEM_PROMPT,
+        build_explain_context,
+    )
+
+    _, inventory = _load_inventory_or_exit(instance)
+    plugin = next((p for p in inventory.plugins if p.plugin_id == plugin_id), None)
+    if plugin is None:
+        console.print(Notice.error(f"Plugin not found: {plugin_id}"))
+        raise typer.Exit(1)
+    _registry, meta, token, _expiry = _acquire_token(instance)
+    transport = _impact_transport()
+    impact = asyncio.run(
+        compute_impact(
+            inventory,
+            plugin_id,
+            url=meta.url,
+            token=token,
+            transport=transport,
+            cross_scope=False,
+        )
+    )
+    db = AdvisoryDatabase.load()
+    advisories = compute_advisories(inventory, db, today=datetime.now(UTC).date())
+    plugin_findings = tuple(f for f in advisories.findings if f.plugin_id == plugin_id)
+    prompt = build_explain_context(plugin, impact, plugin_findings)
+    client = _agent_client_factory()
+    try:
+        text = asyncio.run(
+            client.complete(prompt, system=EXPLAIN_SYSTEM_PROMPT, model=AI_MODEL)
+        )
+    except AnthropicError as exc:
+        console.print(Notice.error(f"AI request failed: {exc}"))
+        raise typer.Exit(1) from exc
+    console.print(text)
+
+
+@plugins_app.command("roadmap")
+def plugins_roadmap(
+    instance: Annotated[
+        str,
+        typer.Option("--instance", help="Instance profile (default: configured default)"),
+    ] = "",
+) -> None:
+    """Draft an AI-generated remediation roadmap."""
+    from nexus.api.errors import AnthropicError  # noqa: PLC0415
+    from nexus.plugins.advisories import AdvisoryDatabase, compute_advisories  # noqa: PLC0415
+    from nexus.plugins.orphans import orphan_candidates  # noqa: PLC0415
+    from nexus.plugins.recommendations import (  # noqa: PLC0415
+        AI_MODEL,
+        ROADMAP_SYSTEM_PROMPT,
+        build_roadmap_context,
+    )
+
+    meta, inventory = _load_inventory_or_exit(instance)
+    db = AdvisoryDatabase.load()
+    advisories = compute_advisories(inventory, db, today=datetime.now(UTC).date())
+    orphans = orphan_candidates(inventory)
+
+    paths = NexusPaths.from_env()
+    registry = InstanceRegistry(paths.instances_dir)
+    overrides = registry.load_advisory_overrides(meta.profile)
+    deferred = len(overrides.overrides)
+
+    if not advisories.findings and not orphans and deferred == 0:
+        console.print(
+            Notice.info("Nothing to remediate -- no advisories, orphans, or overrides.")
+        )
+        return
+
+    prompt = build_roadmap_context(
+        inventory, advisories, orphans=orphans, deferred_count=deferred
+    )
+    client = _agent_client_factory()
+    try:
+        text = asyncio.run(
+            client.complete(prompt, system=ROADMAP_SYSTEM_PROMPT, model=AI_MODEL)
+        )
+    except AnthropicError as exc:
+        console.print(Notice.error(f"AI request failed: {exc}"))
+        raise typer.Exit(1) from exc
+    console.print(text)
+
+
+# nexus plugins recommend
+# ---------------------------------------------------------------------------
+
+recommend_app = typer.Typer(no_args_is_help=True, help="AI recommendations.")
+plugins_app.add_typer(recommend_app, name="recommend")
+
+
+@recommend_app.command("deactivate")
+def plugins_recommend_deactivate(
+    instance: Annotated[
+        str,
+        typer.Option("--instance", help="Instance profile (default: configured default)"),
+    ] = "",
+) -> None:
+    """List plugins safest to deactivate, with AI rationale."""
+    from nexus.api.errors import AnthropicError  # noqa: PLC0415
+    from nexus.plugins.advisories import AdvisoryDatabase, compute_advisories  # noqa: PLC0415
+    from nexus.plugins.orphans import orphan_candidates  # noqa: PLC0415
+    from nexus.plugins.recommendations import (  # noqa: PLC0415
+        AI_MODEL,
+        DEACTIVATE_SYSTEM_PROMPT,
+        build_deactivation_context,
+    )
+
+    _, inventory = _load_inventory_or_exit(instance)
+    db = AdvisoryDatabase.load()
+    advisories = compute_advisories(inventory, db, today=datetime.now(UTC).date())
+    orphans = orphan_candidates(inventory)
+    if not orphans and not advisories.findings:
+        console.print(Notice.info("No orphans or advisories -- nothing to recommend."))
+        return
+    prompt = build_deactivation_context(inventory, advisories, orphans=orphans)
+    client = _agent_client_factory()
+    try:
+        text = asyncio.run(
+            client.complete(prompt, system=DEACTIVATE_SYSTEM_PROMPT, model=AI_MODEL)
+        )
+    except AnthropicError as exc:
+        console.print(Notice.error(f"AI request failed: {exc}"))
+        raise typer.Exit(1) from exc
+    console.print(text)
+
+
 # nexus plugins baselines
 # ---------------------------------------------------------------------------
 
