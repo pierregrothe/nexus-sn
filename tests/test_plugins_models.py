@@ -13,6 +13,7 @@ from nexus.plugins.models import (
     AdvisoryFinding,
     AdvisorySet,
     AdvisoryType,
+    CrossScopeRef,
     PluginImpact,
     PluginInfo,
     PluginInventory,
@@ -252,3 +253,49 @@ def test_plugin_info_accepts_record_counts_tuple() -> None:
     info = _info(record_counts=(ScopeRecordCount(table="sys_script", count=7),))
     assert len(info.record_counts) == 1
     assert info.record_counts[0].count == 7
+
+
+def test_cross_scope_ref_rejects_negative_count() -> None:
+    with pytest.raises(ValidationError):
+        CrossScopeRef(
+            source_scope="com.x",
+            source_table="incident",
+            field="cmdb_ci",
+            target_table="cmdb_ci",
+            record_count=-1,
+        )
+
+
+def test_cross_scope_ref_accepts_zero_count() -> None:
+    ref = CrossScopeRef(
+        source_scope="com.x",
+        source_table="incident",
+        field="cmdb_ci",
+        target_table="cmdb_ci",
+        record_count=0,
+    )
+    assert ref.record_count == 0
+
+
+def test_cross_scope_ref_is_frozen() -> None:
+    ref = CrossScopeRef(
+        source_scope="com.x",
+        source_table="incident",
+        field="cmdb_ci",
+        target_table="cmdb_ci",
+        record_count=5,
+    )
+    with pytest.raises(ValidationError):
+        ref.record_count = 10
+
+
+def test_plugin_impact_defaults_cross_scope_refs_to_empty_tuple() -> None:
+    impact = PluginImpact(
+        target_plugin_id="com.x",
+        target_name="X",
+        reverse_deps=(),
+        record_counts=(),
+        counts_available=True,
+    )
+    assert impact.cross_scope_refs == ()
+    assert impact.cross_scope_available is True

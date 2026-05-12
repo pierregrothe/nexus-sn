@@ -2020,6 +2020,13 @@ def plugins_impact(
             help="Force a live re-query of SN record counts instead of using the cached breakdown.",
         ),
     ] = False,
+    no_cross_scope: Annotated[
+        bool,
+        typer.Option(
+            "--no-cross-scope",
+            help="Skip the cross-scope FK reference scan.",
+        ),
+    ] = False,
 ) -> None:
     """Show reverse dependencies + scope-owned record counts for a plugin."""
     _validate_format(output_format)
@@ -2035,6 +2042,7 @@ def plugins_impact(
                 token=token,
                 transport=transport,
                 live=live,
+                cross_scope=not no_cross_scope,
             )
         )
     except PluginImpactError as exc:
@@ -2044,14 +2052,16 @@ def plugins_impact(
     if output_format == "json":
         _emit_json(impact)
         return
-    _render_impact(impact)
+    _render_impact(impact, opted_out=no_cross_scope)
 
 
-def _render_impact(impact: PluginImpact) -> None:
-    """Render the two impact DataTables + trailing summary Notice.
+def _render_impact(impact: PluginImpact, *, opted_out: bool = False) -> None:
+    """Render the impact DataTables + trailing summary Notice.
 
     Args:
         impact: PluginImpact from compute_impact.
+        opted_out: True when the user passed --no-cross-scope; suppresses
+            the unavailability warning for the cross-scope section.
     """
     if impact.reverse_deps:
         dep_rows: list[list[RenderableType]] = [
@@ -2101,15 +2111,49 @@ def _render_impact(impact: PluginImpact) -> None:
         )
         total_records = sum(c.count for c in impact.record_counts)
 
+    if not impact.cross_scope_available:
+        if not opted_out:
+            console.print(Notice.warn("Cross-scope refs unavailable -- could not reach instance."))
+    elif impact.cross_scope_refs:
+        ref_rows: list[list[RenderableType]] = [
+            [
+                r.source_scope,
+                r.source_table,
+                r.field,
+                r.target_table,
+                f"{r.record_count:,}",
+            ]
+            for r in impact.cross_scope_refs
+        ]
+        console.print(
+            DataTable(
+                title="Cross-scope references",
+                columns=[
+                    DataColumn(header="Source scope", width=24),
+                    DataColumn(header="Source table", width=24),
+                    DataColumn(header="Field", width=16),
+                    DataColumn(header="Target table", width=20),
+                    DataColumn(header="Records", width=10),
+                ],
+                rows=ref_rows,
+            )
+        )
+
+    cross_scope_suffix = (
+        f"; {len(impact.cross_scope_refs)} cross-scope refs" if impact.cross_scope_refs else ""
+    )
     if impact.counts_available:
         console.print(
             Notice.info(
                 f"{len(impact.reverse_deps)} dependent plugin(s); "
-                f"{total_records:,} records in scope {impact.target_plugin_id}."
+                f"{total_records:,} records in scope {impact.target_plugin_id}"
+                f"{cross_scope_suffix}."
             )
         )
     else:
-        console.print(Notice.info(f"{len(impact.reverse_deps)} dependent plugin(s)."))
+        console.print(
+            Notice.info(f"{len(impact.reverse_deps)} dependent plugin(s){cross_scope_suffix}.")
+        )
 
 
 _ORPHAN_STATES = ("active", "inactive")

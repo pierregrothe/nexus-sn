@@ -7,13 +7,15 @@
 Three-phase design:
     - ``reverse_dependencies`` -- pure BFS over the inventory.
     - ``fetch_scope_record_counts`` -- async aggregate API call.
-    - ``compute_impact`` -- async orchestrator joining the two,
+    - ``fetch_cross_scope_refs`` -- 3-phase async FK scan across scopes.
+    - ``compute_impact`` -- async orchestrator joining the above,
       cache-first against ``PluginInfo.record_counts`` with a
       ``live=True`` opt-in for forced refresh.
 """
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from collections import deque
 
@@ -21,6 +23,7 @@ import httpx
 
 from nexus.plugins.errors import PluginImpactError
 from nexus.plugins.models import (
+    CrossScopeRef,
     PluginImpact,
     PluginInventory,
     ReverseDependency,
@@ -30,6 +33,7 @@ from nexus.plugins.models import (
 __all__ = [
     "ScopeRecordCountError",
     "compute_impact",
+    "fetch_cross_scope_refs",
     "fetch_scope_counts_with_client",
     "fetch_scope_record_counts",
     "reverse_dependencies",
@@ -191,6 +195,178 @@ async def fetch_scope_record_counts(
         raise ScopeRecordCountError(f"network error: {exc}") from exc
 
 
+_CROSS_SCOPE_CONCURRENCY = 16
+
+
+async def fetch_cross_scope_refs(
+    url: str,
+    token: str,
+    plugin_id: str,
+    *,
+    transport: httpx.AsyncBaseTransport | None = None,
+) -> tuple[CrossScopeRef, ...]:
+    """Find tables in other scopes that reference into ``plugin_id``'s scope.
+
+    Args:
+        url: Instance base URL.
+        token: OAuth bearer token.
+        plugin_id: Target plugin/scope identifier.
+        transport: Optional httpx transport for tests.
+
+    Returns:
+        Tuple of CrossScopeRef sorted by ``(record_count desc,
+        source_scope asc, source_table asc, field asc)``.
+
+    Raises:
+        ScopeRecordCountError: When any of the three REST phases fails.
+    """
+    headers = {"Authorization": f"Bearer {token}", "Accept": "application/json"}
+    try:
+        async with httpx.AsyncClient(
+            base_url=url, headers=headers, timeout=30.0, transport=transport
+        ) as client:
+            target_tables = await _phase1_target_tables(client, plugin_id)
+            inbound = await _phase2_inbound_refs(client, target_tables)
+            counts = await _phase3_count_records(client, inbound)
+    except httpx.RequestError as exc:
+        raise ScopeRecordCountError(f"network error: {exc}") from exc
+
+    refs = [
+        CrossScopeRef(
+            source_scope=src_scope,
+            source_table=src_table,
+            field=field,
+            target_table=target_table,
+            record_count=record_count,
+        )
+        for (src_scope, src_table, field, target_table), record_count in counts.items()
+    ]
+    refs.sort(key=lambda r: (-r.record_count, r.source_scope, r.source_table, r.field))
+    return tuple(refs)
+
+
+async def _phase1_target_tables(client: httpx.AsyncClient, plugin_id: str) -> list[str]:
+    """Phase 1: list tables in the target plugin's scope.
+
+    Args:
+        client: Open httpx.AsyncClient bound to the instance URL.
+        plugin_id: Scope identifier.
+
+    Returns:
+        List of table names owned by the scope.
+
+    Raises:
+        ScopeRecordCountError: On non-200 status or malformed response.
+    """
+    response = await client.get(
+        "/api/now/table/sys_db_object",
+        params={
+            "sysparm_query": f"sys_scope.scope={plugin_id}",
+            "sysparm_fields": "name",
+            "sysparm_limit": 200,
+        },
+    )
+    if response.status_code != 200:
+        raise ScopeRecordCountError(f"sys_db_object query returned HTTP {response.status_code}")
+    try:
+        rows = response.json()["result"]
+    except (KeyError, ValueError) as exc:
+        raise ScopeRecordCountError(f"malformed sys_db_object response: {exc}") from exc
+    return [str(r["name"]) for r in rows if r.get("name")]
+
+
+async def _phase2_inbound_refs(
+    client: httpx.AsyncClient, target_tables: list[str]
+) -> list[tuple[str, str, str, str]]:
+    """Phase 2: for each target table find sys_dictionary rows with internal_type=reference.
+
+    Args:
+        client: Open httpx.AsyncClient bound to the instance URL.
+        target_tables: Tables owned by the target scope.
+
+    Returns:
+        List of (source_scope, source_table, field, target_table) tuples.
+
+    Raises:
+        ScopeRecordCountError: On non-200 status or malformed response.
+    """
+    semaphore = asyncio.Semaphore(_CROSS_SCOPE_CONCURRENCY)
+
+    async def _one(target_table: str) -> list[tuple[str, str, str, str]]:
+        async with semaphore:
+            response = await client.get(
+                "/api/now/table/sys_dictionary",
+                params={
+                    "sysparm_query": f"internal_type=reference^reference={target_table}",
+                    "sysparm_fields": "name,element,sys_scope.scope",
+                    "sysparm_limit": 200,
+                },
+            )
+            if response.status_code != 200:
+                raise ScopeRecordCountError(
+                    f"sys_dictionary query for {target_table} returned HTTP "
+                    f"{response.status_code}"
+                )
+            try:
+                rows = response.json()["result"]
+            except (KeyError, ValueError) as exc:
+                raise ScopeRecordCountError(f"malformed sys_dictionary response: {exc}") from exc
+        out: list[tuple[str, str, str, str]] = []
+        for r in rows:
+            scope_val = r.get("sys_scope.scope", "")
+            scope = scope_val if isinstance(scope_val, str) else scope_val.get("value", "")
+            out.append((str(scope), str(r["name"]), str(r["element"]), target_table))
+        return out
+
+    nested = await asyncio.gather(*(_one(t) for t in target_tables))
+    return [item for sub in nested for item in sub]
+
+
+async def _phase3_count_records(
+    client: httpx.AsyncClient, inbound: list[tuple[str, str, str, str]]
+) -> dict[tuple[str, str, str, str], int]:
+    """Phase 3: for each (src_scope, src_table, field, target_table) tuple count non-null records.
+
+    Args:
+        client: Open httpx.AsyncClient bound to the instance URL.
+        inbound: List of (source_scope, source_table, field, target_table) tuples.
+
+    Returns:
+        Mapping from the tuple to record_count.
+
+    Raises:
+        ScopeRecordCountError: On non-200 status or malformed response.
+    """
+    semaphore = asyncio.Semaphore(_CROSS_SCOPE_CONCURRENCY)
+
+    async def _one(
+        ref: tuple[str, str, str, str],
+    ) -> tuple[tuple[str, str, str, str], int]:
+        _, source_table, field, _ = ref
+        async with semaphore:
+            response = await client.get(
+                f"/api/now/stats/{source_table}",
+                params={
+                    "sysparm_query": f"{field}ISNOTEMPTY",
+                    "sysparm_count": "true",
+                },
+            )
+            if response.status_code != 200:
+                raise ScopeRecordCountError(
+                    f"stats/{source_table} returned HTTP {response.status_code}"
+                )
+            try:
+                count = int(response.json()["result"]["stats"]["count"])
+            except (KeyError, ValueError, TypeError) as exc:
+                raise ScopeRecordCountError(
+                    f"malformed stats response for {source_table}: {exc}"
+                ) from exc
+        return ref, count
+
+    pairs = await asyncio.gather(*(_one(r) for r in inbound))
+    return dict(pairs)
+
+
 async def compute_impact(
     inventory: PluginInventory,
     target: str,
@@ -199,6 +375,7 @@ async def compute_impact(
     token: str,
     transport: httpx.AsyncBaseTransport | None = None,
     live: bool = False,
+    cross_scope: bool = True,
 ) -> PluginImpact:
     """Join the reverse-dep graph walk with cached or live record counts.
 
@@ -210,9 +387,12 @@ async def compute_impact(
         transport: Optional httpx transport for tests.
         live: When True, ignore the cached ``record_counts`` and always
             re-query the live aggregate API. Default False uses cache.
+        cross_scope: When True (default), run the 3-phase cross-scope FK
+            scan. When False, ``cross_scope_refs`` is empty and
+            ``cross_scope_available`` is False.
 
     Returns:
-        PluginImpact with reverse-deps and record counts.
+        PluginImpact with reverse-deps, record counts, and cross-scope refs.
 
         When ``live=False`` (default) and ``target.record_counts is not
         None``: serves cached breakdown directly, no live call.
@@ -226,6 +406,15 @@ async def compute_impact(
     deps = reverse_dependencies(inventory, target)
     target_info = next(p for p in inventory.plugins if p.plugin_id == target)
 
+    cross_scope_refs: tuple[CrossScopeRef, ...] = ()
+    cross_scope_available = False
+    if cross_scope:
+        try:
+            cross_scope_refs = await fetch_cross_scope_refs(url, token, target, transport=transport)
+            cross_scope_available = True
+        except ScopeRecordCountError as exc:
+            log.warning("impact: cross-scope refs unavailable for %s -- %s", target, exc)
+
     if not live and target_info.record_counts is not None:
         return PluginImpact(
             target_plugin_id=target,
@@ -233,6 +422,8 @@ async def compute_impact(
             reverse_deps=deps,
             record_counts=target_info.record_counts,
             counts_available=True,
+            cross_scope_refs=cross_scope_refs,
+            cross_scope_available=cross_scope_available,
         )
 
     try:
@@ -248,4 +439,6 @@ async def compute_impact(
         reverse_deps=deps,
         record_counts=counts,
         counts_available=counts_available,
+        cross_scope_refs=cross_scope_refs,
+        cross_scope_available=cross_scope_available,
     )
