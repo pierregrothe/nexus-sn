@@ -11,7 +11,7 @@ import pytest
 
 from nexus.plugins.errors import PluginScanError
 from nexus.plugins.models import PluginInventory
-from nexus.plugins.scanner import PluginScanner
+from nexus.plugins.scanner import PluginScanner, _ScopeRecordCountError, _sum_scope_records
 from tests.fakes.fake_plugin_data import SYS_STORE_APP_ROWS, V_PLUGIN_ROWS
 
 __all__: list[str] = []
@@ -22,12 +22,17 @@ def _transport_for(
     store_status: int = 200,
     v_plugin_rows: list[dict[str, object]] | None = None,
     store_rows: list[dict[str, object]] | None = None,
+    stats_status: int = 200,
+    stats_payload: dict[str, object] | None = None,
 ) -> httpx.MockTransport:
-    """Build a transport that serves both tables with the given rows/status."""
+    """Build a transport that serves all three endpoints with the given rows/status."""
     v_rows = v_plugin_rows if v_plugin_rows is not None else V_PLUGIN_ROWS
     s_rows = store_rows if store_rows is not None else SYS_STORE_APP_ROWS
+    body: dict[str, object] = stats_payload if stats_payload is not None else {"result": []}
 
     def handler(req: httpx.Request) -> httpx.Response:
+        if "/api/now/stats/sys_metadata" in req.url.path:
+            return httpx.Response(stats_status, json=body)
         if "v_plugin" in req.url.path:
             return httpx.Response(v_plugin_status, json={"result": v_rows})
         if "sys_store_app" in req.url.path:
@@ -162,3 +167,54 @@ def test_scan_leaves_vendor_empty_for_v_plugin_only_record() -> None:
     inv = asyncio.run(_scan(_transport_for()))
     legacy = next(p for p in inv.plugins if p.plugin_id == "com.snc.legacy_only")
     assert legacy.vendor == ""
+
+
+def _stats_response(rows: list[dict[str, object]]) -> dict[str, object]:
+    return {"result": rows}
+
+
+def _stats_row(table: str, count: int) -> dict[str, object]:
+    return {
+        "stats": {"count": str(count)},
+        "groupby_fields": [{"field": "sys_class_name", "value": table}],
+    }
+
+
+async def _run_sum(transport: httpx.MockTransport, plugin_id: str = "com.x") -> int:
+    async with httpx.AsyncClient(
+        base_url="https://x.example",
+        headers={"Authorization": "Bearer t"},
+        transport=transport,
+    ) as client:
+        return await _sum_scope_records(client, plugin_id)
+
+
+def test_sum_scope_records_returns_total_across_tables() -> None:
+    transport = _transport_for(
+        stats_payload=_stats_response(
+            [
+                _stats_row("sys_script", 100),
+                _stats_row("sys_business_rule", 25),
+            ]
+        ),
+    )
+    total = asyncio.run(_run_sum(transport))
+    assert total == 125
+
+
+def test_sum_scope_records_returns_zero_for_empty_result() -> None:
+    transport = _transport_for(stats_payload=_stats_response([]))
+    total = asyncio.run(_run_sum(transport))
+    assert total == 0
+
+
+def test_sum_scope_records_raises_on_non_200() -> None:
+    transport = _transport_for(stats_status=403)
+    with pytest.raises(_ScopeRecordCountError):
+        asyncio.run(_run_sum(transport))
+
+
+def test_sum_scope_records_raises_on_malformed_response() -> None:
+    transport = _transport_for(stats_payload={"no_result_key": True})
+    with pytest.raises(_ScopeRecordCountError):
+        asyncio.run(_run_sum(transport))

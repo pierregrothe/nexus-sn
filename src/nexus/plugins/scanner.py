@@ -173,3 +173,53 @@ def _parse_dt(value: object) -> datetime | None:
         return datetime.strptime(str(value), "%Y-%m-%d %H:%M:%S").replace(tzinfo=UTC)
     except ValueError:
         return None
+
+
+class _ScopeRecordCountError(Exception):
+    """Raised when the per-scope aggregate REST call fails or is unparseable.
+
+    Internal to ``scanner.py``. Caught by ``_fetch_counts`` (added in
+    a subsequent task) to set a plugin's ``record_count`` to ``None``
+    without aborting the scan.
+    """
+
+
+async def _sum_scope_records(  # pyright: ignore[reportUnusedFunction]
+    client: httpx.AsyncClient, plugin_id: str
+) -> int:
+    """Return total records in ``plugin_id``'s scope via the Aggregate API.
+
+    Sums per-``sys_class_name`` bucket counts from one
+    ``/api/now/stats/sys_metadata`` call.
+
+    Args:
+        client: Open httpx.AsyncClient bound to the instance URL.
+        plugin_id: Scope identifier (e.g. ``com.snc.incident``).
+
+    Returns:
+        Total record count across all sys_class_name buckets.
+
+    Raises:
+        _ScopeRecordCountError: On non-200 status or malformed response.
+    """
+    resp = await client.get(
+        "/api/now/stats/sys_metadata",
+        params={
+            "sysparm_query": f"sys_scope.scope={plugin_id}",
+            "sysparm_count": "true",
+            "sysparm_group_by": "sys_class_name",
+        },
+    )
+    if resp.status_code != 200:
+        raise _ScopeRecordCountError(f"HTTP {resp.status_code}")
+    try:
+        rows = resp.json()["result"]
+    except (KeyError, ValueError) as exc:
+        raise _ScopeRecordCountError(f"malformed response: {exc}") from exc
+    total = 0
+    for row in rows:
+        try:
+            total += int(row["stats"]["count"])
+        except (KeyError, TypeError, ValueError) as exc:
+            raise _ScopeRecordCountError(f"bad row: {exc}") from exc
+    return total
