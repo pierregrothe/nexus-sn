@@ -288,7 +288,7 @@ def test_load_plugin_inventory_with_legacy_shape_returns_none_and_warns(
     registry = InstanceRegistry(tmp_path)
     registry.register(_meta("dev"))
 
-    legacy_inventory = {
+    legacy_inventory: dict[str, object] = {
         "captured_at": "2026-05-01T12:00:00+00:00",
         "sn_version": "Xanadu",
         "plugins": [
@@ -324,7 +324,7 @@ def test_load_plugin_baseline_with_legacy_shape_returns_none_and_warns(
     registry = InstanceRegistry(tmp_path)
     registry.register(_meta("dev"))
 
-    legacy_baseline = {
+    legacy_baseline: dict[str, object] = {
         "captured_at": "2026-05-01T12:00:00+00:00",
         "sn_version": "Xanadu",
         "plugins": [
