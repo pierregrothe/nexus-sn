@@ -4,6 +4,8 @@
 # Date: 2026-05-08
 """Tests for nexus.instances.registry."""
 
+import json
+import logging
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -277,3 +279,75 @@ def test_save_plugin_baseline_raises_when_profile_missing(tmp_path: Path) -> Non
     inv = _inventory()
     with pytest.raises(InstanceNotFoundError):
         registry.save_plugin_baseline("ghost", inv)
+
+
+def test_load_plugin_inventory_with_legacy_shape_returns_none_and_warns(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A plugins.json file with the old record_count field is treated as absent."""
+    registry = InstanceRegistry(tmp_path)
+    registry.register(_meta("dev"))
+
+    legacy_inventory = {
+        "captured_at": "2026-05-01T12:00:00+00:00",
+        "sn_version": "Xanadu",
+        "plugins": [
+            {
+                "plugin_id": "com.snc.incident",
+                "name": "Incident",
+                "version": "1.0",
+                "state": "active",
+                "source": "servicenow",
+                "product_family": "ITSM",
+                "depends_on": [],
+                "sys_id": "sys-1",
+                "installed_at": None,
+                "record_count": 42,
+            }
+        ],
+    }
+    (tmp_path / "dev" / "plugins.json").write_text(
+        json.dumps(legacy_inventory), encoding="utf-8"
+    )
+
+    with caplog.at_level(logging.WARNING, logger="nexus.instances.registry"):
+        result = registry.load_plugin_inventory("dev")
+
+    assert result is None
+    assert any("schema outdated" in rec.message for rec in caplog.records)
+
+
+def test_load_plugin_baseline_with_legacy_shape_returns_none_and_warns(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A plugins.baseline.json file with the old record_count field is treated as absent."""
+    registry = InstanceRegistry(tmp_path)
+    registry.register(_meta("dev"))
+
+    legacy_baseline = {
+        "captured_at": "2026-05-01T12:00:00+00:00",
+        "sn_version": "Xanadu",
+        "plugins": [
+            {
+                "plugin_id": "com.snc.incident",
+                "name": "Incident",
+                "version": "1.0",
+                "state": "active",
+                "source": "servicenow",
+                "product_family": "ITSM",
+                "depends_on": [],
+                "sys_id": "sys-1",
+                "installed_at": None,
+                "record_count": 0,
+            }
+        ],
+    }
+    (tmp_path / "dev" / "plugins.baseline.json").write_text(
+        json.dumps(legacy_baseline), encoding="utf-8"
+    )
+
+    with caplog.at_level(logging.WARNING, logger="nexus.instances.registry"):
+        result = registry.load_plugin_baseline("dev")
+
+    assert result is None
+    assert any("baseline" in rec.message.lower() for rec in caplog.records)

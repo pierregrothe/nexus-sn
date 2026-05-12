@@ -150,7 +150,9 @@ class InstanceRegistry:
             profile: Profile name.
 
         Returns:
-            PluginInventory or None if the profile exists but no inventory captured yet.
+            PluginInventory or None if the profile exists but no inventory
+            captured yet -- or if the on-disk file is unreadable / has a
+            stale schema (caller is told via WARNING log to refresh).
 
         Raises:
             InstanceNotFoundError: If the profile directory does not exist.
@@ -161,7 +163,15 @@ class InstanceRegistry:
         inv_file = profile_dir / _PLUGIN_INVENTORY
         if not inv_file.exists():
             return None
-        return PluginInventory.model_validate_json(inv_file.read_text(encoding="utf-8"))
+        try:
+            return PluginInventory.model_validate_json(inv_file.read_text(encoding="utf-8"))
+        except ValidationError:
+            log.warning(
+                "plugins.json schema outdated for profile=%s -- "
+                "run 'nexus instance refresh' to rebuild",
+                profile,
+            )
+            return None
 
     def save_plugin_inventory(self, profile: str, inventory: PluginInventory) -> None:
         """Atomically write plugins.json for a profile.
@@ -182,7 +192,9 @@ class InstanceRegistry:
             profile: Profile name.
 
         Returns:
-            PluginInventory or None if no baseline has been ack'd yet.
+            PluginInventory or None if no baseline has been ack'd yet --
+            or if the on-disk file is unreadable / has a stale schema
+            (caller is told via WARNING log to re-ack the baseline).
 
         Raises:
             InstanceNotFoundError: If the profile directory does not exist.
@@ -193,7 +205,17 @@ class InstanceRegistry:
         baseline_file = profile_dir / _PLUGIN_BASELINE
         if not baseline_file.exists():
             return None
-        return PluginInventory.model_validate_json(baseline_file.read_text(encoding="utf-8"))
+        try:
+            return PluginInventory.model_validate_json(
+                baseline_file.read_text(encoding="utf-8")
+            )
+        except ValidationError:
+            log.warning(
+                "plugins.baseline.json schema outdated for profile=%s -- "
+                "run 'nexus plugins drift --ack' to re-ack the baseline",
+                profile,
+            )
+            return None
 
     def save_plugin_baseline(self, profile: str, inventory: PluginInventory) -> None:
         """Atomically write plugins.baseline.json for a profile.
