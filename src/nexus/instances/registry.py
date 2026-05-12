@@ -206,9 +206,7 @@ class InstanceRegistry:
         if not baseline_file.exists():
             return None
         try:
-            return PluginInventory.model_validate_json(
-                baseline_file.read_text(encoding="utf-8")
-            )
+            return PluginInventory.model_validate_json(baseline_file.read_text(encoding="utf-8"))
         except ValidationError:
             log.warning(
                 "plugins.baseline.json schema outdated for profile=%s -- "

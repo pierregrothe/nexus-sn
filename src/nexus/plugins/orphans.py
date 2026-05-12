@@ -28,9 +28,7 @@ def orphan_candidates(inventory: PluginInventory) -> tuple[PluginInfo, ...]:
         for dep in plugin.depends_on:
             has_dependents.add(dep)
     orphans = [
-        p
-        for p in inventory.plugins
-        if p.plugin_id not in has_dependents and total_records(p) == 0
+        p for p in inventory.plugins if p.plugin_id not in has_dependents and total_records(p) == 0
     ]
     orphans.sort(key=lambda p: (p.state, p.plugin_id))
     return tuple(orphans)

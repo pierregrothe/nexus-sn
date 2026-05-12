@@ -270,9 +270,7 @@ def test_plugins_impact_live_flag_passes_through(
                 "result": [
                     {
                         "stats": {"count": "99"},
-                        "groupby_fields": [
-                            {"field": "sys_class_name", "value": "sys_script"}
-                        ],
+                        "groupby_fields": [{"field": "sys_class_name", "value": "sys_script"}],
                     }
                 ]
             },
@@ -294,8 +292,6 @@ def test_plugins_impact_live_flag_passes_through(
 
     monkeypatch.setattr("nexus.cli._acquire_token", fake_acquire)
 
-    result = runner.invoke(
-        app, ["plugins", "impact", "com.target", "--instance", "dev", "--live"]
-    )
+    result = runner.invoke(app, ["plugins", "impact", "com.target", "--instance", "dev", "--live"])
     assert result.exit_code == 0
     assert call_count["n"] == 1

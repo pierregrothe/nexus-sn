@@ -281,5 +281,3 @@ async def _fetch_counts(
 
     results = await asyncio.gather(*(_one(pid) for pid in plugin_ids))
     return dict(results)
-
-

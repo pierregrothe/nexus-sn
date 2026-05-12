@@ -12,7 +12,7 @@ import pytest
 
 from nexus.plugins.errors import PluginScanError
 from nexus.plugins.models import PluginInventory, ScopeRecordCount
-from nexus.plugins.scanner import PluginScanner, _fetch_counts
+from nexus.plugins.scanner import PluginScanner, _fetch_counts, _parse_next_link
 from tests.fakes.fake_plugin_data import SYS_STORE_APP_ROWS, V_PLUGIN_ROWS
 
 __all__: list[str] = []
@@ -439,33 +439,32 @@ def test_fetch_stops_at_max_pages_with_warning(caplog: pytest.LogCaptureFixture)
 
 
 def test_parse_next_link_returns_url_for_rel_next() -> None:
-    from nexus.plugins.scanner import _parse_next_link
 
-    header = '<https://x.example/api?offset=200>;rel="next",<https://x.example/api?offset=0>;rel="first"'
+    header = (
+        '<https://x.example/api?offset=200>;rel="next",<https://x.example/api?offset=0>;rel="first"'
+    )
     assert _parse_next_link(header) == "https://x.example/api?offset=200"
 
 
 def test_parse_next_link_returns_none_when_no_next_rel() -> None:
-    from nexus.plugins.scanner import _parse_next_link
 
-    header = '<https://x.example/api?offset=0>;rel="first",<https://x.example/api?offset=400>;rel="last"'
+    header = (
+        '<https://x.example/api?offset=0>;rel="first",<https://x.example/api?offset=400>;rel="last"'
+    )
     assert _parse_next_link(header) is None
 
 
 def test_parse_next_link_returns_none_for_empty_header() -> None:
-    from nexus.plugins.scanner import _parse_next_link
 
     assert _parse_next_link("") is None
 
 
 def test_parse_next_link_returns_none_for_malformed_header() -> None:
-    from nexus.plugins.scanner import _parse_next_link
 
     assert _parse_next_link("not a link header") is None
 
 
 def test_parse_next_link_tolerates_whitespace_and_unquoted_rel() -> None:
-    from nexus.plugins.scanner import _parse_next_link
 
     header = "<https://x.example/api?offset=200> ; rel=next"
     assert _parse_next_link(header) == "https://x.example/api?offset=200"

@@ -74,7 +74,9 @@ def test_orphan_candidates_excludes_plugin_with_dependents() -> None:
 
 
 def test_orphan_candidates_excludes_plugin_with_records() -> None:
-    inv = _inventory(_plugin("com.busy", record_counts=(ScopeRecordCount(table="sys_script", count=42),)))
+    inv = _inventory(
+        _plugin("com.busy", record_counts=(ScopeRecordCount(table="sys_script", count=42),))
+    )
     assert orphan_candidates(inv) == ()
 
 
@@ -108,7 +110,9 @@ def test_orphan_candidates_sorts_by_state_then_plugin_id() -> None:
 
 
 def test_orphan_candidates_returns_empty_tuple_when_no_candidates() -> None:
-    inv = _inventory(_plugin("com.busy", record_counts=(ScopeRecordCount(table="sys_script", count=100),)))
+    inv = _inventory(
+        _plugin("com.busy", record_counts=(ScopeRecordCount(table="sys_script", count=100),))
+    )
     assert orphan_candidates(inv) == ()
 
 

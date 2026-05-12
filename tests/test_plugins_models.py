@@ -20,6 +20,7 @@ from nexus.plugins.models import (
     ReverseDependency,
     ScopeRecordCount,
     Severity,
+    total_records,
 )
 
 __all__: list[str] = []
@@ -212,9 +213,7 @@ def test_plugin_impact_is_frozen() -> None:
         impact.target_name = "Y"
 
 
-
 def test_total_records_with_none_returns_none() -> None:
-    from nexus.plugins.models import total_records
 
     info = _info()
     assert info.record_counts is None
@@ -222,21 +221,18 @@ def test_total_records_with_none_returns_none() -> None:
 
 
 def test_total_records_with_empty_tuple_returns_zero() -> None:
-    from nexus.plugins.models import total_records
 
     info = _info(record_counts=())
     assert total_records(info) == 0
 
 
 def test_total_records_with_single_bucket_returns_count() -> None:
-    from nexus.plugins.models import total_records
 
     info = _info(record_counts=(ScopeRecordCount(table="sys_script", count=42),))
     assert total_records(info) == 42
 
 
 def test_total_records_with_multi_bucket_returns_sum() -> None:
-    from nexus.plugins.models import total_records
 
     info = _info(
         record_counts=(

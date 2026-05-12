@@ -2,18 +2,27 @@
 # Tests for the auto-update runner orchestration.
 # Author: Pierre Grothe
 # Date: 2026-05-08
-"""Tests for nexus.updater.runner.check_and_maybe_update."""
+"""Tests for nexus.updater.runner.check_and_maybe_update.
+
+POSIX-only: the runner uses fcntl advisory file locks; module collection
+aborts on Windows where fcntl is unavailable.
+"""
+
+import sys
+
+import pytest
+
+if sys.platform == "win32":
+    pytest.skip("fcntl advisory locking is POSIX-only", allow_module_level=True)
 
 import fcntl
 import os
 import subprocess
-import sys
 import time
 from pathlib import Path
 from typing import TypedDict
 
 import httpx
-import pytest
 
 from nexus.config.paths import NexusPaths
 from nexus.updater import runner as runner_module

@@ -31,10 +31,11 @@ def test_table_unavailable_error_is_capture_error() -> None:
 
 
 def test_archive_corrupt_error_is_capture_error() -> None:
-    err = ArchiveCorruptError(archive_dir=Path("/tmp/missing"))
+    archive = Path("/tmp/missing")
+    err = ArchiveCorruptError(archive_dir=archive)
     assert isinstance(err, CaptureError)
-    assert err.archive_dir == Path("/tmp/missing")
-    assert "/tmp/missing" in str(err)
+    assert err.archive_dir == archive
+    assert str(archive) in str(err)
 
 
 def test_update_set_error_is_capture_error() -> None:

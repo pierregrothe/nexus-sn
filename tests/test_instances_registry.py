@@ -189,8 +189,9 @@ def test_registry_save_snapshot_cleans_tmp_on_oserror(tmp_path: Path) -> None:
     registry.register(_meta())
     profile_dir = tmp_path / "dev12345"
     # Create a directory where snapshot.json would be placed so Path.replace raises OSError.
+    # POSIX raises IsADirectoryError; Windows raises PermissionError -- both are OSError.
     (profile_dir / "snapshot.json").mkdir()
-    with pytest.raises(IsADirectoryError, match="Is a directory"):
+    with pytest.raises((IsADirectoryError, PermissionError)):
         registry.save_snapshot("dev12345", _snapshot())
     assert not any(p.suffix == ".tmp" for p in profile_dir.iterdir())
 
@@ -306,9 +307,7 @@ def test_load_plugin_inventory_with_legacy_shape_returns_none_and_warns(
             }
         ],
     }
-    (tmp_path / "dev" / "plugins.json").write_text(
-        json.dumps(legacy_inventory), encoding="utf-8"
-    )
+    (tmp_path / "dev" / "plugins.json").write_text(json.dumps(legacy_inventory), encoding="utf-8")
 
     with caplog.at_level(logging.WARNING, logger="nexus.instances.registry"):
         result = registry.load_plugin_inventory("dev")
