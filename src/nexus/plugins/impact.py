@@ -7,7 +7,9 @@
 Three-phase design:
     - ``reverse_dependencies`` -- pure BFS over the inventory.
     - ``fetch_scope_record_counts`` -- async aggregate API call.
-    - ``compute_impact`` -- async orchestrator joining the two.
+    - ``compute_impact`` -- async orchestrator joining the two,
+      cache-first against ``PluginInfo.record_counts`` with a
+      ``live=True`` opt-in for forced refresh.
 """
 
 from __future__ import annotations
@@ -196,8 +198,9 @@ async def compute_impact(
     url: str,
     token: str,
     transport: httpx.AsyncBaseTransport | None = None,
+    live: bool = False,
 ) -> PluginImpact:
-    """Join the reverse-dep graph walk and the live aggregate call.
+    """Join the reverse-dep graph walk with cached or live record counts.
 
     Args:
         inventory: Captured plugin inventory.
@@ -205,16 +208,16 @@ async def compute_impact(
         url: Instance base URL.
         token: OAuth bearer token.
         transport: Optional httpx transport for tests.
+        live: When True, ignore the cached ``record_counts`` and always
+            re-query the live aggregate API. Default False uses cache.
 
     Returns:
         PluginImpact with reverse-deps and record counts.
 
-        Fast path: if the target's cached ``record_count == 0`` (from
-        a refresh-time fan-out), skips the live aggregate call entirely
-        and returns ``record_counts=()`` with ``counts_available=True``.
+        When ``live=False`` (default) and ``target.record_counts is not
+        None``: serves cached breakdown directly, no live call.
 
-        Otherwise (cached > 0 or None): performs the live aggregate
-        call for the per-table breakdown. If the call fails,
+        Otherwise: performs the live aggregate call. On failure,
         ``counts_available=False`` and ``record_counts=()``.
 
     Raises:
@@ -223,12 +226,12 @@ async def compute_impact(
     deps = reverse_dependencies(inventory, target)
     target_info = next(p for p in inventory.plugins if p.plugin_id == target)
 
-    if target_info.record_count == 0:
+    if not live and target_info.record_counts is not None:
         return PluginImpact(
             target_plugin_id=target,
             target_name=target_info.name,
             reverse_deps=deps,
-            record_counts=(),
+            record_counts=target_info.record_counts,
             counts_available=True,
         )
 
