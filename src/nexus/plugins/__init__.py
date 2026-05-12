@@ -5,7 +5,8 @@
 """nexus.plugins: read-only plugin inventory layer.
 
 Exports the data models, scanner, error type, product-family lookup,
-and the cross-instance diff/promote helpers.
+the cross-instance diff/promote helpers, and the update-detection
+filter.
 """
 
 from nexus.plugins.diff import (
@@ -20,6 +21,7 @@ from nexus.plugins.errors import PluginScanError
 from nexus.plugins.models import PluginInfo, PluginInventory, ProductFamily
 from nexus.plugins.product_families import product_family_for
 from nexus.plugins.scanner import PluginScanner
+from nexus.plugins.updates import plugins_with_updates
 
 __all__ = [
     "PluginDiff",
@@ -32,6 +34,7 @@ __all__ = [
     "PromoteAction",
     "PromotionPlan",
     "compute_diff",
+    "plugins_with_updates",
     "product_family_for",
     "project_to_promote_plan",
 ]
