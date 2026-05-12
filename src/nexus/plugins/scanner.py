@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 from datetime import UTC, datetime
 from typing import Literal, cast
 
@@ -30,6 +31,26 @@ _PAGE_LIMIT = 200
 _MAX_PAGES = 50  # safety cap; 50 * 200 = 10,000 rows
 _SERVICENOW_VENDORS = {"ServiceNow", "Service-now.com", "servicenow"}
 _CUSTOM_SCOPE_PREFIXES = ("x_", "u_")
+
+_NEXT_LINK_RE = re.compile(r'<([^>]+)>\s*;\s*rel\s*=\s*"?next"?', re.IGNORECASE)
+
+
+def _parse_next_link(header: str) -> str | None:
+    """Return the URL marked rel="next" in an RFC 5988 Link header, or None.
+
+    Tolerant of whitespace and unquoted rel values. Returns the first match;
+    SN responses contain at most one rel="next" entry.
+
+    Args:
+        header: Raw value of the ``Link`` response header, or ``""``.
+
+    Returns:
+        The URL inside angle brackets paired with ``rel="next"``, else None.
+    """
+    if not header:
+        return None
+    match = _NEXT_LINK_RE.search(header)
+    return match.group(1) if match else None
 
 
 class PluginScanner:
@@ -113,7 +134,7 @@ class PluginScanner:
     async def _fetch(
         self, client: httpx.AsyncClient, table: str, fields: str
     ) -> tuple[list[dict[str, object]], tuple[str, int] | None]:
-        """Fetch a Table API endpoint, paginated until exhausted.
+        """Fetch a Table API endpoint, walking RFC 5988 Link rel="next" headers.
 
         Args:
             client: Open httpx.AsyncClient bound to the instance URL.
@@ -122,31 +143,24 @@ class PluginScanner:
 
         Returns:
             ``(rows, None)`` on success; ``([], (table, status))`` on the
-            first non-200 response. Pagination uses ``sysparm_offset``
-            with a hard cap of ``_MAX_PAGES`` pages; if the cap is hit a
-            WARNING is logged and partial data returned.
+            first non-200 response. Pagination follows the ``Link`` header
+            with ``rel="next"`` until absent. A safety cap of
+            ``_MAX_PAGES`` aborts runaway loops with a WARNING.
         """
         rows: list[dict[str, object]] = []
-        offset = 0
+        resp = await client.get(
+            f"/api/now/table/{table}",
+            params={"sysparm_fields": fields, "sysparm_limit": _PAGE_LIMIT},
+        )
         for _ in range(_MAX_PAGES):
-            resp = await client.get(
-                f"/api/now/table/{table}",
-                params={
-                    "sysparm_fields": fields,
-                    "sysparm_limit": _PAGE_LIMIT,
-                    "sysparm_offset": offset,
-                },
-            )
             if resp.status_code != 200:
                 log.warning("plugin scan: %s returned HTTP %d", table, resp.status_code)
                 return [], (table, resp.status_code)
-            page: list[dict[str, object]] = resp.json().get("result", [])
-            if not page:
-                break
-            rows.extend(page)
-            if len(page) < _PAGE_LIMIT:
-                break
-            offset += _PAGE_LIMIT
+            rows.extend(resp.json().get("result", []))
+            next_url = _parse_next_link(resp.headers.get("Link", ""))
+            if next_url is None:
+                return rows, None
+            resp = await client.get(next_url)
         else:
             log.warning(
                 "plugin scan: %s exceeded %d pages (%d rows); truncating",

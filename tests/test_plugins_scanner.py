@@ -286,54 +286,79 @@ def test_scan_populates_record_counts_empty_tuple_when_scope_has_zero_records() 
     assert incident.record_counts == ()
 
 
-def test_fetch_paginates_through_multiple_pages() -> None:
-    """Three pages: 200 + 200 + 50 = 450 rows total."""
-    pages = [
-        [
-            {
-                "sys_id": f"a{i}",
-                "id": f"com.p{i}",
-                "name": f"P{i}",
-                "version": "1.0",
-                "active": "true",
-                "dependencies": "",
-                "installed_on": "",
-            }
-            for i in range(200)
-        ],
-        [
-            {
-                "sys_id": f"b{i}",
-                "id": f"com.q{i}",
-                "name": f"Q{i}",
-                "version": "1.0",
-                "active": "true",
-                "dependencies": "",
-                "installed_on": "",
-            }
-            for i in range(200)
-        ],
-        [
-            {
-                "sys_id": f"c{i}",
-                "id": f"com.r{i}",
-                "name": f"R{i}",
-                "version": "1.0",
-                "active": "true",
-                "dependencies": "",
-                "installed_on": "",
-            }
-            for i in range(50)
-        ],
+def test_fetch_follows_link_header_next() -> None:
+    """Two pages stitched via Link rel='next'."""
+    pages: list[tuple[list[dict[str, object]], str | None]] = [
+        (
+            [
+                {
+                    "sys_id": f"a{i}",
+                    "id": f"com.p{i}",
+                    "name": f"P{i}",
+                    "version": "1.0",
+                    "active": "true",
+                    "dependencies": "",
+                    "installed_on": "",
+                }
+                for i in range(200)
+            ],
+            "https://x.example/api/now/table/v_plugin?sysparm_offset=200",
+        ),
+        (
+            [
+                {
+                    "sys_id": f"b{i}",
+                    "id": f"com.q{i}",
+                    "name": f"Q{i}",
+                    "version": "1.0",
+                    "active": "true",
+                    "dependencies": "",
+                    "installed_on": "",
+                }
+                for i in range(50)
+            ],
+            None,
+        ),
     ]
+    call_idx = {"i": 0}
 
     def handler(req: httpx.Request) -> httpx.Response:
         if "/api/now/stats/sys_metadata" in req.url.path:
             return httpx.Response(200, json={"result": []})
         if "v_plugin" in req.url.path:
-            offset = int(req.url.params.get("sysparm_offset", "0"))
-            page_idx = offset // 200
-            page = pages[page_idx] if page_idx < len(pages) else []
+            page, next_url = pages[call_idx["i"]]
+            call_idx["i"] += 1
+            headers = {"Link": f'<{next_url}>;rel="next"'} if next_url else {}
+            return httpx.Response(200, json={"result": page}, headers=headers)
+        if "sys_store_app" in req.url.path:
+            return httpx.Response(200, json={"result": []})
+        return httpx.Response(404, json={"result": []})
+
+    transport = httpx.MockTransport(handler)
+    inv = asyncio.run(_scan(transport))
+    v_plugin_count = sum(1 for p in inv.plugins if p.plugin_id.startswith("com."))
+    assert v_plugin_count == 250
+
+
+def test_fetch_stops_when_no_next_link_on_full_page() -> None:
+    """A full 200-row page WITHOUT Link rel='next' must terminate (the bug the old heuristic missed)."""
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        if "/api/now/stats/sys_metadata" in req.url.path:
+            return httpx.Response(200, json={"result": []})
+        if "v_plugin" in req.url.path:
+            page = [
+                {
+                    "sys_id": f"s{i}",
+                    "id": f"com.p{i}",
+                    "name": f"P{i}",
+                    "version": "1.0",
+                    "active": "true",
+                    "dependencies": "",
+                    "installed_on": "",
+                }
+                for i in range(200)
+            ]
             return httpx.Response(200, json={"result": page})
         if "sys_store_app" in req.url.path:
             return httpx.Response(200, json={"result": []})
@@ -342,7 +367,7 @@ def test_fetch_paginates_through_multiple_pages() -> None:
     transport = httpx.MockTransport(handler)
     inv = asyncio.run(_scan(transport))
     v_plugin_count = sum(1 for p in inv.plugins if p.plugin_id.startswith("com."))
-    assert v_plugin_count == 450
+    assert v_plugin_count == 200
 
 
 def test_scan_skips_count_fan_out_when_capture_counts_false() -> None:
@@ -376,7 +401,7 @@ def test_scan_skips_count_fan_out_when_capture_counts_false() -> None:
 
 
 def test_fetch_stops_at_max_pages_with_warning(caplog: pytest.LogCaptureFixture) -> None:
-    """Handler always returns 200 unique rows -> loop should bail at _MAX_PAGES."""
+    """Handler always returns a Link rel='next' so the loop must bail at _MAX_PAGES."""
 
     def handler(req: httpx.Request) -> httpx.Response:
         if "/api/now/stats/sys_metadata" in req.url.path:
@@ -395,7 +420,12 @@ def test_fetch_stops_at_max_pages_with_warning(caplog: pytest.LogCaptureFixture)
                 }
                 for i in range(200)
             ]
-            return httpx.Response(200, json={"result": page})
+            next_url = f"https://x.example/api/now/table/v_plugin?sysparm_offset={offset + 200}"
+            return httpx.Response(
+                200,
+                json={"result": page},
+                headers={"Link": f'<{next_url}>;rel="next"'},
+            )
         if "sys_store_app" in req.url.path:
             return httpx.Response(200, json={"result": []})
         return httpx.Response(404, json={"result": []})
@@ -406,3 +436,36 @@ def test_fetch_stops_at_max_pages_with_warning(caplog: pytest.LogCaptureFixture)
     assert any("exceeded" in rec.message for rec in caplog.records)
     # Total rows = _MAX_PAGES (50) * _PAGE_LIMIT (200) = 10000 dedup'd
     assert len(inv.plugins) == 10000
+
+
+def test_parse_next_link_returns_url_for_rel_next() -> None:
+    from nexus.plugins.scanner import _parse_next_link
+
+    header = '<https://x.example/api?offset=200>;rel="next",<https://x.example/api?offset=0>;rel="first"'
+    assert _parse_next_link(header) == "https://x.example/api?offset=200"
+
+
+def test_parse_next_link_returns_none_when_no_next_rel() -> None:
+    from nexus.plugins.scanner import _parse_next_link
+
+    header = '<https://x.example/api?offset=0>;rel="first",<https://x.example/api?offset=400>;rel="last"'
+    assert _parse_next_link(header) is None
+
+
+def test_parse_next_link_returns_none_for_empty_header() -> None:
+    from nexus.plugins.scanner import _parse_next_link
+
+    assert _parse_next_link("") is None
+
+
+def test_parse_next_link_returns_none_for_malformed_header() -> None:
+    from nexus.plugins.scanner import _parse_next_link
+
+    assert _parse_next_link("not a link header") is None
+
+
+def test_parse_next_link_tolerates_whitespace_and_unquoted_rel() -> None:
+    from nexus.plugins.scanner import _parse_next_link
+
+    header = "<https://x.example/api?offset=200> ; rel=next"
+    assert _parse_next_link(header) == "https://x.example/api?offset=200"
