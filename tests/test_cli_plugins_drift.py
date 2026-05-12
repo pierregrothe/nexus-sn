@@ -57,7 +57,6 @@ def _info(
 
 
 def _seed_current(
-    tmp_path: Path,
     profile: str,
     plugins: tuple[PluginInfo, ...] | None = None,
 ) -> None:
@@ -75,7 +74,6 @@ def _seed_current(
 
 
 def _seed_baseline(
-    tmp_path: Path,
     profile: str,
     plugins: tuple[PluginInfo, ...],
 ) -> None:
@@ -99,7 +97,7 @@ def runner(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> CliRunner:
 
 def test_drift_errors_when_no_current_snapshot(runner: CliRunner, tmp_path: Path) -> None:
     """No plugins.json captured yet -> exit 1 with refresh hint."""
-    _seed_current(tmp_path, "prod", plugins=None)
+    _seed_current("prod", plugins=None)
     runner.invoke(app, ["instance", "use", "prod"])
     result = runner.invoke(app, ["plugins", "drift"])
     assert result.exit_code == 1
@@ -108,7 +106,7 @@ def test_drift_errors_when_no_current_snapshot(runner: CliRunner, tmp_path: Path
 
 def test_drift_errors_when_no_baseline_with_hint(runner: CliRunner, tmp_path: Path) -> None:
     """Current exists, no baseline -> exit 1 with --ack hint."""
-    _seed_current(tmp_path, "prod", (_info("com.snc.x"),))
+    _seed_current("prod", (_info("com.snc.x"),))
     runner.invoke(app, ["instance", "use", "prod"])
     result = runner.invoke(app, ["plugins", "drift"])
     assert result.exit_code == 1
@@ -117,7 +115,7 @@ def test_drift_errors_when_no_baseline_with_hint(runner: CliRunner, tmp_path: Pa
 
 def test_drift_ack_sets_baseline(runner: CliRunner, tmp_path: Path) -> None:
     """--ack saves current snapshot as plugins.baseline.json."""
-    _seed_current(tmp_path, "prod", (_info("com.snc.x"),))
+    _seed_current("prod", (_info("com.snc.x"),))
     runner.invoke(app, ["instance", "use", "prod"])
     result = runner.invoke(app, ["plugins", "drift", "--ack"])
     assert result.exit_code == 0
@@ -132,7 +130,7 @@ def test_drift_ack_sets_baseline(runner: CliRunner, tmp_path: Path) -> None:
 
 def test_drift_ack_errors_when_no_current_snapshot(runner: CliRunner, tmp_path: Path) -> None:
     """--ack with no plugins.json -> exit 1 with refresh hint."""
-    _seed_current(tmp_path, "prod", plugins=None)
+    _seed_current("prod", plugins=None)
     runner.invoke(app, ["instance", "use", "prod"])
     result = runner.invoke(app, ["plugins", "drift", "--ack"])
     assert result.exit_code == 1
@@ -144,8 +142,8 @@ def test_drift_reports_no_drift_when_inventories_identical(
 ) -> None:
     """Same plugin in baseline and current -> 'No drift detected.'"""
     plugins = (_info("com.snc.x"),)
-    _seed_current(tmp_path, "prod", plugins)
-    _seed_baseline(tmp_path, "prod", plugins)
+    _seed_current("prod", plugins)
+    _seed_baseline("prod", plugins)
     runner.invoke(app, ["instance", "use", "prod"])
     result = runner.invoke(app, ["plugins", "drift"])
     assert result.exit_code == 0
@@ -168,8 +166,8 @@ def test_drift_renders_added_removed_version_state_changes(
     )
     # _seed_current MUST come before _seed_baseline because it calls registry.register()
     # which creates the profile directory that save_plugin_baseline requires.
-    _seed_current(tmp_path, "prod", current)
-    _seed_baseline(tmp_path, "prod", baseline)
+    _seed_current("prod", current)
+    _seed_baseline("prod", baseline)
     runner.invoke(app, ["instance", "use", "prod"])
     result = runner.invoke(app, ["plugins", "drift"])
     assert result.exit_code == 0
@@ -183,8 +181,8 @@ def test_drift_emits_json_when_format_flag_provided(runner: CliRunner, tmp_path:
     """--format json emits a PluginDriftReport JSON to stdout."""
     baseline = (_info("com.snc.x", version="1.0.0"),)
     current = (_info("com.snc.x", version="2.0.0"),)
-    _seed_current(tmp_path, "prod", current)
-    _seed_baseline(tmp_path, "prod", baseline)
+    _seed_current("prod", current)
+    _seed_baseline("prod", baseline)
     runner.invoke(app, ["instance", "use", "prod"])
     result = runner.invoke(app, ["plugins", "drift", "--format", "json"])
     assert result.exit_code == 0
@@ -198,8 +196,8 @@ def test_drift_emits_json_when_format_flag_provided(runner: CliRunner, tmp_path:
 def test_drift_emits_empty_entries_json_when_no_drift(runner: CliRunner, tmp_path: Path) -> None:
     """--format json emits {"entries": []} when no drift -- CI-parseable."""
     plugins = (_info("com.snc.x"),)
-    _seed_current(tmp_path, "prod", plugins)
-    _seed_baseline(tmp_path, "prod", plugins)
+    _seed_current("prod", plugins)
+    _seed_baseline("prod", plugins)
     runner.invoke(app, ["instance", "use", "prod"])
     result = runner.invoke(app, ["plugins", "drift", "--format", "json"])
     assert result.exit_code == 0
@@ -209,7 +207,7 @@ def test_drift_emits_empty_entries_json_when_no_drift(runner: CliRunner, tmp_pat
 
 def test_drift_errors_on_unknown_format_value(runner: CliRunner, tmp_path: Path) -> None:
     """--format yaml exits 1 with the standard Unknown --format message."""
-    _seed_current(tmp_path, "prod", (_info("com.snc.x"),))
+    _seed_current("prod", (_info("com.snc.x"),))
     runner.invoke(app, ["instance", "use", "prod"])
     result = runner.invoke(app, ["plugins", "drift", "--format", "yaml"])
     assert result.exit_code == 1
@@ -220,8 +218,8 @@ def test_drift_strict_exits_1_when_drift_detected(runner: CliRunner, tmp_path: P
     """--strict + drift present -> exit 1 after rendering."""
     baseline = (_info("com.snc.x", version="1.0.0"),)
     current = (_info("com.snc.x", version="2.0.0"),)
-    _seed_current(tmp_path, "prod", current)
-    _seed_baseline(tmp_path, "prod", baseline)
+    _seed_current("prod", current)
+    _seed_baseline("prod", baseline)
     runner.invoke(app, ["instance", "use", "prod"])
     result = runner.invoke(app, ["plugins", "drift", "--strict"])
     assert result.exit_code == 1
@@ -230,8 +228,8 @@ def test_drift_strict_exits_1_when_drift_detected(runner: CliRunner, tmp_path: P
 def test_drift_strict_exits_0_when_no_drift(runner: CliRunner, tmp_path: Path) -> None:
     """--strict + no drift -> exit 0."""
     plugins = (_info("com.snc.x"),)
-    _seed_current(tmp_path, "prod", plugins)
-    _seed_baseline(tmp_path, "prod", plugins)
+    _seed_current("prod", plugins)
+    _seed_baseline("prod", plugins)
     runner.invoke(app, ["instance", "use", "prod"])
     result = runner.invoke(app, ["plugins", "drift", "--strict"])
     assert result.exit_code == 0
@@ -242,8 +240,8 @@ def test_drift_strict_json_emits_report_and_exits_1(runner: CliRunner, tmp_path:
     """--strict --format json with drift -> emits JSON to stdout, exits 1."""
     baseline = (_info("com.snc.x", version="1.0.0"),)
     current = (_info("com.snc.x", version="2.0.0"),)
-    _seed_current(tmp_path, "prod", current)
-    _seed_baseline(tmp_path, "prod", baseline)
+    _seed_current("prod", current)
+    _seed_baseline("prod", baseline)
     runner.invoke(app, ["instance", "use", "prod"])
     result = runner.invoke(app, ["plugins", "drift", "--strict", "--format", "json"])
     assert result.exit_code == 1

@@ -134,8 +134,6 @@ class InstanceRegistry:
     def save_snapshot(self, profile: str, snapshot: InstanceSnapshot) -> None:
         """Atomically write snapshot.json for a profile.
 
-        Writes to a temp file then renames to avoid partial writes on failure.
-
         Args:
             profile: Profile name.
             snapshot: Snapshot to persist.
@@ -143,18 +141,7 @@ class InstanceRegistry:
         Raises:
             InstanceNotFoundError: If the profile directory does not exist.
         """
-        profile_dir = self._dir(profile)
-        if not profile_dir.exists():
-            raise InstanceNotFoundError(profile)
-        snap_file = profile_dir / _SNAPSHOT
-        fd, tmp = tempfile.mkstemp(dir=profile_dir, suffix=".tmp")
-        try:
-            with open(fd, "w", encoding="utf-8") as f:
-                f.write(snapshot.model_dump_json(indent=2))
-            Path(tmp).replace(snap_file)
-        except OSError:
-            Path(tmp).unlink(missing_ok=True)
-            raise
+        self._atomic_write(profile, _SNAPSHOT, snapshot.model_dump_json(indent=2))
 
     def load_plugin_inventory(self, profile: str) -> PluginInventory | None:
         """Read plugins.json for a profile if it exists.
@@ -179,8 +166,6 @@ class InstanceRegistry:
     def save_plugin_inventory(self, profile: str, inventory: PluginInventory) -> None:
         """Atomically write plugins.json for a profile.
 
-        Writes to a temp file then renames to avoid partial writes on failure.
-
         Args:
             profile: Profile name.
             inventory: Plugin inventory to persist.
@@ -188,18 +173,7 @@ class InstanceRegistry:
         Raises:
             InstanceNotFoundError: If the profile directory does not exist.
         """
-        profile_dir = self._dir(profile)
-        if not profile_dir.exists():
-            raise InstanceNotFoundError(profile)
-        inv_file = profile_dir / _PLUGIN_INVENTORY
-        fd, tmp = tempfile.mkstemp(dir=profile_dir, suffix=".tmp")
-        try:
-            with open(fd, "w", encoding="utf-8") as f:
-                f.write(inventory.model_dump_json(indent=2))
-            Path(tmp).replace(inv_file)
-        except OSError:
-            Path(tmp).unlink(missing_ok=True)
-            raise
+        self._atomic_write(profile, _PLUGIN_INVENTORY, inventory.model_dump_json(indent=2))
 
     def load_plugin_baseline(self, profile: str) -> PluginInventory | None:
         """Read plugins.baseline.json for a profile if it exists.
@@ -224,8 +198,6 @@ class InstanceRegistry:
     def save_plugin_baseline(self, profile: str, inventory: PluginInventory) -> None:
         """Atomically write plugins.baseline.json for a profile.
 
-        Writes to a temp file then renames to avoid partial writes on failure.
-
         Args:
             profile: Profile name.
             inventory: Inventory to record as the ack'd baseline.
@@ -233,15 +205,28 @@ class InstanceRegistry:
         Raises:
             InstanceNotFoundError: If the profile directory does not exist.
         """
+        self._atomic_write(profile, _PLUGIN_BASELINE, inventory.model_dump_json(indent=2))
+
+    def _atomic_write(self, profile: str, filename: str, payload: str) -> None:
+        """Write ``payload`` to ``<profile_dir>/<filename>`` via tmp-and-rename.
+
+        Args:
+            profile: Profile name.
+            filename: Target file name relative to the profile directory.
+            payload: UTF-8 text content to write.
+
+        Raises:
+            InstanceNotFoundError: If the profile directory does not exist.
+        """
         profile_dir = self._dir(profile)
         if not profile_dir.exists():
             raise InstanceNotFoundError(profile)
-        baseline_file = profile_dir / _PLUGIN_BASELINE
+        target = profile_dir / filename
         fd, tmp = tempfile.mkstemp(dir=profile_dir, suffix=".tmp")
         try:
             with open(fd, "w", encoding="utf-8") as f:
-                f.write(inventory.model_dump_json(indent=2))
-            Path(tmp).replace(baseline_file)
+                f.write(payload)
+            Path(tmp).replace(target)
         except OSError:
             Path(tmp).unlink(missing_ok=True)
             raise

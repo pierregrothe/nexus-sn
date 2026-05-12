@@ -115,7 +115,7 @@ def main() -> int:
     """
     try:
         data = json.load(sys.stdin)
-    except (json.JSONDecodeError, EOFError):
+    except json.JSONDecodeError, EOFError:
         return 0
 
     file_path_str = data.get("tool_input", {}).get("file_path")

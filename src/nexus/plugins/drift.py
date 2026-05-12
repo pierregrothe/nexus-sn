@@ -124,7 +124,9 @@ def _drift_entry(
         state. Otherwise an entry whose ``status`` is one of
         ``added`` / ``removed`` / ``version_changed`` / ``state_changed``.
     """
-    if baseline_info is None and current_info is not None:
+    if baseline_info is None:
+        if current_info is None:
+            return None
         return PluginDriftEntry(
             plugin_id=plugin_id,
             name=current_info.name,
@@ -135,7 +137,7 @@ def _drift_entry(
             baseline_state=None,
             current_state=current_info.state,
         )
-    if current_info is None and baseline_info is not None:
+    if current_info is None:
         return PluginDriftEntry(
             plugin_id=plugin_id,
             name=baseline_info.name,
@@ -146,8 +148,6 @@ def _drift_entry(
             baseline_state=baseline_info.state,
             current_state=None,
         )
-    assert baseline_info is not None
-    assert current_info is not None
     if baseline_info.version == current_info.version and baseline_info.state == current_info.state:
         return None
     status: Literal["version_changed", "state_changed"] = (
