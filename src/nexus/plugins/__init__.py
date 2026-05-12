@@ -6,8 +6,8 @@
 
 Exports the data models, scanner, error types, product-family lookup,
 the cross-instance diff/promote helpers, the update-detection filter,
-the advisory checkers (EOL, CVE, license), and the impact analyzer
-(reverse-dep graph + scope record counts).
+the advisory checkers (EOL, CVE, license), the impact analyzer
+(reverse-dep graph + scope record counts), and the orphan filter.
 """
 
 from nexus.plugins.advisories import AdvisoryDatabase, compute_advisories
@@ -37,6 +37,7 @@ from nexus.plugins.models import (
     ScopeRecordCount,
     Severity,
 )
+from nexus.plugins.orphans import orphan_candidates
 from nexus.plugins.product_families import product_family_for
 from nexus.plugins.scanner import PluginScanner
 from nexus.plugins.updates import plugins_with_updates
@@ -64,6 +65,7 @@ __all__ = [
     "compute_advisories",
     "compute_diff",
     "compute_impact",
+    "orphan_candidates",
     "plugins_with_updates",
     "product_family_for",
     "project_to_promote_plan",
