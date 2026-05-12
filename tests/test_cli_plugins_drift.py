@@ -218,3 +218,40 @@ def test_drift_errors_on_unknown_format_value(runner: CliRunner, tmp_path: Path)
     result = runner.invoke(app, ["plugins", "drift", "--format", "yaml"])
     assert result.exit_code == 1
     assert "Unknown --format" in result.output
+
+
+def test_drift_strict_exits_1_when_drift_detected(runner: CliRunner, tmp_path: Path) -> None:
+    """--strict + drift present -> exit 1 after rendering."""
+    baseline = (_info("com.snc.x", version="1.0.0"),)
+    current = (_info("com.snc.x", version="2.0.0"),)
+    _seed_current(tmp_path, "prod", current)
+    _seed_baseline(tmp_path, "prod", baseline)
+    runner.invoke(app, ["instance", "use", "prod"])
+    result = runner.invoke(app, ["plugins", "drift", "--strict"])
+    assert result.exit_code == 1
+
+
+def test_drift_strict_exits_0_when_no_drift(runner: CliRunner, tmp_path: Path) -> None:
+    """--strict + no drift -> exit 0."""
+    plugins = (_info("com.snc.x"),)
+    _seed_current(tmp_path, "prod", plugins)
+    _seed_baseline(tmp_path, "prod", plugins)
+    runner.invoke(app, ["instance", "use", "prod"])
+    result = runner.invoke(app, ["plugins", "drift", "--strict"])
+    assert result.exit_code == 0
+    assert "No drift detected" in result.output
+
+
+def test_drift_strict_json_emits_report_and_exits_1(
+    runner: CliRunner, tmp_path: Path
+) -> None:
+    """--strict --format json with drift -> emits JSON to stdout, exits 1."""
+    baseline = (_info("com.snc.x", version="1.0.0"),)
+    current = (_info("com.snc.x", version="2.0.0"),)
+    _seed_current(tmp_path, "prod", current)
+    _seed_baseline(tmp_path, "prod", baseline)
+    runner.invoke(app, ["instance", "use", "prod"])
+    result = runner.invoke(app, ["plugins", "drift", "--strict", "--format", "json"])
+    assert result.exit_code == 1
+    payload = json.loads(result.output.strip().split("\n")[-1])
+    assert len(payload["entries"]) == 1

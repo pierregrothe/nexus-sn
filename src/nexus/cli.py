@@ -1980,6 +1980,13 @@ def plugins_drift(
         str,
         typer.Option("--format", help="Output format: text | json (default: text)"),
     ] = "text",
+    strict: Annotated[
+        bool,
+        typer.Option(
+            "--strict",
+            help="Exit with code 1 if any drift is detected.",
+        ),
+    ] = False,
 ) -> None:
     """Show plugin drift on an instance since the last baseline."""
     _validate_format(output_format)
@@ -2007,6 +2014,8 @@ def plugins_drift(
 
     if output_format == "json":
         _emit_json(report)
+        if strict and report.entries:
+            raise typer.Exit(1)
         return
 
     if not report.entries:
@@ -2052,6 +2061,8 @@ def plugins_drift(
         counts[entry.status] += 1
     breakdown = ", ".join(f"{n} {k}" for k, n in counts.items() if n)
     console.print(Notice.info(f"{len(report.entries)} drift(s): {breakdown}"))
+    if strict and report.entries:
+        raise typer.Exit(1)
 
 
 @capture_app.callback(invoke_without_command=True)
