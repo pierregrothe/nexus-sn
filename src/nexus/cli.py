@@ -2398,9 +2398,7 @@ def plugins_explain(
     prompt = build_explain_context(plugin, impact, plugin_findings)
     client = _agent_client_factory()
     try:
-        text = asyncio.run(
-            client.complete(prompt, system=EXPLAIN_SYSTEM_PROMPT, model=AI_MODEL)
-        )
+        text = asyncio.run(client.complete(prompt, system=EXPLAIN_SYSTEM_PROMPT, model=AI_MODEL))
     except AnthropicError as exc:
         console.print(Notice.error(f"AI request failed: {exc}"))
         raise typer.Exit(1) from exc
@@ -2435,19 +2433,13 @@ def plugins_roadmap(
     deferred = len(overrides.overrides)
 
     if not advisories.findings and not orphans and deferred == 0:
-        console.print(
-            Notice.info("Nothing to remediate -- no advisories, orphans, or overrides.")
-        )
+        console.print(Notice.info("Nothing to remediate -- no advisories, orphans, or overrides."))
         return
 
-    prompt = build_roadmap_context(
-        inventory, advisories, orphans=orphans, deferred_count=deferred
-    )
+    prompt = build_roadmap_context(inventory, advisories, orphans=orphans, deferred_count=deferred)
     client = _agent_client_factory()
     try:
-        text = asyncio.run(
-            client.complete(prompt, system=ROADMAP_SYSTEM_PROMPT, model=AI_MODEL)
-        )
+        text = asyncio.run(client.complete(prompt, system=ROADMAP_SYSTEM_PROMPT, model=AI_MODEL))
     except AnthropicError as exc:
         console.print(Notice.error(f"AI request failed: {exc}"))
         raise typer.Exit(1) from exc
@@ -2488,9 +2480,7 @@ def plugins_recommend_deactivate(
     prompt = build_deactivation_context(inventory, advisories, orphans=orphans)
     client = _agent_client_factory()
     try:
-        text = asyncio.run(
-            client.complete(prompt, system=DEACTIVATE_SYSTEM_PROMPT, model=AI_MODEL)
-        )
+        text = asyncio.run(client.complete(prompt, system=DEACTIVATE_SYSTEM_PROMPT, model=AI_MODEL))
     except AnthropicError as exc:
         console.print(Notice.error(f"AI request failed: {exc}"))
         raise typer.Exit(1) from exc

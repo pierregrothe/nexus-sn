@@ -151,18 +151,26 @@ def test_recommend_deactivate_short_circuits_when_no_orphans_or_advisories(
 ) -> None:
     # record_counts=None -> uncaptured -> total_records returns None -> not an orphan
     # Empty vendor -> no license advisory; plugin not in EOL/CVE data
-    _seed(tmp_path, "prod", (PluginInfo.model_validate({
-        "plugin_id": "com.well.used",
-        "name": "com.well.used",
-        "version": "1.0",
-        "state": "active",
-        "source": "store",
-        "product_family": "Uncategorized",
-        "depends_on": (),
-        "sys_id": "sys-well",
-        "installed_at": None,
-        "record_counts": None,
-    }),))
+    _seed(
+        tmp_path,
+        "prod",
+        (
+            PluginInfo.model_validate(
+                {
+                    "plugin_id": "com.well.used",
+                    "name": "com.well.used",
+                    "version": "1.0",
+                    "state": "active",
+                    "source": "store",
+                    "product_family": "Uncategorized",
+                    "depends_on": (),
+                    "sys_id": "sys-well",
+                    "installed_at": None,
+                    "record_counts": None,
+                }
+            ),
+        ),
+    )
     runner.invoke(app, ["instance", "use", "prod"])
     fake = FakeAgentClient()
     _patch_agent(monkeypatch, fake)
@@ -283,18 +291,26 @@ def test_plugins_roadmap_short_circuits_when_nothing_to_remediate(
     runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     # record_counts=None -> uncaptured -> not an orphan; clean plugin -> no advisory
-    _seed(tmp_path, "prod", (PluginInfo.model_validate({
-        "plugin_id": "com.well.used",
-        "name": "com.well.used",
-        "version": "1.0",
-        "state": "active",
-        "source": "store",
-        "product_family": "Uncategorized",
-        "depends_on": (),
-        "sys_id": "sys-well",
-        "installed_at": None,
-        "record_counts": None,
-    }),))
+    _seed(
+        tmp_path,
+        "prod",
+        (
+            PluginInfo.model_validate(
+                {
+                    "plugin_id": "com.well.used",
+                    "name": "com.well.used",
+                    "version": "1.0",
+                    "state": "active",
+                    "source": "store",
+                    "product_family": "Uncategorized",
+                    "depends_on": (),
+                    "sys_id": "sys-well",
+                    "installed_at": None,
+                    "record_counts": None,
+                }
+            ),
+        ),
+    )
     runner.invoke(app, ["instance", "use", "prod"])
     fake = FakeAgentClient()
     _patch_agent(monkeypatch, fake)
