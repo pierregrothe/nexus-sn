@@ -142,9 +142,7 @@ async def fetch_scope_record_counts(
         raise ScopeRecordCountError(f"network error: {exc}") from exc
 
     if response.status_code != 200:
-        raise ScopeRecordCountError(
-            f"aggregate API returned HTTP {response.status_code}"
-        )
+        raise ScopeRecordCountError(f"aggregate API returned HTTP {response.status_code}")
 
     try:
         payload = response.json()

@@ -71,9 +71,7 @@ def _seed(
             sn_version="Xanadu",
             plugins=plugins,
         )
-        (profile_dir / "plugins.json").write_text(
-            inv.model_dump_json(indent=2), encoding="utf-8"
-        )
+        (profile_dir / "plugins.json").write_text(inv.model_dump_json(indent=2), encoding="utf-8")
 
 
 @pytest.fixture
@@ -115,9 +113,7 @@ def _patch_token_and_stats(
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(stats_status, json=payload)
 
-    monkeypatch.setattr(
-        "nexus.cli._impact_transport", lambda: httpx.MockTransport(handler)
-    )
+    monkeypatch.setattr("nexus.cli._impact_transport", lambda: httpx.MockTransport(handler))
 
 
 def test_impact_renders_reverse_deps_and_counts_tables(
