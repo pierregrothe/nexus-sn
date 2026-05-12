@@ -1809,6 +1809,13 @@ def plugins_impact(
         str,
         typer.Option("--format", help="Output format: text | json (default: text)"),
     ] = "text",
+    live: Annotated[
+        bool,
+        typer.Option(
+            "--live",
+            help="Force re-query of SN record counts; ignore the cached breakdown.",
+        ),
+    ] = False,
 ) -> None:
     """Show reverse dependencies + scope-owned record counts for a plugin."""
     _validate_format(output_format)
@@ -1823,6 +1830,7 @@ def plugins_impact(
                 url=meta.url,
                 token=token,
                 transport=transport,
+                live=live,
             )
         )
     except PluginImpactError as exc:
