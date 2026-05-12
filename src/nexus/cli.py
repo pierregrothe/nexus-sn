@@ -1711,9 +1711,7 @@ def _render_impact(impact: PluginImpact) -> None:
 
     total_records = 0
     if not impact.counts_available:
-        console.print(
-            Notice.warn("Record counts unavailable -- could not reach instance.")
-        )
+        console.print(Notice.warn("Record counts unavailable -- could not reach instance."))
     elif not impact.record_counts:
         console.print(Notice.info("No scope-owned records."))
     else:
@@ -1740,9 +1738,7 @@ def _render_impact(impact: PluginImpact) -> None:
             )
         )
     else:
-        console.print(
-            Notice.info(f"{len(impact.reverse_deps)} dependent plugin(s).")
-        )
+        console.print(Notice.info(f"{len(impact.reverse_deps)} dependent plugin(s)."))
 
 
 @capture_app.callback(invoke_without_command=True)
