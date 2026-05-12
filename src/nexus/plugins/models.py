@@ -15,6 +15,7 @@ __all__ = [
     "AdvisoryFinding",
     "AdvisorySet",
     "AdvisoryType",
+    "CrossScopeRef",
     "PluginImpact",
     "PluginInfo",
     "PluginInventory",
@@ -189,6 +190,27 @@ class ScopeRecordCount(BaseModel):
     count: Annotated[int, Field(ge=0)]
 
 
+class CrossScopeRef(BaseModel):
+    """One table-field pair from another scope that references into the target scope.
+
+    Attributes:
+        source_scope: plugin_id of the scope owning ``source_table``.
+        source_table: SN table holding the reference field.
+        field: Reference column name (sys_dictionary.element).
+        target_table: Target table being pointed to.
+        record_count: Number of records in ``source_table`` with a
+            non-null value in ``field``. Always >= 0.
+    """
+
+    model_config = _FROZEN
+
+    source_scope: str
+    source_table: str
+    field: str
+    target_table: str
+    record_count: Annotated[int, Field(ge=0)]
+
+
 class PluginImpact(BaseModel):
     """Full impact analysis result for one plugin.
 
@@ -202,6 +224,12 @@ class PluginImpact(BaseModel):
             when the live REST call was skipped or failed.
         counts_available: ``True`` if the record-count REST call
             succeeded; ``False`` on any network/4xx/5xx/parse error.
+        cross_scope_refs: FK references from other scopes into this
+            plugin's scope tables, sorted by ``(record_count desc,
+            source_scope asc, source_table asc, field asc)``. Empty
+            tuple when skipped or unavailable.
+        cross_scope_available: ``True`` if the cross-scope scan
+            succeeded; ``False`` when opted out or scan failed.
     """
 
     model_config = _FROZEN
@@ -211,6 +239,8 @@ class PluginImpact(BaseModel):
     reverse_deps: tuple[ReverseDependency, ...]
     record_counts: tuple[ScopeRecordCount, ...]
     counts_available: bool
+    cross_scope_refs: tuple[CrossScopeRef, ...] = ()
+    cross_scope_available: bool = True
 
 
 def total_records(info: PluginInfo) -> int | None:
