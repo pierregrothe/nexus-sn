@@ -1927,7 +1927,7 @@ def plugins_orphans(
     """Show plugins with no dependents AND no scope-owned records."""
     _validate_format(output_format)
     meta, inventory = _load_inventory_or_exit(instance)
-    if all(p.record_count is None for p in inventory.plugins):
+    if all(p.record_counts is None for p in inventory.plugins):
         console.print(
             Notice.warn("Inventory has no record counts -- run nexus instance refresh to populate.")
         )

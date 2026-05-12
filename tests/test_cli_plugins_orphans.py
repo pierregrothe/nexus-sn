@@ -15,7 +15,7 @@ from nexus.cache import clear_cache
 from nexus.cli import app
 from nexus.config.paths import NexusPaths
 from nexus.instances.models import InstanceMeta
-from nexus.plugins.models import PluginInfo, PluginInventory
+from nexus.plugins.models import PluginInfo, PluginInventory, ScopeRecordCount
 
 __all__: list[str] = []
 
@@ -40,6 +40,18 @@ def _info(
     state: str = "active",
     record_count: int | None = 0,
 ) -> PluginInfo:
+    """Build a PluginInfo translating legacy record_count to record_counts.
+
+    ``record_count=0`` -> ``record_counts=()`` (empty -> sum 0).
+    ``record_count=N>0`` -> single-bucket tuple summing to N.
+    ``record_count=None`` -> ``record_counts=None`` (uncaptured).
+    """
+    if record_count is None:
+        counts: tuple[ScopeRecordCount, ...] | None = None
+    elif record_count == 0:
+        counts = ()
+    else:
+        counts = (ScopeRecordCount(table="sys_script", count=record_count),)
     return PluginInfo.model_validate(
         {
             "plugin_id": plugin_id,
@@ -51,7 +63,7 @@ def _info(
             "depends_on": depends_on,
             "sys_id": f"sys-{plugin_id}",
             "installed_at": None,
-            "record_count": record_count,
+            "record_counts": counts,
         }
     )
 

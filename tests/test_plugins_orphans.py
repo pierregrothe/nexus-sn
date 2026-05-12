@@ -7,7 +7,7 @@
 from datetime import UTC, datetime
 
 import nexus.plugins as plugins_pkg
-from nexus.plugins.models import PluginInfo, PluginInventory
+from nexus.plugins.models import PluginInfo, PluginInventory, ScopeRecordCount
 from nexus.plugins.orphans import orphan_candidates
 
 __all__: list[str] = []
@@ -20,6 +20,18 @@ def _plugin(
     state: str = "active",
     record_count: int | None = None,
 ) -> PluginInfo:
+    """Build a PluginInfo translating legacy record_count to record_counts.
+
+    ``record_count=0`` -> ``record_counts=()`` (empty -> sum 0).
+    ``record_count=N>0`` -> single-bucket tuple summing to N.
+    ``record_count=None`` -> ``record_counts=None`` (uncaptured).
+    """
+    if record_count is None:
+        counts: tuple[ScopeRecordCount, ...] | None = None
+    elif record_count == 0:
+        counts = ()
+    else:
+        counts = (ScopeRecordCount(table="sys_script", count=record_count),)
     return PluginInfo.model_validate(
         {
             "plugin_id": plugin_id,
@@ -31,7 +43,7 @@ def _plugin(
             "depends_on": depends_on,
             "sys_id": f"sys-{plugin_id}",
             "installed_at": None,
-            "record_count": record_count,
+            "record_counts": counts,
         }
     )
 
