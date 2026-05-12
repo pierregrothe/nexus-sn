@@ -75,6 +75,7 @@ from nexus.plugins.models import (
     Severity,
 )
 from nexus.plugins.orphans import orphan_candidates
+from nexus.plugins.overrides import AdvisoryOverride, AdvisoryOverrideSet, apply_overrides
 from nexus.plugins.updates import plugins_with_updates
 from nexus.ui import (
     CommandGuide,
@@ -1634,7 +1635,7 @@ def _render_advisory_sections(findings: tuple[AdvisoryFinding, ...]) -> None:
 
     if by_type[AdvisoryType.EOL]:
         rows: list[list[RenderableType]] = [
-            [f.plugin_id, f.plugin_name, f.plugin_version, f.severity.value, f.details]
+            [f.plugin_id, f.plugin_name, f.plugin_version, f.severity.value, Text(f.details)]
             for f in by_type[AdvisoryType.EOL]
         ]
         console.print(
@@ -1652,7 +1653,14 @@ def _render_advisory_sections(findings: tuple[AdvisoryFinding, ...]) -> None:
         )
     if by_type[AdvisoryType.CVE]:
         rows = [
-            [f.plugin_id, f.plugin_name, f.plugin_version, f.severity.value, f.details, f.summary]
+            [
+                f.plugin_id,
+                f.plugin_name,
+                f.plugin_version,
+                f.severity.value,
+                Text(f.details),
+                Text(f.summary),
+            ]
             for f in by_type[AdvisoryType.CVE]
         ]
         console.print(
@@ -1671,7 +1679,7 @@ def _render_advisory_sections(findings: tuple[AdvisoryFinding, ...]) -> None:
         )
     if by_type[AdvisoryType.LICENSE]:
         rows = [
-            [f.plugin_id, f.plugin_name, f.plugin_version, f.severity.value, f.details]
+            [f.plugin_id, f.plugin_name, f.plugin_version, f.severity.value, Text(f.details)]
             for f in by_type[AdvisoryType.LICENSE]
         ]
         console.print(
@@ -1689,17 +1697,21 @@ def _render_advisory_sections(findings: tuple[AdvisoryFinding, ...]) -> None:
         )
 
 
-def _render_advisory_summary(findings: tuple[AdvisoryFinding, ...]) -> None:
+def _render_advisory_summary(
+    findings: tuple[AdvisoryFinding, ...], deferred_count: int = 0
+) -> None:
     """Print the trailing per-severity count notice.
 
     Args:
-        findings: All rendered findings.
+        findings: All rendered findings (after override filtering).
+        deferred_count: Number of deferred findings excluded from display.
     """
     counts = {s: 0 for s in _SEVERITY_ORDER}
     for f in findings:
         counts[f.severity] += 1
     parts = [f"{counts[s]} {s.value}" for s in _SEVERITY_ORDER]
-    console.print(Notice.info(f"{len(findings)} advisory finding(s): {', '.join(parts)}."))
+    suffix = f"; {deferred_count} deferred" if deferred_count else ""
+    console.print(Notice.info(f"{len(findings)} advisory finding(s): {', '.join(parts)}{suffix}."))
 
 
 @plugins_app.command("advisories")
@@ -1736,10 +1748,17 @@ def plugins_advisories(
             help="Exit with code 1 if any findings remain after filters.",
         ),
     ] = False,
+    include_deferred: Annotated[
+        bool,
+        typer.Option(
+            "--include-deferred",
+            help="Include deferred findings in output (marked [deferred]).",
+        ),
+    ] = False,
 ) -> None:
     """Show EOL / CVE / license findings for plugins on an instance."""
     _validate_format(output_format)
-    _, inventory = _load_inventory_or_exit(instance)
+    meta, inventory = _load_inventory_or_exit(instance)
     try:
         db = AdvisoryDatabase.load()
     except PluginAdvisoryDataError as exc:
@@ -1748,7 +1767,31 @@ def plugins_advisories(
 
     today = datetime.now(UTC).date()
     result = compute_advisories(inventory, db, today=today)
-    findings = result.findings
+
+    paths = NexusPaths.from_env()
+    registry = InstanceRegistry(paths.instances_dir)
+    overrides_set = registry.load_advisory_overrides(meta.profile)
+    remaining_set, deferred = apply_overrides(result, overrides_set)
+    deferred_count = len(deferred)
+    findings = remaining_set.findings
+
+    if include_deferred:
+        marked_deferred = tuple(
+            f.model_copy(
+                update={
+                    "summary": f"[deferred] {f.summary}",
+                    "details": f"[deferred] {f.details}",
+                }
+            )
+            for f in deferred
+        )
+        sev_index: dict[Severity, int] = {s: i for i, s in enumerate(_SEVERITY_ORDER)}
+        findings = tuple(
+            sorted(
+                (*findings, *marked_deferred),
+                key=lambda f: (sev_index[f.severity], f.plugin_id),
+            )
+        )
 
     if advisory_type:
         try:
@@ -1773,14 +1816,175 @@ def plugins_advisories(
             raise typer.Exit(1)
         return
 
-    if not findings:
+    if not findings and not deferred_count:
         console.print(Notice.info("No advisories found."))
         return
 
-    _render_advisory_sections(findings)
-    _render_advisory_summary(findings)
+    if findings:
+        _render_advisory_sections(findings)
+    _render_advisory_summary(findings, deferred_count=deferred_count)
     if strict and findings:
         raise typer.Exit(1)
+
+
+@plugins_app.command("defer")
+def plugins_advisories_defer(
+    plugin_id: Annotated[str, typer.Argument(help="SN plugin identifier")],
+    advisory_type: Annotated[str, typer.Argument(help="eol | cve | license")],
+    details: Annotated[str, typer.Argument(help="Exact finding details string")],
+    reason: Annotated[str, typer.Option("--reason", help="Required justification")],
+    instance: Annotated[
+        str,
+        typer.Option("--instance", help="Instance profile (default: configured default)"),
+    ] = "",
+) -> None:
+    """Defer an EOL/CVE/license advisory finding on a plugin."""
+    try:
+        wanted_type = AdvisoryType(advisory_type)
+    except ValueError as exc:
+        console.print(Notice.error(f"Unknown advisory type: {advisory_type}"))
+        raise typer.Exit(1) from exc
+    if not reason.strip():
+        console.print(Notice.error("--reason must not be empty"))
+        raise typer.Exit(1)
+
+    paths = NexusPaths.from_env()
+    registry = InstanceRegistry(paths.instances_dir)
+    meta, inventory = _load_inventory_or_exit(instance)
+    try:
+        db = AdvisoryDatabase.load()
+    except PluginAdvisoryDataError as exc:
+        console.print(Notice.error(f"Advisory data corrupted: {exc}"))
+        raise typer.Exit(1) from exc
+    today = datetime.now(UTC).date()
+    advisories = compute_advisories(inventory, db, today=today)
+
+    if not any(
+        f.plugin_id == plugin_id and f.advisory_type is wanted_type and f.details == details
+        for f in advisories.findings
+    ):
+        console.print(
+            Notice.error(
+                f"No matching finding for plugin={plugin_id} type={wanted_type.value} "
+                f"details={details!r}"
+            )
+        )
+        raise typer.Exit(1)
+
+    existing = registry.load_advisory_overrides(meta.profile)
+    if any(
+        o.plugin_id == plugin_id
+        and o.advisory_type is wanted_type
+        and o.details == details
+        for o in existing.overrides
+    ):
+        console.print(Notice.error("Override already exists for that finding"))
+        raise typer.Exit(1)
+
+    new_override = AdvisoryOverride(
+        plugin_id=plugin_id,
+        advisory_type=wanted_type,
+        details=details,
+        reason=reason,
+        created_at=datetime.now(UTC),
+    )
+    combined = tuple(
+        sorted(
+            (*existing.overrides, new_override),
+            key=lambda o: (o.plugin_id, o.advisory_type.value, o.details),
+        )
+    )
+    registry.save_advisory_overrides(meta.profile, AdvisoryOverrideSet(overrides=combined))
+    console.print(Notice.info(f"Deferred {wanted_type.value} {details} on {plugin_id}"))
+
+
+@plugins_app.command("undo-defer")
+def plugins_advisories_undo_defer(
+    plugin_id: Annotated[str, typer.Argument(help="SN plugin identifier")],
+    advisory_type: Annotated[str, typer.Argument(help="eol | cve | license")],
+    details: Annotated[str, typer.Argument(help="Exact finding details string")],
+    instance: Annotated[
+        str,
+        typer.Option("--instance", help="Instance profile (default: configured default)"),
+    ] = "",
+) -> None:
+    """Remove a previously deferred advisory finding."""
+    try:
+        wanted_type = AdvisoryType(advisory_type)
+    except ValueError as exc:
+        console.print(Notice.error(f"Unknown advisory type: {advisory_type}"))
+        raise typer.Exit(1) from exc
+
+    paths = NexusPaths.from_env()
+    registry = InstanceRegistry(paths.instances_dir)
+    meta, _ = _load_inventory_or_exit(instance)
+    existing = registry.load_advisory_overrides(meta.profile)
+    filtered = tuple(
+        o
+        for o in existing.overrides
+        if not (
+            o.plugin_id == plugin_id
+            and o.advisory_type is wanted_type
+            and o.details == details
+        )
+    )
+    if len(filtered) == len(existing.overrides):
+        console.print(Notice.error("No matching override found"))
+        raise typer.Exit(1)
+    registry.save_advisory_overrides(meta.profile, AdvisoryOverrideSet(overrides=filtered))
+    console.print(
+        Notice.info(f"Removed override for {wanted_type.value} {details} on {plugin_id}")
+    )
+
+
+@plugins_app.command("list-deferred")
+def plugins_advisories_list_deferred(
+    instance: Annotated[
+        str,
+        typer.Option("--instance", help="Instance profile (default: configured default)"),
+    ] = "",
+    output_format: Annotated[
+        str,
+        typer.Option("--format", help="Output format: text | json (default: text)"),
+    ] = "text",
+) -> None:
+    """List all deferred advisory findings for an instance."""
+    _validate_format(output_format)
+    paths = NexusPaths.from_env()
+    registry = InstanceRegistry(paths.instances_dir)
+    meta, _ = _load_inventory_or_exit(instance)
+    overrides_set = registry.load_advisory_overrides(meta.profile)
+
+    if output_format == "json":
+        _emit_json(overrides_set)
+        return
+    if not overrides_set.overrides:
+        console.print(Notice.info("No advisory overrides."))
+        return
+
+    rows: list[list[RenderableType]] = [
+        [
+            o.plugin_id,
+            o.advisory_type.value,
+            _trunc(o.details, 30),
+            _trunc(o.reason, 40),
+            str(o.created_at.date()),
+        ]
+        for o in overrides_set.overrides
+    ]
+    console.print(
+        DataTable(
+            title="Deferred advisories",
+            columns=[
+                DataColumn(header="Plugin", width=28),
+                DataColumn(header="Type", width=8),
+                DataColumn(header="Details", width=30),
+                DataColumn(header="Reason", width=40),
+                DataColumn(header="Created", width=12),
+            ],
+            rows=rows,
+        )
+    )
 
 
 def _impact_transport() -> httpx.AsyncBaseTransport | None:
