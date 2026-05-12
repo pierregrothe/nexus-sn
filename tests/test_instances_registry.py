@@ -350,3 +350,60 @@ def test_load_plugin_baseline_with_legacy_shape_returns_none_and_warns(
 
     assert result is None
     assert any("baseline" in rec.message.lower() for rec in caplog.records)
+
+
+# ---------------------------------------------------------------------------
+# Advisory overrides persistence
+# ---------------------------------------------------------------------------
+
+from nexus.plugins.models import AdvisoryType  # noqa: E402
+from nexus.plugins.overrides import AdvisoryOverride, AdvisoryOverrideSet  # noqa: E402
+
+
+def _override_set() -> AdvisoryOverrideSet:
+    return AdvisoryOverrideSet(
+        overrides=(
+            AdvisoryOverride(
+                plugin_id="com.x",
+                advisory_type=AdvisoryType.CVE,
+                details="CVE-2024-1",
+                reason="WAF rule in place",
+                created_at=datetime(2026, 5, 12, tzinfo=UTC),
+            ),
+        )
+    )
+
+
+def test_load_advisory_overrides_returns_empty_when_file_missing(tmp_path: Path) -> None:
+    registry = InstanceRegistry(tmp_path)
+    registry.register(_meta())
+    result = registry.load_advisory_overrides("dev12345")
+    assert result.overrides == ()
+
+
+def test_save_and_load_advisory_overrides_round_trips(tmp_path: Path) -> None:
+    registry = InstanceRegistry(tmp_path)
+    registry.register(_meta())
+    expected = _override_set()
+    registry.save_advisory_overrides("dev12345", expected)
+    loaded = registry.load_advisory_overrides("dev12345")
+    assert loaded == expected
+
+
+def test_load_advisory_overrides_with_legacy_shape_returns_empty_and_warns(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    registry = InstanceRegistry(tmp_path)
+    registry.register(_meta())
+    bogus = "overrides:\n  - plugin_id: com.x\n    unknown_field: 1\n"
+    (tmp_path / "dev12345" / "advisory-overrides.yaml").write_text(bogus, encoding="utf-8")
+    with caplog.at_level(logging.WARNING, logger="nexus.instances.registry"):
+        result = registry.load_advisory_overrides("dev12345")
+    assert result.overrides == ()
+    assert any("overrides" in r.message.lower() for r in caplog.records)
+
+
+def test_load_advisory_overrides_raises_when_profile_missing(tmp_path: Path) -> None:
+    registry = InstanceRegistry(tmp_path)
+    with pytest.raises(InstanceNotFoundError):
+        registry.load_advisory_overrides("nonexistent")

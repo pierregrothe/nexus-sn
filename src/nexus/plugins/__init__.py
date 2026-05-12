@@ -25,6 +25,7 @@ from nexus.plugins.drift import (
     compute_drift,
 )
 from nexus.plugins.errors import (
+    AdvisoryOverrideError,
     PluginAdvisoryDataError,
     PluginBaselineNotFoundError,
     PluginImpactError,
@@ -44,6 +45,7 @@ from nexus.plugins.models import (
     Severity,
 )
 from nexus.plugins.orphans import orphan_candidates
+from nexus.plugins.overrides import AdvisoryOverride, AdvisoryOverrideSet, apply_overrides
 from nexus.plugins.product_families import product_family_for
 from nexus.plugins.scanner import PluginScanner
 from nexus.plugins.updates import plugins_with_updates
@@ -51,6 +53,9 @@ from nexus.plugins.updates import plugins_with_updates
 __all__ = [
     "AdvisoryDatabase",
     "AdvisoryFinding",
+    "AdvisoryOverride",
+    "AdvisoryOverrideError",
+    "AdvisoryOverrideSet",
     "AdvisorySet",
     "AdvisoryType",
     "PluginAdvisoryDataError",
@@ -71,6 +76,7 @@ __all__ = [
     "ReverseDependency",
     "ScopeRecordCount",
     "Severity",
+    "apply_overrides",
     "compute_advisories",
     "compute_diff",
     "compute_drift",
