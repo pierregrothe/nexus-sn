@@ -92,3 +92,13 @@ def test_plugin_inventory_round_trips_through_json() -> None:
     inv = PluginInventory(captured_at=datetime.now(UTC), sn_version="Xanadu", plugins=(_info(),))
     re = PluginInventory.model_validate_json(inv.model_dump_json())
     assert re == inv
+
+
+def test_plugin_info_defaults_latest_version_to_none() -> None:
+    info = _info()
+    assert info.latest_version is None
+
+
+def test_plugin_info_accepts_latest_version_field() -> None:
+    info = _info(latest_version="2.0.0")
+    assert info.latest_version == "2.0.0"
