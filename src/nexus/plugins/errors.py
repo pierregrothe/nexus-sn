@@ -4,7 +4,7 @@
 # Date: 2026-05-11
 """Error types for the plugins layer."""
 
-__all__ = ["PluginAdvisoryDataError", "PluginScanError"]
+__all__ = ["PluginAdvisoryDataError", "PluginImpactError", "PluginScanError"]
 
 
 class PluginScanError(Exception):
@@ -35,3 +35,16 @@ class PluginAdvisoryDataError(Exception):
     def __init__(self, message: str) -> None:
         """Store the reason message."""
         super().__init__(message)
+
+
+class PluginImpactError(Exception):
+    """Raised when the impact target is not in the captured inventory.
+
+    Args:
+        plugin_id: The unknown plugin identifier.
+    """
+
+    def __init__(self, plugin_id: str) -> None:
+        """Store the unknown plugin id."""
+        super().__init__(f"plugin not found in inventory: {plugin_id}")
+        self.plugin_id = plugin_id
