@@ -15,6 +15,8 @@ from pydantic import ValidationError
 
 from nexus.instances.errors import InstanceNotFoundError
 from nexus.instances.models import InstanceMeta, InstanceSnapshot
+from nexus.plugins.baselines import validate_baseline_name
+from nexus.plugins.errors import BaselineNotFoundError
 from nexus.plugins.models import PluginInventory
 from nexus.plugins.overrides import AdvisoryOverrideSet
 
@@ -27,6 +29,7 @@ _SNAPSHOT = "snapshot.json"
 _PLUGIN_INVENTORY = "plugins.json"
 _PLUGIN_BASELINE = "plugins.baseline.json"
 _ADVISORY_OVERRIDES = "advisory-overrides.yaml"
+_BASELINES_DIR = "baselines"
 
 
 class InstanceRegistry:
@@ -177,23 +180,47 @@ class InstanceRegistry:
         """
         self._atomic_write(profile, _PLUGIN_INVENTORY, inventory.model_dump_json(indent=2))
 
-    def load_plugin_baseline(self, profile: str) -> PluginInventory | None:
-        """Read plugins.baseline.json for a profile if it exists.
+    def load_plugin_baseline(
+        self, profile: str, name: str
+    ) -> PluginInventory | None:
+        """Read a named baseline file. Returns None if absent.
+
+        Logs a WARNING and ignores any legacy plugins.baseline.json
+        present in the profile directory.
 
         Args:
             profile: Profile name.
+            name: Baseline name (must pass validate_baseline_name).
 
         Returns:
-            PluginInventory or None if no baseline has been ack'd yet --
-            or if the on-disk file is unreadable / has a stale schema
-            (caller is told via WARNING log to re-ack the baseline).
+            Validated PluginInventory, or None when the file is missing
+            or has a stale schema.
 
         Raises:
             InstanceNotFoundError: If the profile directory does not exist.
+            InvalidBaselineNameError: If ``name`` is not a safe filename.
         """
-        return self._load_plugin_file(
-            profile, _PLUGIN_BASELINE, "run 'nexus plugins drift --ack' to re-ack the baseline"
-        )
+        validate_baseline_name(name)
+        profile_dir = self._dir(profile)
+        if not profile_dir.exists():
+            raise InstanceNotFoundError(profile)
+        self._warn_legacy_baseline(profile, profile_dir)
+        baseline_file = profile_dir / _BASELINES_DIR / f"{name}.json"
+        if not baseline_file.exists():
+            return None
+        try:
+            return PluginInventory.model_validate_json(
+                baseline_file.read_text(encoding="utf-8")
+            )
+        except ValidationError:
+            log.warning(
+                "baselines/%s.json schema outdated for profile=%s -- "
+                "run 'nexus plugins drift --ack --baseline %s' to rebuild",
+                name,
+                profile,
+                name,
+            )
+            return None
 
     def _load_plugin_file(
         self, profile: str, filename: str, refresh_hint: str
@@ -225,17 +252,94 @@ class InstanceRegistry:
             log.warning("%s schema outdated for profile=%s -- %s", filename, profile, refresh_hint)
             return None
 
-    def save_plugin_baseline(self, profile: str, inventory: PluginInventory) -> None:
-        """Atomically write plugins.baseline.json for a profile.
+    def save_plugin_baseline(
+        self, profile: str, name: str, inventory: PluginInventory
+    ) -> None:
+        """Atomically write a named baseline file under baselines/.
 
         Args:
             profile: Profile name.
-            inventory: Inventory to record as the ack'd baseline.
+            name: Baseline name (must pass validate_baseline_name).
+            inventory: Inventory to record as the named baseline.
+
+        Raises:
+            InstanceNotFoundError: If the profile directory does not exist.
+            InvalidBaselineNameError: If ``name`` is not a safe filename.
+        """
+        validate_baseline_name(name)
+        profile_dir = self._dir(profile)
+        if not profile_dir.exists():
+            raise InstanceNotFoundError(profile)
+        baselines_dir = profile_dir / _BASELINES_DIR
+        baselines_dir.mkdir(parents=True, exist_ok=True)
+        target = baselines_dir / f"{name}.json"
+        payload = inventory.model_dump_json(indent=2)
+        fd, tmp = tempfile.mkstemp(dir=baselines_dir, suffix=".tmp")
+        try:
+            with open(fd, "w", encoding="utf-8") as f:
+                f.write(payload)
+            Path(tmp).replace(target)
+        except OSError:
+            Path(tmp).unlink(missing_ok=True)
+            raise
+
+    def list_plugin_baselines(self, profile: str) -> tuple[str, ...]:
+        """Return the names of all baselines for a profile, sorted ascending.
+
+        Args:
+            profile: Profile name.
+
+        Returns:
+            Tuple of baseline names. Empty tuple when the baselines/ dir is
+            absent or contains no .json files.
 
         Raises:
             InstanceNotFoundError: If the profile directory does not exist.
         """
-        self._atomic_write(profile, _PLUGIN_BASELINE, inventory.model_dump_json(indent=2))
+        profile_dir = self._dir(profile)
+        if not profile_dir.exists():
+            raise InstanceNotFoundError(profile)
+        self._warn_legacy_baseline(profile, profile_dir)
+        baselines_dir = profile_dir / _BASELINES_DIR
+        if not baselines_dir.exists():
+            return ()
+        return tuple(sorted(p.stem for p in baselines_dir.glob("*.json")))
+
+    def delete_plugin_baseline(self, profile: str, name: str) -> None:
+        """Remove a named baseline.
+
+        Args:
+            profile: Profile name.
+            name: Baseline name to delete.
+
+        Raises:
+            InstanceNotFoundError: If the profile directory does not exist.
+            InvalidBaselineNameError: If ``name`` is not a safe filename.
+            BaselineNotFoundError: If the named baseline file does not exist.
+        """
+        validate_baseline_name(name)
+        profile_dir = self._dir(profile)
+        if not profile_dir.exists():
+            raise InstanceNotFoundError(profile)
+        baseline_file = profile_dir / _BASELINES_DIR / f"{name}.json"
+        if not baseline_file.exists():
+            raise BaselineNotFoundError(profile, name)
+        baseline_file.unlink()
+
+    def _warn_legacy_baseline(self, profile: str, profile_dir: Path) -> None:
+        """Emit a one-line WARNING when plugins.baseline.json is present.
+
+        Args:
+            profile: Profile name (used in the warning message).
+            profile_dir: Resolved profile directory path.
+        """
+        legacy = profile_dir / _PLUGIN_BASELINE
+        if legacy.exists():
+            log.warning(
+                "legacy plugins.baseline.json for profile=%s is ignored; "
+                "re-ack via 'nexus plugins drift --ack' to create a named baseline",
+                profile,
+            )
 
     def load_advisory_overrides(self, profile: str) -> AdvisoryOverrideSet:
         """Read advisory-overrides.yaml for a profile, or return an empty set.

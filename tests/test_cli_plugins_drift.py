@@ -85,7 +85,7 @@ def _seed_baseline(
         sn_version="Xanadu",
         plugins=plugins,
     )
-    registry.save_plugin_baseline(profile, inv)
+    registry.save_plugin_baseline(profile, "default", inv)
 
 
 @pytest.fixture
@@ -122,7 +122,7 @@ def test_drift_ack_sets_baseline(runner: CliRunner, tmp_path: Path) -> None:
     assert "Baseline set" in result.output
     paths = NexusPaths.from_env()
     registry = InstanceRegistry(paths.instances_dir)
-    baseline = registry.load_plugin_baseline("prod")
+    baseline = registry.load_plugin_baseline("prod", "default")
     assert baseline is not None
     assert len(baseline.plugins) == 1
     assert baseline.plugins[0].plugin_id == "com.snc.x"
