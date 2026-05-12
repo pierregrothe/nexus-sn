@@ -97,8 +97,7 @@ class InvalidBaselineNameError(ValueError):
         """Store the invalid name and a human-readable message."""
         self.name = name
         super().__init__(
-            f"invalid baseline name {name!r} -- "
-            "must match ^[a-z0-9][a-z0-9_-]{0,62}$"
+            f"invalid baseline name {name!r} -- " "must match ^[a-z0-9][a-z0-9_-]{0,62}$"
         )
 
 

@@ -80,9 +80,7 @@ def runner(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> CliRunner:
     return CliRunner()
 
 
-def test_baselines_list_shows_no_baselines_message(
-    runner: CliRunner, tmp_path: Path
-) -> None:
+def test_baselines_list_shows_no_baselines_message(runner: CliRunner, tmp_path: Path) -> None:
     """When no baselines exist, list prints an info notice."""
     _seed_instance("prod", (_info("com.snc.x"),))
     runner.invoke(app, ["instance", "use", "prod"])
@@ -91,9 +89,7 @@ def test_baselines_list_shows_no_baselines_message(
     assert "no baselines" in result.output.lower()
 
 
-def test_baselines_list_renders_table_with_baselines(
-    runner: CliRunner, tmp_path: Path
-) -> None:
+def test_baselines_list_renders_table_with_baselines(runner: CliRunner, tmp_path: Path) -> None:
     """When baselines exist, list renders a DataTable with their names."""
     _seed_instance("prod", (_info("com.snc.x"),))
     _seed_baseline("prod", "default")
@@ -105,9 +101,7 @@ def test_baselines_list_renders_table_with_baselines(
     assert "pre-upgrade" in result.output
 
 
-def test_baselines_delete_with_yes_flag_removes_baseline(
-    runner: CliRunner, tmp_path: Path
-) -> None:
+def test_baselines_delete_with_yes_flag_removes_baseline(runner: CliRunner, tmp_path: Path) -> None:
     """--yes skips confirmation and deletes the baseline."""
     _seed_instance("prod", (_info("com.snc.x"),))
     _seed_baseline("prod", "default")
@@ -120,9 +114,7 @@ def test_baselines_delete_with_yes_flag_removes_baseline(
     assert registry.load_plugin_baseline("prod", "default") is None
 
 
-def test_baselines_delete_missing_baseline_exits_one(
-    runner: CliRunner, tmp_path: Path
-) -> None:
+def test_baselines_delete_missing_baseline_exits_one(runner: CliRunner, tmp_path: Path) -> None:
     """Deleting a baseline that does not exist exits 1."""
     _seed_instance("prod", (_info("com.snc.x"),))
     runner.invoke(app, ["instance", "use", "prod"])
@@ -131,9 +123,7 @@ def test_baselines_delete_missing_baseline_exits_one(
     assert "nope" in result.output
 
 
-def test_baselines_delete_invalid_name_exits_one(
-    runner: CliRunner, tmp_path: Path
-) -> None:
+def test_baselines_delete_invalid_name_exits_one(runner: CliRunner, tmp_path: Path) -> None:
     """An invalid baseline name exits 1 with the validation message."""
     _seed_instance("prod", (_info("com.snc.x"),))
     runner.invoke(app, ["instance", "use", "prod"])

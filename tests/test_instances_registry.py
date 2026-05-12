@@ -12,9 +12,9 @@ from pathlib import Path
 import pytest
 
 from nexus.instances.errors import InstanceNotFoundError
-from nexus.plugins.errors import BaselineNotFoundError
 from nexus.instances.models import ArtifactRecord, InstanceMeta, InstanceSnapshot
 from nexus.instances.registry import InstanceRegistry
+from nexus.plugins.errors import BaselineNotFoundError
 from nexus.plugins.models import PluginInfo, PluginInventory
 
 
@@ -325,8 +325,6 @@ def test_delete_plugin_baseline_raises_when_missing(tmp_path: Path) -> None:
 def test_legacy_baseline_file_logged_and_ignored(
     tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
-    import logging
-
     registry = InstanceRegistry(tmp_path)
     registry.register(_meta("dev12345"))
     (tmp_path / "dev12345" / "plugins.baseline.json").write_text("{}", encoding="utf-8")

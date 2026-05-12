@@ -180,9 +180,7 @@ class InstanceRegistry:
         """
         self._atomic_write(profile, _PLUGIN_INVENTORY, inventory.model_dump_json(indent=2))
 
-    def load_plugin_baseline(
-        self, profile: str, name: str
-    ) -> PluginInventory | None:
+    def load_plugin_baseline(self, profile: str, name: str) -> PluginInventory | None:
         """Read a named baseline file. Returns None if absent.
 
         Logs a WARNING and ignores any legacy plugins.baseline.json
@@ -209,9 +207,7 @@ class InstanceRegistry:
         if not baseline_file.exists():
             return None
         try:
-            return PluginInventory.model_validate_json(
-                baseline_file.read_text(encoding="utf-8")
-            )
+            return PluginInventory.model_validate_json(baseline_file.read_text(encoding="utf-8"))
         except ValidationError:
             log.warning(
                 "baselines/%s.json schema outdated for profile=%s -- "
@@ -252,9 +248,7 @@ class InstanceRegistry:
             log.warning("%s schema outdated for profile=%s -- %s", filename, profile, refresh_hint)
             return None
 
-    def save_plugin_baseline(
-        self, profile: str, name: str, inventory: PluginInventory
-    ) -> None:
+    def save_plugin_baseline(self, profile: str, name: str, inventory: PluginInventory) -> None:
         """Atomically write a named baseline file under baselines/.
 
         Args:

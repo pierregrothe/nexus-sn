@@ -55,6 +55,7 @@ from nexus.instances.registry import InstanceRegistry
 from nexus.instances.scanner import InstanceScanner
 from nexus.plugins import PluginInventory, PluginScanError, PluginScanner
 from nexus.plugins.advisories import AdvisoryDatabase, compute_advisories
+from nexus.plugins.baselines import DEFAULT_BASELINE_NAME, validate_baseline_name
 from nexus.plugins.diff import (
     PluginDiff,
     PluginDiffEntry,
@@ -62,7 +63,6 @@ from nexus.plugins.diff import (
     compute_diff,
     project_to_promote_plan,
 )
-from nexus.plugins.baselines import DEFAULT_BASELINE_NAME, validate_baseline_name
 from nexus.plugins.drift import (
     compute_drift,
 )

@@ -261,9 +261,7 @@ def test_drift_uses_default_baseline_when_no_flag(runner: CliRunner, tmp_path: P
     assert "No drift detected" in result.output
 
 
-def test_drift_with_baseline_flag_compares_against_named(
-    runner: CliRunner, tmp_path: Path
-) -> None:
+def test_drift_with_baseline_flag_compares_against_named(runner: CliRunner, tmp_path: Path) -> None:
     """--baseline custom compares against the named baseline, not default."""
     baseline_plugins = (_info("com.snc.x", version="1.0.0"),)
     current_plugins = (_info("com.snc.x", version="2.0.0"),)
@@ -275,9 +273,7 @@ def test_drift_with_baseline_flag_compares_against_named(
     assert "com.snc.x" in result.output
 
 
-def test_drift_with_invalid_baseline_name_exits_one(
-    runner: CliRunner, tmp_path: Path
-) -> None:
+def test_drift_with_invalid_baseline_name_exits_one(runner: CliRunner, tmp_path: Path) -> None:
     """An invalid --baseline value exits 1 with an explanatory message."""
     _seed_current("prod", (_info("com.snc.x"),))
     runner.invoke(app, ["instance", "use", "prod"])

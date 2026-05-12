@@ -11,6 +11,7 @@ the advisory checkers (EOL, CVE, license), the impact analyzer
 """
 
 from nexus.plugins.advisories import AdvisoryDatabase, compute_advisories
+from nexus.plugins.baselines import DEFAULT_BASELINE_NAME, validate_baseline_name
 from nexus.plugins.diff import (
     PluginDiff,
     PluginDiffEntry,
@@ -24,7 +25,6 @@ from nexus.plugins.drift import (
     PluginDriftReport,
     compute_drift,
 )
-from nexus.plugins.baselines import DEFAULT_BASELINE_NAME, validate_baseline_name
 from nexus.plugins.errors import (
     AdvisoryOverrideError,
     BaselineNotFoundError,
@@ -54,6 +54,7 @@ from nexus.plugins.scanner import PluginScanner
 from nexus.plugins.updates import plugins_with_updates
 
 __all__ = [
+    "DEFAULT_BASELINE_NAME",
     "AdvisoryDatabase",
     "AdvisoryFinding",
     "AdvisoryOverride",
@@ -62,7 +63,6 @@ __all__ = [
     "AdvisorySet",
     "AdvisoryType",
     "BaselineNotFoundError",
-    "DEFAULT_BASELINE_NAME",
     "InvalidBaselineNameError",
     "PluginAdvisoryDataError",
     "PluginBaselineNotFoundError",
