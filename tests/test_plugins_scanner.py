@@ -138,3 +138,15 @@ def test_scan_resolves_scope_dict_form_to_plugin_id() -> None:
     inv = asyncio.run(_scan(_transport_for(store_rows=dict_scope_rows, v_plugin_rows=[])))
     ids = {p.plugin_id for p in inv.plugins}
     assert "com.snc.problem" in ids
+
+
+def test_scan_populates_latest_version_when_present() -> None:
+    inv = asyncio.run(_scan(_transport_for()))
+    helper = next(p for p in inv.plugins if p.plugin_id == "com.acme.helper")
+    assert helper.latest_version == "3.2.0"
+
+
+def test_scan_leaves_latest_version_none_when_field_absent() -> None:
+    inv = asyncio.run(_scan(_transport_for()))
+    incident = next(p for p in inv.plugins if p.plugin_id == "com.snc.incident")
+    assert incident.latest_version is None
