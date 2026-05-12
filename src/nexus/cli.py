@@ -51,6 +51,7 @@ from nexus.instances.oauth import SNOAuthClient
 from nexus.instances.registry import InstanceRegistry
 from nexus.instances.scanner import InstanceScanner
 from nexus.plugins import PluginInventory, PluginScanError, PluginScanner
+from nexus.plugins.advisories import AdvisoryDatabase, compute_advisories
 from nexus.plugins.diff import (
     PluginDiff,
     PluginDiffEntry,
@@ -58,7 +59,13 @@ from nexus.plugins.diff import (
     compute_diff,
     project_to_promote_plan,
 )
-from nexus.plugins.models import PluginInfo
+from nexus.plugins.errors import PluginAdvisoryDataError
+from nexus.plugins.models import (
+    AdvisoryFinding,
+    AdvisoryType,
+    PluginInfo,
+    Severity,
+)
 from nexus.plugins.updates import plugins_with_updates
 from nexus.ui import (
     CommandGuide,
@@ -106,6 +113,7 @@ _PLUGINS_HELP = [
     ("diff <a> <b>", "Show cross-instance plugin differences"),
     ("promote <src> --to <dst>", "Write an action plan to make <dst> match <src>"),
     ("updates", "Show plugins with newer versions available"),
+    ("advisories", "Show EOL / CVE / license findings"),
 ]
 
 _CAPTURE_HELP = [
@@ -1453,6 +1461,172 @@ def plugins_updates(
                 command=f"nexus instance refresh {meta.profile}",
             )
         )
+
+
+_SEVERITY_ORDER: tuple[Severity, ...] = (
+    Severity.CRITICAL,
+    Severity.HIGH,
+    Severity.MEDIUM,
+    Severity.LOW,
+)
+
+
+def _severity_at_or_above(floor: Severity) -> set[Severity]:
+    """Return severities at or above ``floor`` in the canonical ordering.
+
+    Args:
+        floor: Lower bound (inclusive).
+
+    Returns:
+        Set of severities at or above ``floor`` (critical > high > medium > low).
+    """
+    idx = _SEVERITY_ORDER.index(floor)
+    return set(_SEVERITY_ORDER[: idx + 1])
+
+
+def _render_advisory_sections(findings: tuple[AdvisoryFinding, ...]) -> None:
+    """Render one DataTable per non-empty advisory type.
+
+    Args:
+        findings: All findings to render, after filtering.
+    """
+    by_type: dict[AdvisoryType, list[AdvisoryFinding]] = {
+        AdvisoryType.EOL: [],
+        AdvisoryType.CVE: [],
+        AdvisoryType.LICENSE: [],
+    }
+    for finding in findings:
+        by_type[finding.advisory_type].append(finding)
+
+    if by_type[AdvisoryType.EOL]:
+        rows: list[list[RenderableType]] = [
+            [f.plugin_id, f.plugin_name, f.plugin_version, f.severity.value, f.details]
+            for f in by_type[AdvisoryType.EOL]
+        ]
+        console.print(
+            DataTable(
+                title="EOL plugins",
+                columns=[
+                    DataColumn(header="Plugin ID", width=32),
+                    DataColumn(header="Name", width=20),
+                    DataColumn(header="Version", width=12),
+                    DataColumn(header="Severity", width=10),
+                    DataColumn(header="Details", width=42),
+                ],
+                rows=rows,
+            )
+        )
+    if by_type[AdvisoryType.CVE]:
+        rows = [
+            [f.plugin_id, f.plugin_name, f.plugin_version, f.severity.value, f.details, f.summary]
+            for f in by_type[AdvisoryType.CVE]
+        ]
+        console.print(
+            DataTable(
+                title="CVE advisories",
+                columns=[
+                    DataColumn(header="Plugin ID", width=28),
+                    DataColumn(header="Name", width=18),
+                    DataColumn(header="Version", width=10),
+                    DataColumn(header="Severity", width=10),
+                    DataColumn(header="CVE / range", width=32),
+                    DataColumn(header="Summary", width=28),
+                ],
+                rows=rows,
+            )
+        )
+    if by_type[AdvisoryType.LICENSE]:
+        rows = [
+            [f.plugin_id, f.plugin_name, f.plugin_version, f.severity.value, f.details]
+            for f in by_type[AdvisoryType.LICENSE]
+        ]
+        console.print(
+            DataTable(
+                title="License findings",
+                columns=[
+                    DataColumn(header="Plugin ID", width=32),
+                    DataColumn(header="Name", width=20),
+                    DataColumn(header="Version", width=12),
+                    DataColumn(header="Severity", width=10),
+                    DataColumn(header="Details", width=42),
+                ],
+                rows=rows,
+            )
+        )
+
+
+def _render_advisory_summary(findings: tuple[AdvisoryFinding, ...]) -> None:
+    """Print the trailing per-severity count notice.
+
+    Args:
+        findings: All rendered findings.
+    """
+    counts = {s: 0 for s in _SEVERITY_ORDER}
+    for f in findings:
+        counts[f.severity] += 1
+    parts = [f"{counts[s]} {s.value}" for s in _SEVERITY_ORDER]
+    console.print(Notice.info(f"{len(findings)} advisory finding(s): {', '.join(parts)}."))
+
+
+@plugins_app.command("advisories")
+def plugins_advisories(
+    instance: Annotated[
+        str,
+        typer.Option(
+            "--instance",
+            help="Instance profile (default: configured default)",
+        ),
+    ] = "",
+    advisory_type: Annotated[
+        str,
+        typer.Option(
+            "--type",
+            help="Filter to one advisory type: eol, cve, or license.",
+        ),
+    ] = "",
+    severity: Annotated[
+        str,
+        typer.Option(
+            "--severity",
+            help="Show only findings at or above this severity (critical|high|medium|low).",
+        ),
+    ] = "",
+) -> None:
+    """Show EOL / CVE / license findings for plugins on an instance."""
+    _, inventory = _load_inventory_or_exit(instance)
+    try:
+        db = AdvisoryDatabase.load()
+    except PluginAdvisoryDataError as exc:
+        console.print(Notice.error(f"Advisory data corrupted: {exc}"))
+        raise typer.Exit(1) from exc
+
+    today = datetime.now(UTC).date()
+    result = compute_advisories(inventory, db, today=today)
+    findings = result.findings
+
+    if advisory_type:
+        try:
+            wanted_type = AdvisoryType(advisory_type)
+        except ValueError as exc:
+            console.print(Notice.error(f"Unknown --type: {advisory_type}"))
+            raise typer.Exit(1) from exc
+        findings = tuple(f for f in findings if f.advisory_type is wanted_type)
+
+    if severity:
+        try:
+            floor = Severity(severity)
+        except ValueError as exc:
+            console.print(Notice.error(f"Unknown --severity: {severity}"))
+            raise typer.Exit(1) from exc
+        keep = _severity_at_or_above(floor)
+        findings = tuple(f for f in findings if f.severity in keep)
+
+    if not findings:
+        console.print(Notice.info("No advisories found."))
+        return
+
+    _render_advisory_sections(findings)
+    _render_advisory_summary(findings)
 
 
 @capture_app.callback(invoke_without_command=True)
