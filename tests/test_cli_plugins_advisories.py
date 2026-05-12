@@ -254,3 +254,20 @@ def test_advisories_strict_respects_severity_filter(runner: CliRunner, tmp_path:
     runner.invoke(app, ["instance", "use", "prod"])
     result = runner.invoke(app, ["plugins", "advisories", "--strict", "--severity", "critical"])
     assert result.exit_code == 0
+
+
+def test_advisories_strict_json_emits_findings_and_exits_1(
+    runner: CliRunner, tmp_path: Path
+) -> None:
+    """--strict --format json: emits valid JSON to stdout then exits 1."""
+    _seed(
+        tmp_path,
+        "prod",
+        (_info("com.snc.ess", version="1.0", vendor="ServiceNow"),),
+    )
+    runner.invoke(app, ["instance", "use", "prod"])
+    result = runner.invoke(app, ["plugins", "advisories", "--strict", "--format", "json"])
+    assert result.exit_code == 1
+    payload = json.loads(result.output.strip().split("\n")[-1])
+    assert "findings" in payload
+    assert len(payload["findings"]) > 0
