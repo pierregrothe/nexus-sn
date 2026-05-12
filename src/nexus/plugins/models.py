@@ -11,7 +11,15 @@ from pydantic import BaseModel, ConfigDict
 
 from nexus.config.types import UtcDatetime
 
-__all__ = ["PluginInfo", "PluginInventory", "ProductFamily"]
+__all__ = [
+    "AdvisoryFinding",
+    "AdvisorySet",
+    "AdvisoryType",
+    "PluginInfo",
+    "PluginInventory",
+    "ProductFamily",
+    "Severity",
+]
 
 _FROZEN = ConfigDict(frozen=True, strict=True, extra="forbid")
 
@@ -79,3 +87,56 @@ class PluginInventory(BaseModel):
     captured_at: UtcDatetime
     sn_version: str
     plugins: tuple[PluginInfo, ...]
+
+
+class Severity(StrEnum):
+    """Normalized severity for advisory findings."""
+
+    CRITICAL = "critical"
+    HIGH = "high"
+    MEDIUM = "medium"
+    LOW = "low"
+
+
+class AdvisoryType(StrEnum):
+    """The three advisory categories surfaced by ``nexus plugins advisories``."""
+
+    EOL = "eol"
+    CVE = "cve"
+    LICENSE = "license"
+
+
+class AdvisoryFinding(BaseModel):
+    """One advisory hit on one plugin.
+
+    Attributes:
+        plugin_id: SN plugin identifier.
+        plugin_name: Display name copied from the inventory.
+        plugin_version: Installed version copied from the inventory.
+        advisory_type: Which checker produced this finding.
+        severity: Normalized severity.
+        summary: One-line headline rendered as a table cell.
+        details: Type-specific detail (CVE id, EOL date, vendor name).
+    """
+
+    model_config = _FROZEN
+
+    plugin_id: str
+    plugin_name: str
+    plugin_version: str
+    advisory_type: AdvisoryType
+    severity: Severity
+    summary: str
+    details: str
+
+
+class AdvisorySet(BaseModel):
+    """All findings produced by one advisory scan over an inventory.
+
+    Attributes:
+        findings: All findings, ordered by ``(severity desc, plugin_id asc)``.
+    """
+
+    model_config = _FROZEN
+
+    findings: tuple[AdvisoryFinding, ...]
