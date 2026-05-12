@@ -26,6 +26,7 @@ _STORE_FIELDS = (
     "sys_id,scope,name,version,latest_version,active,vendor," "dependencies,sys_created_on"
 )
 _PAGE_LIMIT = 200
+_MAX_PAGES = 50  # safety cap; 50 * 200 = 10,000 rows
 _SERVICENOW_VENDORS = {"ServiceNow", "Service-now.com", "servicenow"}
 _CUSTOM_SCOPE_PREFIXES = ("x_", "u_")
 
@@ -97,15 +98,47 @@ class PluginScanner:
     async def _fetch(
         self, client: httpx.AsyncClient, table: str, fields: str
     ) -> tuple[list[dict[str, object]], tuple[str, int] | None]:
-        """Fetch one table; return ([], (table, status)) on non-200."""
-        resp = await client.get(
-            f"/api/now/table/{table}",
-            params={"sysparm_fields": fields, "sysparm_limit": _PAGE_LIMIT},
-        )
-        if resp.status_code != 200:
-            log.warning("plugin scan: %s returned HTTP %d", table, resp.status_code)
-            return [], (table, resp.status_code)
-        rows: list[dict[str, object]] = resp.json().get("result", [])
+        """Fetch a Table API endpoint, paginated until exhausted.
+
+        Args:
+            client: Open httpx.AsyncClient bound to the instance URL.
+            table: Table name (e.g. ``v_plugin``).
+            fields: Comma-separated field list for ``sysparm_fields``.
+
+        Returns:
+            ``(rows, None)`` on success; ``([], (table, status))`` on the
+            first non-200 response. Pagination uses ``sysparm_offset``
+            with a hard cap of ``_MAX_PAGES`` pages; if the cap is hit a
+            WARNING is logged and partial data returned.
+        """
+        rows: list[dict[str, object]] = []
+        offset = 0
+        for _ in range(_MAX_PAGES):
+            resp = await client.get(
+                f"/api/now/table/{table}",
+                params={
+                    "sysparm_fields": fields,
+                    "sysparm_limit": _PAGE_LIMIT,
+                    "sysparm_offset": offset,
+                },
+            )
+            if resp.status_code != 200:
+                log.warning("plugin scan: %s returned HTTP %d", table, resp.status_code)
+                return [], (table, resp.status_code)
+            page: list[dict[str, object]] = resp.json().get("result", [])
+            if not page:
+                break
+            rows.extend(page)
+            if len(page) < _PAGE_LIMIT:
+                break
+            offset += _PAGE_LIMIT
+        else:
+            log.warning(
+                "plugin scan: %s exceeded %d pages (%d rows); truncating",
+                table,
+                _MAX_PAGES,
+                len(rows),
+            )
         return rows, None
 
     def _from_v_plugin(self, row: dict[str, object]) -> PluginInfo:
