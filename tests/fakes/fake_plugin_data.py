@@ -67,6 +67,7 @@ SYS_STORE_APP_ROWS: list[dict[str, object]] = [
         "vendor": "Acme Corp",
         "dependencies": "",
         "sys_created_on": "2024-03-01 10:00:00",
+        "latest_version": "3.2.0",
     },
     {
         "sys_id": "custom001",

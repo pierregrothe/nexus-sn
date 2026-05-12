@@ -22,7 +22,10 @@ __all__ = ["PluginScanner"]
 log = logging.getLogger(__name__)
 
 _V_PLUGIN_FIELDS = "sys_id,id,name,version,active,dependencies,installed_on"
-_STORE_FIELDS = "sys_id,scope,name,version,active,vendor,dependencies,sys_created_on"
+_STORE_FIELDS = (
+    "sys_id,scope,name,version,latest_version,active,vendor,"
+    "dependencies,sys_created_on"
+)
 _PAGE_LIMIT = 200
 _SERVICENOW_VENDORS = {"ServiceNow", "Service-now.com", "servicenow"}
 _CUSTOM_SCOPE_PREFIXES = ("x_", "u_")
@@ -125,6 +128,7 @@ class PluginScanner:
             depends_on=_parse_deps(row.get("dependencies", "")),
             sys_id=str(row.get("sys_id", "")),
             installed_at=_parse_dt(row.get("sys_created_on", "")),
+            latest_version=str(row.get("latest_version", "")) or None,
         )
 
 
