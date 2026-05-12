@@ -46,6 +46,9 @@ class PluginInfo(BaseModel):
         depends_on: Direct plugin dependencies (no traversal at this layer).
         sys_id: SN record sys_id.
         installed_at: Activation timestamp; ``None`` if never activated.
+        latest_version: The newest available version per ``sys_store_app``;
+            ``None`` for v_plugin-only records (core SN plugins) and for
+            store apps where the field is empty.
     """
 
     model_config = _FROZEN
@@ -59,6 +62,7 @@ class PluginInfo(BaseModel):
     depends_on: tuple[str, ...]
     sys_id: str
     installed_at: UtcDatetime | None
+    latest_version: str | None = None
 
 
 class PluginInventory(BaseModel):
