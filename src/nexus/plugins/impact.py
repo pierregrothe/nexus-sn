@@ -211,16 +211,31 @@ async def compute_impact(
         transport: Optional httpx transport for tests.
 
     Returns:
-        PluginImpact with reverse-deps and record counts. If the
-        Aggregate API call fails, ``counts_available`` is False and
-        ``record_counts`` is empty; the reverse-deps section is
-        unaffected.
+        PluginImpact with reverse-deps and record counts.
+
+        Fast path: if the target's cached ``record_count == 0`` (from
+        a refresh-time fan-out), skips the live aggregate call entirely
+        and returns ``record_counts=()`` with ``counts_available=True``.
+
+        Otherwise (cached > 0 or None): performs the live aggregate
+        call for the per-table breakdown. If the call fails,
+        ``counts_available=False`` and ``record_counts=()``.
 
     Raises:
         PluginImpactError: If ``target`` is not present in the inventory.
     """
     deps = reverse_dependencies(inventory, target)
     target_info = next(p for p in inventory.plugins if p.plugin_id == target)
+
+    if target_info.record_count == 0:
+        return PluginImpact(
+            target_plugin_id=target,
+            target_name=target_info.name,
+            reverse_deps=deps,
+            record_counts=(),
+            counts_available=True,
+        )
+
     try:
         counts = await fetch_scope_record_counts(url, token, target, transport=transport)
         counts_available = True

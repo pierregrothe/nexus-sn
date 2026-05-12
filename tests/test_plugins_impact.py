@@ -309,3 +309,100 @@ def test_fetch_scope_counts_with_client_returns_typed_buckets() -> None:
     assert len(buckets) == 1
     assert buckets[0].table == "sys_script"
     assert buckets[0].count == 7
+
+
+def _inventory_with_target(
+    plugin_id: str,
+    *,
+    record_count: int | None,
+) -> PluginInventory:
+    return _inventory(_plugin(plugin_id).model_copy(update={"record_count": record_count}))
+
+
+def test_compute_impact_skips_live_call_when_cached_record_count_is_zero() -> None:
+    """Cached zero -> no stats request, counts_available True, record_counts empty."""
+    stats_calls: list[str] = []
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        if "/api/now/stats/sys_metadata" in req.url.path:
+            stats_calls.append(str(req.url))
+            return httpx.Response(200, json={"result": []})
+        return httpx.Response(404, json={"result": []})
+
+    transport = httpx.MockTransport(handler)
+    inv = _inventory_with_target("com.target", record_count=0)
+    result = asyncio.run(
+        compute_impact(
+            inv,
+            "com.target",
+            url="https://x.example",
+            token="t",
+            transport=transport,
+        )
+    )
+    assert stats_calls == []
+    assert result.counts_available is True
+    assert result.record_counts == ()
+
+
+def test_compute_impact_calls_live_when_cached_record_count_is_positive() -> None:
+    """Cached > 0 -> live call still made to get per-table breakdown."""
+    stats_calls: list[str] = []
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        if "/api/now/stats/sys_metadata" in req.url.path:
+            stats_calls.append(str(req.url))
+            return httpx.Response(
+                200,
+                json={
+                    "result": [
+                        {
+                            "stats": {"count": "5"},
+                            "groupby_fields": [
+                                {"field": "sys_class_name", "value": "sys_script"}
+                            ],
+                        }
+                    ]
+                },
+            )
+        return httpx.Response(404, json={"result": []})
+
+    transport = httpx.MockTransport(handler)
+    inv = _inventory_with_target("com.target", record_count=42)
+    result = asyncio.run(
+        compute_impact(
+            inv,
+            "com.target",
+            url="https://x.example",
+            token="t",
+            transport=transport,
+        )
+    )
+    assert len(stats_calls) == 1
+    assert result.counts_available is True
+    assert len(result.record_counts) == 1
+
+
+def test_compute_impact_calls_live_when_cached_record_count_is_none() -> None:
+    """Cached None (no data) -> live call as before."""
+    stats_calls: list[str] = []
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        if "/api/now/stats/sys_metadata" in req.url.path:
+            stats_calls.append(str(req.url))
+            return httpx.Response(200, json={"result": []})
+        return httpx.Response(404, json={"result": []})
+
+    transport = httpx.MockTransport(handler)
+    inv = _inventory_with_target("com.target", record_count=None)
+    result = asyncio.run(
+        compute_impact(
+            inv,
+            "com.target",
+            url="https://x.example",
+            token="t",
+            transport=transport,
+        )
+    )
+    assert len(stats_calls) == 1
+    assert result.counts_available is True
