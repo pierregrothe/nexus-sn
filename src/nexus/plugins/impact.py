@@ -267,9 +267,7 @@ async def _phase1_target_tables(client: httpx.AsyncClient, plugin_id: str) -> li
         },
     )
     if response.status_code != 200:
-        raise ScopeRecordCountError(
-            f"sys_db_object query returned HTTP {response.status_code}"
-        )
+        raise ScopeRecordCountError(f"sys_db_object query returned HTTP {response.status_code}")
     try:
         rows = response.json()["result"]
     except (KeyError, ValueError) as exc:
@@ -312,9 +310,7 @@ async def _phase2_inbound_refs(
             try:
                 rows = response.json()["result"]
             except (KeyError, ValueError) as exc:
-                raise ScopeRecordCountError(
-                    f"malformed sys_dictionary response: {exc}"
-                ) from exc
+                raise ScopeRecordCountError(f"malformed sys_dictionary response: {exc}") from exc
         out: list[tuple[str, str, str, str]] = []
         for r in rows:
             scope_val = r.get("sys_scope.scope", "")
@@ -414,9 +410,7 @@ async def compute_impact(
     cross_scope_available = False
     if cross_scope:
         try:
-            cross_scope_refs = await fetch_cross_scope_refs(
-                url, token, target, transport=transport
-            )
+            cross_scope_refs = await fetch_cross_scope_refs(url, token, target, transport=transport)
             cross_scope_available = True
         except ScopeRecordCountError as exc:
             log.warning("impact: cross-scope refs unavailable for %s -- %s", target, exc)

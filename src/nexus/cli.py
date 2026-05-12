@@ -2113,9 +2113,7 @@ def _render_impact(impact: PluginImpact, *, opted_out: bool = False) -> None:
 
     if not impact.cross_scope_available:
         if not opted_out:
-            console.print(
-                Notice.warn("Cross-scope refs unavailable -- could not reach instance.")
-            )
+            console.print(Notice.warn("Cross-scope refs unavailable -- could not reach instance."))
     elif impact.cross_scope_refs:
         ref_rows: list[list[RenderableType]] = [
             [
@@ -2142,9 +2140,7 @@ def _render_impact(impact: PluginImpact, *, opted_out: bool = False) -> None:
         )
 
     cross_scope_suffix = (
-        f"; {len(impact.cross_scope_refs)} cross-scope refs"
-        if impact.cross_scope_refs
-        else ""
+        f"; {len(impact.cross_scope_refs)} cross-scope refs" if impact.cross_scope_refs else ""
     )
     if impact.counts_available:
         console.print(
@@ -2156,9 +2152,7 @@ def _render_impact(impact: PluginImpact, *, opted_out: bool = False) -> None:
         )
     else:
         console.print(
-            Notice.info(
-                f"{len(impact.reverse_deps)} dependent plugin(s){cross_scope_suffix}."
-            )
+            Notice.info(f"{len(impact.reverse_deps)} dependent plugin(s){cross_scope_suffix}.")
         )
 
 

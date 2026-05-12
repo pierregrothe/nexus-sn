@@ -20,7 +20,7 @@ from nexus.plugins.impact import (
     fetch_scope_record_counts,
     reverse_dependencies,
 )
-from nexus.plugins.models import CrossScopeRef, PluginImpact, PluginInfo, PluginInventory, ScopeRecordCount
+from nexus.plugins.models import PluginImpact, PluginInfo, PluginInventory, ScopeRecordCount
 
 __all__: list[str] = []
 
@@ -552,9 +552,7 @@ def test_fetch_cross_scope_refs_returns_empty_when_no_target_tables() -> None:
 
     transport = httpx.MockTransport(handler)
     result = asyncio.run(
-        fetch_cross_scope_refs(
-            "https://x.example", "t", "com.x", transport=transport
-        )
+        fetch_cross_scope_refs("https://x.example", "t", "com.x", transport=transport)
     )
     assert result == ()
 
@@ -569,9 +567,7 @@ def test_fetch_cross_scope_refs_returns_empty_when_no_inbound_refs() -> None:
 
     transport = httpx.MockTransport(handler)
     result = asyncio.run(
-        fetch_cross_scope_refs(
-            "https://x.example", "t", "com.x", transport=transport
-        )
+        fetch_cross_scope_refs("https://x.example", "t", "com.x", transport=transport)
     )
     assert result == ()
 
@@ -591,9 +587,7 @@ def test_fetch_cross_scope_refs_returns_single_match() -> None:
 
     transport = httpx.MockTransport(handler)
     result = asyncio.run(
-        fetch_cross_scope_refs(
-            "https://x.example", "t", "com.x", transport=transport
-        )
+        fetch_cross_scope_refs("https://x.example", "t", "com.x", transport=transport)
     )
     assert len(result) == 1
     assert result[0].source_table == "incident"
@@ -625,9 +619,7 @@ def test_fetch_cross_scope_refs_sorts_by_count_desc() -> None:
 
     transport = httpx.MockTransport(handler)
     result = asyncio.run(
-        fetch_cross_scope_refs(
-            "https://x.example", "t", "com.x", transport=transport
-        )
+        fetch_cross_scope_refs("https://x.example", "t", "com.x", transport=transport)
     )
     assert [r.record_count for r in result] == [500, 5]
 
@@ -640,11 +632,7 @@ def test_fetch_cross_scope_refs_raises_on_phase1_failure() -> None:
 
     transport = httpx.MockTransport(handler)
     with pytest.raises(ScopeRecordCountError):
-        asyncio.run(
-            fetch_cross_scope_refs(
-                "https://x.example", "t", "com.x", transport=transport
-            )
-        )
+        asyncio.run(fetch_cross_scope_refs("https://x.example", "t", "com.x", transport=transport))
 
 
 def test_compute_impact_includes_cross_scope_when_enabled() -> None:
