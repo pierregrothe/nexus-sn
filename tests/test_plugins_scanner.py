@@ -11,7 +11,12 @@ import pytest
 
 from nexus.plugins.errors import PluginScanError
 from nexus.plugins.models import PluginInventory
-from nexus.plugins.scanner import PluginScanner, _ScopeRecordCountError, _sum_scope_records
+from nexus.plugins.scanner import (
+    PluginScanner,
+    _fetch_counts,
+    _ScopeRecordCountError,
+    _sum_scope_records,
+)
 from tests.fakes.fake_plugin_data import SYS_STORE_APP_ROWS, V_PLUGIN_ROWS
 
 __all__: list[str] = []
@@ -218,3 +223,62 @@ def test_sum_scope_records_raises_on_malformed_response() -> None:
     transport = _transport_for(stats_payload={"no_result_key": True})
     with pytest.raises(_ScopeRecordCountError):
         asyncio.run(_run_sum(transport))
+
+
+def test_fetch_counts_returns_count_per_plugin() -> None:
+    transport = _transport_for(
+        stats_payload=_stats_response([_stats_row("sys_script", 7)]),
+    )
+
+    async def _run() -> dict[str, int | None]:
+        async with httpx.AsyncClient(
+            base_url="https://x.example",
+            headers={"Authorization": "Bearer t"},
+            transport=transport,
+        ) as client:
+            return await _fetch_counts(client, ("com.a", "com.b"))
+
+    counts = asyncio.run(_run())
+    assert counts == {"com.a": 7, "com.b": 7}
+
+
+def test_fetch_counts_marks_failed_plugin_as_none() -> None:
+    transport = _transport_for(stats_status=500)
+
+    async def _run() -> dict[str, int | None]:
+        async with httpx.AsyncClient(
+            base_url="https://x.example",
+            headers={"Authorization": "Bearer t"},
+            transport=transport,
+        ) as client:
+            return await _fetch_counts(client, ("com.a", "com.b"))
+
+    counts = asyncio.run(_run())
+    assert counts == {"com.a": None, "com.b": None}
+
+
+def test_fetch_counts_caps_concurrent_calls_at_max_concurrency() -> None:
+    in_flight = {"current": 0, "max": 0}
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        in_flight["current"] += 1
+        if in_flight["current"] > in_flight["max"]:
+            in_flight["max"] = in_flight["current"]
+        try:
+            return httpx.Response(200, json={"result": []})
+        finally:
+            in_flight["current"] -= 1
+
+    transport = httpx.MockTransport(handler)
+
+    async def _run() -> None:
+        async with httpx.AsyncClient(
+            base_url="https://x.example",
+            headers={"Authorization": "Bearer t"},
+            transport=transport,
+        ) as client:
+            ids = tuple(f"com.p{i}" for i in range(64))
+            await _fetch_counts(client, ids, max_concurrency=4)
+
+    asyncio.run(_run())
+    assert in_flight["max"] <= 4
