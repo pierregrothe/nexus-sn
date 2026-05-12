@@ -9,6 +9,7 @@ from pathlib import Path
 
 import pytest
 
+import nexus.plugins as pkg
 from nexus.plugins.advisories import (
     AdvisoryDatabase,
     CveEntry,
@@ -287,3 +288,18 @@ def test_compute_advisories_sorts_findings_by_severity_then_plugin_id() -> None:
     high_ones = [f for f in result.findings if f.severity is Severity.HIGH]
     plugin_ids = [f.plugin_id for f in high_ones]
     assert plugin_ids == sorted(plugin_ids)
+
+
+def test_public_api_reexports_advisories_symbols() -> None:
+    expected = {
+        "AdvisoryDatabase",
+        "AdvisoryFinding",
+        "AdvisorySet",
+        "AdvisoryType",
+        "PluginAdvisoryDataError",
+        "Severity",
+        "compute_advisories",
+    }
+    assert expected.issubset(set(pkg.__all__))
+    for name in expected:
+        assert hasattr(pkg, name), f"missing re-export: {name}"
