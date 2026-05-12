@@ -258,8 +258,9 @@ class InstanceRegistry:
         if not file_path.exists():
             return AdvisoryOverrideSet(overrides=())
         try:
-            data = yaml.safe_load(file_path.read_text(encoding="utf-8")) or {}
-            return AdvisoryOverrideSet.model_validate_json(json.dumps(data))
+            raw_obj: object = yaml.safe_load(file_path.read_text(encoding="utf-8"))
+            payload: str = json.dumps(raw_obj) if isinstance(raw_obj, dict) else "{}"
+            return AdvisoryOverrideSet.model_validate_json(payload)
         except (yaml.YAMLError, ValidationError):
             log.warning(
                 "advisory-overrides.yaml schema outdated for profile=%s -- "
