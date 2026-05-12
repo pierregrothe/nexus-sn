@@ -18,7 +18,14 @@ from pydantic import BaseModel, ConfigDict, field_validator
 
 from nexus.plugins.models import AdvisoryFinding, AdvisoryType, PluginInfo, Severity
 
-__all__ = ["CveEntry", "EolEntry", "_check_cves", "_check_eol"]
+__all__ = [
+    "CveEntry",
+    "EolEntry",
+    "LicensePolicy",
+    "_check_cves",
+    "_check_eol",
+    "_check_license",
+]
 
 log = logging.getLogger(__name__)
 
@@ -164,3 +171,63 @@ def _check_cves(
             )
         )
     return tuple(findings)
+
+
+class LicensePolicy(BaseModel):
+    """Vendor allow / forbid lists for license findings.
+
+    Attributes:
+        allowed_vendors: Vendors that always pass the license check.
+        forbidden_vendors: Vendors that always trigger a high-severity finding.
+    """
+
+    model_config = _FROZEN
+
+    allowed_vendors: tuple[str, ...]
+    forbidden_vendors: tuple[str, ...]
+
+
+def _check_license(
+    plugin: PluginInfo,
+    policy: LicensePolicy,
+) -> tuple[AdvisoryFinding, ...]:
+    """Produce zero or one AdvisoryFinding for the plugin's vendor.
+
+    Severity rules:
+        - Empty ``plugin.vendor`` -> no finding (no signal).
+        - Vendor in ``policy.forbidden_vendors`` -> HIGH.
+        - Vendor in ``policy.allowed_vendors`` -> no finding.
+        - Vendor non-empty, absent from both, ``allowed_vendors`` non-empty -> MEDIUM.
+        - Vendor non-empty, absent from both, ``allowed_vendors`` empty -> no finding.
+
+    Args:
+        plugin: The plugin to evaluate.
+        policy: Allow / forbid lists.
+
+    Returns:
+        Tuple of at most one AdvisoryFinding.
+    """
+    vendor = plugin.vendor
+    if not vendor:
+        return ()
+    if vendor in policy.forbidden_vendors:
+        severity = Severity.HIGH
+        summary = "Forbidden vendor"
+    elif vendor in policy.allowed_vendors:
+        return ()
+    elif policy.allowed_vendors:
+        severity = Severity.MEDIUM
+        summary = "Vendor not in allow-list"
+    else:
+        return ()
+    return (
+        AdvisoryFinding(
+            plugin_id=plugin.plugin_id,
+            plugin_name=plugin.name,
+            plugin_version=plugin.version,
+            advisory_type=AdvisoryType.LICENSE,
+            severity=severity,
+            summary=summary,
+            details=f"vendor: {vendor}",
+        ),
+    )
