@@ -135,10 +135,15 @@ def test_advisory_finding_accepts_all_required_fields() -> None:
 
 
 def test_advisory_set_is_frozen() -> None:
+    finding = AdvisoryFinding(
+        plugin_id="com.x",
+        plugin_name="X",
+        plugin_version="1.0",
+        advisory_type=AdvisoryType.CVE,
+        severity=Severity.HIGH,
+        summary="XSS",
+        details="CVE-2024-1",
+    )
     s = AdvisorySet(findings=())
-    raised = False
-    try:
-        setattr(s, "findings", (None,))
-    except Exception:
-        raised = True
-    assert raised, "AdvisorySet must be frozen"
+    with pytest.raises(ValidationError):
+        s.findings = (finding,)
