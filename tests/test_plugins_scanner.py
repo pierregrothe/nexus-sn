@@ -282,3 +282,29 @@ def test_fetch_counts_caps_concurrent_calls_at_max_concurrency() -> None:
 
     asyncio.run(_run())
     assert in_flight["max"] <= 4
+
+
+def test_scan_populates_record_count_from_aggregate_api() -> None:
+    transport = _transport_for(
+        stats_payload=_stats_response([_stats_row("sys_script", 42)]),
+    )
+    inv = asyncio.run(_scan(transport))
+    incident = next(p for p in inv.plugins if p.plugin_id == "com.snc.incident")
+    assert incident.record_count == 42
+
+
+def test_scan_sets_record_count_none_when_aggregate_call_fails() -> None:
+    transport = _transport_for(stats_status=500)
+    inv = asyncio.run(_scan(transport))
+    assert all(p.record_count is None for p in inv.plugins)
+
+
+def test_scan_keeps_other_fields_intact_after_count_capture() -> None:
+    transport = _transport_for(
+        stats_payload=_stats_response([_stats_row("sys_script", 5)]),
+    )
+    inv = asyncio.run(_scan(transport))
+    incident = next(p for p in inv.plugins if p.plugin_id == "com.snc.incident")
+    assert incident.state == "active"
+    assert incident.source == "servicenow"
+    assert incident.version == "1.2.3"
