@@ -204,9 +204,7 @@ def test_advisories_errors_when_data_files_corrupted(
     assert "Advisory data corrupted" in result.output
 
 
-def test_advisories_emits_json_when_format_flag_provided(
-    runner: CliRunner, tmp_path: Path
-) -> None:
+def test_advisories_emits_json_when_format_flag_provided(runner: CliRunner, tmp_path: Path) -> None:
     _seed(
         tmp_path,
         "prod",
@@ -219,9 +217,7 @@ def test_advisories_emits_json_when_format_flag_provided(
     assert "findings" in payload
 
 
-def test_advisories_errors_on_unknown_format_value(
-    runner: CliRunner, tmp_path: Path
-) -> None:
+def test_advisories_errors_on_unknown_format_value(runner: CliRunner, tmp_path: Path) -> None:
     _seed(tmp_path, "prod", (_info("com.x", vendor="ServiceNow"),))
     runner.invoke(app, ["instance", "use", "prod"])
     result = runner.invoke(app, ["plugins", "advisories", "--format", "yaml"])
@@ -229,9 +225,7 @@ def test_advisories_errors_on_unknown_format_value(
     assert "Unknown --format" in result.output
 
 
-def test_advisories_strict_exits_1_when_findings_present(
-    runner: CliRunner, tmp_path: Path
-) -> None:
+def test_advisories_strict_exits_1_when_findings_present(runner: CliRunner, tmp_path: Path) -> None:
     _seed(
         tmp_path,
         "prod",
@@ -242,9 +236,7 @@ def test_advisories_strict_exits_1_when_findings_present(
     assert result.exit_code == 1
 
 
-def test_advisories_strict_exits_0_when_no_findings(
-    runner: CliRunner, tmp_path: Path
-) -> None:
+def test_advisories_strict_exits_0_when_no_findings(runner: CliRunner, tmp_path: Path) -> None:
     _seed(tmp_path, "prod", (_info("com.unaffected", vendor="ServiceNow"),))
     runner.invoke(app, ["instance", "use", "prod"])
     result = runner.invoke(app, ["plugins", "advisories", "--strict"])
@@ -252,9 +244,7 @@ def test_advisories_strict_exits_0_when_no_findings(
     assert "No advisories found" in result.output
 
 
-def test_advisories_strict_respects_severity_filter(
-    runner: CliRunner, tmp_path: Path
-) -> None:
+def test_advisories_strict_respects_severity_filter(runner: CliRunner, tmp_path: Path) -> None:
     """--strict + --severity that filters out all findings exits 0."""
     _seed(
         tmp_path,
@@ -262,7 +252,5 @@ def test_advisories_strict_respects_severity_filter(
         (_info("com.snc.ess", version="1.0", vendor="ServiceNow"),),
     )
     runner.invoke(app, ["instance", "use", "prod"])
-    result = runner.invoke(
-        app, ["plugins", "advisories", "--strict", "--severity", "critical"]
-    )
+    result = runner.invoke(app, ["plugins", "advisories", "--strict", "--severity", "critical"])
     assert result.exit_code == 0

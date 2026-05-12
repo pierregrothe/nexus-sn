@@ -225,9 +225,7 @@ def test_plugins_promote_errors_when_either_inventory_missing(
     assert "nexus instance refresh" in result.output
 
 
-def test_diff_emits_json_when_format_flag_provided(
-    runner: CliRunner, tmp_path: Path
-) -> None:
+def test_diff_emits_json_when_format_flag_provided(runner: CliRunner, tmp_path: Path) -> None:
     _seed(tmp_path, "prod", (_info("com.x", version="1.0.0"),))
     _seed(tmp_path, "dev", (_info("com.x", version="2.0.0"),))
     runner.invoke(app, ["instance", "use", "prod"])
@@ -237,9 +235,7 @@ def test_diff_emits_json_when_format_flag_provided(
     assert "entries" in payload
 
 
-def test_diff_errors_on_unknown_format_value(
-    runner: CliRunner, tmp_path: Path
-) -> None:
+def test_diff_errors_on_unknown_format_value(runner: CliRunner, tmp_path: Path) -> None:
     _seed(tmp_path, "prod", (_info("com.x"),))
     _seed(tmp_path, "dev", (_info("com.x"),))
     runner.invoke(app, ["instance", "use", "prod"])

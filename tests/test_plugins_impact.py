@@ -358,9 +358,7 @@ def test_compute_impact_calls_live_when_cached_record_count_is_positive() -> Non
                     "result": [
                         {
                             "stats": {"count": "5"},
-                            "groupby_fields": [
-                                {"field": "sys_class_name", "value": "sys_script"}
-                            ],
+                            "groupby_fields": [{"field": "sys_class_name", "value": "sys_script"}],
                         }
                     ]
                 },

@@ -130,9 +130,7 @@ async def fetch_scope_counts_with_client(
     }
     response = await client.get("/api/now/stats/sys_metadata", params=params)
     if response.status_code != 200:
-        raise ScopeRecordCountError(
-            f"aggregate API returned HTTP {response.status_code}"
-        )
+        raise ScopeRecordCountError(f"aggregate API returned HTTP {response.status_code}")
     try:
         payload = response.json()
         rows = payload["result"]
@@ -146,9 +144,7 @@ async def fetch_scope_counts_with_client(
             count = int(stats["count"])
             groupby = row["groupby_fields"]
             table = next(
-                entry["value"]
-                for entry in groupby
-                if entry.get("field") == "sys_class_name"
+                entry["value"] for entry in groupby if entry.get("field") == "sys_class_name"
             )
         except (KeyError, StopIteration, TypeError, ValueError) as exc:
             raise ScopeRecordCountError(f"malformed row: {exc}") from exc

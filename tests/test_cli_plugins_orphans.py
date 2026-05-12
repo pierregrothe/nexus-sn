@@ -180,9 +180,7 @@ def test_orphans_warns_when_inventory_missing(runner: CliRunner, tmp_path: Path)
     assert "nexus instance refresh" in result.output
 
 
-def test_orphans_emits_json_when_format_flag_provided(
-    runner: CliRunner, tmp_path: Path
-) -> None:
+def test_orphans_emits_json_when_format_flag_provided(runner: CliRunner, tmp_path: Path) -> None:
     _seed(
         tmp_path,
         "prod",
@@ -196,9 +194,7 @@ def test_orphans_emits_json_when_format_flag_provided(
     assert payload["candidates"][0]["plugin_id"] == "com.lonely"
 
 
-def test_orphans_errors_on_unknown_format_value(
-    runner: CliRunner, tmp_path: Path
-) -> None:
+def test_orphans_errors_on_unknown_format_value(runner: CliRunner, tmp_path: Path) -> None:
     _seed(tmp_path, "prod", (_info("com.x", record_count=0),))
     runner.invoke(app, ["instance", "use", "prod"])
     result = runner.invoke(app, ["plugins", "orphans", "--format", "yaml"])

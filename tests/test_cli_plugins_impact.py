@@ -203,9 +203,7 @@ def test_impact_emits_json_when_format_flag_provided(
     )
     runner.invoke(app, ["instance", "use", "prod"])
     _patch_token_and_stats(monkeypatch)
-    result = runner.invoke(
-        app, ["plugins", "impact", "com.target", "--format", "json"]
-    )
+    result = runner.invoke(app, ["plugins", "impact", "com.target", "--format", "json"])
     assert result.exit_code == 0
     payload = json.loads(result.output.strip().split("\n")[-1])
     assert payload["target_plugin_id"] == "com.target"
@@ -218,8 +216,6 @@ def test_impact_errors_on_unknown_format_value(
     _seed(tmp_path, "prod", (_info("com.target"),))
     runner.invoke(app, ["instance", "use", "prod"])
     _patch_token_and_stats(monkeypatch)
-    result = runner.invoke(
-        app, ["plugins", "impact", "com.target", "--format", "yaml"]
-    )
+    result = runner.invoke(app, ["plugins", "impact", "com.target", "--format", "yaml"])
     assert result.exit_code == 1
     assert "Unknown --format" in result.output

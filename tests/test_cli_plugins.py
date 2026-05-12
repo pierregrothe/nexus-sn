@@ -229,9 +229,7 @@ def test_plugins_no_subcommand_shows_list_and_command_guide(
     assert "export" in result.output
 
 
-def test_list_emits_json_when_format_flag_provided(
-    runner: CliRunner, tmp_path: Path
-) -> None:
+def test_list_emits_json_when_format_flag_provided(runner: CliRunner, tmp_path: Path) -> None:
     _seed(tmp_path, "prod", (_info("com.x"),))
     runner.invoke(app, ["instance", "use", "prod"])
     result = runner.invoke(app, ["plugins", "list", "--format", "json"])
@@ -241,9 +239,7 @@ def test_list_emits_json_when_format_flag_provided(
     assert any(p["plugin_id"] == "com.x" for p in payload["plugins"])
 
 
-def test_list_errors_on_unknown_format_value(
-    runner: CliRunner, tmp_path: Path
-) -> None:
+def test_list_errors_on_unknown_format_value(runner: CliRunner, tmp_path: Path) -> None:
     _seed(tmp_path, "prod", (_info("com.x"),))
     runner.invoke(app, ["instance", "use", "prod"])
     result = runner.invoke(app, ["plugins", "list", "--format", "yaml"])
@@ -251,9 +247,7 @@ def test_list_errors_on_unknown_format_value(
     assert "Unknown --format" in result.output
 
 
-def test_info_emits_json_when_format_flag_provided(
-    runner: CliRunner, tmp_path: Path
-) -> None:
+def test_info_emits_json_when_format_flag_provided(runner: CliRunner, tmp_path: Path) -> None:
     _seed(tmp_path, "prod", (_info("com.x"),))
     runner.invoke(app, ["instance", "use", "prod"])
     result = runner.invoke(app, ["plugins", "info", "com.x", "--format", "json"])
@@ -262,9 +256,7 @@ def test_info_emits_json_when_format_flag_provided(
     assert payload["plugin_id"] == "com.x"
 
 
-def test_info_errors_on_unknown_format_value(
-    runner: CliRunner, tmp_path: Path
-) -> None:
+def test_info_errors_on_unknown_format_value(runner: CliRunner, tmp_path: Path) -> None:
     _seed(tmp_path, "prod", (_info("com.x"),))
     runner.invoke(app, ["instance", "use", "prod"])
     result = runner.invoke(app, ["plugins", "info", "com.x", "--format", "yaml"])

@@ -177,9 +177,7 @@ def test_plugins_updates_prints_pre_update_refresh_hint_when_queue_written(
     assert "nexus instance refresh" in result.output
 
 
-def test_updates_emits_json_when_format_flag_provided(
-    runner: CliRunner, tmp_path: Path
-) -> None:
+def test_updates_emits_json_when_format_flag_provided(runner: CliRunner, tmp_path: Path) -> None:
     _seed(
         tmp_path,
         "prod",
@@ -193,9 +191,7 @@ def test_updates_emits_json_when_format_flag_provided(
     assert payload["updates"][0]["plugin_id"] == "com.acme.helper"
 
 
-def test_updates_errors_on_unknown_format_value(
-    runner: CliRunner, tmp_path: Path
-) -> None:
+def test_updates_errors_on_unknown_format_value(runner: CliRunner, tmp_path: Path) -> None:
     _seed(
         tmp_path,
         "prod",
