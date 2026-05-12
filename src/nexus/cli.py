@@ -165,7 +165,7 @@ err_console = Console(stderr=True, theme=NEXUS_THEME)
 _FORMATS = ("text", "json")
 
 
-def _validate_format(value: str) -> None:  # pyright: ignore[reportUnusedFunction]
+def _validate_format(value: str) -> None:
     """Reject unknown ``--format`` values with a clear error.
 
     Args:
@@ -180,7 +180,7 @@ def _validate_format(value: str) -> None:  # pyright: ignore[reportUnusedFunctio
         raise typer.Exit(1)
 
 
-def _emit_json(model: BaseModel) -> None:  # pyright: ignore[reportUnusedFunction]
+def _emit_json(model: BaseModel) -> None:
     """Print model JSON serialization to stdout, one line.
 
     Uses ``model.model_dump_json()`` (not Rich's print_json) so the
@@ -1066,21 +1066,21 @@ def instance_register(profile: str) -> None:
         console.print(Notice.info("Set as default instance."))
 
 
-def _plugins_for(profile: str) -> tuple[InstanceMeta, tuple[PluginInfo, ...]] | None:
+def _plugins_for(profile: str) -> tuple[InstanceMeta, PluginInventory] | None:
     """Resolve a profile and return its plugin inventory, or None when missing.
 
     Args:
         profile: Instance profile name, or empty string to use the config default.
 
     Returns:
-        Tuple of (meta, plugins) when an inventory exists, or ``None`` when the
+        Tuple of (meta, inventory) when an inventory exists, or ``None`` when the
         instance has no captured ``plugins.json``.
     """
     registry, meta = _resolve_profile(profile)
     inv = registry.load_plugin_inventory(meta.profile)
     if inv is None:
         return None
-    return meta, inv.plugins
+    return meta, inv
 
 
 @plugins_app.callback(invoke_without_command=True)
@@ -1105,20 +1105,29 @@ def plugins_list(
         str, typer.Option("--source", help="Filter by source (servicenow|store|custom)")
     ] = "",
     state: Annotated[str, typer.Option("--state", help="Filter by state (active|inactive)")] = "",
+    output_format: Annotated[
+        str,
+        typer.Option("--format", help="Output format: text | json (default: text)"),
+    ] = "text",
 ) -> None:
     """Show all plugins installed on the resolved instance."""
+    _validate_format(output_format)
     resolved = _plugins_for(instance)
     if resolved is None:
         console.print(Notice.warn("Plugin inventory empty."))
         console.print(Hint(label="Refresh", command="nexus instance refresh"))
         return
-    _, plugins = resolved
+    _, inv = resolved
+    plugins = inv.plugins
     if product:
         plugins = tuple(p for p in plugins if p.product_family == product)
     if source:
         plugins = tuple(p for p in plugins if p.source == source)
     if state:
         plugins = tuple(p for p in plugins if p.state == state)
+    if output_format == "json":
+        _emit_json(inv.model_copy(update={"plugins": tuple(plugins)}))
+        return
     if not plugins:
         console.print(Notice.info("No plugins match the requested filters."))
         return
@@ -1155,18 +1164,27 @@ def plugins_info(
     instance: Annotated[
         str, typer.Option("--instance", help="Instance profile (default: configured default)")
     ] = "",
+    output_format: Annotated[
+        str,
+        typer.Option("--format", help="Output format: text | json (default: text)"),
+    ] = "text",
 ) -> None:
     """Show full details and direct dependencies for one plugin."""
+    _validate_format(output_format)
     resolved = _plugins_for(instance)
     if resolved is None:
         console.print(Notice.warn("Plugin inventory empty."))
         console.print(Hint(label="Refresh", command="nexus instance refresh"))
         raise typer.Exit(1)
-    _, plugins = resolved
+    _, inv = resolved
+    plugins = inv.plugins
     plugin = next((p for p in plugins if p.plugin_id == plugin_id), None)
     if plugin is None:
         err_console.print(Notice.error(f"Plugin {plugin_id!r} not found in inventory."))
         raise typer.Exit(1)
+    if output_format == "json":
+        _emit_json(plugin)
+        return
     console.print(
         KeyValuePanel(
             title=plugin.name,
@@ -1235,7 +1253,8 @@ def plugins_export(
         console.print(Notice.warn("Plugin inventory empty."))
         console.print(Hint(label="Refresh", command="nexus instance refresh"))
         raise typer.Exit(1)
-    _, plugins = resolved
+    _, inv = resolved
+    plugins = inv.plugins
     path = Path(out) if out else Path(f"plugins.{fmt}")
     if fmt == "yaml":
         payload = {

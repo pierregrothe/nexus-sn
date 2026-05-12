@@ -4,6 +4,7 @@
 # Date: 2026-05-11
 """Tests for nexus plugins list / info / export."""
 
+import json
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal
@@ -226,3 +227,46 @@ def test_plugins_no_subcommand_shows_list_and_command_guide(
     assert "list" in result.output
     assert "info" in result.output
     assert "export" in result.output
+
+
+def test_list_emits_json_when_format_flag_provided(
+    runner: CliRunner, tmp_path: Path
+) -> None:
+    _seed(tmp_path, "prod", (_info("com.x"),))
+    runner.invoke(app, ["instance", "use", "prod"])
+    result = runner.invoke(app, ["plugins", "list", "--format", "json"])
+    assert result.exit_code == 0
+    payload = json.loads(result.output.strip().split("\n")[-1])
+    assert "plugins" in payload  # PluginInventory shape
+    assert any(p["plugin_id"] == "com.x" for p in payload["plugins"])
+
+
+def test_list_errors_on_unknown_format_value(
+    runner: CliRunner, tmp_path: Path
+) -> None:
+    _seed(tmp_path, "prod", (_info("com.x"),))
+    runner.invoke(app, ["instance", "use", "prod"])
+    result = runner.invoke(app, ["plugins", "list", "--format", "yaml"])
+    assert result.exit_code == 1
+    assert "Unknown --format" in result.output
+
+
+def test_info_emits_json_when_format_flag_provided(
+    runner: CliRunner, tmp_path: Path
+) -> None:
+    _seed(tmp_path, "prod", (_info("com.x"),))
+    runner.invoke(app, ["instance", "use", "prod"])
+    result = runner.invoke(app, ["plugins", "info", "com.x", "--format", "json"])
+    assert result.exit_code == 0
+    payload = json.loads(result.output.strip().split("\n")[-1])
+    assert payload["plugin_id"] == "com.x"
+
+
+def test_info_errors_on_unknown_format_value(
+    runner: CliRunner, tmp_path: Path
+) -> None:
+    _seed(tmp_path, "prod", (_info("com.x"),))
+    runner.invoke(app, ["instance", "use", "prod"])
+    result = runner.invoke(app, ["plugins", "info", "com.x", "--format", "yaml"])
+    assert result.exit_code == 1
+    assert "Unknown --format" in result.output
