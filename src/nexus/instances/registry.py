@@ -4,16 +4,19 @@
 # Date: 2026-05-08
 """InstanceRegistry: manages ~/.nexus/instances/<profile>/ directories."""
 
+import json
 import logging
 import shutil
 import tempfile
 from pathlib import Path
 
+import yaml
 from pydantic import ValidationError
 
 from nexus.instances.errors import InstanceNotFoundError
 from nexus.instances.models import InstanceMeta, InstanceSnapshot
 from nexus.plugins.models import PluginInventory
+from nexus.plugins.overrides import AdvisoryOverrideSet
 
 log = logging.getLogger(__name__)
 
@@ -23,6 +26,7 @@ _META = "meta.json"
 _SNAPSHOT = "snapshot.json"
 _PLUGIN_INVENTORY = "plugins.json"
 _PLUGIN_BASELINE = "plugins.baseline.json"
+_ADVISORY_OVERRIDES = "advisory-overrides.yaml"
 
 
 class InstanceRegistry:
@@ -232,6 +236,52 @@ class InstanceRegistry:
             InstanceNotFoundError: If the profile directory does not exist.
         """
         self._atomic_write(profile, _PLUGIN_BASELINE, inventory.model_dump_json(indent=2))
+
+    def load_advisory_overrides(self, profile: str) -> AdvisoryOverrideSet:
+        """Read advisory-overrides.yaml for a profile, or return an empty set.
+
+        Args:
+            profile: Profile name.
+
+        Returns:
+            AdvisoryOverrideSet with the persisted overrides, or an empty set
+            when the file is missing or has a stale schema. Schema mismatches
+            log a WARNING.
+
+        Raises:
+            InstanceNotFoundError: If the profile directory does not exist.
+        """
+        profile_dir = self._dir(profile)
+        if not profile_dir.exists():
+            raise InstanceNotFoundError(profile)
+        file_path = profile_dir / _ADVISORY_OVERRIDES
+        if not file_path.exists():
+            return AdvisoryOverrideSet(overrides=())
+        try:
+            data = yaml.safe_load(file_path.read_text(encoding="utf-8")) or {}
+            return AdvisoryOverrideSet.model_validate_json(json.dumps(data))
+        except (yaml.YAMLError, ValidationError):
+            log.warning(
+                "advisory-overrides.yaml schema outdated for profile=%s -- "
+                "edit by hand or remove the file",
+                profile,
+            )
+            return AdvisoryOverrideSet(overrides=())
+
+    def save_advisory_overrides(
+        self, profile: str, overrides: AdvisoryOverrideSet
+    ) -> None:
+        """Atomically write advisory-overrides.yaml for a profile.
+
+        Args:
+            profile: Profile name.
+            overrides: Override set to persist.
+
+        Raises:
+            InstanceNotFoundError: If the profile directory does not exist.
+        """
+        payload = yaml.safe_dump(overrides.model_dump(mode="json"), sort_keys=False)
+        self._atomic_write(profile, _ADVISORY_OVERRIDES, payload)
 
     def _atomic_write(self, profile: str, filename: str, payload: str) -> None:
         """Write ``payload`` to ``<profile_dir>/<filename>`` via tmp-and-rename.
