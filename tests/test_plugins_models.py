@@ -9,7 +9,15 @@ from datetime import UTC, datetime
 import pytest
 from pydantic import ValidationError
 
-from nexus.plugins.models import PluginInfo, PluginInventory, ProductFamily
+from nexus.plugins.models import (
+    AdvisoryFinding,
+    AdvisorySet,
+    AdvisoryType,
+    PluginInfo,
+    PluginInventory,
+    ProductFamily,
+    Severity,
+)
 
 __all__: list[str] = []
 
@@ -102,3 +110,35 @@ def test_plugin_info_defaults_latest_version_to_none() -> None:
 def test_plugin_info_accepts_latest_version_field() -> None:
     info = _info(latest_version="2.0.0")
     assert info.latest_version == "2.0.0"
+
+
+def test_severity_has_four_levels() -> None:
+    assert {s.value for s in Severity} == {"critical", "high", "medium", "low"}
+
+
+def test_advisory_type_has_three_categories() -> None:
+    assert {t.value for t in AdvisoryType} == {"eol", "cve", "license"}
+
+
+def test_advisory_finding_accepts_all_required_fields() -> None:
+    finding = AdvisoryFinding(
+        plugin_id="com.x",
+        plugin_name="X",
+        plugin_version="1.0",
+        advisory_type=AdvisoryType.CVE,
+        severity=Severity.HIGH,
+        summary="XSS",
+        details="CVE-2024-1",
+    )
+    assert finding.advisory_type is AdvisoryType.CVE
+    assert finding.severity is Severity.HIGH
+
+
+def test_advisory_set_is_frozen() -> None:
+    s = AdvisorySet(findings=())
+    raised = False
+    try:
+        setattr(s, "findings", (None,))
+    except Exception:
+        raised = True
+    assert raised, "AdvisorySet must be frozen"
