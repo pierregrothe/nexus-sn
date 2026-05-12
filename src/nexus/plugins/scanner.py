@@ -23,8 +23,7 @@ log = logging.getLogger(__name__)
 
 _V_PLUGIN_FIELDS = "sys_id,id,name,version,active,dependencies,installed_on"
 _STORE_FIELDS = (
-    "sys_id,scope,name,version,latest_version,active,vendor,"
-    "dependencies,sys_created_on"
+    "sys_id,scope,name,version,latest_version,active,vendor," "dependencies,sys_created_on"
 )
 _PAGE_LIMIT = 200
 _SERVICENOW_VENDORS = {"ServiceNow", "Service-now.com", "servicenow"}

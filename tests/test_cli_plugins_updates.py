@@ -72,9 +72,7 @@ def _seed(
             sn_version="Xanadu",
             plugins=plugins,
         )
-        (profile_dir / "plugins.json").write_text(
-            inv.model_dump_json(indent=2), encoding="utf-8"
-        )
+        (profile_dir / "plugins.json").write_text(inv.model_dump_json(indent=2), encoding="utf-8")
 
 
 @pytest.fixture
@@ -128,9 +126,7 @@ def test_plugins_updates_writes_yaml_when_queue_flag_provided(
     )
     runner.invoke(app, ["instance", "use", "prod"])
     out_file = tmp_path / "queue.yaml"
-    result = runner.invoke(
-        app, ["plugins", "updates", "--queue", str(out_file)]
-    )
+    result = runner.invoke(app, ["plugins", "updates", "--queue", str(out_file)])
     assert result.exit_code == 0
     payload = _yaml.safe_load(out_file.read_text(encoding="utf-8"))
     assert payload["instance"] == "prod"
@@ -157,9 +153,7 @@ def test_plugins_updates_does_not_write_yaml_when_queue_flag_omitted(
     assert cwd_before == cwd_after
 
 
-def test_plugins_updates_warns_when_inventory_missing(
-    runner: CliRunner, tmp_path: Path
-) -> None:
+def test_plugins_updates_warns_when_inventory_missing(runner: CliRunner, tmp_path: Path) -> None:
     _seed(tmp_path, "prod", None)
     runner.invoke(app, ["instance", "use", "prod"])
     result = runner.invoke(app, ["plugins", "updates"])
@@ -177,8 +171,6 @@ def test_plugins_updates_prints_pre_update_refresh_hint_when_queue_written(
     )
     runner.invoke(app, ["instance", "use", "prod"])
     out_file = tmp_path / "queue.yaml"
-    result = runner.invoke(
-        app, ["plugins", "updates", "--queue", str(out_file)]
-    )
+    result = runner.invoke(app, ["plugins", "updates", "--queue", str(out_file)])
     assert "Before applying" in result.output
     assert "nexus instance refresh" in result.output
