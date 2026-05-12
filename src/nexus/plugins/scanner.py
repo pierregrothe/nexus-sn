@@ -50,7 +50,11 @@ class PluginScanner:
             sn_version: SN release name copied verbatim into the inventory.
 
         Returns:
-            PluginInventory with deduped plugins from both tables.
+            PluginInventory with deduped plugins from both tables. Each
+            plugin's ``record_count`` is populated via a per-scope
+            aggregate-API call under a bounded concurrency cap; per-plugin
+            fetch failures leave ``record_count`` at ``None`` without
+            aborting the scan.
 
         Raises:
             PluginScanError: When both source tables return non-200 responses.
@@ -66,17 +70,23 @@ class PluginScanner:
                 self._fetch(client, "sys_store_app", _STORE_FIELDS),
             )
 
-        if v_err is not None and s_err is not None:
-            raise PluginScanError(s_err[0], s_err[1])
+            if v_err is not None and s_err is not None:
+                raise PluginScanError(s_err[0], s_err[1])
 
-        by_id: dict[str, PluginInfo] = {}
-        for row in v_rows:
-            info = self._from_v_plugin(row)
-            by_id[info.plugin_id] = info
-        for row in s_rows:
-            info = self._from_store(row)
-            # sys_store_app wins on conflict because it carries vendor.
-            by_id[info.plugin_id] = info
+            by_id: dict[str, PluginInfo] = {}
+            for row in v_rows:
+                info = self._from_v_plugin(row)
+                by_id[info.plugin_id] = info
+            for row in s_rows:
+                info = self._from_store(row)
+                # sys_store_app wins on conflict because it carries vendor.
+                by_id[info.plugin_id] = info
+
+            counts = await _fetch_counts(client, tuple(by_id.keys()))
+            by_id = {
+                pid: info.model_copy(update={"record_count": counts.get(pid)})
+                for pid, info in by_id.items()
+            }
 
         return PluginInventory(
             captured_at=datetime.now(UTC),
