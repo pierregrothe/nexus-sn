@@ -204,7 +204,7 @@ class _OrphansReport(BaseModel):  # pyright: ignore[reportUnusedClass]
     candidates: tuple[PluginInfo, ...]
 
 
-class _UpdatesReport(BaseModel):  # pyright: ignore[reportUnusedClass]
+class _UpdatesReport(BaseModel):
     """Inline wrapper for JSON output of nexus plugins updates.
 
     Attributes:
@@ -1507,10 +1507,18 @@ def plugins_updates(
             help="Write a YAML queue of pending updates to the given path.",
         ),
     ] = "",
+    output_format: Annotated[
+        str,
+        typer.Option("--format", help="Output format: text | json (default: text)"),
+    ] = "text",
 ) -> None:
     """Show plugins with newer versions available; optionally write a YAML queue."""
+    _validate_format(output_format)
     meta, inventory = _load_inventory_or_exit(instance)
     pending = plugins_with_updates(inventory)
+    if output_format == "json":
+        _emit_json(_UpdatesReport(updates=tuple(pending)))
+        return
     if not pending:
         console.print(Notice.info("Up to date."))
         return
