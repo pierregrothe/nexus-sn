@@ -266,16 +266,7 @@ class InstanceRegistry:
             raise InstanceNotFoundError(profile)
         baselines_dir = profile_dir / _BASELINES_DIR
         baselines_dir.mkdir(parents=True, exist_ok=True)
-        target = baselines_dir / f"{name}.json"
-        payload = inventory.model_dump_json(indent=2)
-        fd, tmp = tempfile.mkstemp(dir=baselines_dir, suffix=".tmp")
-        try:
-            with open(fd, "w", encoding="utf-8") as f:
-                f.write(payload)
-            Path(tmp).replace(target)
-        except OSError:
-            Path(tmp).unlink(missing_ok=True)
-            raise
+        self._atomic_write_to(baselines_dir / f"{name}.json", inventory.model_dump_json(indent=2))
 
     def list_plugin_baselines(self, profile: str) -> tuple[str, ...]:
         """Return the names of all baselines for a profile, sorted ascending.
@@ -394,8 +385,16 @@ class InstanceRegistry:
         profile_dir = self._dir(profile)
         if not profile_dir.exists():
             raise InstanceNotFoundError(profile)
-        target = profile_dir / filename
-        fd, tmp = tempfile.mkstemp(dir=profile_dir, suffix=".tmp")
+        self._atomic_write_to(profile_dir / filename, payload)
+
+    def _atomic_write_to(self, target: Path, payload: str) -> None:
+        """Write ``payload`` to ``target`` via tempfile-in-parent + rename.
+
+        The temp file is created in the target's parent directory so the
+        final rename stays within the same filesystem (atomic on POSIX
+        and Windows).
+        """
+        fd, tmp = tempfile.mkstemp(dir=target.parent, suffix=".tmp")
         try:
             with open(fd, "w", encoding="utf-8") as f:
                 f.write(payload)
