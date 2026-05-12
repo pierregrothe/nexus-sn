@@ -186,7 +186,7 @@ def test_fetch_counts_returns_breakdown_per_plugin() -> None:
         stats_payload=_stats_response([_stats_row("sys_script", 7)]),
     )
 
-    async def _run() -> dict[str, tuple[object, ...] | None]:
+    async def _run() -> dict[str, tuple[ScopeRecordCount, ...] | None]:
         async with httpx.AsyncClient(
             base_url="https://x.example",
             headers={"Authorization": "Bearer t"},
@@ -206,7 +206,7 @@ def test_fetch_counts_returns_breakdown_per_plugin() -> None:
 def test_fetch_counts_marks_failed_plugin_as_none() -> None:
     transport = _transport_for(stats_status=500)
 
-    async def _run() -> dict[str, tuple[object, ...] | None]:
+    async def _run() -> dict[str, tuple[ScopeRecordCount, ...] | None]:
         async with httpx.AsyncClient(
             base_url="https://x.example",
             headers={"Authorization": "Bearer t"},
