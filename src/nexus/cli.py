@@ -59,6 +59,7 @@ from nexus.plugins.diff import (
     project_to_promote_plan,
 )
 from nexus.plugins.models import PluginInfo
+from nexus.plugins.updates import plugins_with_updates
 from nexus.ui import (
     CommandGuide,
     DataColumn,
@@ -104,6 +105,7 @@ _PLUGINS_HELP = [
     ("export", "Write the inventory to YAML or CSV"),
     ("diff <a> <b>", "Show cross-instance plugin differences"),
     ("promote <src> --to <dst>", "Write an action plan to make <dst> match <src>"),
+    ("updates", "Show plugins with newer versions available"),
 ]
 
 _CAPTURE_HELP = [
@@ -1380,6 +1382,77 @@ def plugins_promote(
             ],
         )
     )
+
+
+@plugins_app.command("updates")
+def plugins_updates(
+    instance: Annotated[
+        str,
+        typer.Option(
+            "--instance",
+            help="Instance profile (default: configured default)",
+        ),
+    ] = "",
+    queue: Annotated[
+        str,
+        typer.Option(
+            "--queue",
+            help="Write a YAML queue of pending updates to the given path.",
+        ),
+    ] = "",
+) -> None:
+    """Show plugins with newer versions available; optionally write a YAML queue."""
+    meta, inventory = _load_inventory_or_exit(instance)
+    pending = plugins_with_updates(inventory)
+    if not pending:
+        console.print(Notice.info("Up to date."))
+        return
+    rows: list[list[RenderableType]] = [
+        [
+            p.plugin_id,
+            p.name,
+            p.product_family,
+            p.version,
+            p.latest_version or "-",
+        ]
+        for p in pending
+    ]
+    console.print(
+        DataTable(
+            title="Updates available",
+            columns=[
+                DataColumn(header="Plugin ID", width=32),
+                DataColumn(header="Name", width=20),
+                DataColumn(header="Product", width=14),
+                DataColumn(header="Current", width=12),
+                DataColumn(header="Latest", width=12),
+            ],
+            rows=rows,
+        )
+    )
+    console.print(Notice.info(f"{len(pending)} update(s) available."))
+    if queue:
+        payload: dict[str, object] = {
+            "instance": meta.profile,
+            "captured_at": inventory.captured_at.isoformat(),
+            "updates": [
+                {
+                    "plugin_id": p.plugin_id,
+                    "name": p.name,
+                    "product_family": p.product_family,
+                    "current_version": p.version,
+                    "latest_version": p.latest_version,
+                }
+                for p in pending
+            ],
+        }
+        Path(queue).write_text(_yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
+        console.print(
+            Hint(
+                label="Before applying",
+                command=f"nexus instance refresh {meta.profile}",
+            )
+        )
 
 
 @capture_app.callback(invoke_without_command=True)
