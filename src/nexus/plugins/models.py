@@ -62,6 +62,10 @@ class PluginInfo(BaseModel):
             store apps where the field is empty.
         vendor: Publisher name from ``sys_store_app.vendor``. Empty string
             for v_plugin-only records or when the field is absent.
+        record_count: Total records in this plugin's scope as reported by
+            ``sys_metadata`` aggregation. ``None`` when not captured (older
+            snapshots, or a partial-fetch failure during scan). Used by
+            orphan detection.
     """
 
     model_config = _FROZEN
@@ -77,6 +81,7 @@ class PluginInfo(BaseModel):
     installed_at: UtcDatetime | None
     latest_version: str | None = None
     vendor: str = ""
+    record_count: int | None = None
 
 
 class PluginInventory(BaseModel):

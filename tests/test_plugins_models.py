@@ -210,3 +210,50 @@ def test_plugin_impact_is_frozen() -> None:
     )
     with pytest.raises(ValidationError):
         impact.target_name = "Y"
+
+
+def test_plugin_info_accepts_record_count_field() -> None:
+    info = PluginInfo(
+        plugin_id="com.x",
+        name="X",
+        version="1.0",
+        state="active",
+        source="store",
+        product_family="ITSM",
+        depends_on=(),
+        sys_id="abc",
+        installed_at=None,
+        record_count=42,
+    )
+    assert info.record_count == 42
+
+
+def test_plugin_info_defaults_record_count_to_none() -> None:
+    info = PluginInfo(
+        plugin_id="com.x",
+        name="X",
+        version="1.0",
+        state="active",
+        source="store",
+        product_family="ITSM",
+        depends_on=(),
+        sys_id="abc",
+        installed_at=None,
+    )
+    assert info.record_count is None
+
+
+def test_plugin_info_accepts_record_count_zero() -> None:
+    info = PluginInfo(
+        plugin_id="com.x",
+        name="X",
+        version="1.0",
+        state="active",
+        source="store",
+        product_family="ITSM",
+        depends_on=(),
+        sys_id="abc",
+        installed_at=None,
+        record_count=0,
+    )
+    assert info.record_count == 0
