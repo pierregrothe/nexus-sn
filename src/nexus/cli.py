@@ -1767,13 +1767,9 @@ def plugins_orphans(
     meta, inventory = _load_inventory_or_exit(instance)
     if all(p.record_count is None for p in inventory.plugins):
         console.print(
-            Notice.warn(
-                "Inventory has no record counts -- run nexus instance refresh to populate."
-            )
+            Notice.warn("Inventory has no record counts -- run nexus instance refresh to populate.")
         )
-        console.print(
-            Hint(label="Refresh", command=f"nexus instance refresh {meta.profile}")
-        )
+        console.print(Hint(label="Refresh", command=f"nexus instance refresh {meta.profile}"))
         raise typer.Exit(1)
     if state and state not in _ORPHAN_STATES:
         console.print(Notice.error(f"Unknown --state: {state}"))
