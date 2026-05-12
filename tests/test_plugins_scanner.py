@@ -12,12 +12,7 @@ import pytest
 
 from nexus.plugins.errors import PluginScanError
 from nexus.plugins.models import PluginInventory
-from nexus.plugins.scanner import (
-    PluginScanner,
-    _fetch_counts,
-    _ScopeRecordCountError,
-    _sum_scope_records,
-)
+from nexus.plugins.scanner import PluginScanner, _fetch_counts
 from tests.fakes.fake_plugin_data import SYS_STORE_APP_ROWS, V_PLUGIN_ROWS
 
 __all__: list[str] = []
@@ -186,52 +181,12 @@ def _stats_row(table: str, count: int) -> dict[str, object]:
     }
 
 
-async def _run_sum(transport: httpx.MockTransport, plugin_id: str = "com.x") -> int:
-    async with httpx.AsyncClient(
-        base_url="https://x.example",
-        headers={"Authorization": "Bearer t"},
-        transport=transport,
-    ) as client:
-        return await _sum_scope_records(client, plugin_id)
-
-
-def test_sum_scope_records_returns_total_across_tables() -> None:
-    transport = _transport_for(
-        stats_payload=_stats_response(
-            [
-                _stats_row("sys_script", 100),
-                _stats_row("sys_business_rule", 25),
-            ]
-        ),
-    )
-    total = asyncio.run(_run_sum(transport))
-    assert total == 125
-
-
-def test_sum_scope_records_returns_zero_for_empty_result() -> None:
-    transport = _transport_for(stats_payload=_stats_response([]))
-    total = asyncio.run(_run_sum(transport))
-    assert total == 0
-
-
-def test_sum_scope_records_raises_on_non_200() -> None:
-    transport = _transport_for(stats_status=403)
-    with pytest.raises(_ScopeRecordCountError):
-        asyncio.run(_run_sum(transport))
-
-
-def test_sum_scope_records_raises_on_malformed_response() -> None:
-    transport = _transport_for(stats_payload={"no_result_key": True})
-    with pytest.raises(_ScopeRecordCountError):
-        asyncio.run(_run_sum(transport))
-
-
-def test_fetch_counts_returns_count_per_plugin() -> None:
+def test_fetch_counts_returns_breakdown_per_plugin() -> None:
     transport = _transport_for(
         stats_payload=_stats_response([_stats_row("sys_script", 7)]),
     )
 
-    async def _run() -> dict[str, int | None]:
+    async def _run() -> dict[str, tuple[object, ...] | None]:
         async with httpx.AsyncClient(
             base_url="https://x.example",
             headers={"Authorization": "Bearer t"},
@@ -240,13 +195,18 @@ def test_fetch_counts_returns_count_per_plugin() -> None:
             return await _fetch_counts(client, ("com.a", "com.b"))
 
     counts = asyncio.run(_run())
-    assert counts == {"com.a": 7, "com.b": 7}
+    assert set(counts.keys()) == {"com.a", "com.b"}
+    a_buckets = counts["com.a"]
+    assert a_buckets is not None
+    assert len(a_buckets) == 1
+    assert a_buckets[0].table == "sys_script"
+    assert a_buckets[0].count == 7
 
 
 def test_fetch_counts_marks_failed_plugin_as_none() -> None:
     transport = _transport_for(stats_status=500)
 
-    async def _run() -> dict[str, int | None]:
+    async def _run() -> dict[str, tuple[object, ...] | None]:
         async with httpx.AsyncClient(
             base_url="https://x.example",
             headers={"Authorization": "Bearer t"},
@@ -309,6 +269,35 @@ def test_scan_keeps_other_fields_intact_after_count_capture() -> None:
     assert incident.state == "active"
     assert incident.source == "servicenow"
     assert incident.version == "1.2.3"
+
+
+def test_scan_populates_record_counts_breakdown() -> None:
+    transport = _transport_for(
+        stats_payload=_stats_response(
+            [
+                _stats_row("sys_script", 100),
+                _stats_row("sys_business_rule", 25),
+            ]
+        ),
+    )
+    inv = asyncio.run(_scan(transport))
+    incident = next(p for p in inv.plugins if p.plugin_id == "com.snc.incident")
+    assert incident.record_counts is not None
+    counts_by_table = {c.table: c.count for c in incident.record_counts}
+    assert counts_by_table == {"sys_script": 100, "sys_business_rule": 25}
+
+
+def test_scan_sets_record_counts_none_when_aggregate_call_fails() -> None:
+    transport = _transport_for(stats_status=500)
+    inv = asyncio.run(_scan(transport))
+    assert all(p.record_counts is None for p in inv.plugins)
+
+
+def test_scan_populates_record_counts_empty_tuple_when_scope_has_zero_records() -> None:
+    transport = _transport_for(stats_payload=_stats_response([]))
+    inv = asyncio.run(_scan(transport))
+    incident = next(p for p in inv.plugins if p.plugin_id == "com.snc.incident")
+    assert incident.record_counts == ()
 
 
 def test_fetch_paginates_through_multiple_pages() -> None:
