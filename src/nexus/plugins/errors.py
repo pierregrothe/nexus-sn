@@ -4,7 +4,12 @@
 # Date: 2026-05-11
 """Error types for the plugins layer."""
 
-__all__ = ["PluginAdvisoryDataError", "PluginImpactError", "PluginScanError"]
+__all__ = [
+    "PluginAdvisoryDataError",
+    "PluginBaselineNotFoundError",
+    "PluginImpactError",
+    "PluginScanError",
+]
 
 
 class PluginScanError(Exception):
@@ -48,3 +53,20 @@ class PluginImpactError(Exception):
         """Store the unknown plugin id."""
         super().__init__(f"plugin not found in inventory: {plugin_id}")
         self.plugin_id = plugin_id
+
+
+class PluginBaselineNotFoundError(Exception):
+    """Raised when nexus plugins drift runs without a saved baseline.
+
+    The profile has no ``plugins.baseline.json``. User must run
+    ``nexus plugins drift --ack`` to mark the current snapshot as the
+    baseline first.
+
+    Args:
+        profile: Instance profile that is missing a baseline.
+    """
+
+    def __init__(self, profile: str) -> None:
+        """Store the profile name and a human-readable message."""
+        super().__init__(f"no plugin baseline saved for profile: {profile}")
+        self.profile = profile
