@@ -6,6 +6,7 @@
 
 from datetime import UTC, datetime
 
+import nexus.plugins as plugins_pkg
 from nexus.plugins.models import PluginInfo, PluginInventory
 from nexus.plugins.orphans import orphan_candidates
 
@@ -98,3 +99,8 @@ def test_orphan_candidates_sorts_by_state_then_plugin_id() -> None:
 def test_orphan_candidates_returns_empty_tuple_when_no_candidates() -> None:
     inv = _inventory(_plugin("com.busy", record_count=100))
     assert orphan_candidates(inv) == ()
+
+
+def test_public_api_reexports_orphan_candidates() -> None:
+    assert "orphan_candidates" in plugins_pkg.__all__
+    assert hasattr(plugins_pkg, "orphan_candidates")
