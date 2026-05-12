@@ -62,10 +62,16 @@ from nexus.plugins.diff import (
     compute_diff,
     project_to_promote_plan,
 )
+from nexus.plugins.baselines import DEFAULT_BASELINE_NAME, validate_baseline_name
 from nexus.plugins.drift import (
     compute_drift,
 )
-from nexus.plugins.errors import PluginAdvisoryDataError, PluginImpactError
+from nexus.plugins.errors import (
+    BaselineNotFoundError,
+    InvalidBaselineNameError,
+    PluginAdvisoryDataError,
+    PluginImpactError,
+)
 from nexus.plugins.impact import compute_impact
 from nexus.plugins.models import (
     AdvisoryFinding,
@@ -2202,25 +2208,42 @@ def plugins_drift(
             help="Exit with code 1 if any drift is detected.",
         ),
     ] = False,
+    baseline_name: Annotated[
+        str,
+        typer.Option(
+            "--baseline",
+            help=f"Named baseline to compare against (default: {DEFAULT_BASELINE_NAME}).",
+        ),
+    ] = DEFAULT_BASELINE_NAME,
 ) -> None:
     """Show plugin drift on an instance since the last baseline."""
     _validate_format(output_format)
+    try:
+        validate_baseline_name(baseline_name)
+    except InvalidBaselineNameError as exc:
+        err_console.print(Notice.error(str(exc)))
+        raise typer.Exit(1) from exc
     meta, inventory = _load_inventory_or_exit(instance)
     paths = NexusPaths.from_env()
     registry = InstanceRegistry(paths.instances_dir)
 
     if ack:
-        registry.save_plugin_baseline(meta.profile, inventory)
+        registry.save_plugin_baseline(meta.profile, baseline_name, inventory)
         captured = inventory.captured_at.strftime("%Y-%m-%d")
         console.print(
             Notice.info(f"Baseline set: {len(inventory.plugins)} plugins captured {captured}.")
         )
         return
 
-    baseline = registry.load_plugin_baseline(meta.profile)
+    baseline = registry.load_plugin_baseline(meta.profile, baseline_name)
     if baseline is None:
         err_console.print(Notice.error(f"No baseline set for {meta.profile!r}."))
-        console.print(Hint(label="Set baseline", command="nexus plugins drift --ack"))
+        console.print(
+            Hint(
+                label="Set baseline",
+                command=f"nexus plugins drift --ack --baseline {baseline_name}",
+            )
+        )
         raise typer.Exit(1)
 
     report = compute_drift(baseline, inventory, meta.profile)
