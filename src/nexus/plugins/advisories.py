@@ -19,7 +19,14 @@ from packaging.version import parse as parse_version
 from pydantic import BaseModel, ConfigDict, field_validator
 
 from nexus.plugins.errors import PluginAdvisoryDataError
-from nexus.plugins.models import AdvisoryFinding, AdvisoryType, PluginInfo, Severity
+from nexus.plugins.models import (
+    AdvisoryFinding,
+    AdvisorySet,
+    AdvisoryType,
+    PluginInfo,
+    PluginInventory,
+    Severity,
+)
 
 __all__ = [
     "AdvisoryDatabase",
@@ -29,6 +36,7 @@ __all__ = [
     "_check_cves",
     "_check_eol",
     "_check_license",
+    "compute_advisories",
 ]
 
 log = logging.getLogger(__name__)
@@ -307,3 +315,37 @@ class AdvisoryDatabase(BaseModel):
         for entry in cve_entries:
             cves_by_id[entry.plugin_id] = (*cves_by_id.get(entry.plugin_id, ()), entry)
         return cls(eol=eol_by_id, cves=cves_by_id, licenses=licenses)
+
+
+_SEV_ORDER: dict[Severity, int] = {
+    Severity.CRITICAL: 0,
+    Severity.HIGH: 1,
+    Severity.MEDIUM: 2,
+    Severity.LOW: 3,
+}
+
+
+def compute_advisories(
+    inventory: PluginInventory,
+    db: AdvisoryDatabase,
+    *,
+    today: date,
+) -> AdvisorySet:
+    """Cross-check inventory against three curated advisory tables.
+
+    Args:
+        inventory: Plugin inventory captured by sub-project A.
+        db: Pre-loaded advisory database.
+        today: Reference date for EOL past/future comparison. Injected so
+            callers can pin it; the CLI passes ``datetime.now(UTC).date()``.
+
+    Returns:
+        AdvisorySet sorted by (severity desc, plugin_id asc).
+    """
+    findings: list[AdvisoryFinding] = []
+    for plugin in inventory.plugins:
+        findings.extend(_check_eol(plugin, db.eol, today=today))
+        findings.extend(_check_cves(plugin, db.cves))
+        findings.extend(_check_license(plugin, db.licenses))
+    findings.sort(key=lambda f: (_SEV_ORDER[f.severity], f.plugin_id))
+    return AdvisorySet(findings=tuple(findings))
