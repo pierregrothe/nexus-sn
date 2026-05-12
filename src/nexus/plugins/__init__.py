@@ -51,10 +51,17 @@ from nexus.plugins.models import (
 from nexus.plugins.orphans import orphan_candidates
 from nexus.plugins.overrides import AdvisoryOverride, AdvisoryOverrideSet, apply_overrides
 from nexus.plugins.product_families import product_family_for
+from nexus.plugins.recommendations import (
+    AI_MODEL,
+    build_deactivation_context,
+    build_explain_context,
+    build_roadmap_context,
+)
 from nexus.plugins.scanner import PluginScanner
 from nexus.plugins.updates import plugins_with_updates
 
 __all__ = [
+    "AI_MODEL",
     "DEFAULT_BASELINE_NAME",
     "AdvisoryDatabase",
     "AdvisoryFinding",
@@ -85,6 +92,9 @@ __all__ = [
     "ScopeRecordCount",
     "Severity",
     "apply_overrides",
+    "build_deactivation_context",
+    "build_explain_context",
+    "build_roadmap_context",
     "compute_advisories",
     "compute_diff",
     "compute_drift",
