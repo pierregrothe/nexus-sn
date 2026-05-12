@@ -72,17 +72,20 @@ def test_plugins_with_updates_sorts_by_product_then_plugin_id() -> None:
     inv = _inventory(
         _info(
             "com.acme.helper",
-            version="1.0.0", latest_version="2.0.0",
+            version="1.0.0",
+            latest_version="2.0.0",
             product_family="Uncategorized",
         ),
         _info(
             "com.snc.problem",
-            version="1.0.0", latest_version="2.0.0",
+            version="1.0.0",
+            latest_version="2.0.0",
             product_family="ITSM",
         ),
         _info(
             "com.snc.incident",
-            version="1.0.0", latest_version="2.0.0",
+            version="1.0.0",
+            latest_version="2.0.0",
             product_family="ITSM",
         ),
     )
