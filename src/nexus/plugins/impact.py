@@ -6,18 +6,27 @@
 
 Two-phase design:
     - ``reverse_dependencies`` -- pure BFS over the inventory.
-    - Future: ``fetch_scope_record_counts`` (Task 4) -- async aggregate API.
+    - ``fetch_scope_record_counts`` -- async aggregate API call.
     - Future: ``compute_impact`` (Task 5) -- async orchestrator.
 """
 
 from __future__ import annotations
 
+import logging
 from collections import deque
 
-from nexus.plugins.errors import PluginImpactError
-from nexus.plugins.models import PluginInventory, ReverseDependency
+import httpx
 
-__all__ = ["reverse_dependencies"]
+from nexus.plugins.errors import PluginImpactError
+from nexus.plugins.models import PluginInventory, ReverseDependency, ScopeRecordCount
+
+__all__ = [
+    "ScopeRecordCountError",
+    "fetch_scope_record_counts",
+    "reverse_dependencies",
+]
+
+log = logging.getLogger(__name__)
 
 
 def reverse_dependencies(
@@ -77,3 +86,78 @@ def reverse_dependencies(
 
     results.sort(key=lambda d: (d.depth, d.plugin_id))
     return tuple(results)
+
+
+class ScopeRecordCountError(Exception):
+    """Raised when the live aggregate REST call fails or is unparseable.
+
+    Internal to ``impact.py``; not surfaced at the public ``nexus.plugins``
+    layer. ``compute_impact`` catches it to set ``counts_available=False``.
+    """
+
+
+async def fetch_scope_record_counts(
+    url: str,
+    token: str,
+    plugin_id: str,
+    *,
+    transport: httpx.AsyncBaseTransport | None = None,
+) -> tuple[ScopeRecordCount, ...]:
+    """Live aggregate query over ``sys_metadata``.
+
+    Args:
+        url: Instance base URL.
+        token: OAuth bearer token.
+        plugin_id: Plugin scope to count records for.
+        transport: Optional httpx transport for tests.
+
+    Returns:
+        Per-table counts sorted by ``(count desc, table asc)``.
+
+    Raises:
+        ScopeRecordCountError: On non-200 status, network error, or
+            malformed response.
+    """
+    params = {
+        "sysparm_query": f"sys_scope.scope={plugin_id}",
+        "sysparm_count": "true",
+        "sysparm_group_by": "sys_class_name",
+    }
+    headers = {"Authorization": f"Bearer {token}", "Accept": "application/json"}
+    try:
+        async with httpx.AsyncClient(
+            base_url=url,
+            headers=headers,
+            timeout=30.0,
+            transport=transport,
+        ) as client:
+            response = await client.get("/api/now/stats/sys_metadata", params=params)
+    except httpx.RequestError as exc:
+        raise ScopeRecordCountError(f"network error: {exc}") from exc
+
+    if response.status_code != 200:
+        raise ScopeRecordCountError(
+            f"aggregate API returned HTTP {response.status_code}"
+        )
+
+    try:
+        payload = response.json()
+        rows = payload["result"]
+    except (KeyError, ValueError) as exc:
+        raise ScopeRecordCountError(f"malformed response: {exc}") from exc
+
+    counts: list[ScopeRecordCount] = []
+    for row in rows:
+        try:
+            stats = row["stats"]
+            count = int(stats["count"])
+            groupby = row["groupby_fields"]
+            table = next(
+                entry["value"] for entry in groupby if entry.get("field") == "sys_class_name"
+            )
+        except (KeyError, StopIteration, TypeError, ValueError) as exc:
+            raise ScopeRecordCountError(f"malformed row: {exc}") from exc
+        counts.append(ScopeRecordCount(table=table, count=count))
+
+    counts.sort(key=lambda c: (-c.count, c.table))
+    return tuple(counts)

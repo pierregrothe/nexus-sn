@@ -4,13 +4,19 @@
 # Date: 2026-05-12
 """Tests for src/nexus/plugins/impact.py and PluginImpactError."""
 
+import asyncio
 from datetime import UTC, datetime
 
+import httpx
 import pytest
 
 from nexus.plugins.errors import PluginImpactError
-from nexus.plugins.impact import reverse_dependencies
-from nexus.plugins.models import PluginInfo, PluginInventory
+from nexus.plugins.impact import (
+    ScopeRecordCountError,
+    fetch_scope_record_counts,
+    reverse_dependencies,
+)
+from nexus.plugins.models import PluginInfo, PluginInventory, ScopeRecordCount
 
 __all__: list[str] = []
 
@@ -128,3 +134,82 @@ def test_reverse_dependencies_raises_when_target_not_in_inventory() -> None:
     inv = _inventory(_plugin("com.other"))
     with pytest.raises(PluginImpactError):
         reverse_dependencies(inv, "com.target")
+
+
+def _stats_response(rows: list[dict[str, object]]) -> dict[str, object]:
+    return {"result": rows}
+
+
+def _row(table: str, count: int) -> dict[str, object]:
+    return {
+        "stats": {"count": str(count)},
+        "groupby_fields": [{"field": "sys_class_name", "value": table}],
+    }
+
+
+def _stats_transport(
+    status: int = 200,
+    payload: dict[str, object] | None = None,
+) -> httpx.MockTransport:
+    body: dict[str, object] = payload if payload is not None else {"result": []}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(status, json=body)
+
+    return httpx.MockTransport(handler)
+
+
+def _fetch(transport: httpx.MockTransport) -> tuple[ScopeRecordCount, ...]:
+    return asyncio.run(
+        fetch_scope_record_counts(
+            "https://x.example",
+            "tok",
+            "com.target",
+            transport=transport,
+        )
+    )
+
+
+def test_fetch_scope_record_counts_parses_aggregate_response() -> None:
+    transport = _stats_transport(
+        payload=_stats_response([_row("sys_script", 8012)]),
+    )
+    counts = _fetch(transport)
+    assert len(counts) == 1
+    assert counts[0].table == "sys_script"
+    assert counts[0].count == 8012
+
+
+def test_fetch_scope_record_counts_returns_empty_tuple_when_result_empty() -> None:
+    transport = _stats_transport(payload=_stats_response([]))
+    assert _fetch(transport) == ()
+
+
+def test_fetch_scope_record_counts_sorts_by_count_desc_then_table_asc() -> None:
+    transport = _stats_transport(
+        payload=_stats_response(
+            [
+                _row("sys_business_rule", 100),
+                _row("sys_script", 500),
+                _row("sys_ui_action", 500),
+            ]
+        ),
+    )
+    counts = _fetch(transport)
+    assert [(c.table, c.count) for c in counts] == [
+        ("sys_script", 500),
+        ("sys_ui_action", 500),
+        ("sys_business_rule", 100),
+    ]
+
+
+def test_fetch_scope_record_counts_raises_on_non_200() -> None:
+    transport = _stats_transport(status=403)
+    with pytest.raises(ScopeRecordCountError):
+        _fetch(transport)
+
+
+def test_fetch_scope_record_counts_raises_on_malformed_response() -> None:
+    transport = _stats_transport(payload={"no_result_key": True})
+    with pytest.raises(ScopeRecordCountError):
+        _fetch(transport)
