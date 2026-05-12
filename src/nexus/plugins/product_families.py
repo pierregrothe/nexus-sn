@@ -4,11 +4,11 @@
 # Date: 2026-05-11
 """product_family_for: O(1) lookup against product_families.yaml."""
 
-from functools import cache
 from pathlib import Path
 
 import yaml
 
+from nexus.cache import cached
 from nexus.plugins.models import ProductFamily
 
 __all__ = ["load_product_families", "product_family_for"]
@@ -16,7 +16,7 @@ __all__ = ["load_product_families", "product_family_for"]
 _YAML_PATH = Path(__file__).parent / "product_families.yaml"
 
 
-@cache
+@cached(ttl=None)
 def load_product_families() -> dict[str, str]:
     """Read product_families.yaml once and cache the mapping.
 

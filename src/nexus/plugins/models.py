@@ -22,6 +22,7 @@ __all__ = [
     "ReverseDependency",
     "ScopeRecordCount",
     "Severity",
+    "total_records",
 ]
 
 _FROZEN = ConfigDict(frozen=True, strict=True, extra="forbid")
@@ -62,10 +63,9 @@ class PluginInfo(BaseModel):
             store apps where the field is empty.
         vendor: Publisher name from ``sys_store_app.vendor``. Empty string
             for v_plugin-only records or when the field is absent.
-        record_count: Total records in this plugin's scope as reported by
-            ``sys_metadata`` aggregation. ``None`` when not captured (older
-            snapshots, or a partial-fetch failure during scan). Used by
-            orphan detection.
+        record_counts: Per-table record counts owned by this plugin's
+            scope, sorted by ``(count desc, table asc)``. ``None`` when
+            uncaptured. Empty tuple means the scope owns zero records.
     """
 
     model_config = _FROZEN
@@ -81,7 +81,7 @@ class PluginInfo(BaseModel):
     installed_at: UtcDatetime | None
     latest_version: str | None = None
     vendor: str = ""
-    record_count: int | None = None
+    record_counts: tuple[ScopeRecordCount, ...] | None = None
 
 
 class PluginInventory(BaseModel):
@@ -211,3 +211,18 @@ class PluginImpact(BaseModel):
     reverse_deps: tuple[ReverseDependency, ...]
     record_counts: tuple[ScopeRecordCount, ...]
     counts_available: bool
+
+
+def total_records(info: PluginInfo) -> int | None:
+    """Sum of cached per-table record counts, or ``None`` when uncaptured.
+
+    Args:
+        info: PluginInfo whose cached counts to sum.
+
+    Returns:
+        Total record count, ``0`` when ``record_counts`` is an empty tuple,
+        or ``None`` when ``record_counts`` is ``None``.
+    """
+    if info.record_counts is None:
+        return None
+    return sum(c.count for c in info.record_counts)

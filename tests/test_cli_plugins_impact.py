@@ -17,7 +17,7 @@ from nexus.cli import app
 from nexus.config.paths import NexusPaths
 from nexus.instances.models import InstanceMeta
 from nexus.instances.registry import InstanceRegistry
-from nexus.plugins.models import PluginInfo, PluginInventory
+from nexus.plugins.models import PluginInfo, PluginInventory, ScopeRecordCount
 
 __all__: list[str] = []
 
@@ -219,3 +219,79 @@ def test_impact_errors_on_unknown_format_value(
     result = runner.invoke(app, ["plugins", "impact", "com.target", "--format", "yaml"])
     assert result.exit_code == 1
     assert "Unknown --format" in result.output
+
+
+def test_plugins_impact_default_uses_cache(
+    tmp_path: Path,
+    runner: CliRunner,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Default invocation serves from cached record_counts without hitting the network."""
+    call_count = {"n": 0}
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        call_count["n"] += 1
+        return httpx.Response(200, json={"result": []})
+
+    transport = httpx.MockTransport(handler)
+    monkeypatch.setattr("nexus.cli._impact_transport", lambda: transport)
+
+    cached_info = _info("com.target").model_copy(
+        update={"record_counts": (ScopeRecordCount(table="sys_script", count=42),)}
+    )
+    _seed(tmp_path, "dev", (cached_info,))
+
+    def fake_acquire(profile: str) -> tuple[InstanceRegistry, InstanceMeta, str, datetime]:
+        paths = NexusPaths.from_env()
+        registry = InstanceRegistry(paths.instances_dir)
+        meta = registry.load(profile if profile else "dev")
+        return registry, meta, "t", datetime.now(UTC)
+
+    monkeypatch.setattr("nexus.cli._acquire_token", fake_acquire)
+
+    result = runner.invoke(app, ["plugins", "impact", "com.target", "--instance", "dev"])
+    assert result.exit_code == 0
+    assert call_count["n"] == 0
+
+
+def test_plugins_impact_live_flag_passes_through(
+    tmp_path: Path,
+    runner: CliRunner,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """--live forces a fresh aggregate API call even when cache is populated."""
+    call_count = {"n": 0}
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        call_count["n"] += 1
+        return httpx.Response(
+            200,
+            json={
+                "result": [
+                    {
+                        "stats": {"count": "99"},
+                        "groupby_fields": [{"field": "sys_class_name", "value": "sys_script"}],
+                    }
+                ]
+            },
+        )
+
+    transport = httpx.MockTransport(handler)
+    monkeypatch.setattr("nexus.cli._impact_transport", lambda: transport)
+
+    cached_info = _info("com.target").model_copy(
+        update={"record_counts": (ScopeRecordCount(table="sys_script", count=1),)}
+    )
+    _seed(tmp_path, "dev", (cached_info,))
+
+    def fake_acquire(profile: str) -> tuple[InstanceRegistry, InstanceMeta, str, datetime]:
+        paths = NexusPaths.from_env()
+        registry = InstanceRegistry(paths.instances_dir)
+        meta = registry.load(profile if profile else "dev")
+        return registry, meta, "t", datetime.now(UTC)
+
+    monkeypatch.setattr("nexus.cli._acquire_token", fake_acquire)
+
+    result = runner.invoke(app, ["plugins", "impact", "com.target", "--instance", "dev", "--live"])
+    assert result.exit_code == 0
+    assert call_count["n"] == 1

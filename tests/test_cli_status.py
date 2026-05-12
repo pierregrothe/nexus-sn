@@ -17,10 +17,21 @@ from nexus.cli import app
 runner = CliRunner()
 
 
+def _isolate_home(monkeypatch: pytest.MonkeyPatch, home: Path) -> None:
+    """Redirect ``Path.home()`` to ``home`` on POSIX and Windows.
+
+    Sets ``HOME`` (POSIX) and ``USERPROFILE`` (Windows) so ``Path.home()``
+    resolves identically on both. Setting only ``HOME`` is insufficient on
+    Windows where ``Path.home()`` consults ``USERPROFILE``.
+    """
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("USERPROFILE", str(home))
+
+
 def test_nexus_status_command_runs_and_prints_anonymous_for_isolated_home(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("HOME", str(tmp_path))
+    _isolate_home(monkeypatch, tmp_path)
     clear_cache(TierDetector.detect)
     result = runner.invoke(app, ["status"])
     assert result.exit_code == 0
@@ -28,7 +39,7 @@ def test_nexus_status_command_runs_and_prints_anonymous_for_isolated_home(
 
 
 def test_nexus_status_refresh_clears_cache(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("HOME", str(tmp_path))
+    _isolate_home(monkeypatch, tmp_path)
     clear_cache(TierDetector.detect)
     runner.invoke(app, ["status"])
     result = runner.invoke(app, ["status", "--refresh"])
@@ -38,7 +49,7 @@ def test_nexus_status_refresh_clears_cache(tmp_path: Path, monkeypatch: pytest.M
 def test_nexus_reauth_with_no_flagged_returns_zero(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("HOME", str(tmp_path))
+    _isolate_home(monkeypatch, tmp_path)
     clear_cache(TierDetector.detect)
     result = runner.invoke(app, ["reauth"])
     assert result.exit_code == 0
@@ -58,7 +69,7 @@ def test_nexus_reauth_with_flagged_server_prints_command(
         json.dumps({"claudeAiMcpEverConnected": ["claude.ai Marketing MCP"]}),
         encoding="utf-8",
     )
-    monkeypatch.setenv("HOME", str(tmp_path))
+    _isolate_home(monkeypatch, tmp_path)
     clear_cache(TierDetector.detect)
     result = runner.invoke(app, ["reauth"])
     assert result.exit_code == 0
@@ -69,7 +80,7 @@ def test_nexus_reauth_with_flagged_server_prints_command(
 def test_nexus_reauth_with_unknown_server_returns_one(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("HOME", str(tmp_path))
+    _isolate_home(monkeypatch, tmp_path)
     clear_cache(TierDetector.detect)
     result = runner.invoke(app, ["reauth", "--server", "marketing"])
     assert result.exit_code == 1

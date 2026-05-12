@@ -20,6 +20,7 @@ from nexus.plugins.models import (
     ReverseDependency,
     ScopeRecordCount,
     Severity,
+    total_records,
 )
 
 __all__: list[str] = []
@@ -212,48 +213,42 @@ def test_plugin_impact_is_frozen() -> None:
         impact.target_name = "Y"
 
 
-def test_plugin_info_accepts_record_count_field() -> None:
-    info = PluginInfo(
-        plugin_id="com.x",
-        name="X",
-        version="1.0",
-        state="active",
-        source="store",
-        product_family="ITSM",
-        depends_on=(),
-        sys_id="abc",
-        installed_at=None,
-        record_count=42,
+def test_total_records_with_none_returns_none() -> None:
+
+    info = _info()
+    assert info.record_counts is None
+    assert total_records(info) is None
+
+
+def test_total_records_with_empty_tuple_returns_zero() -> None:
+
+    info = _info(record_counts=())
+    assert total_records(info) == 0
+
+
+def test_total_records_with_single_bucket_returns_count() -> None:
+
+    info = _info(record_counts=(ScopeRecordCount(table="sys_script", count=42),))
+    assert total_records(info) == 42
+
+
+def test_total_records_with_multi_bucket_returns_sum() -> None:
+
+    info = _info(
+        record_counts=(
+            ScopeRecordCount(table="sys_script", count=100),
+            ScopeRecordCount(table="sys_business_rule", count=25),
+        )
     )
-    assert info.record_count == 42
+    assert total_records(info) == 125
 
 
-def test_plugin_info_defaults_record_count_to_none() -> None:
-    info = PluginInfo(
-        plugin_id="com.x",
-        name="X",
-        version="1.0",
-        state="active",
-        source="store",
-        product_family="ITSM",
-        depends_on=(),
-        sys_id="abc",
-        installed_at=None,
-    )
-    assert info.record_count is None
+def test_plugin_info_record_counts_defaults_to_none() -> None:
+    info = _info()
+    assert info.record_counts is None
 
 
-def test_plugin_info_accepts_record_count_zero() -> None:
-    info = PluginInfo(
-        plugin_id="com.x",
-        name="X",
-        version="1.0",
-        state="active",
-        source="store",
-        product_family="ITSM",
-        depends_on=(),
-        sys_id="abc",
-        installed_at=None,
-        record_count=0,
-    )
-    assert info.record_count == 0
+def test_plugin_info_accepts_record_counts_tuple() -> None:
+    info = _info(record_counts=(ScopeRecordCount(table="sys_script", count=7),))
+    assert len(info.record_counts) == 1
+    assert info.record_counts[0].count == 7
