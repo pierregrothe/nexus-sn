@@ -97,7 +97,7 @@ async def _fetch_counts(
         async with semaphore:
             try:
                 total = await self._sum_scope_records(client, pid)
-            except _ScopeCountError as exc:
+            except _ScopeRecordCountError as exc:
                 log.warning("scan: count fetch failed for %s -- %s", pid, exc)
                 return pid, None
             return pid, total
@@ -121,24 +121,41 @@ async def _sum_scope_records(
         },
     )
     if resp.status_code != 200:
-        raise _ScopeCountError(f"HTTP {resp.status_code}")
+        raise _ScopeRecordCountError(f"HTTP {resp.status_code}")
     try:
         rows = resp.json()["result"]
     except (KeyError, ValueError) as exc:
-        raise _ScopeCountError(f"malformed: {exc}") from exc
+        raise _ScopeRecordCountError(f"malformed: {exc}") from exc
     total = 0
     for row in rows:
         try:
             total += int(row["stats"]["count"])
         except (KeyError, TypeError, ValueError) as exc:
-            raise _ScopeCountError(f"bad row: {exc}") from exc
+            raise _ScopeRecordCountError(f"bad row: {exc}") from exc
     return total
 ```
 
-`_ScopeCountError` is a private exception inside `scanner.py`
-(symmetric with `ScopeRecordCountError` inside `impact.py`). Not
-exposed at the public `nexus.plugins` layer -- it is an
-implementation detail of the scanner.
+`_ScopeRecordCountError` is a private exception inside `scanner.py`
+(named to mirror `ScopeRecordCountError` in `impact.py`, with a
+leading underscore for stricter privacy -- the scanner one is never
+exposed beyond its module, whereas impact's is module-public for
+test imports). Not exposed at the public `nexus.plugins` layer.
+
+**Aggregate query parameters** are validated against the Aggregate
+API doc (Zurich API Reference, July 2025):
+
+- `sysparm_query` accepts encoded queries; dot-walk like
+  `sys_scope.scope=<plugin_id>` is standard.
+- `sysparm_count=true` returns counts.
+- `sysparm_group_by=<field>` returns one result row per distinct
+  value of the field.
+- Response shape: `result` is an ARRAY for grouped queries (not the
+  usual object); each entry has `stats.count` (a STRING that we
+  parse to int) and `groupby_fields` (a list of `{field, value}`
+  dicts).
+- Default `sysparm_limit=10000` is more than enough; distinct
+  `sys_class_name` values are typically <200. We do not pass an
+  explicit limit; the default suffices.
 
 After `_fetch_counts` returns, the scanner reconstructs each
 `PluginInfo` with `record_count` set via `model_copy`:
@@ -322,7 +339,7 @@ Modified files:
 ```
 src/nexus/plugins/models.py            -- add record_count field on PluginInfo
 src/nexus/plugins/scanner.py           -- add _fetch_counts, _sum_scope_records,
-                                          _ScopeCountError; chain in scan()
+                                          _ScopeRecordCountError; chain in scan()
 src/nexus/plugins/__init__.py          -- re-export orphan_candidates
 src/nexus/cli.py                       -- add `orphans` subcommand;
                                           update _PLUGINS_HELP
@@ -339,11 +356,11 @@ tests/test_plugins_scanner.py          -- 3 new tests
   not in v1). The concurrency cap of 16 keeps the network surface
   bounded.
 - **Aggregate API permissions.** Some SN roles cannot query
-  `/api/now/stats/sys_metadata`. The scanner gracefully degrades to
-  `record_count = None` per plugin; orphan detection just won't
-  yield results until the role is fixed. Document the role
-  requirement in the warning message when an unrefreshed snapshot
-  is loaded.
+  `/api/now/stats/sys_metadata`. Least-privilege access requires
+  `snc_platform_rest_api_access` plus read on `sys_metadata`;
+  `admin` is sufficient. The scanner gracefully degrades to
+  `record_count = None` per plugin on 401/403; orphan detection
+  simply won't yield results until the role is fixed.
 - **False positives -- "shadow used" plugins.** A plugin might own
   zero records in `sys_metadata` but still serve a purpose (e.g.
   Glide property providers, license-only plugins, table-creator
@@ -354,6 +371,15 @@ tests/test_plugins_scanner.py          -- 3 new tests
   order. Coincidental but desirable -- active orphans are more
   actionable. Encode the ordering as `state asc` rather than relying
   on the alphabetic accident.
+
+- **Pre-existing pagination cap on scanner reads** (not introduced
+  here). `PluginScanner._fetch` calls `v_plugin` and `sys_store_app`
+  with `sysparm_limit=200` and no pagination loop, so instances
+  with >200 plugins in either table are silently truncated. Every
+  prior sub-project (A through D2) inherits this; D3 inherits it
+  too. Fixing the truncation is out of scope for D3 -- it's a
+  separate cleanup that, when done, will improve orphan detection
+  fidelity for free.
 
 ## Out of scope (deferred)
 
@@ -367,6 +393,17 @@ tests/test_plugins_scanner.py          -- 3 new tests
 - **Reusing cached counts for `nexus plugins impact`.** The impact
   command still fetches counts live. A future cleanup can switch
   it to read the cached value when available; out of scope for D3.
+
+- **DRY with `impact.fetch_scope_record_counts`.** The scanner's
+  `_sum_scope_records` duplicates the aggregate-API request shape
+  already implemented in `nexus.plugins.impact.fetch_scope_record_counts`.
+  A consolidation pass could have the scanner call into impact and
+  sum the per-table buckets. Deferred to keep modules loosely
+  coupled in v1; revisit if a third caller appears.
+
+- **Fix the pre-existing 200-row scanner truncation.** Worth a
+  dedicated cleanup that adds pagination loops to
+  `PluginScanner._fetch` and updates the existing snapshot tests.
 
 ## Open questions
 
