@@ -238,9 +238,7 @@ def test_undo_defer_removes_existing_override(runner: CliRunner, tmp_path: Path)
         ],
     )
     assert result.exit_code == 0, result.output
-    text = (tmp_path / "instances" / "prod" / "advisory-overrides.yaml").read_text(
-        encoding="utf-8"
-    )
+    text = (tmp_path / "instances" / "prod" / "advisory-overrides.yaml").read_text(encoding="utf-8")
     assert "com.snc.ess" not in text
 
 
@@ -419,9 +417,7 @@ def test_advisories_include_deferred_json_contains_deferred_marker(
             "planned",
         ],
     )
-    result = runner.invoke(
-        app, ["plugins", "advisories", "--include-deferred", "--format", "json"]
-    )
+    result = runner.invoke(app, ["plugins", "advisories", "--include-deferred", "--format", "json"])
     assert result.exit_code == 0, result.output
     payload = json.loads(result.output.strip().split("\n")[-1])
     summaries = [f["summary"] for f in payload["findings"]]

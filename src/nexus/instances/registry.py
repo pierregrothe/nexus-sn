@@ -261,7 +261,7 @@ class InstanceRegistry:
             raw_obj: object = yaml.safe_load(file_path.read_text(encoding="utf-8"))
             payload: str = json.dumps(raw_obj) if isinstance(raw_obj, dict) else "{}"
             return AdvisoryOverrideSet.model_validate_json(payload)
-        except (yaml.YAMLError, ValidationError):
+        except yaml.YAMLError, ValidationError:
             log.warning(
                 "advisory-overrides.yaml schema outdated for profile=%s -- "
                 "edit by hand or remove the file",
@@ -269,9 +269,7 @@ class InstanceRegistry:
             )
             return AdvisoryOverrideSet(overrides=())
 
-    def save_advisory_overrides(
-        self, profile: str, overrides: AdvisoryOverrideSet
-    ) -> None:
+    def save_advisory_overrides(self, profile: str, overrides: AdvisoryOverrideSet) -> None:
         """Atomically write advisory-overrides.yaml for a profile.
 
         Args:

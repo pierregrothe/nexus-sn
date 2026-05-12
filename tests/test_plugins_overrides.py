@@ -55,7 +55,7 @@ def _override(
 def test_advisory_override_is_frozen() -> None:
     o = _override()
     with pytest.raises(ValidationError):
-        o.reason = "changed"  # type: ignore[misc]
+        o.reason = "changed"
 
 
 def test_advisory_override_rejects_empty_reason() -> None:
@@ -87,9 +87,7 @@ def test_apply_overrides_with_no_overrides_returns_all_findings() -> None:
 def test_apply_overrides_filters_matching_finding() -> None:
     finding = _finding("com.x", AdvisoryType.CVE, "CVE-2024-1")
     advisories = AdvisorySet(findings=(finding,))
-    overrides = AdvisoryOverrideSet(
-        overrides=(_override("com.x", AdvisoryType.CVE, "CVE-2024-1"),)
-    )
+    overrides = AdvisoryOverrideSet(overrides=(_override("com.x", AdvisoryType.CVE, "CVE-2024-1"),))
     remaining, deferred = apply_overrides(advisories, overrides)
     assert remaining.findings == ()
     assert deferred == (finding,)
@@ -107,9 +105,7 @@ def test_apply_overrides_no_match_on_different_details() -> None:
 def test_apply_overrides_no_match_on_different_advisory_type() -> None:
     finding = _finding(advisory_type=AdvisoryType.CVE)
     advisories = AdvisorySet(findings=(finding,))
-    overrides = AdvisoryOverrideSet(
-        overrides=(_override(advisory_type=AdvisoryType.EOL),)
-    )
+    overrides = AdvisoryOverrideSet(overrides=(_override(advisory_type=AdvisoryType.EOL),))
     remaining, deferred = apply_overrides(advisories, overrides)
     assert remaining.findings == (finding,)
     assert deferred == ()

@@ -1873,9 +1873,7 @@ def plugins_advisories_defer(
 
     existing = registry.load_advisory_overrides(meta.profile)
     if any(
-        o.plugin_id == plugin_id
-        and o.advisory_type is wanted_type
-        and o.details == details
+        o.plugin_id == plugin_id and o.advisory_type is wanted_type and o.details == details
         for o in existing.overrides
     ):
         console.print(Notice.error("Override already exists for that finding"))
@@ -1923,18 +1921,14 @@ def plugins_advisories_undo_defer(
         o
         for o in existing.overrides
         if not (
-            o.plugin_id == plugin_id
-            and o.advisory_type is wanted_type
-            and o.details == details
+            o.plugin_id == plugin_id and o.advisory_type is wanted_type and o.details == details
         )
     )
     if len(filtered) == len(existing.overrides):
         console.print(Notice.error("No matching override found"))
         raise typer.Exit(1)
     registry.save_advisory_overrides(meta.profile, AdvisoryOverrideSet(overrides=filtered))
-    console.print(
-        Notice.info(f"Removed override for {wanted_type.value} {details} on {plugin_id}")
-    )
+    console.print(Notice.info(f"Removed override for {wanted_type.value} {details} on {plugin_id}"))
 
 
 @plugins_app.command("list-deferred")
