@@ -1,0 +1,12 @@
+# src/nexus/plugins/data/licenses.yaml
+# Curated vendor allow/forbid policy for plugins.
+# Author: Pierre Grothe
+# Date: 2026-05-11
+#
+# Vendor strings are matched verbatim against PluginInfo.vendor.
+# Empty vendor strings never produce findings.
+allowed_vendors:
+  - ServiceNow
+  - Service-now.com
+  - servicenow
+forbidden_vendors: []

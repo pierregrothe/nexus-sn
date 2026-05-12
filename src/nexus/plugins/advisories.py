@@ -9,16 +9,20 @@ from __future__ import annotations
 import logging
 from collections.abc import Mapping
 from datetime import date
+from pathlib import Path
 from typing import Literal
 
+import yaml
 from packaging.specifiers import InvalidSpecifier, SpecifierSet
 from packaging.version import InvalidVersion
 from packaging.version import parse as parse_version
 from pydantic import BaseModel, ConfigDict, field_validator
 
+from nexus.plugins.errors import PluginAdvisoryDataError
 from nexus.plugins.models import AdvisoryFinding, AdvisoryType, PluginInfo, Severity
 
 __all__ = [
+    "AdvisoryDatabase",
     "CveEntry",
     "EolEntry",
     "LicensePolicy",
@@ -30,6 +34,18 @@ __all__ = [
 log = logging.getLogger(__name__)
 
 _FROZEN = ConfigDict(frozen=True, strict=True, extra="forbid")
+
+
+def _data_path(name: str) -> Path:
+    """Return the path to a bundled advisory YAML file.
+
+    Args:
+        name: Filename within ``src/nexus/plugins/data/``.
+
+    Returns:
+        Absolute path to the bundled YAML.
+    """
+    return Path(__file__).parent / "data" / name
 
 
 class EolEntry(BaseModel):
@@ -231,3 +247,63 @@ def _check_license(
             details=f"vendor: {vendor}",
         ),
     )
+
+
+class AdvisoryDatabase(BaseModel):
+    """Loaded contents of the three bundled advisory YAML files.
+
+    Attributes:
+        eol: ``plugin_id -> EolEntry`` lookup.
+        cves: ``plugin_id -> tuple of CveEntry`` lookup.
+        licenses: Vendor allow/forbid policy.
+    """
+
+    model_config = _FROZEN
+
+    eol: dict[str, EolEntry]
+    cves: dict[str, tuple[CveEntry, ...]]
+    licenses: LicensePolicy
+
+    @classmethod
+    def load(cls) -> AdvisoryDatabase:
+        """Read the three bundled YAML files and validate them.
+
+        Returns:
+            Parsed AdvisoryDatabase.
+
+        Raises:
+            PluginAdvisoryDataError: If any file is missing, malformed,
+                or fails schema validation.
+        """
+        try:
+            eol_raw: list[dict[str, object]] = (
+                yaml.safe_load(_data_path("eol.yaml").read_text(encoding="utf-8")) or []
+            )
+            cves_raw: list[dict[str, object]] = (
+                yaml.safe_load(_data_path("cves.yaml").read_text(encoding="utf-8")) or []
+            )
+            licenses_raw: dict[str, list[str]] = (
+                yaml.safe_load(_data_path("licenses.yaml").read_text(encoding="utf-8")) or {}
+            )
+            eol_entries = [EolEntry.model_validate(row) for row in eol_raw]
+            cve_entries: list[CveEntry] = []
+            for row in cves_raw:
+                normalized = dict(row)
+                severity_value = normalized.get("severity")
+                if isinstance(severity_value, str):
+                    normalized["severity"] = Severity(severity_value)
+                cve_entries.append(CveEntry.model_validate(normalized))
+            licenses = LicensePolicy.model_validate(
+                {
+                    "allowed_vendors": tuple(licenses_raw.get("allowed_vendors") or []),
+                    "forbidden_vendors": tuple(licenses_raw.get("forbidden_vendors") or []),
+                }
+            )
+        except Exception as exc:
+            raise PluginAdvisoryDataError(f"failed to load advisory data: {exc}") from exc
+
+        eol_by_id: dict[str, EolEntry] = {e.plugin_id: e for e in eol_entries}
+        cves_by_id: dict[str, tuple[CveEntry, ...]] = {}
+        for entry in cve_entries:
+            cves_by_id[entry.plugin_id] = (*cves_by_id.get(entry.plugin_id, ()), entry)
+        return cls(eol=eol_by_id, cves=cves_by_id, licenses=licenses)

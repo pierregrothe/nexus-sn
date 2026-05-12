@@ -5,8 +5,12 @@
 """Tests for src/nexus/plugins/advisories.py and PluginAdvisoryDataError."""
 
 from datetime import date
+from pathlib import Path
+
+import pytest
 
 from nexus.plugins.advisories import (
+    AdvisoryDatabase,
     CveEntry,
     EolEntry,
     LicensePolicy,
@@ -188,3 +192,51 @@ def test_check_license_skips_empty_vendor_when_allow_list_non_empty() -> None:
     no_vendor = _info().model_copy(update={"vendor": ""})
     findings = _check_license(no_vendor, policy)
     assert findings == ()
+
+
+def test_load_database_reads_three_bundled_yamls() -> None:
+    db = AdvisoryDatabase.load()
+    assert len(db.eol) >= 1
+    assert len(db.cves) >= 1
+    assert "ServiceNow" in db.licenses.allowed_vendors
+
+
+def test_load_database_raises_on_malformed_yaml(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (tmp_path / "eol.yaml").write_text(": : :\n", encoding="utf-8")
+    (tmp_path / "cves.yaml").write_text("[]\n", encoding="utf-8")
+    (tmp_path / "licenses.yaml").write_text(
+        "allowed_vendors: []\nforbidden_vendors: []\n", encoding="utf-8"
+    )
+
+    def _fake_path(name: str) -> Path:
+        return tmp_path / name
+
+    monkeypatch.setattr("nexus.plugins.advisories._data_path", _fake_path)
+    with pytest.raises(PluginAdvisoryDataError):
+        AdvisoryDatabase.load()
+
+
+def test_load_database_raises_on_invalid_cve_specifier(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (tmp_path / "eol.yaml").write_text("[]\n", encoding="utf-8")
+    (tmp_path / "cves.yaml").write_text(
+        "- cve_id: CVE-X\n"
+        "  plugin_id: com.x\n"
+        "  severity: high\n"
+        "  affected_versions: 'not a valid specifier'\n"
+        "  summary: bad\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "licenses.yaml").write_text(
+        "allowed_vendors: []\nforbidden_vendors: []\n", encoding="utf-8"
+    )
+
+    def _fake_path(name: str) -> Path:
+        return tmp_path / name
+
+    monkeypatch.setattr("nexus.plugins.advisories._data_path", _fake_path)
+    with pytest.raises(PluginAdvisoryDataError):
+        AdvisoryDatabase.load()
