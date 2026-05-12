@@ -11,7 +11,7 @@ import httpx
 import pytest
 
 from nexus.plugins.errors import PluginScanError
-from nexus.plugins.models import PluginInventory
+from nexus.plugins.models import PluginInventory, ScopeRecordCount
 from nexus.plugins.scanner import PluginScanner, _fetch_counts
 from tests.fakes.fake_plugin_data import SYS_STORE_APP_ROWS, V_PLUGIN_ROWS
 
@@ -245,21 +245,6 @@ def test_fetch_counts_caps_concurrent_calls_at_max_concurrency() -> None:
     assert in_flight["max"] <= 4
 
 
-def test_scan_populates_record_count_from_aggregate_api() -> None:
-    transport = _transport_for(
-        stats_payload=_stats_response([_stats_row("sys_script", 42)]),
-    )
-    inv = asyncio.run(_scan(transport))
-    incident = next(p for p in inv.plugins if p.plugin_id == "com.snc.incident")
-    assert incident.record_count == 42
-
-
-def test_scan_sets_record_count_none_when_aggregate_call_fails() -> None:
-    transport = _transport_for(stats_status=500)
-    inv = asyncio.run(_scan(transport))
-    assert all(p.record_count is None for p in inv.plugins)
-
-
 def test_scan_keeps_other_fields_intact_after_count_capture() -> None:
     transport = _transport_for(
         stats_payload=_stats_response([_stats_row("sys_script", 5)]),
@@ -269,6 +254,7 @@ def test_scan_keeps_other_fields_intact_after_count_capture() -> None:
     assert incident.state == "active"
     assert incident.source == "servicenow"
     assert incident.version == "1.2.3"
+    assert incident.record_counts == (ScopeRecordCount(table="sys_script", count=5),)
 
 
 def test_scan_populates_record_counts_breakdown() -> None:
@@ -360,7 +346,7 @@ def test_fetch_paginates_through_multiple_pages() -> None:
 
 
 def test_scan_skips_count_fan_out_when_capture_counts_false() -> None:
-    """capture_counts=False -> no stats requests; all record_count is None."""
+    """capture_counts=False -> no stats requests; all record_counts is None."""
     stats_calls: list[str] = []
 
     def handler(req: httpx.Request) -> httpx.Response:
@@ -386,7 +372,7 @@ def test_scan_skips_count_fan_out_when_capture_counts_false() -> None:
 
     inv = asyncio.run(_run())
     assert stats_calls == []
-    assert all(p.record_count is None for p in inv.plugins)
+    assert all(p.record_counts is None for p in inv.plugins)
 
 
 def test_fetch_stops_at_max_pages_with_warning(caplog: pytest.LogCaptureFixture) -> None:

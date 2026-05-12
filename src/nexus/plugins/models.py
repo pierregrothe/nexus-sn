@@ -63,11 +63,6 @@ class PluginInfo(BaseModel):
             store apps where the field is empty.
         vendor: Publisher name from ``sys_store_app.vendor``. Empty string
             for v_plugin-only records or when the field is absent.
-        record_count: Total records in this plugin's scope as reported by
-            ``sys_metadata`` aggregation. ``None`` when not captured (older
-            snapshots, or a partial-fetch failure during scan). Used by
-            orphan detection. Deprecated -- being replaced by
-            ``record_counts``; will be removed in this sub-project.
         record_counts: Per-table record counts owned by this plugin's
             scope, sorted by ``(count desc, table asc)``. ``None`` when
             uncaptured. Empty tuple means the scope owns zero records.
@@ -86,7 +81,6 @@ class PluginInfo(BaseModel):
     installed_at: UtcDatetime | None
     latest_version: str | None = None
     vendor: str = ""
-    record_count: int | None = None
     record_counts: tuple[ScopeRecordCount, ...] | None = None
 
 

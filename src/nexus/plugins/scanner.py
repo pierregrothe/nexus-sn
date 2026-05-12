@@ -59,16 +59,16 @@ class PluginScanner:
             sn_version: SN release name copied verbatim into the inventory.
             capture_counts: When True (default), fan out one
                 ``/api/now/stats/sys_metadata`` call per plugin to
-                populate ``PluginInfo.record_count``. When False, skip
-                the fan-out -- every plugin's ``record_count`` stays at
+                populate ``PluginInfo.record_counts``. When False, skip
+                the fan-out -- every plugin's ``record_counts`` stays at
                 ``None``. Used by ``nexus instance refresh --no-counts``
                 for faster refreshes when orphan detection is not needed.
 
         Returns:
             PluginInventory with deduped plugins from both tables. Each
-            plugin's ``record_count`` is populated via a per-scope
+            plugin's ``record_counts`` is populated via a per-scope
             aggregate-API call under a bounded concurrency cap; per-plugin
-            fetch failures leave ``record_count`` at ``None`` without
+            fetch failures leave ``record_counts`` at ``None`` without
             aborting the scan.
 
         Raises:
@@ -100,12 +100,7 @@ class PluginScanner:
             if capture_counts:
                 breakdown = await _fetch_counts(client, tuple(by_id.keys()))
                 by_id = {
-                    pid: info.model_copy(
-                        update={
-                            "record_count": _total_or_none(breakdown.get(pid)),
-                            "record_counts": breakdown.get(pid),
-                        }
-                    )
+                    pid: info.model_copy(update={"record_counts": breakdown.get(pid)})
                     for pid, info in by_id.items()
                 }
 
@@ -274,8 +269,3 @@ async def _fetch_counts(
     return dict(results)
 
 
-def _total_or_none(buckets: tuple[ScopeRecordCount, ...] | None) -> int | None:
-    """Sum a breakdown tuple or pass through ``None``."""
-    if buckets is None:
-        return None
-    return sum(b.count for b in buckets)
