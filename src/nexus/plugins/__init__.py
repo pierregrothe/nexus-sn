@@ -24,8 +24,11 @@ from nexus.plugins.drift import (
     PluginDriftReport,
     compute_drift,
 )
+from nexus.plugins.baselines import DEFAULT_BASELINE_NAME, validate_baseline_name
 from nexus.plugins.errors import (
     AdvisoryOverrideError,
+    BaselineNotFoundError,
+    InvalidBaselineNameError,
     PluginAdvisoryDataError,
     PluginBaselineNotFoundError,
     PluginImpactError,
@@ -58,6 +61,9 @@ __all__ = [
     "AdvisoryOverrideSet",
     "AdvisorySet",
     "AdvisoryType",
+    "BaselineNotFoundError",
+    "DEFAULT_BASELINE_NAME",
+    "InvalidBaselineNameError",
     "PluginAdvisoryDataError",
     "PluginBaselineNotFoundError",
     "PluginDiff",
@@ -86,4 +92,5 @@ __all__ = [
     "product_family_for",
     "project_to_promote_plan",
     "reverse_dependencies",
+    "validate_baseline_name",
 ]
