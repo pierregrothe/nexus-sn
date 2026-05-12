@@ -192,7 +192,7 @@ def _emit_json(model: BaseModel) -> None:
     print(model.model_dump_json())
 
 
-class _OrphansReport(BaseModel):  # pyright: ignore[reportUnusedClass]
+class _OrphansReport(BaseModel):
     """Inline wrapper for JSON output of nexus plugins orphans.
 
     Attributes:
@@ -1881,8 +1881,13 @@ def plugins_orphans(
             help="Filter to one plugin state: active or inactive.",
         ),
     ] = "",
+    output_format: Annotated[
+        str,
+        typer.Option("--format", help="Output format: text | json (default: text)"),
+    ] = "text",
 ) -> None:
     """Show plugins with no dependents AND no scope-owned records."""
+    _validate_format(output_format)
     meta, inventory = _load_inventory_or_exit(instance)
     if all(p.record_count is None for p in inventory.plugins):
         console.print(
@@ -1896,6 +1901,9 @@ def plugins_orphans(
     candidates = orphan_candidates(inventory)
     if state:
         candidates = tuple(p for p in candidates if p.state == state)
+    if output_format == "json":
+        _emit_json(_OrphansReport(candidates=tuple(candidates)))
+        return
     if not candidates:
         console.print(Notice.info("No orphan candidates."))
         return
