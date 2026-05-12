@@ -9,6 +9,7 @@ import logging
 import shutil
 import tempfile
 from pathlib import Path
+from typing import cast
 
 import yaml
 from pydantic import ValidationError
@@ -289,6 +290,46 @@ class InstanceRegistry:
         if not baselines_dir.exists():
             return ()
         return tuple(sorted(p.stem for p in baselines_dir.glob("*.json")))
+
+    def list_plugin_baseline_summaries(self, profile: str) -> tuple[tuple[str, str, int], ...]:
+        """Return one-line summaries of every baseline for a profile.
+
+        Avoids the full PluginInventory parse done by ``load_plugin_baseline``
+        when only ``(name, captured_at, plugin_count)`` is needed -- e.g.,
+        ``nexus plugins baselines list``.
+
+        Returns:
+            Tuple of ``(name, captured_at_iso, plugin_count)`` sorted by name.
+            Entries with malformed JSON are skipped.
+
+        Raises:
+            InstanceNotFoundError: If the profile directory does not exist.
+        """
+        profile_dir = self._dir(profile)
+        if not profile_dir.exists():
+            raise InstanceNotFoundError(profile)
+        baselines_dir = profile_dir / _BASELINES_DIR
+        if not baselines_dir.exists():
+            return ()
+        summaries: list[tuple[str, str, int]] = []
+        for path in sorted(baselines_dir.glob("*.json")):
+            try:
+                raw: object = json.loads(path.read_text(encoding="utf-8"))
+            except OSError, json.JSONDecodeError:
+                continue
+            if not isinstance(raw, dict):
+                continue
+            data = cast("dict[str, object]", raw)
+            captured_obj = data.get("captured_at", "")
+            captured = captured_obj if isinstance(captured_obj, str) else ""
+            plugins_obj = data.get("plugins", [])
+            count = (
+                sum(1 for _ in cast("list[object]", plugins_obj))
+                if isinstance(plugins_obj, list)
+                else 0
+            )
+            summaries.append((path.stem, captured, count))
+        return tuple(summaries)
 
     def delete_plugin_baseline(self, profile: str, name: str) -> None:
         """Remove a named baseline.
