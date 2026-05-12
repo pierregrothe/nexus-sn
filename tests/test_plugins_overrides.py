@@ -111,6 +111,7 @@ def test_apply_overrides_no_match_on_different_advisory_type() -> None:
     )
     remaining, deferred = apply_overrides(advisories, overrides)
     assert remaining.findings == (finding,)
+    assert deferred == ()
 
 
 def test_apply_overrides_preserves_sort_order_of_remaining() -> None:
@@ -134,7 +135,8 @@ def test_apply_overrides_multi_match_filters_all() -> None:
     )
     remaining, deferred = apply_overrides(advisories, overrides)
     assert remaining.findings == ()
-    assert set(deferred) == {f1, f2}
+    assert len(deferred) == 2
+    assert {d.details for d in deferred} == {"CVE-2024-1", "CVE-2024-2"}
 
 
 def test_public_api_reexports() -> None:
