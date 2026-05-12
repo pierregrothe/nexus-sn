@@ -13,10 +13,11 @@ import pytest
 from nexus.plugins.errors import PluginImpactError
 from nexus.plugins.impact import (
     ScopeRecordCountError,
+    compute_impact,
     fetch_scope_record_counts,
     reverse_dependencies,
 )
-from nexus.plugins.models import PluginInfo, PluginInventory, ScopeRecordCount
+from nexus.plugins.models import PluginImpact, PluginInfo, PluginInventory, ScopeRecordCount
 
 __all__: list[str] = []
 
@@ -213,3 +214,63 @@ def test_fetch_scope_record_counts_raises_on_malformed_response() -> None:
     transport = _stats_transport(payload={"no_result_key": True})
     with pytest.raises(ScopeRecordCountError):
         _fetch(transport)
+
+
+def test_compute_impact_aggregates_reverse_deps_and_counts() -> None:
+    inv = _inventory(
+        _plugin("com.target"),
+        _plugin("com.dependent", depends_on=("com.target",)),
+    )
+    transport = _stats_transport(
+        payload=_stats_response([_row("sys_script", 42)]),
+    )
+    result = asyncio.run(
+        compute_impact(
+            inv,
+            "com.target",
+            url="https://x.example",
+            token="tok",
+            transport=transport,
+        )
+    )
+    assert isinstance(result, PluginImpact)
+    assert result.counts_available is True
+    assert result.target_plugin_id == "com.target"
+    assert len(result.reverse_deps) == 1
+    assert len(result.record_counts) == 1
+    assert result.record_counts[0].count == 42
+
+
+def test_compute_impact_marks_counts_unavailable_when_fetch_fails() -> None:
+    inv = _inventory(
+        _plugin("com.target"),
+        _plugin("com.dependent", depends_on=("com.target",)),
+    )
+    transport = _stats_transport(status=500)
+    result = asyncio.run(
+        compute_impact(
+            inv,
+            "com.target",
+            url="https://x.example",
+            token="tok",
+            transport=transport,
+        )
+    )
+    assert result.counts_available is False
+    assert result.record_counts == ()
+    assert len(result.reverse_deps) == 1
+
+
+def test_compute_impact_propagates_plugin_not_found() -> None:
+    inv = _inventory(_plugin("com.other"))
+    transport = _stats_transport()
+    with pytest.raises(PluginImpactError):
+        asyncio.run(
+            compute_impact(
+                inv,
+                "com.target",
+                url="https://x.example",
+                token="tok",
+                transport=transport,
+            )
+        )

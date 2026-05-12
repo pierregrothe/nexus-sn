@@ -4,10 +4,10 @@
 # Date: 2026-05-12
 """Plugin impact analysis layer.
 
-Two-phase design:
+Three-phase design:
     - ``reverse_dependencies`` -- pure BFS over the inventory.
     - ``fetch_scope_record_counts`` -- async aggregate API call.
-    - Future: ``compute_impact`` (Task 5) -- async orchestrator.
+    - ``compute_impact`` -- async orchestrator joining the two.
 """
 
 from __future__ import annotations
@@ -18,10 +18,16 @@ from collections import deque
 import httpx
 
 from nexus.plugins.errors import PluginImpactError
-from nexus.plugins.models import PluginInventory, ReverseDependency, ScopeRecordCount
+from nexus.plugins.models import (
+    PluginImpact,
+    PluginInventory,
+    ReverseDependency,
+    ScopeRecordCount,
+)
 
 __all__ = [
     "ScopeRecordCountError",
+    "compute_impact",
     "fetch_scope_record_counts",
     "reverse_dependencies",
 ]
@@ -161,3 +167,47 @@ async def fetch_scope_record_counts(
 
     counts.sort(key=lambda c: (-c.count, c.table))
     return tuple(counts)
+
+
+async def compute_impact(
+    inventory: PluginInventory,
+    target: str,
+    *,
+    url: str,
+    token: str,
+    transport: httpx.AsyncBaseTransport | None = None,
+) -> PluginImpact:
+    """Join the reverse-dep graph walk and the live aggregate call.
+
+    Args:
+        inventory: Captured plugin inventory.
+        target: Plugin to analyze.
+        url: Instance base URL.
+        token: OAuth bearer token.
+        transport: Optional httpx transport for tests.
+
+    Returns:
+        PluginImpact with reverse-deps and record counts. If the
+        Aggregate API call fails, ``counts_available`` is False and
+        ``record_counts`` is empty; the reverse-deps section is
+        unaffected.
+
+    Raises:
+        PluginImpactError: If ``target`` is not present in the inventory.
+    """
+    deps = reverse_dependencies(inventory, target)
+    target_info = next(p for p in inventory.plugins if p.plugin_id == target)
+    try:
+        counts = await fetch_scope_record_counts(url, token, target, transport=transport)
+        counts_available = True
+    except ScopeRecordCountError as exc:
+        log.warning("impact: counts unavailable for %s -- %s", target, exc)
+        counts = ()
+        counts_available = False
+    return PluginImpact(
+        target_plugin_id=target,
+        target_name=target_info.name,
+        reverse_deps=deps,
+        record_counts=counts,
+        counts_available=counts_available,
+    )
