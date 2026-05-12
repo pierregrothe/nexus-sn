@@ -128,6 +128,7 @@ class PluginScanner:
             sys_id=str(row.get("sys_id", "")),
             installed_at=_parse_dt(row.get("sys_created_on", "")),
             latest_version=str(row.get("latest_version", "")) or None,
+            vendor=vendor,
         )
 
 

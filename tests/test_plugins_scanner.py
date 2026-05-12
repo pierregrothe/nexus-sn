@@ -150,3 +150,15 @@ def test_scan_leaves_latest_version_none_when_field_absent() -> None:
     inv = asyncio.run(_scan(_transport_for()))
     incident = next(p for p in inv.plugins if p.plugin_id == "com.snc.incident")
     assert incident.latest_version is None
+
+
+def test_scan_populates_vendor_from_store_row() -> None:
+    inv = asyncio.run(_scan(_transport_for()))
+    acme = next(p for p in inv.plugins if p.plugin_id == "com.acme.helper")
+    assert acme.vendor == "Acme Corp"
+
+
+def test_scan_leaves_vendor_empty_for_v_plugin_only_record() -> None:
+    inv = asyncio.run(_scan(_transport_for()))
+    legacy = next(p for p in inv.plugins if p.plugin_id == "com.snc.legacy_only")
+    assert legacy.vendor == ""
