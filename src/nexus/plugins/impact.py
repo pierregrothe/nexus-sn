@@ -415,24 +415,20 @@ async def compute_impact(
         except ScopeRecordCountError as exc:
             log.warning("impact: cross-scope refs unavailable for %s -- %s", target, exc)
 
+    counts: tuple[ScopeRecordCount, ...]
+    counts_available: bool
     if not live and target_info.record_counts is not None:
-        return PluginImpact(
-            target_plugin_id=target,
-            target_name=target_info.name,
-            reverse_deps=deps,
-            record_counts=target_info.record_counts,
-            counts_available=True,
-            cross_scope_refs=cross_scope_refs,
-            cross_scope_available=cross_scope_available,
-        )
-
-    try:
-        counts = await fetch_scope_record_counts(url, token, target, transport=transport)
+        counts = target_info.record_counts
         counts_available = True
-    except ScopeRecordCountError as exc:
-        log.warning("impact: counts unavailable for %s -- %s", target, exc)
-        counts = ()
-        counts_available = False
+    else:
+        try:
+            counts = await fetch_scope_record_counts(url, token, target, transport=transport)
+            counts_available = True
+        except ScopeRecordCountError as exc:
+            log.warning("impact: counts unavailable for %s -- %s", target, exc)
+            counts = ()
+            counts_available = False
+
     return PluginImpact(
         target_plugin_id=target,
         target_name=target_info.name,

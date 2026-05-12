@@ -33,6 +33,7 @@ from pydantic import BaseModel, ConfigDict
 from rich.console import Console, RenderableType
 from rich.text import Text
 
+from nexus.api.errors import AnthropicError
 from nexus.auth.external_keychain import ExternalKeychainClient
 from nexus.cache import clear_cache
 from nexus.capabilities.claude_config import FilesystemClaudeCodeConfigReader
@@ -87,6 +88,15 @@ from nexus.plugins.models import (
 )
 from nexus.plugins.orphans import orphan_candidates
 from nexus.plugins.overrides import AdvisoryOverride, AdvisoryOverrideSet, apply_overrides
+from nexus.plugins.recommendations import (
+    AI_MODEL,
+    DEACTIVATE_SYSTEM_PROMPT,
+    EXPLAIN_SYSTEM_PROMPT,
+    ROADMAP_SYSTEM_PROMPT,
+    build_deactivation_context,
+    build_explain_context,
+    build_roadmap_context,
+)
 from nexus.plugins.updates import plugins_with_updates
 from nexus.ui import (
     CommandGuide,
@@ -2366,15 +2376,6 @@ def plugins_explain(
     ] = "",
 ) -> None:
     """Explain what a plugin does and whether the user likely needs it."""
-    from nexus.api.errors import AnthropicError  # noqa: PLC0415
-    from nexus.plugins.advisories import AdvisoryDatabase, compute_advisories  # noqa: PLC0415
-    from nexus.plugins.impact import compute_impact  # noqa: PLC0415
-    from nexus.plugins.recommendations import (  # noqa: PLC0415
-        AI_MODEL,
-        EXPLAIN_SYSTEM_PROMPT,
-        build_explain_context,
-    )
-
     _, inventory = _load_inventory_or_exit(instance)
     plugin = next((p for p in inventory.plugins if p.plugin_id == plugin_id), None)
     if plugin is None:
@@ -2413,15 +2414,6 @@ def plugins_roadmap(
     ] = "",
 ) -> None:
     """Draft an AI-generated remediation roadmap."""
-    from nexus.api.errors import AnthropicError  # noqa: PLC0415
-    from nexus.plugins.advisories import AdvisoryDatabase, compute_advisories  # noqa: PLC0415
-    from nexus.plugins.orphans import orphan_candidates  # noqa: PLC0415
-    from nexus.plugins.recommendations import (  # noqa: PLC0415
-        AI_MODEL,
-        ROADMAP_SYSTEM_PROMPT,
-        build_roadmap_context,
-    )
-
     meta, inventory = _load_inventory_or_exit(instance)
     db = AdvisoryDatabase.load()
     advisories = compute_advisories(inventory, db, today=datetime.now(UTC).date())
@@ -2461,15 +2453,6 @@ def plugins_recommend_deactivate(
     ] = "",
 ) -> None:
     """List plugins safest to deactivate, with AI rationale."""
-    from nexus.api.errors import AnthropicError  # noqa: PLC0415
-    from nexus.plugins.advisories import AdvisoryDatabase, compute_advisories  # noqa: PLC0415
-    from nexus.plugins.orphans import orphan_candidates  # noqa: PLC0415
-    from nexus.plugins.recommendations import (  # noqa: PLC0415
-        AI_MODEL,
-        DEACTIVATE_SYSTEM_PROMPT,
-        build_deactivation_context,
-    )
-
     _, inventory = _load_inventory_or_exit(instance)
     db = AdvisoryDatabase.load()
     advisories = compute_advisories(inventory, db, today=datetime.now(UTC).date())
