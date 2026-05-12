@@ -5,6 +5,7 @@
 """Tests for PluginScanner.scan() against canned table data."""
 
 import asyncio
+import logging
 
 import httpx
 import pytest
@@ -308,3 +309,125 @@ def test_scan_keeps_other_fields_intact_after_count_capture() -> None:
     assert incident.state == "active"
     assert incident.source == "servicenow"
     assert incident.version == "1.2.3"
+
+
+def test_fetch_paginates_through_multiple_pages() -> None:
+    """Three pages: 200 + 200 + 50 = 450 rows total."""
+    pages = [
+        [
+            {
+                "sys_id": f"a{i}",
+                "id": f"com.p{i}",
+                "name": f"P{i}",
+                "version": "1.0",
+                "active": "true",
+                "dependencies": "",
+                "installed_on": "",
+            }
+            for i in range(200)
+        ],
+        [
+            {
+                "sys_id": f"b{i}",
+                "id": f"com.q{i}",
+                "name": f"Q{i}",
+                "version": "1.0",
+                "active": "true",
+                "dependencies": "",
+                "installed_on": "",
+            }
+            for i in range(200)
+        ],
+        [
+            {
+                "sys_id": f"c{i}",
+                "id": f"com.r{i}",
+                "name": f"R{i}",
+                "version": "1.0",
+                "active": "true",
+                "dependencies": "",
+                "installed_on": "",
+            }
+            for i in range(50)
+        ],
+    ]
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        if "/api/now/stats/sys_metadata" in req.url.path:
+            return httpx.Response(200, json={"result": []})
+        if "v_plugin" in req.url.path:
+            offset = int(req.url.params.get("sysparm_offset", "0"))
+            page_idx = offset // 200
+            page = pages[page_idx] if page_idx < len(pages) else []
+            return httpx.Response(200, json={"result": page})
+        if "sys_store_app" in req.url.path:
+            return httpx.Response(200, json={"result": []})
+        return httpx.Response(404, json={"result": []})
+
+    transport = httpx.MockTransport(handler)
+    inv = asyncio.run(_scan(transport))
+    v_plugin_count = sum(1 for p in inv.plugins if p.plugin_id.startswith("com."))
+    assert v_plugin_count == 450
+
+
+def test_scan_skips_count_fan_out_when_capture_counts_false() -> None:
+    """capture_counts=False -> no stats requests; all record_count is None."""
+    stats_calls: list[str] = []
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        if "/api/now/stats/sys_metadata" in req.url.path:
+            stats_calls.append(str(req.url))
+            return httpx.Response(200, json={"result": []})
+        if "v_plugin" in req.url.path:
+            return httpx.Response(200, json={"result": V_PLUGIN_ROWS})
+        if "sys_store_app" in req.url.path:
+            return httpx.Response(200, json={"result": SYS_STORE_APP_ROWS})
+        return httpx.Response(404, json={"result": []})
+
+    transport = httpx.MockTransport(handler)
+
+    async def _run() -> PluginInventory:
+        scanner = PluginScanner(transport=transport)
+        return await scanner.scan(
+            url="https://x.example",
+            token="t",
+            sn_version="Xanadu",
+            capture_counts=False,
+        )
+
+    inv = asyncio.run(_run())
+    assert stats_calls == []
+    assert all(p.record_count is None for p in inv.plugins)
+
+
+def test_fetch_stops_at_max_pages_with_warning(caplog: pytest.LogCaptureFixture) -> None:
+    """Handler always returns 200 unique rows -> loop should bail at _MAX_PAGES."""
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        if "/api/now/stats/sys_metadata" in req.url.path:
+            return httpx.Response(200, json={"result": []})
+        if "v_plugin" in req.url.path:
+            offset = int(req.url.params.get("sysparm_offset", "0"))
+            page = [
+                {
+                    "sys_id": f"s{offset + i}",
+                    "id": f"com.p{offset + i}",
+                    "name": f"P{offset + i}",
+                    "version": "1.0",
+                    "active": "true",
+                    "dependencies": "",
+                    "installed_on": "",
+                }
+                for i in range(200)
+            ]
+            return httpx.Response(200, json={"result": page})
+        if "sys_store_app" in req.url.path:
+            return httpx.Response(200, json={"result": []})
+        return httpx.Response(404, json={"result": []})
+
+    transport = httpx.MockTransport(handler)
+    with caplog.at_level(logging.WARNING, logger="nexus.plugins.scanner"):
+        inv = asyncio.run(_scan(transport))
+    assert any("exceeded" in rec.message for rec in caplog.records)
+    # Total rows = _MAX_PAGES (50) * _PAGE_LIMIT (200) = 10000 dedup'd
+    assert len(inv.plugins) == 10000

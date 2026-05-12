@@ -28,6 +28,7 @@ from nexus.plugins.models import (
 __all__ = [
     "ScopeRecordCountError",
     "compute_impact",
+    "fetch_scope_counts_with_client",
     "fetch_scope_record_counts",
     "reverse_dependencies",
 ]
@@ -102,48 +103,34 @@ class ScopeRecordCountError(Exception):
     """
 
 
-async def fetch_scope_record_counts(
-    url: str,
-    token: str,
+async def fetch_scope_counts_with_client(
+    client: httpx.AsyncClient,
     plugin_id: str,
-    *,
-    transport: httpx.AsyncBaseTransport | None = None,
 ) -> tuple[ScopeRecordCount, ...]:
-    """Live aggregate query over ``sys_metadata``.
+    """Aggregate query over sys_metadata using an existing client.
+
+    Shared inner helper. ``fetch_scope_record_counts`` wraps this with
+    its own client; ``scanner._sum_scope_records`` calls this directly
+    with its scan-time client and sums the buckets.
 
     Args:
-        url: Instance base URL.
-        token: OAuth bearer token.
-        plugin_id: Plugin scope to count records for.
-        transport: Optional httpx transport for tests.
+        client: Open httpx.AsyncClient bound to the instance URL.
+        plugin_id: Scope identifier (e.g. ``com.snc.incident``).
 
     Returns:
         Per-table counts sorted by ``(count desc, table asc)``.
 
     Raises:
-        ScopeRecordCountError: On non-200 status, network error, or
-            malformed response.
+        ScopeRecordCountError: On non-200 status or malformed response.
     """
     params = {
         "sysparm_query": f"sys_scope.scope={plugin_id}",
         "sysparm_count": "true",
         "sysparm_group_by": "sys_class_name",
     }
-    headers = {"Authorization": f"Bearer {token}", "Accept": "application/json"}
-    try:
-        async with httpx.AsyncClient(
-            base_url=url,
-            headers=headers,
-            timeout=30.0,
-            transport=transport,
-        ) as client:
-            response = await client.get("/api/now/stats/sys_metadata", params=params)
-    except httpx.RequestError as exc:
-        raise ScopeRecordCountError(f"network error: {exc}") from exc
-
+    response = await client.get("/api/now/stats/sys_metadata", params=params)
     if response.status_code != 200:
         raise ScopeRecordCountError(f"aggregate API returned HTTP {response.status_code}")
-
     try:
         payload = response.json()
         rows = payload["result"]
@@ -167,6 +154,41 @@ async def fetch_scope_record_counts(
     return tuple(counts)
 
 
+async def fetch_scope_record_counts(
+    url: str,
+    token: str,
+    plugin_id: str,
+    *,
+    transport: httpx.AsyncBaseTransport | None = None,
+) -> tuple[ScopeRecordCount, ...]:
+    """Live aggregate query over ``sys_metadata``.
+
+    Args:
+        url: Instance base URL.
+        token: OAuth bearer token.
+        plugin_id: Plugin scope to count records for.
+        transport: Optional httpx transport for tests.
+
+    Returns:
+        Per-table counts sorted by ``(count desc, table asc)``.
+
+    Raises:
+        ScopeRecordCountError: On non-200 status, network error, or
+            malformed response.
+    """
+    headers = {"Authorization": f"Bearer {token}", "Accept": "application/json"}
+    try:
+        async with httpx.AsyncClient(
+            base_url=url,
+            headers=headers,
+            timeout=30.0,
+            transport=transport,
+        ) as client:
+            return await fetch_scope_counts_with_client(client, plugin_id)
+    except httpx.RequestError as exc:
+        raise ScopeRecordCountError(f"network error: {exc}") from exc
+
+
 async def compute_impact(
     inventory: PluginInventory,
     target: str,
@@ -185,16 +207,31 @@ async def compute_impact(
         transport: Optional httpx transport for tests.
 
     Returns:
-        PluginImpact with reverse-deps and record counts. If the
-        Aggregate API call fails, ``counts_available`` is False and
-        ``record_counts`` is empty; the reverse-deps section is
-        unaffected.
+        PluginImpact with reverse-deps and record counts.
+
+        Fast path: if the target's cached ``record_count == 0`` (from
+        a refresh-time fan-out), skips the live aggregate call entirely
+        and returns ``record_counts=()`` with ``counts_available=True``.
+
+        Otherwise (cached > 0 or None): performs the live aggregate
+        call for the per-table breakdown. If the call fails,
+        ``counts_available=False`` and ``record_counts=()``.
 
     Raises:
         PluginImpactError: If ``target`` is not present in the inventory.
     """
     deps = reverse_dependencies(inventory, target)
     target_info = next(p for p in inventory.plugins if p.plugin_id == target)
+
+    if target_info.record_count == 0:
+        return PluginImpact(
+            target_plugin_id=target,
+            target_name=target_info.name,
+            reverse_deps=deps,
+            record_counts=(),
+            counts_available=True,
+        )
+
     try:
         counts = await fetch_scope_record_counts(url, token, target, transport=transport)
         counts_available = True

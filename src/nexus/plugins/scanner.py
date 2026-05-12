@@ -14,6 +14,12 @@ from typing import Literal, cast
 import httpx
 
 from nexus.plugins.errors import PluginScanError
+from nexus.plugins.impact import (
+    ScopeRecordCountError as _ImpactScopeRecordCountError,
+)
+from nexus.plugins.impact import (
+    fetch_scope_counts_with_client as _fetch_scope_counts_with_client,
+)
 from nexus.plugins.models import PluginInfo, PluginInventory
 from nexus.plugins.product_families import product_family_for
 
@@ -26,6 +32,7 @@ _STORE_FIELDS = (
     "sys_id,scope,name,version,latest_version,active,vendor," "dependencies,sys_created_on"
 )
 _PAGE_LIMIT = 200
+_MAX_PAGES = 50  # safety cap; 50 * 200 = 10,000 rows
 _SERVICENOW_VENDORS = {"ServiceNow", "Service-now.com", "servicenow"}
 _CUSTOM_SCOPE_PREFIXES = ("x_", "u_")
 
@@ -41,13 +48,26 @@ class PluginScanner:
         """See class docstring."""
         self._transport = transport
 
-    async def scan(self, url: str, token: str, sn_version: str) -> PluginInventory:
+    async def scan(
+        self,
+        url: str,
+        token: str,
+        sn_version: str,
+        *,
+        capture_counts: bool = True,
+    ) -> PluginInventory:
         """Capture the full plugin inventory.
 
         Args:
             url: Instance base URL.
             token: OAuth bearer token.
             sn_version: SN release name copied verbatim into the inventory.
+            capture_counts: When True (default), fan out one
+                ``/api/now/stats/sys_metadata`` call per plugin to
+                populate ``PluginInfo.record_count``. When False, skip
+                the fan-out -- every plugin's ``record_count`` stays at
+                ``None``. Used by ``nexus instance refresh --no-counts``
+                for faster refreshes when orphan detection is not needed.
 
         Returns:
             PluginInventory with deduped plugins from both tables. Each
@@ -82,11 +102,12 @@ class PluginScanner:
                 # sys_store_app wins on conflict because it carries vendor.
                 by_id[info.plugin_id] = info
 
-            counts = await _fetch_counts(client, tuple(by_id.keys()))
-            by_id = {
-                pid: info.model_copy(update={"record_count": counts.get(pid)})
-                for pid, info in by_id.items()
-            }
+            if capture_counts:
+                counts = await _fetch_counts(client, tuple(by_id.keys()))
+                by_id = {
+                    pid: info.model_copy(update={"record_count": counts.get(pid)})
+                    for pid, info in by_id.items()
+                }
 
         return PluginInventory(
             captured_at=datetime.now(UTC),
@@ -97,15 +118,47 @@ class PluginScanner:
     async def _fetch(
         self, client: httpx.AsyncClient, table: str, fields: str
     ) -> tuple[list[dict[str, object]], tuple[str, int] | None]:
-        """Fetch one table; return ([], (table, status)) on non-200."""
-        resp = await client.get(
-            f"/api/now/table/{table}",
-            params={"sysparm_fields": fields, "sysparm_limit": _PAGE_LIMIT},
-        )
-        if resp.status_code != 200:
-            log.warning("plugin scan: %s returned HTTP %d", table, resp.status_code)
-            return [], (table, resp.status_code)
-        rows: list[dict[str, object]] = resp.json().get("result", [])
+        """Fetch a Table API endpoint, paginated until exhausted.
+
+        Args:
+            client: Open httpx.AsyncClient bound to the instance URL.
+            table: Table name (e.g. ``v_plugin``).
+            fields: Comma-separated field list for ``sysparm_fields``.
+
+        Returns:
+            ``(rows, None)`` on success; ``([], (table, status))`` on the
+            first non-200 response. Pagination uses ``sysparm_offset``
+            with a hard cap of ``_MAX_PAGES`` pages; if the cap is hit a
+            WARNING is logged and partial data returned.
+        """
+        rows: list[dict[str, object]] = []
+        offset = 0
+        for _ in range(_MAX_PAGES):
+            resp = await client.get(
+                f"/api/now/table/{table}",
+                params={
+                    "sysparm_fields": fields,
+                    "sysparm_limit": _PAGE_LIMIT,
+                    "sysparm_offset": offset,
+                },
+            )
+            if resp.status_code != 200:
+                log.warning("plugin scan: %s returned HTTP %d", table, resp.status_code)
+                return [], (table, resp.status_code)
+            page: list[dict[str, object]] = resp.json().get("result", [])
+            if not page:
+                break
+            rows.extend(page)
+            if len(page) < _PAGE_LIMIT:
+                break
+            offset += _PAGE_LIMIT
+        else:
+            log.warning(
+                "plugin scan: %s exceeded %d pages (%d rows); truncating",
+                table,
+                _MAX_PAGES,
+                len(rows),
+            )
         return rows, None
 
     def _from_v_plugin(self, row: dict[str, object]) -> PluginInfo:
@@ -195,42 +248,26 @@ class _ScopeRecordCountError(Exception):
 
 
 async def _sum_scope_records(client: httpx.AsyncClient, plugin_id: str) -> int:
-    """Return total records in ``plugin_id``'s scope via the Aggregate API.
+    """Return total records in ``plugin_id``'s scope (sum of per-table buckets).
 
-    Sums per-``sys_class_name`` bucket counts from one
-    ``/api/now/stats/sys_metadata`` call.
+    Delegates to ``nexus.plugins.impact._fetch_scope_counts_with_client``
+    so the aggregate-API request shape lives in exactly one place.
 
     Args:
         client: Open httpx.AsyncClient bound to the instance URL.
-        plugin_id: Scope identifier (e.g. ``com.snc.incident``).
+        plugin_id: Scope identifier.
 
     Returns:
-        Total record count across all sys_class_name buckets.
+        Sum of per-table record counts in the plugin's scope.
 
     Raises:
         _ScopeRecordCountError: On non-200 status or malformed response.
     """
-    resp = await client.get(
-        "/api/now/stats/sys_metadata",
-        params={
-            "sysparm_query": f"sys_scope.scope={plugin_id}",
-            "sysparm_count": "true",
-            "sysparm_group_by": "sys_class_name",
-        },
-    )
-    if resp.status_code != 200:
-        raise _ScopeRecordCountError(f"HTTP {resp.status_code}")
     try:
-        rows = resp.json()["result"]
-    except (KeyError, ValueError) as exc:
-        raise _ScopeRecordCountError(f"malformed response: {exc}") from exc
-    total = 0
-    for row in rows:
-        try:
-            total += int(row["stats"]["count"])
-        except (KeyError, TypeError, ValueError) as exc:
-            raise _ScopeRecordCountError(f"bad row: {exc}") from exc
-    return total
+        buckets = await _fetch_scope_counts_with_client(client, plugin_id)
+    except _ImpactScopeRecordCountError as exc:
+        raise _ScopeRecordCountError(str(exc)) from exc
+    return sum(b.count for b in buckets)
 
 
 _DEFAULT_COUNTS_CONCURRENCY = 16

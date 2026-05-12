@@ -4,6 +4,7 @@
 # Date: 2026-05-12
 """Tests for nexus plugins impact."""
 
+import json
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -187,3 +188,34 @@ def test_impact_warns_when_inventory_missing(
     result = runner.invoke(app, ["plugins", "impact", "com.target"])
     assert result.exit_code == 1
     assert "nexus instance refresh" in result.output
+
+
+def test_impact_emits_json_when_format_flag_provided(
+    runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _seed(
+        tmp_path,
+        "prod",
+        (
+            _info("com.target"),
+            _info("com.dep", depends_on=("com.target",)),
+        ),
+    )
+    runner.invoke(app, ["instance", "use", "prod"])
+    _patch_token_and_stats(monkeypatch)
+    result = runner.invoke(app, ["plugins", "impact", "com.target", "--format", "json"])
+    assert result.exit_code == 0
+    payload = json.loads(result.output.strip().split("\n")[-1])
+    assert payload["target_plugin_id"] == "com.target"
+    assert "reverse_deps" in payload
+
+
+def test_impact_errors_on_unknown_format_value(
+    runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _seed(tmp_path, "prod", (_info("com.target"),))
+    runner.invoke(app, ["instance", "use", "prod"])
+    _patch_token_and_stats(monkeypatch)
+    result = runner.invoke(app, ["plugins", "impact", "com.target", "--format", "yaml"])
+    assert result.exit_code == 1
+    assert "Unknown --format" in result.output

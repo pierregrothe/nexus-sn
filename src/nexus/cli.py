@@ -22,6 +22,7 @@ import httpx
 import typer
 import yaml as _yaml
 from packaging.version import InvalidVersion, parse
+from pydantic import BaseModel, ConfigDict
 from rich.console import Console, RenderableType
 from rich.text import Text
 
@@ -160,6 +161,59 @@ def _trunc(s: str, width: int) -> str:
 
 console = Console(theme=NEXUS_THEME)
 err_console = Console(stderr=True, theme=NEXUS_THEME)
+
+_FORMATS = ("text", "json")
+
+
+def _validate_format(value: str) -> None:
+    """Reject unknown ``--format`` values with a clear error.
+
+    Args:
+        value: User-provided format string.
+
+    Raises:
+        typer.Exit: With code 1 on unknown values, after printing
+            a Notice.error to the console.
+    """
+    if value not in _FORMATS:
+        console.print(Notice.error(f"Unknown --format: {value}"))
+        raise typer.Exit(1)
+
+
+def _emit_json(model: BaseModel) -> None:
+    """Print model JSON serialization to stdout, one line.
+
+    Uses ``model.model_dump_json()`` (not Rich's print_json) so the
+    output is single-line and CI-script-friendly.
+
+    Args:
+        model: Any Pydantic model to serialize.
+    """
+    print(model.model_dump_json())
+
+
+class _OrphansReport(BaseModel):
+    """Inline wrapper for JSON output of nexus plugins orphans.
+
+    Attributes:
+        candidates: Plugins identified as orphan candidates.
+    """
+
+    model_config = ConfigDict(frozen=True, strict=True, extra="forbid")
+
+    candidates: tuple[PluginInfo, ...]
+
+
+class _UpdatesReport(BaseModel):
+    """Inline wrapper for JSON output of nexus plugins updates.
+
+    Attributes:
+        updates: Plugins with newer versions available.
+    """
+
+    model_config = ConfigDict(frozen=True, strict=True, extra="forbid")
+
+    updates: tuple[PluginInfo, ...]
 
 
 def _configure_logging(level: str = "WARNING") -> None:
@@ -891,7 +945,16 @@ def instance_connect(profile: str = typer.Argument("")) -> None:
 
 
 @instance_app.command("refresh")
-def instance_refresh(profile: str = typer.Argument("")) -> None:
+def instance_refresh(
+    profile: str = typer.Argument(""),
+    no_counts: Annotated[
+        bool,
+        typer.Option(
+            "--no-counts",
+            help="Skip per-plugin record-count capture for a faster refresh.",
+        ),
+    ] = False,
+) -> None:
     """Pull a fresh artifact snapshot from the instance."""
     registry, meta, token, new_expiry = _acquire_token(profile)
     profile = meta.profile
@@ -902,7 +965,9 @@ def instance_refresh(profile: str = typer.Argument("")) -> None:
         scanner = InstanceScanner()
         plugin_scanner = PluginScanner()
         snapshot_task = scanner.scan(meta.url, token, meta.sn_version)
-        plugin_task = plugin_scanner.scan(meta.url, token, meta.sn_version)
+        plugin_task = plugin_scanner.scan(
+            meta.url, token, meta.sn_version, capture_counts=not no_counts
+        )
         results = await asyncio.gather(snapshot_task, plugin_task, return_exceptions=True)
         snap_result, plugin_result = results
         if isinstance(snap_result, BaseException):
@@ -1001,21 +1066,21 @@ def instance_register(profile: str) -> None:
         console.print(Notice.info("Set as default instance."))
 
 
-def _plugins_for(profile: str) -> tuple[InstanceMeta, tuple[PluginInfo, ...]] | None:
+def _plugins_for(profile: str) -> tuple[InstanceMeta, PluginInventory] | None:
     """Resolve a profile and return its plugin inventory, or None when missing.
 
     Args:
         profile: Instance profile name, or empty string to use the config default.
 
     Returns:
-        Tuple of (meta, plugins) when an inventory exists, or ``None`` when the
+        Tuple of (meta, inventory) when an inventory exists, or ``None`` when the
         instance has no captured ``plugins.json``.
     """
     registry, meta = _resolve_profile(profile)
     inv = registry.load_plugin_inventory(meta.profile)
     if inv is None:
         return None
-    return meta, inv.plugins
+    return meta, inv
 
 
 @plugins_app.callback(invoke_without_command=True)
@@ -1040,20 +1105,29 @@ def plugins_list(
         str, typer.Option("--source", help="Filter by source (servicenow|store|custom)")
     ] = "",
     state: Annotated[str, typer.Option("--state", help="Filter by state (active|inactive)")] = "",
+    output_format: Annotated[
+        str,
+        typer.Option("--format", help="Output format: text | json (default: text)"),
+    ] = "text",
 ) -> None:
     """Show all plugins installed on the resolved instance."""
+    _validate_format(output_format)
     resolved = _plugins_for(instance)
     if resolved is None:
         console.print(Notice.warn("Plugin inventory empty."))
         console.print(Hint(label="Refresh", command="nexus instance refresh"))
         return
-    _, plugins = resolved
+    _, inv = resolved
+    plugins = inv.plugins
     if product:
         plugins = tuple(p for p in plugins if p.product_family == product)
     if source:
         plugins = tuple(p for p in plugins if p.source == source)
     if state:
         plugins = tuple(p for p in plugins if p.state == state)
+    if output_format == "json":
+        _emit_json(inv.model_copy(update={"plugins": tuple(plugins)}))
+        return
     if not plugins:
         console.print(Notice.info("No plugins match the requested filters."))
         return
@@ -1090,18 +1164,27 @@ def plugins_info(
     instance: Annotated[
         str, typer.Option("--instance", help="Instance profile (default: configured default)")
     ] = "",
+    output_format: Annotated[
+        str,
+        typer.Option("--format", help="Output format: text | json (default: text)"),
+    ] = "text",
 ) -> None:
     """Show full details and direct dependencies for one plugin."""
+    _validate_format(output_format)
     resolved = _plugins_for(instance)
     if resolved is None:
         console.print(Notice.warn("Plugin inventory empty."))
         console.print(Hint(label="Refresh", command="nexus instance refresh"))
         raise typer.Exit(1)
-    _, plugins = resolved
+    _, inv = resolved
+    plugins = inv.plugins
     plugin = next((p for p in plugins if p.plugin_id == plugin_id), None)
     if plugin is None:
         err_console.print(Notice.error(f"Plugin {plugin_id!r} not found in inventory."))
         raise typer.Exit(1)
+    if output_format == "json":
+        _emit_json(plugin)
+        return
     console.print(
         KeyValuePanel(
             title=plugin.name,
@@ -1170,7 +1253,8 @@ def plugins_export(
         console.print(Notice.warn("Plugin inventory empty."))
         console.print(Hint(label="Refresh", command="nexus instance refresh"))
         raise typer.Exit(1)
-    _, plugins = resolved
+    _, inv = resolved
+    plugins = inv.plugins
     path = Path(out) if out else Path(f"plugins.{fmt}")
     if fmt == "yaml":
         payload = {
@@ -1256,14 +1340,24 @@ def plugins_diff(
             help="Filter by status (only_in_a|only_in_b|version_mismatch|state_mismatch)",
         ),
     ] = "",
+    output_format: Annotated[
+        str,
+        typer.Option("--format", help="Output format: text | json (default: text)"),
+    ] = "text",
 ) -> None:
     """Show cross-instance plugin differences."""
+    _validate_format(output_format)
     meta_a, inv_a = _load_inventory_or_exit(profile_a)
     meta_b, inv_b = _load_inventory_or_exit(profile_b)
     diff: PluginDiff = compute_diff(inv_a, inv_b, meta_a.profile, meta_b.profile)
     entries: tuple[PluginDiffEntry, ...] = diff.entries
     if status:
         entries = tuple(e for e in entries if e.status == status)
+
+    if output_format == "json":
+        _emit_json(diff.model_copy(update={"entries": entries}))
+        return
+
     if not entries:
         console.print(Notice.info("No differences found."))
         return
@@ -1413,10 +1507,18 @@ def plugins_updates(
             help="Write a YAML queue of pending updates to the given path.",
         ),
     ] = "",
+    output_format: Annotated[
+        str,
+        typer.Option("--format", help="Output format: text | json (default: text)"),
+    ] = "text",
 ) -> None:
     """Show plugins with newer versions available; optionally write a YAML queue."""
+    _validate_format(output_format)
     meta, inventory = _load_inventory_or_exit(instance)
     pending = plugins_with_updates(inventory)
+    if output_format == "json":
+        _emit_json(_UpdatesReport(updates=tuple(pending)))
+        return
     if not pending:
         console.print(Notice.info("Up to date."))
         return
@@ -1596,8 +1698,20 @@ def plugins_advisories(
             help="Show only findings at or above this severity (critical|high|medium|low).",
         ),
     ] = "",
+    output_format: Annotated[
+        str,
+        typer.Option("--format", help="Output format: text | json (default: text)"),
+    ] = "text",
+    strict: Annotated[
+        bool,
+        typer.Option(
+            "--strict",
+            help="Exit with code 1 if any findings remain after filters.",
+        ),
+    ] = False,
 ) -> None:
     """Show EOL / CVE / license findings for plugins on an instance."""
+    _validate_format(output_format)
     _, inventory = _load_inventory_or_exit(instance)
     try:
         db = AdvisoryDatabase.load()
@@ -1626,12 +1740,20 @@ def plugins_advisories(
         keep = _severity_at_or_above(floor)
         findings = tuple(f for f in findings if f.severity in keep)
 
+    if output_format == "json":
+        _emit_json(result.model_copy(update={"findings": findings}))
+        if strict and findings:
+            raise typer.Exit(1)
+        return
+
     if not findings:
         console.print(Notice.info("No advisories found."))
         return
 
     _render_advisory_sections(findings)
     _render_advisory_summary(findings)
+    if strict and findings:
+        raise typer.Exit(1)
 
 
 def _impact_transport() -> httpx.AsyncBaseTransport | None:
@@ -1656,8 +1778,13 @@ def plugins_impact(
             help="Instance profile (default: configured default)",
         ),
     ] = "",
+    output_format: Annotated[
+        str,
+        typer.Option("--format", help="Output format: text | json (default: text)"),
+    ] = "text",
 ) -> None:
     """Show reverse dependencies + scope-owned record counts for a plugin."""
+    _validate_format(output_format)
     _, inventory = _load_inventory_or_exit(instance)
     _registry, meta, token, _expiry = _acquire_token(instance)
     transport = _impact_transport()
@@ -1675,6 +1802,9 @@ def plugins_impact(
         console.print(Notice.error(f"Plugin not found: {plugin_id}"))
         raise typer.Exit(1) from exc
 
+    if output_format == "json":
+        _emit_json(impact)
+        return
     _render_impact(impact)
 
 
@@ -1762,8 +1892,13 @@ def plugins_orphans(
             help="Filter to one plugin state: active or inactive.",
         ),
     ] = "",
+    output_format: Annotated[
+        str,
+        typer.Option("--format", help="Output format: text | json (default: text)"),
+    ] = "text",
 ) -> None:
     """Show plugins with no dependents AND no scope-owned records."""
+    _validate_format(output_format)
     meta, inventory = _load_inventory_or_exit(instance)
     if all(p.record_count is None for p in inventory.plugins):
         console.print(
@@ -1777,6 +1912,9 @@ def plugins_orphans(
     candidates = orphan_candidates(inventory)
     if state:
         candidates = tuple(p for p in candidates if p.state == state)
+    if output_format == "json":
+        _emit_json(_OrphansReport(candidates=tuple(candidates)))
+        return
     if not candidates:
         console.print(Notice.info("No orphan candidates."))
         return

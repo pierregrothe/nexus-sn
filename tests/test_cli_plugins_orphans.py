@@ -4,6 +4,7 @@
 # Date: 2026-05-12
 """Tests for nexus plugins orphans."""
 
+import json
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -177,3 +178,25 @@ def test_orphans_warns_when_inventory_missing(runner: CliRunner, tmp_path: Path)
     result = runner.invoke(app, ["plugins", "orphans"])
     assert result.exit_code == 1
     assert "nexus instance refresh" in result.output
+
+
+def test_orphans_emits_json_when_format_flag_provided(runner: CliRunner, tmp_path: Path) -> None:
+    _seed(
+        tmp_path,
+        "prod",
+        (_info("com.lonely", record_count=0),),
+    )
+    runner.invoke(app, ["instance", "use", "prod"])
+    result = runner.invoke(app, ["plugins", "orphans", "--format", "json"])
+    assert result.exit_code == 0
+    payload = json.loads(result.output.strip().split("\n")[-1])
+    assert "candidates" in payload
+    assert payload["candidates"][0]["plugin_id"] == "com.lonely"
+
+
+def test_orphans_errors_on_unknown_format_value(runner: CliRunner, tmp_path: Path) -> None:
+    _seed(tmp_path, "prod", (_info("com.x", record_count=0),))
+    runner.invoke(app, ["instance", "use", "prod"])
+    result = runner.invoke(app, ["plugins", "orphans", "--format", "yaml"])
+    assert result.exit_code == 1
+    assert "Unknown --format" in result.output

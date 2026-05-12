@@ -4,6 +4,7 @@
 # Date: 2026-05-11
 """Tests for the cross-instance plugin commands."""
 
+import json
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -222,3 +223,22 @@ def test_plugins_promote_errors_when_either_inventory_missing(
     result = runner.invoke(app, ["plugins", "promote", "prod", "--to", "dev"])
     assert result.exit_code != 0
     assert "nexus instance refresh" in result.output
+
+
+def test_diff_emits_json_when_format_flag_provided(runner: CliRunner, tmp_path: Path) -> None:
+    _seed(tmp_path, "prod", (_info("com.x", version="1.0.0"),))
+    _seed(tmp_path, "dev", (_info("com.x", version="2.0.0"),))
+    runner.invoke(app, ["instance", "use", "prod"])
+    result = runner.invoke(app, ["plugins", "diff", "prod", "dev", "--format", "json"])
+    assert result.exit_code == 0
+    payload = json.loads(result.output.strip().split("\n")[-1])
+    assert "entries" in payload
+
+
+def test_diff_errors_on_unknown_format_value(runner: CliRunner, tmp_path: Path) -> None:
+    _seed(tmp_path, "prod", (_info("com.x"),))
+    _seed(tmp_path, "dev", (_info("com.x"),))
+    runner.invoke(app, ["instance", "use", "prod"])
+    result = runner.invoke(app, ["plugins", "diff", "prod", "dev", "--format", "yaml"])
+    assert result.exit_code == 1
+    assert "Unknown --format" in result.output

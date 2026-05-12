@@ -4,6 +4,7 @@
 # Date: 2026-05-11
 """Tests for nexus plugins updates."""
 
+import json
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -174,3 +175,29 @@ def test_plugins_updates_prints_pre_update_refresh_hint_when_queue_written(
     result = runner.invoke(app, ["plugins", "updates", "--queue", str(out_file)])
     assert "Before applying" in result.output
     assert "nexus instance refresh" in result.output
+
+
+def test_updates_emits_json_when_format_flag_provided(runner: CliRunner, tmp_path: Path) -> None:
+    _seed(
+        tmp_path,
+        "prod",
+        (_info("com.acme.helper", version="3.0.0", latest_version="3.1.0"),),
+    )
+    runner.invoke(app, ["instance", "use", "prod"])
+    result = runner.invoke(app, ["plugins", "updates", "--format", "json"])
+    assert result.exit_code == 0
+    payload = json.loads(result.output.strip().split("\n")[-1])
+    assert "updates" in payload
+    assert payload["updates"][0]["plugin_id"] == "com.acme.helper"
+
+
+def test_updates_errors_on_unknown_format_value(runner: CliRunner, tmp_path: Path) -> None:
+    _seed(
+        tmp_path,
+        "prod",
+        (_info("com.acme.helper", version="3.0.0", latest_version="3.1.0"),),
+    )
+    runner.invoke(app, ["instance", "use", "prod"])
+    result = runner.invoke(app, ["plugins", "updates", "--format", "yaml"])
+    assert result.exit_code == 1
+    assert "Unknown --format" in result.output
