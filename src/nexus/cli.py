@@ -1340,14 +1340,24 @@ def plugins_diff(
             help="Filter by status (only_in_a|only_in_b|version_mismatch|state_mismatch)",
         ),
     ] = "",
+    output_format: Annotated[
+        str,
+        typer.Option("--format", help="Output format: text | json (default: text)"),
+    ] = "text",
 ) -> None:
     """Show cross-instance plugin differences."""
+    _validate_format(output_format)
     meta_a, inv_a = _load_inventory_or_exit(profile_a)
     meta_b, inv_b = _load_inventory_or_exit(profile_b)
     diff: PluginDiff = compute_diff(inv_a, inv_b, meta_a.profile, meta_b.profile)
     entries: tuple[PluginDiffEntry, ...] = diff.entries
     if status:
         entries = tuple(e for e in entries if e.status == status)
+
+    if output_format == "json":
+        _emit_json(diff.model_copy(update={"entries": entries}))
+        return
+
     if not entries:
         console.print(Notice.info("No differences found."))
         return
