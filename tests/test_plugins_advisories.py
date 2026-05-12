@@ -6,7 +6,7 @@
 
 from datetime import date
 
-from nexus.plugins.advisories import EolEntry, _check_eol
+from nexus.plugins.advisories import CveEntry, EolEntry, _check_cves, _check_eol
 from nexus.plugins.errors import PluginAdvisoryDataError
 from nexus.plugins.models import AdvisoryType, PluginInfo, Severity
 
@@ -84,4 +84,60 @@ def test_check_eol_flags_deprecated_as_medium() -> None:
 
 def test_check_eol_returns_empty_when_plugin_absent_from_table() -> None:
     findings = _check_eol(_info(), {}, today=date(2026, 5, 11))
+    assert findings == ()
+
+
+def _cve(
+    cve_id: str,
+    plugin_id: str,
+    severity: Severity,
+    spec: str,
+    fixed_in: str = "",
+) -> CveEntry:
+    return CveEntry(
+        cve_id=cve_id,
+        plugin_id=plugin_id,
+        severity=severity,
+        affected_versions=spec,
+        fixed_in=fixed_in,
+        summary=f"Issue {cve_id}",
+    )
+
+
+def test_check_cves_flags_matching_version_in_range() -> None:
+    table = {"com.x": (_cve("CVE-1", "com.x", Severity.HIGH, ">=1.0,<2.0", "2.0"),)}
+    findings = _check_cves(_info(version="1.5"), table)
+    assert len(findings) == 1
+    assert findings[0].advisory_type is AdvisoryType.CVE
+    assert findings[0].severity is Severity.HIGH
+    assert "CVE-1" in findings[0].details
+
+
+def test_check_cves_skips_version_above_range() -> None:
+    table = {"com.x": (_cve("CVE-1", "com.x", Severity.HIGH, ">=1.0,<2.0"),)}
+    findings = _check_cves(_info(version="2.5"), table)
+    assert findings == ()
+
+
+def test_check_cves_skips_version_below_range() -> None:
+    table = {"com.x": (_cve("CVE-1", "com.x", Severity.HIGH, ">=1.0,<2.0"),)}
+    findings = _check_cves(_info(version="0.9"), table)
+    assert findings == ()
+
+
+def test_check_cves_returns_multiple_findings_for_multiple_cves() -> None:
+    table = {
+        "com.x": (
+            _cve("CVE-1", "com.x", Severity.HIGH, ">=1.0"),
+            _cve("CVE-2", "com.x", Severity.CRITICAL, ">=1.0"),
+        ),
+    }
+    findings = _check_cves(_info(version="1.5"), table)
+    ids = {f.details.split(":")[0].strip() for f in findings}
+    assert ids == {"CVE-1", "CVE-2"}
+
+
+def test_check_cves_skips_unparseable_plugin_version() -> None:
+    table = {"com.x": (_cve("CVE-1", "com.x", Severity.HIGH, ">=1.0"),)}
+    findings = _check_cves(_info(version="not-a-version-string!!!"), table)
     assert findings == ()

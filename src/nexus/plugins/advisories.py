@@ -7,14 +7,18 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Mapping
 from datetime import date
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict
+from packaging.specifiers import InvalidSpecifier, SpecifierSet
+from packaging.version import InvalidVersion
+from packaging.version import parse as parse_version
+from pydantic import BaseModel, ConfigDict, field_validator
 
 from nexus.plugins.models import AdvisoryFinding, AdvisoryType, PluginInfo, Severity
 
-__all__ = ["EolEntry", "_check_eol"]
+__all__ = ["CveEntry", "EolEntry", "_check_cves", "_check_eol"]
 
 log = logging.getLogger(__name__)
 
@@ -82,3 +86,81 @@ def _check_eol(
             details="; ".join(detail_parts),
         ),
     )
+
+
+class CveEntry(BaseModel):
+    """One row of the curated CVE table.
+
+    Attributes:
+        cve_id: e.g. ``CVE-2024-1234``.
+        plugin_id: SN plugin identifier this CVE affects.
+        severity: Verbatim from the YAML.
+        affected_versions: PEP 440 SpecifierSet string.
+        fixed_in: Version string where the issue is resolved; empty if none.
+        summary: One-line headline.
+    """
+
+    model_config = _FROZEN
+
+    cve_id: str
+    plugin_id: str
+    severity: Severity
+    affected_versions: str
+    fixed_in: str = ""
+    summary: str
+
+    @field_validator("affected_versions")
+    @classmethod
+    def _validate_specifier(cls, value: str) -> str:
+        """Reject malformed specifier strings at load time."""
+        try:
+            SpecifierSet(value)
+        except InvalidSpecifier as exc:
+            raise ValueError(f"invalid SpecifierSet: {value!r}: {exc}") from exc
+        return value
+
+
+def _check_cves(
+    plugin: PluginInfo,
+    table: Mapping[str, tuple[CveEntry, ...]],
+) -> tuple[AdvisoryFinding, ...]:
+    """Produce zero or more AdvisoryFindings for known CVEs against ``plugin``.
+
+    Args:
+        plugin: The plugin to evaluate.
+        table: ``plugin_id -> tuple of CveEntry`` lookup.
+
+    Returns:
+        Tuple of AdvisoryFindings, one per matching CVE.
+    """
+    entries = table.get(plugin.plugin_id, ())
+    if not entries:
+        return ()
+    try:
+        version = parse_version(plugin.version)
+    except InvalidVersion:
+        log.debug(
+            "advisories: skipping CVE check for %s -- unparseable version %r",
+            plugin.plugin_id,
+            plugin.version,
+        )
+        return ()
+    findings: list[AdvisoryFinding] = []
+    for entry in entries:
+        if version not in SpecifierSet(entry.affected_versions):
+            continue
+        details = f"{entry.cve_id}: affected {entry.affected_versions}"
+        if entry.fixed_in:
+            details += f"; fixed in {entry.fixed_in}"
+        findings.append(
+            AdvisoryFinding(
+                plugin_id=plugin.plugin_id,
+                plugin_name=plugin.name,
+                plugin_version=plugin.version,
+                advisory_type=AdvisoryType.CVE,
+                severity=entry.severity,
+                summary=entry.summary,
+                details=details,
+            )
+        )
+    return tuple(findings)
