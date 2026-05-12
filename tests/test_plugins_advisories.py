@@ -281,8 +281,7 @@ def test_compute_advisories_sorts_findings_by_severity_then_plugin_id() -> None:
     )
     result = compute_advisories(inv, db, today=date(2026, 5, 11))
     sev_indices = [
-        ("critical", "high", "medium", "low").index(f.severity.value)
-        for f in result.findings
+        ("critical", "high", "medium", "low").index(f.severity.value) for f in result.findings
     ]
     assert sev_indices == sorted(sev_indices)
     high_ones = [f for f in result.findings if f.severity is Severity.HIGH]
