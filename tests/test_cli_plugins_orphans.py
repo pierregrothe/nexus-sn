@@ -71,9 +71,7 @@ def _seed(
             sn_version="Xanadu",
             plugins=plugins,
         )
-        (profile_dir / "plugins.json").write_text(
-            inv.model_dump_json(indent=2), encoding="utf-8"
-        )
+        (profile_dir / "plugins.json").write_text(inv.model_dump_json(indent=2), encoding="utf-8")
 
 
 @pytest.fixture
@@ -102,9 +100,7 @@ def test_orphans_renders_datatable_with_orphan_candidates(
     assert "1 orphan candidate" in result.output
 
 
-def test_orphans_prints_no_candidates_message_when_clean(
-    runner: CliRunner, tmp_path: Path
-) -> None:
+def test_orphans_prints_no_candidates_message_when_clean(runner: CliRunner, tmp_path: Path) -> None:
     _seed(
         tmp_path,
         "prod",
@@ -152,9 +148,7 @@ def test_orphans_filters_by_state_inactive_when_flag_provided(
     assert "com.alive" not in result.output
 
 
-def test_orphans_errors_on_unknown_state_value(
-    runner: CliRunner, tmp_path: Path
-) -> None:
+def test_orphans_errors_on_unknown_state_value(runner: CliRunner, tmp_path: Path) -> None:
     _seed(tmp_path, "prod", (_info("com.x", record_count=0),))
     runner.invoke(app, ["instance", "use", "prod"])
     result = runner.invoke(app, ["plugins", "orphans", "--state", "weird"])
@@ -177,9 +171,7 @@ def test_orphans_warns_when_snapshot_has_no_record_counts(
     assert "nexus instance refresh" in result.output
 
 
-def test_orphans_warns_when_inventory_missing(
-    runner: CliRunner, tmp_path: Path
-) -> None:
+def test_orphans_warns_when_inventory_missing(runner: CliRunner, tmp_path: Path) -> None:
     _seed(tmp_path, "prod", None)
     runner.invoke(app, ["instance", "use", "prod"])
     result = runner.invoke(app, ["plugins", "orphans"])
