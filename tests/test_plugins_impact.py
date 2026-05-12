@@ -10,6 +10,7 @@ from datetime import UTC, datetime
 import httpx
 import pytest
 
+import nexus.plugins as plugins_pkg
 from nexus.plugins.errors import PluginImpactError
 from nexus.plugins.impact import (
     ScopeRecordCountError,
@@ -274,3 +275,17 @@ def test_compute_impact_propagates_plugin_not_found() -> None:
                 transport=transport,
             )
         )
+
+
+def test_public_api_reexports_impact_symbols() -> None:
+    expected = {
+        "PluginImpact",
+        "PluginImpactError",
+        "ReverseDependency",
+        "ScopeRecordCount",
+        "compute_impact",
+        "reverse_dependencies",
+    }
+    assert expected.issubset(set(plugins_pkg.__all__))
+    for name in expected:
+        assert hasattr(plugins_pkg, name), f"missing re-export: {name}"
