@@ -4,6 +4,7 @@
 # Date: 2026-05-12
 """Tests for nexus plugins drift (audit baseline + current snapshots)."""
 
+import json
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -176,3 +177,44 @@ def test_drift_renders_added_removed_version_state_changes(
     assert "com.gone" in result.output
     assert "com.flip" in result.output
     assert "com.bump" in result.output
+
+
+def test_drift_emits_json_when_format_flag_provided(
+    runner: CliRunner, tmp_path: Path
+) -> None:
+    """--format json emits a PluginDriftReport JSON to stdout."""
+    baseline = (_info("com.snc.x", version="1.0.0"),)
+    current = (_info("com.snc.x", version="2.0.0"),)
+    _seed_current(tmp_path, "prod", current)
+    _seed_baseline(tmp_path, "prod", baseline)
+    runner.invoke(app, ["instance", "use", "prod"])
+    result = runner.invoke(app, ["plugins", "drift", "--format", "json"])
+    assert result.exit_code == 0
+    payload = json.loads(result.output.strip().split("\n")[-1])
+    assert payload["profile"] == "prod"
+    assert "entries" in payload
+    assert len(payload["entries"]) == 1
+    assert payload["entries"][0]["status"] == "version_changed"
+
+
+def test_drift_emits_empty_entries_json_when_no_drift(
+    runner: CliRunner, tmp_path: Path
+) -> None:
+    """--format json emits {"entries": []} when no drift -- CI-parseable."""
+    plugins = (_info("com.snc.x"),)
+    _seed_current(tmp_path, "prod", plugins)
+    _seed_baseline(tmp_path, "prod", plugins)
+    runner.invoke(app, ["instance", "use", "prod"])
+    result = runner.invoke(app, ["plugins", "drift", "--format", "json"])
+    assert result.exit_code == 0
+    payload = json.loads(result.output.strip().split("\n")[-1])
+    assert payload["entries"] == []
+
+
+def test_drift_errors_on_unknown_format_value(runner: CliRunner, tmp_path: Path) -> None:
+    """--format yaml exits 1 with the standard Unknown --format message."""
+    _seed_current(tmp_path, "prod", (_info("com.snc.x"),))
+    runner.invoke(app, ["instance", "use", "prod"])
+    result = runner.invoke(app, ["plugins", "drift", "--format", "yaml"])
+    assert result.exit_code == 1
+    assert "Unknown --format" in result.output

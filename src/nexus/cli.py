@@ -1976,8 +1976,13 @@ def plugins_drift(
             help="Set the current snapshot as the new baseline and exit.",
         ),
     ] = False,
+    output_format: Annotated[
+        str,
+        typer.Option("--format", help="Output format: text | json (default: text)"),
+    ] = "text",
 ) -> None:
     """Show plugin drift on an instance since the last baseline."""
+    _validate_format(output_format)
     meta, inventory = _load_inventory_or_exit(instance)
     paths = NexusPaths.from_env()
     registry = InstanceRegistry(paths.instances_dir)
@@ -1999,6 +2004,11 @@ def plugins_drift(
         raise typer.Exit(1)
 
     report = compute_drift(baseline, inventory, meta.profile)
+
+    if output_format == "json":
+        _emit_json(report)
+        return
+
     if not report.entries:
         console.print(Notice.info("No drift detected."))
         return
