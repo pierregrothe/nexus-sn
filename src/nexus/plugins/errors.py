@@ -5,6 +5,7 @@
 """Error types for the plugins layer."""
 
 __all__ = [
+    "AdvisoryOverrideError",
     "PluginAdvisoryDataError",
     "PluginBaselineNotFoundError",
     "PluginImpactError",
@@ -53,6 +54,34 @@ class PluginImpactError(Exception):
         """Store the unknown plugin id."""
         super().__init__(f"plugin not found in inventory: {plugin_id}")
         self.plugin_id = plugin_id
+
+
+class AdvisoryOverrideError(Exception):
+    """Raised by the CLI override commands on user-input failure.
+
+    Attributes:
+        plugin_id: Plugin identifier referenced by the failed command.
+        advisory_type: Advisory type referenced by the failed command.
+        details: Finding details string referenced by the failed command.
+        reason_code: One of ``no_matching_finding``, ``duplicate``, ``not_found``.
+    """
+
+    def __init__(
+        self,
+        plugin_id: str,
+        advisory_type: str,
+        details: str,
+        reason_code: str,
+    ) -> None:
+        """Store the identifiers and reason code alongside the message."""
+        self.plugin_id = plugin_id
+        self.advisory_type = advisory_type
+        self.details = details
+        self.reason_code = reason_code
+        super().__init__(
+            f"override {reason_code} for plugin={plugin_id} "
+            f"type={advisory_type} details={details!r}"
+        )
 
 
 class PluginBaselineNotFoundError(Exception):

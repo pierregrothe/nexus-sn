@@ -11,6 +11,7 @@ the advisory checkers (EOL, CVE, license), the impact analyzer
 """
 
 from nexus.plugins.advisories import AdvisoryDatabase, compute_advisories
+from nexus.plugins.overrides import AdvisoryOverride, AdvisoryOverrideSet, apply_overrides
 from nexus.plugins.diff import (
     PluginDiff,
     PluginDiffEntry,
@@ -25,6 +26,7 @@ from nexus.plugins.drift import (
     compute_drift,
 )
 from nexus.plugins.errors import (
+    AdvisoryOverrideError,
     PluginAdvisoryDataError,
     PluginBaselineNotFoundError,
     PluginImpactError,
@@ -51,6 +53,9 @@ from nexus.plugins.updates import plugins_with_updates
 __all__ = [
     "AdvisoryDatabase",
     "AdvisoryFinding",
+    "AdvisoryOverride",
+    "AdvisoryOverrideError",
+    "AdvisoryOverrideSet",
     "AdvisorySet",
     "AdvisoryType",
     "PluginAdvisoryDataError",
@@ -71,6 +76,7 @@ __all__ = [
     "ReverseDependency",
     "ScopeRecordCount",
     "Severity",
+    "apply_overrides",
     "compute_advisories",
     "compute_diff",
     "compute_drift",
