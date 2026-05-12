@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 .claude/hooks/pre-edit-validate.py"
+            "command": "python .claude/hooks/_run.py pre-edit-validate || python3 .claude/hooks/_run.py pre-edit-validate || py -3 .claude/hooks/_run.py pre-edit-validate"
           }
         ]
       }
@@ -17,7 +17,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 .claude/hooks/post-edit-lint.py"
+            "command": "python .claude/hooks/_run.py post-edit-lint || python3 .claude/hooks/_run.py post-edit-lint || py -3 .claude/hooks/_run.py post-edit-lint"
           }
         ]
       }

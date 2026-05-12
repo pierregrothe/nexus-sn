@@ -1,37 +1,37 @@
-# Hooks invoke .venv/bin/<tool> directly to bypass Poetry overhead.
+# Cross-platform pre-commit configuration.
+# Hooks invoke project-venv tools via .claude/hooks/_venv_run.py which resolves
+# .venv/Scripts/<tool>.exe on Windows and .venv/bin/<tool> on macOS / Linux.
 # Assumes Poetry's virtualenvs.in-project = true (see CLAUDE.md).
-# POSIX paths only -- on Windows, activate .venv/Scripts/ first or replace
-# entries with Poetry-managed paths.
 #
-# Semgrep runs in pre-commit's own isolated env (additional_dependencies)
-# so its 50+ transitive deps don't pollute the project's poetry lockfile.
+# Semgrep runs in pre-commit's own isolated env (additional_dependencies) so
+# its 50+ transitive deps don't pollute the project's poetry lockfile.
 repos:
   - repo: local
     hooks:
       - id: black
         name: Format check (black)
-        entry: .venv/bin/black --check src/nexus/ tests/
+        entry: python .claude/hooks/_venv_run.py black --check src/nexus/ tests/
         language: system
         types: [python]
         pass_filenames: false
         always_run: true
       - id: ruff
         name: Lint (ruff)
-        entry: .venv/bin/ruff check src/nexus/ tests/
+        entry: python .claude/hooks/_venv_run.py ruff check src/nexus/ tests/
         language: system
         types: [python]
         pass_filenames: false
         always_run: true
       - id: mypy
         name: Type check (mypy)
-        entry: .venv/bin/mypy src/nexus/
+        entry: python .claude/hooks/_venv_run.py mypy src/nexus/
         language: system
         types: [python]
         pass_filenames: false
         always_run: true
       - id: pyright
         name: Type check (pyright)
-        entry: .venv/bin/pyright src/nexus/
+        entry: python .claude/hooks/_venv_run.py pyright src/nexus/
         language: system
         types: [python]
         pass_filenames: false
@@ -46,7 +46,7 @@ repos:
         always_run: true
       - id: pytest
         name: Run test suite
-        entry: .venv/bin/pytest -q --tb=short -p no:cacheprovider --override-ini=addopts=
+        entry: python .claude/hooks/_venv_run.py pytest -q --tb=short -p no:cacheprovider --override-ini=addopts=
         language: system
         types: [python]
         pass_filenames: false

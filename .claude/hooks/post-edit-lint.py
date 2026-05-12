@@ -103,13 +103,17 @@ def check_coverage_ratchet(path: Path) -> str | None:
 
     baseline_covered = baseline["covered_lines"]
 
-    rc, _ = run_tool([
-        "pytest",
-        f"--cov={module}",
-        "--cov-report=json",
-        "--cov-fail-under=0",
-        "-q", "--tb=no", "--no-header",
-    ])
+    rc, _ = run_tool(
+        [
+            "pytest",
+            f"--cov={module}",
+            "--cov-report=json",
+            "--cov-fail-under=0",
+            "-q",
+            "--tb=no",
+            "--no-header",
+        ]
+    )
     if rc != 0:
         return None  # tests failed; let ruff/mypy/pyright report
 
@@ -142,13 +146,12 @@ def main() -> int:
     """
     try:
         data = json.load(sys.stdin)
-    except (json.JSONDecodeError, EOFError):
+    except json.JSONDecodeError, EOFError:
         return 0
 
-    file_path_str = (
-        data.get("tool_input", {}).get("file_path")
-        or data.get("tool_response", {}).get("filePath")
-    )
+    file_path_str = data.get("tool_input", {}).get("file_path") or data.get(
+        "tool_response", {}
+    ).get("filePath")
     if not file_path_str:
         return 0
 
