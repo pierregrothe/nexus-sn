@@ -68,6 +68,7 @@ from nexus.plugins.models import (
     PluginInfo,
     Severity,
 )
+from nexus.plugins.orphans import orphan_candidates
 from nexus.plugins.updates import plugins_with_updates
 from nexus.ui import (
     CommandGuide,
@@ -117,6 +118,7 @@ _PLUGINS_HELP = [
     ("updates", "Show plugins with newer versions available"),
     ("advisories", "Show EOL / CVE / license findings"),
     ("impact <plugin_id>", "Show reverse-deps + scope record counts"),
+    ("orphans", "Show plugins with no dependents and no scope records"),
 ]
 
 _CAPTURE_HELP = [
@@ -1739,6 +1741,71 @@ def _render_impact(impact: PluginImpact) -> None:
         )
     else:
         console.print(Notice.info(f"{len(impact.reverse_deps)} dependent plugin(s)."))
+
+
+_ORPHAN_STATES = ("active", "inactive")
+
+
+@plugins_app.command("orphans")
+def plugins_orphans(
+    instance: Annotated[
+        str,
+        typer.Option(
+            "--instance",
+            help="Instance profile (default: configured default)",
+        ),
+    ] = "",
+    state: Annotated[
+        str,
+        typer.Option(
+            "--state",
+            help="Filter to one plugin state: active or inactive.",
+        ),
+    ] = "",
+) -> None:
+    """Show plugins with no dependents AND no scope-owned records."""
+    meta, inventory = _load_inventory_or_exit(instance)
+    if all(p.record_count is None for p in inventory.plugins):
+        console.print(
+            Notice.warn(
+                "Inventory has no record counts -- run nexus instance refresh to populate."
+            )
+        )
+        console.print(
+            Hint(label="Refresh", command=f"nexus instance refresh {meta.profile}")
+        )
+        raise typer.Exit(1)
+    if state and state not in _ORPHAN_STATES:
+        console.print(Notice.error(f"Unknown --state: {state}"))
+        raise typer.Exit(1)
+    candidates = orphan_candidates(inventory)
+    if state:
+        candidates = tuple(p for p in candidates if p.state == state)
+    if not candidates:
+        console.print(Notice.info("No orphan candidates."))
+        return
+    rows: list[list[RenderableType]] = [
+        [
+            p.plugin_id,
+            p.name,
+            "active" if p.state == "active" else "inactive (license slot)",
+            "no records",
+        ]
+        for p in candidates
+    ]
+    console.print(
+        DataTable(
+            title="Orphan candidates",
+            columns=[
+                DataColumn(header="Plugin ID", width=32),
+                DataColumn(header="Name", width=24),
+                DataColumn(header="State", width=24),
+                DataColumn(header="Records", width=12),
+            ],
+            rows=rows,
+        )
+    )
+    console.print(Notice.info(f"{len(candidates)} orphan candidate(s)."))
 
 
 @capture_app.callback(invoke_without_command=True)
