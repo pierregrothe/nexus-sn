@@ -13,9 +13,12 @@ from nexus.plugins.models import (
     AdvisoryFinding,
     AdvisorySet,
     AdvisoryType,
+    PluginImpact,
     PluginInfo,
     PluginInventory,
     ProductFamily,
+    ReverseDependency,
+    ScopeRecordCount,
     Severity,
 )
 
@@ -178,3 +181,32 @@ def test_plugin_info_defaults_vendor_to_empty_string() -> None:
         installed_at=None,
     )
     assert info.vendor == ""
+
+
+def test_reverse_dependency_accepts_all_required_fields() -> None:
+    dep = ReverseDependency(
+        plugin_id="com.dependent",
+        name="Dependent",
+        state="active",
+        depth=2,
+        via=("com.dependent", "com.middle", "com.target"),
+    )
+    assert dep.depth == 2
+    assert dep.via[-1] == "com.target"
+
+
+def test_scope_record_count_rejects_negative_count() -> None:
+    with pytest.raises(ValidationError):
+        ScopeRecordCount(table="sys_script", count=-1)
+
+
+def test_plugin_impact_is_frozen() -> None:
+    impact = PluginImpact(
+        target_plugin_id="com.x",
+        target_name="X",
+        reverse_deps=(),
+        record_counts=(),
+        counts_available=False,
+    )
+    with pytest.raises(ValidationError):
+        impact.target_name = "Y"

@@ -5,9 +5,9 @@
 """PluginInfo, PluginInventory, ProductFamily."""
 
 from enum import StrEnum
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from nexus.config.types import UtcDatetime
 
@@ -15,9 +15,12 @@ __all__ = [
     "AdvisoryFinding",
     "AdvisorySet",
     "AdvisoryType",
+    "PluginImpact",
     "PluginInfo",
     "PluginInventory",
     "ProductFamily",
+    "ReverseDependency",
+    "ScopeRecordCount",
     "Severity",
 ]
 
@@ -143,3 +146,63 @@ class AdvisorySet(BaseModel):
     model_config = _FROZEN
 
     findings: tuple[AdvisoryFinding, ...]
+
+
+class ReverseDependency(BaseModel):
+    """One plugin that transitively depends on an impact target.
+
+    Attributes:
+        plugin_id: SN plugin identifier.
+        name: Display name from the inventory.
+        state: ``active`` or ``inactive`` -- copied from PluginInfo.
+        depth: 1 = direct dependent, 2 = depends on a direct, etc.
+        via: Chain of plugin_ids from this plugin back to the target,
+            inclusive of both endpoints. Length is ``depth + 1``.
+    """
+
+    model_config = _FROZEN
+
+    plugin_id: str
+    name: str
+    state: Literal["active", "inactive"]
+    depth: int
+    via: tuple[str, ...]
+
+
+class ScopeRecordCount(BaseModel):
+    """One row of the aggregate query over sys_metadata.
+
+    Attributes:
+        table: ``sys_class_name`` of the records (e.g. ``sys_script``).
+        count: Number of records in the target plugin's scope owned
+            by this table. Always >= 0.
+    """
+
+    model_config = _FROZEN
+
+    table: str
+    count: Annotated[int, Field(ge=0)]
+
+
+class PluginImpact(BaseModel):
+    """Full impact analysis result for one plugin.
+
+    Attributes:
+        target_plugin_id: Plugin the user asked about.
+        target_name: Display name of the target.
+        reverse_deps: All plugins that depend on the target,
+            sorted by ``(depth asc, plugin_id asc)``.
+        record_counts: Per-table record counts owned by the target's
+            scope, sorted by ``(count desc, table asc)``. Empty tuple
+            when the live REST call was skipped or failed.
+        counts_available: ``True`` if the record-count REST call
+            succeeded; ``False`` on any network/4xx/5xx/parse error.
+    """
+
+    model_config = _FROZEN
+
+    target_plugin_id: str
+    target_name: str
+    reverse_deps: tuple[ReverseDependency, ...]
+    record_counts: tuple[ScopeRecordCount, ...]
+    counts_available: bool
