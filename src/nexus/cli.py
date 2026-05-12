@@ -14,6 +14,8 @@ import csv
 import logging
 import re
 import uuid
+from collections import Counter
+from collections.abc import Iterable
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated
@@ -1326,6 +1328,22 @@ def _drift_status_badge(status: str) -> StatusBadge:
     return StatusBadge.warn(status)
 
 
+def _status_breakdown(statuses: Iterable[str], label: str) -> str:
+    """Format a count-by-status summary line for trailing Notice rendering.
+
+    Args:
+        statuses: Iterable of status strings (one per entry).
+        label: Singular noun for the entry kind (e.g. ``"difference"``).
+
+    Returns:
+        ``"N <label>(s): k1 status1, k2 status2, ..."``, omitting zero counts.
+    """
+    counts: Counter[str] = Counter(statuses)
+    total = sum(counts.values())
+    breakdown = ", ".join(f"{n} {k}" for k, n in counts.items() if n)
+    return f"{total} {label}(s): {breakdown}"
+
+
 def _load_inventory_or_exit(profile: str) -> tuple[InstanceMeta, PluginInventory]:
     """Resolve a profile and load its plugin inventory, exiting with a Hint when empty.
 
@@ -1408,16 +1426,7 @@ def plugins_diff(
             rows=rows,
         )
     )
-    counts: dict[str, int] = {
-        "only_in_a": 0,
-        "only_in_b": 0,
-        "version_mismatch": 0,
-        "state_mismatch": 0,
-    }
-    for entry in entries:
-        counts[entry.status] += 1
-    breakdown = ", ".join(f"{n} {k}" for k, n in counts.items() if n)
-    console.print(Notice.info(f"{len(entries)} difference(s): {breakdown}"))
+    console.print(Notice.info(_status_breakdown((e.status for e in entries), "difference")))
 
 
 def _promote_payload(plan: PromotionPlan) -> dict[str, object]:
@@ -2049,16 +2058,7 @@ def plugins_drift(
             rows=rows,
         )
     )
-    counts: dict[str, int] = {
-        "added": 0,
-        "removed": 0,
-        "version_changed": 0,
-        "state_changed": 0,
-    }
-    for entry in report.entries:
-        counts[entry.status] += 1
-    breakdown = ", ".join(f"{n} {k}" for k, n in counts.items() if n)
-    console.print(Notice.info(f"{len(report.entries)} drift(s): {breakdown}"))
+    console.print(Notice.info(_status_breakdown((e.status for e in report.entries), "drift")))
     if strict and report.entries:
         raise typer.Exit(1)
 
