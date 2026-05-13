@@ -140,7 +140,7 @@ See `docs/CONTRIBUTING.md`.
 
 ## Version
 
-CalVer: YYYY.0M.PATCH
+CalVer: 2026.05.1
 
 ## License
 

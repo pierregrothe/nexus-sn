@@ -49,7 +49,7 @@ build-backend = "poetry.core.masonry.api"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
-pythonpath = ["src"]
+pythonpath = ["src", "scripts"]
 addopts = [
     "--cov=nexus",
     "--cov-report=term-missing",
