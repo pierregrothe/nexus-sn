@@ -265,3 +265,45 @@ def test_info_errors_on_unknown_format_value(runner: CliRunner, tmp_path: Path) 
     result = runner.invoke(app, ["plugins", "info", "com.x", "--format", "yaml"])
     assert result.exit_code == 1
     assert "Unknown --format" in result.output
+
+
+def test_bare_leaf_invocation_shows_themed_help_panel(
+    runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`nexus plugins updates` (no args) should print Purpose/Example, not run."""
+    _seed(tmp_path, "prod", (_info("com.x"),))
+    runner.invoke(app, ["instance", "use", "prod"])
+    monkeypatch.setattr("sys.argv", ["nexus", "plugins", "updates"])
+    result = runner.invoke(app, ["plugins", "updates"])
+    assert result.exit_code == 0
+    assert "Purpose:" in result.output
+    assert "Example:" in result.output
+    assert "nexus plugins updates" in result.output
+
+
+def test_leaf_invocation_with_flag_runs_command_not_help(
+    runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`nexus plugins updates --instance prod` should run the command, not show help."""
+    _seed(tmp_path, "prod", (_info("com.x"),))
+    runner.invoke(app, ["instance", "use", "prod"])
+    monkeypatch.setattr("sys.argv", ["nexus", "plugins", "updates", "--instance", "prod"])
+    result = runner.invoke(app, ["plugins", "updates", "--instance", "prod"])
+    assert result.exit_code == 0
+    # Not the help panel -- guard let the body run:
+    assert "Purpose:" not in result.output
+    # Body printed its own "Up to date" notice (no pending updates in seeded inventory):
+    assert "Up to date" in result.output
+
+
+def test_required_positional_bare_shows_help_not_missing_arg_error(
+    runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`nexus plugins info` (no plugin_id) should show themed help, not Typer error."""
+    _seed(tmp_path, "prod", (_info("com.x"),))
+    runner.invoke(app, ["instance", "use", "prod"])
+    monkeypatch.setattr("sys.argv", ["nexus", "plugins", "info"])
+    result = runner.invoke(app, ["plugins", "info"])
+    assert result.exit_code == 0
+    assert "Purpose:" in result.output
+    assert "nexus plugins info" in result.output
