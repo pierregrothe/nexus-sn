@@ -26,8 +26,12 @@ _SN_LIME_RGB = f"rgb({SN_LIME[0]},{SN_LIME[1]},{SN_LIME[2]})"
 
 NEXUS_THEME = Theme(
     {
+        # Labels (panel titles, row labels, column headers) get the brand
+        # gradient. Values (body text, cell contents, example commands)
+        # render in bright white for maximum readability against any
+        # terminal background. Dim is reserved for footer hints only.
         "label": f"{_SN_BLUE_RGB} bold",
-        "value": "default",
+        "value": "bright_white",
         "dim": "bright_black",
         "ok": f"{_SN_LIME_RGB} bold",
         "warn": "yellow bold",

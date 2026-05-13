@@ -203,94 +203,120 @@ _NEXUS_PARENT = _help_entry(
 _PLUGINS_HELP: list[CommandHelpEntry] = [
     _help_entry(
         "list",
-        "Show all plugins installed on the resolved instance with optional "
-        "--product / --source / --state filters.",
+        "List every plugin and scoped app currently installed on the default "
+        "instance. Filter by product family, source (servicenow|store|custom), "
+        "or activation state to narrow the view.",
         "nexus plugins list --product ITSM --state active",
     ),
     _help_entry(
         "info <plugin_id>",
-        "Show full details and direct dependencies for one plugin.",
+        "Drill into one plugin: full version, vendor, activation state, "
+        "direct dependencies, and source table (v_plugin vs sys_store_app vs "
+        "App Manager).",
         "nexus plugins info com.snc.incident",
     ),
     _help_entry(
         "export",
-        "Write the plugin inventory to a YAML or CSV file.",
+        "Dump the captured inventory to disk as YAML (default) or CSV. "
+        "Useful for sharing snapshots with auditors or feeding external tools.",
         "nexus plugins export --format csv --out plugins.csv",
     ),
     _help_entry(
         "diff <a> <b>",
-        "Show cross-instance plugin differences with optional --status filter.",
-        "nexus plugins diff dev prod --status only_in_a",
+        "Compare plugin inventories across two profiles. Surfaces "
+        "only-in-A, only-in-B, version mismatches, and state mismatches.",
+        "nexus plugins diff dev prod --status version_mismatch",
     ),
     _help_entry(
         "promote <src> --to <dst>",
-        "Write an additive action plan to make <dst> match <src>.",
-        "nexus plugins promote dev --to prod --out plan.yaml",
+        "Generate an additive YAML action plan that brings <dst> up to "
+        "match <src>: installs missing apps, upgrades older versions. "
+        "Read-only -- the plan is reviewed before any apply step.",
+        "nexus plugins promote dev --to prod --out promote-dev-to-prod.yaml",
     ),
     _help_entry(
         "updates",
-        "Show plugins with newer versions available; optionally write a YAML queue.",
-        "nexus plugins updates --queue updates.yaml",
+        "List every plugin / app where a newer version is available, "
+        "pulled live from the SN Application Manager. Optional --queue "
+        "writes a YAML batch file for later apply.",
+        "nexus plugins updates --queue pending.yaml",
     ),
     _help_entry(
         "advisories",
-        "Show EOL / CVE / license findings for plugins on an instance.",
+        "Report EOL / CVE / license findings for the inventory. Filter by "
+        "type or minimum severity. --strict exits 1 if any finding remains "
+        "after filters (CI gating).",
         "nexus plugins advisories --severity high --strict",
     ),
     _help_entry(
         "defer <id> <type> <details>",
-        "Defer an EOL/CVE/license advisory finding on a plugin.",
-        "nexus plugins defer com.acme.helper cve 'CVE-2024-1234' --reason 'patch slated'",
+        "Mute a single EOL/CVE/license finding with a written reason. "
+        "Deferred findings are hidden from 'advisories' until "
+        "--include-deferred is passed. Per-instance, persisted to disk.",
+        "nexus plugins defer com.acme.helper cve 'CVE-2024-1234' --reason 'patch in next sprint'",
     ),
     _help_entry(
         "undo-defer <id> <type> <details>",
-        "Remove a previously deferred advisory finding.",
+        "Reverse a previous 'defer'. The finding reappears in normal "
+        "'advisories' output. Match the original plugin id + type + details exactly.",
         "nexus plugins undo-defer com.acme.helper cve 'CVE-2024-1234'",
     ),
     _help_entry(
         "list-deferred",
-        "List all deferred advisory findings for an instance.",
+        "Audit view: every deferred finding on an instance with its reason "
+        "and the date it was deferred. Use when reviewing whether old "
+        "deferrals are still justified.",
         "nexus plugins list-deferred --format json",
     ),
     _help_entry(
         "impact <plugin_id>",
-        "Show reverse dependencies, scope-owned record counts, and cross-scope "
-        "FK references for a plugin.",
+        "Pre-deactivation safety check: walks reverse dependencies, counts "
+        "records owned by the plugin's scope, and scans cross-scope FK "
+        "references. --live forces re-query of record counts.",
         "nexus plugins impact com.snc.incident --live",
     ),
     _help_entry(
         "orphans",
-        "Show plugins with no dependents AND no scope-owned records.",
+        "Find plugins safe to deactivate at a glance: no dependents AND "
+        "zero scope-owned records. Filter by state to narrow further.",
         "nexus plugins orphans --state inactive",
     ),
     _help_entry(
         "drift",
-        "Show plugin drift on an instance since a baseline; --ack sets a new baseline.",
+        "Compare the live inventory against a named baseline. Use --ack "
+        "to snapshot the current state as a new baseline. Multiple baselines "
+        "can coexist (e.g. preprod, prod, golden-image).",
         "nexus plugins drift --baseline preprod --strict",
     ),
     _help_entry(
         "explain <plugin_id>",
-        "AI-generated explanation of what a plugin does and whether to keep it.",
-        "nexus plugins explain com.snc.incident",
+        "Ask the bundled AI to explain what a plugin does, what depends on "
+        "it, and whether keeping it makes sense. Refuses 'drop' verdicts "
+        "for core ITSM/platform plugins regardless of evidence.",
+        "nexus plugins explain com.snc.knowledge",
     ),
     _help_entry(
         "roadmap",
-        "AI-generated remediation roadmap from advisories + orphans + deferred overrides.",
+        "Ask the AI to draft an ordered remediation plan from your "
+        "advisories + orphans + deferred overrides. Useful as input to a "
+        "quarterly plugin-hygiene review.",
         "nexus plugins roadmap",
     ),
     _help_entry(
         "recommend deactivate",
-        "AI recommendation of plugins safest to deactivate.",
+        "AI-curated short list of plugins safest to turn off, with one-line "
+        "rationale per candidate. Excludes anything load-bearing.",
         "nexus plugins recommend deactivate",
     ),
     _help_entry(
         "baselines list",
-        "Show all named baselines for an instance.",
+        "Show every named drift baseline saved for an instance, with "
+        "captured timestamp and plugin count.",
         "nexus plugins baselines list",
     ),
     _help_entry(
         "baselines delete <name>",
-        "Delete a named baseline.",
+        "Remove a stored baseline. Pass --yes to skip the confirmation prompt.",
         "nexus plugins baselines delete preprod --yes",
     ),
 ]
@@ -298,43 +324,53 @@ _PLUGINS_HELP: list[CommandHelpEntry] = [
 _CAPTURE_HELP: list[CommandHelpEntry] = [
     _help_entry(
         "discover",
-        "List scopes with custom AI / automation configs on the resolved instance.",
-        "nexus capture discover --instance prod",
+        "Walk every scope on the instance and surface the ones with custom "
+        "AI / automation configs (skills, flows, virtual agent topics). "
+        "Use --all to include built-in scopes; default hides them.",
+        "nexus capture discover",
     ),
     _help_entry(
         "pull --scope <key>",
-        "Capture a scope to a YAML archive on disk.",
-        "nexus capture pull --scope x_company_app",
+        "Snapshot one or more scopes to a versioned YAML archive on disk. "
+        "Captured artifacts include ai_skill, sys_hub_flow, virtual agent "
+        "topics, and related child records.",
+        "nexus capture pull --scope x_company_app --scope x_company_helper",
     ),
     _help_entry(
         "list",
-        "Show local archives previously captured.",
+        "Show every archive previously captured on this machine, with "
+        "source instance, captured timestamp, and scope counts.",
         "nexus capture list",
     ),
     _help_entry(
         "push <archive>",
-        "Push a captured archive into a sys_update_set on an instance.",
-        "nexus capture push archives/2026-05-12.yaml --to prod",
+        "Replay a captured archive into a sys_update_set on the target "
+        "instance. The set name defaults to NEXUS-capture; override with "
+        "--update-set.",
+        "nexus capture push archives/2026-05-12_dev/ prod",
     ),
 ]
 
 _PLUGINS_RECOMMEND_HELP: list[CommandHelpEntry] = [
     _help_entry(
         "deactivate",
-        "List plugins safest to deactivate, with AI-generated rationale.",
-        "nexus plugins recommend deactivate --instance prod",
+        "Ask the bundled AI for a short list of plugins that look safe to "
+        "turn off based on zero dependencies, zero records, and absence of "
+        "advisories. Always includes a 'Watch out' section.",
+        "nexus plugins recommend deactivate",
     ),
 ]
 
 _PLUGINS_BASELINES_HELP: list[CommandHelpEntry] = [
     _help_entry(
         "list",
-        "Show all named baselines captured for an instance.",
-        "nexus plugins baselines list --instance prod",
+        "Show every named drift baseline saved for an instance, with "
+        "captured timestamp and plugin count.",
+        "nexus plugins baselines list",
     ),
     _help_entry(
         "delete <name>",
-        "Delete a named baseline (use --yes to skip the confirmation prompt).",
+        "Remove a stored baseline. Pass --yes to skip the confirmation prompt.",
         "nexus plugins baselines delete preprod --yes",
     ),
 ]
@@ -520,37 +556,49 @@ def _configure_logging(level: str = "WARNING") -> None:
 _TOP_LEVEL_HELP: list[CommandHelpEntry] = [
     _help_entry(
         "status",
-        "Show NEXUS identity, tier, MCP integrations, and diagnostics dashboard.",
+        "One-page dashboard: NEXUS identity, detected Claude tier, MCP "
+        "integration availability, auto-update status. Run this first when "
+        "something feels off.",
         "nexus status",
     ),
     _help_entry(
         "instance",
-        "Manage registered ServiceNow instances (register, connect, refresh, ...).",
+        "Manage registered SN instances -- register, connect, refresh, "
+        "switch the default. Most subcommands accept [profile] and fall "
+        "back to the default when omitted.",
         "nexus instance list",
     ),
     _help_entry(
         "capture",
-        "Bidirectional config transport: discover scopes, pull archives, push update sets.",
-        "nexus capture discover --instance prod",
+        "Bidirectional SN config transport: discover custom scopes, pull "
+        "them to YAML on disk, push archived YAML back as update sets. "
+        "Workhorse command for dev -> test -> prod promotion.",
+        "nexus capture discover",
     ),
     _help_entry(
         "plugins",
-        "Plugin inventory, advisories, drift, AI recommendations, and more.",
-        "nexus plugins list --product ITSM",
+        "Everything about the plugin inventory: list, diff, advisories, "
+        "drift, impact analysis, AI recommendations. Each subcommand has "
+        "its own themed help when run without arguments.",
+        "nexus plugins list",
     ),
     _help_entry(
         "reauth",
-        "Print one-shot commands for MCP servers needing re-authentication.",
+        "Print the one-shot commands needed to re-authenticate any Claude "
+        "MCP server flagged by the local cache. No-op when all servers are "
+        "healthy.",
         "nexus reauth",
     ),
     _help_entry(
         "update",
-        "Manual update check (GitHub Releases) and cache refresh.",
-        "nexus update --refresh",
+        "Check GitHub Releases for a newer NEXUS version. By default fetches "
+        "and installs the wheel via pip; --check-only just reports.",
+        "nexus update --check-only",
     ),
     _help_entry(
         "setup",
-        "First-run wizard (interactive credentials + instance + initial sync).",
+        "First-run wizard: walks through credentials, registers your first "
+        "instance, pulls the initial template catalog. Stub today.",
         "nexus setup",
     ),
     _help_entry(
@@ -1117,38 +1165,50 @@ def _build_capture_engine(profile: str) -> tuple[CaptureEngine, ServiceNowClient
 _INSTANCE_HELP: list[CommandHelpEntry] = [
     _help_entry(
         "register <profile>",
-        "Register a new instance (interactive wizard prompting for URL, "
-        "username, and password; OAuth app is auto-provisioned).",
+        "Add a new SN instance and store its credentials in the OS keychain. "
+        "Interactive: prompts for URL, username, password. OAuth app is "
+        "auto-provisioned via the SN REST API -- no manual config needed.",
         "nexus instance register prod",
     ),
     _help_entry(
         "connect [profile]",
-        "Verify the connection and refresh the OAuth access token.",
+        "Verify the OAuth access token is still valid; refresh it via the "
+        "refresh-token grant if near expiry. Run before any command that "
+        "talks to SN if you're unsure the token is still live.",
         "nexus instance connect prod",
     ),
     _help_entry(
         "refresh [profile]",
-        "Pull a fresh artifact + plugin snapshot from the instance.",
+        "Pull a fresh artifact + plugin inventory from SN and replace the "
+        "cached snapshot on disk. Required before drift, advisories, or "
+        "updates commands give meaningful answers.",
         "nexus instance refresh prod",
     ),
     _help_entry(
         "status [profile]",
-        "Show metadata and the latest snapshot detail for an instance.",
+        "Show metadata + the latest snapshot summary for one instance: SN "
+        "version, token expiry, artifact / plugin counts, last refresh time.",
         "nexus instance status prod",
     ),
     _help_entry(
-        "use <profile>",
-        "Set the given profile as the configured default instance.",
+        "use [profile]",
+        "Set the default instance used when --instance is omitted. With no "
+        "argument, opens an interactive picker (or auto-promotes when only "
+        "one instance is registered).",
         "nexus instance use prod",
     ),
     _help_entry(
         "delete <profile>",
-        "Remove an instance and its keychain credentials.",
-        "nexus instance delete prod --yes",
+        "Permanently remove a profile and its keychain credentials. If the "
+        "deleted profile was the default and exactly one other instance "
+        "remains, the survivor is promoted automatically.",
+        "nexus instance delete dev --force",
     ),
     _help_entry(
         "list",
-        "Show all registered instances with their token state.",
+        "Tabular view of every registered instance with profile name, URL, "
+        "SN version, token state (valid / EXPIRED / N min left), and last "
+        "successful connection time. Default instance marked with '*'.",
         "nexus instance list",
     ),
 ]
@@ -1309,7 +1369,22 @@ def instance_delete(
     manager = ConfigManager(paths)
     cfg = manager.load()
     if cfg.instances.default == profile:
-        manager.save(cfg.model_copy(update={"instances": InstancesConfig(default="")}))
+        remaining = registry.list_all()
+        if len(remaining) == 1:
+            # Exactly one instance left -- promote it automatically so the
+            # user never has to think about a default again.
+            survivor = remaining[0].profile
+            _set_default_profile(paths, survivor)
+            console.print(Notice.info(f"Default instance promoted to {survivor!r}."))
+        else:
+            manager.save(cfg.model_copy(update={"instances": InstancesConfig(default="")}))
+            if remaining:
+                console.print(
+                    Notice.warn(
+                        f"Default instance cleared. {len(remaining)} instances remain -- "
+                        f"pick one with 'nexus instance use <profile>'."
+                    )
+                )
 
     console.print(Notice.info(f"Deleted instance {profile!r}."))
 
@@ -1318,12 +1393,33 @@ def instance_delete(
 def instance_use(
     profile: Annotated[str, typer.Argument(help="Instance profile to set as default")] = "",
 ) -> None:
-    """Set the default instance."""
-    if _show_help_if_bare("instance", "use"):
-        return
+    """Set the default instance (interactive picker when invoked with no profile)."""
     if not profile:
-        err_console.print(Notice.error("Missing argument: PROFILE"))
-        raise typer.Exit(2)
+        registered = _instance_registry().list_all()
+        if not registered:
+            err_console.print(Notice.error("No instances registered."))
+            console.print(Hint(label="Register one", command="nexus instance register dev"))
+            raise typer.Exit(1)
+        if len(registered) == 1:
+            profile = registered[0].profile
+            console.print(
+                Notice.info(f"Only one instance registered; setting {profile!r} as default.")
+            )
+        else:
+            current_default = _config_default()
+            console.print(Notice.info("Multiple instances registered. Pick a default:"))
+            for i, meta in enumerate(registered, start=1):
+                marker = "*" if meta.profile == current_default else " "
+                console.print(f"  {marker} {i}. {meta.profile}  ({meta.url})")
+            try:
+                raw_choice: object = typer.prompt("Enter number", type=int)
+            except typer.Abort:
+                raise typer.Exit(1) from None
+            choice = int(raw_choice) if isinstance(raw_choice, int | str) else 0
+            if choice < 1 or choice > len(registered):
+                err_console.print(Notice.error(f"Invalid choice: {choice}"))
+                raise typer.Exit(1)
+            profile = registered[choice - 1].profile
     _resolve_profile(profile)
     _set_default_profile(NexusPaths.from_env(), profile)
     console.print(Notice.info(f"Default instance set to {profile!r}."))
