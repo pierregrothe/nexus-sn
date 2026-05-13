@@ -34,6 +34,17 @@ REPO_ROOT = Path(__file__).parent.parent.parent
 NEXUS_SRC = REPO_ROOT / "src" / "nexus"
 TESTS = REPO_ROOT / "tests"
 
+# Emoji and decorative icon ranges blocked in source files.
+# Explicit allow: Box Drawing U+2500-U+257F and Block Elements U+2580-U+259F
+# are generated at render time by Rich and must remain writable.
+_EMOJI_RE = re.compile(
+    "["
+    "\U0001F000-\U0001FFFF"  # emoji, supplemental symbols, pictographs
+    "\U00002600-\U000026FF"  # miscellaneous symbols (stars, weather, suits)
+    "\U00002700-\U000027BF"  # dingbats (checkmarks, scissors, crosses)
+    "]"
+)
+
 _SYS_ARGV_RE = re.compile(r"sys\.argv\[")
 
 # Matches function signatures containing ': Any' as a parameter type or '-> Any' as return.
@@ -76,6 +87,24 @@ def is_test_file(path: Path) -> bool:
         return True
     except ValueError:
         return False
+
+
+def check_emoji_in_source(content: str, path: Path) -> str | None:
+    """Block emoji and decorative icon characters in source files.
+
+    Rich box-drawing (U+2500-U+257F) and block elements (U+2580-U+259F)
+    are explicitly allowed -- they are generated at render time and may
+    appear in test snapshot strings or UI component constants.
+    """
+    match = _EMOJI_RE.search(content)
+    if match:
+        char = match.group()
+        cp = ord(char)
+        return (
+            f"BLOCKED: emoji/icon character U+{cp:04X} ({char!r}) in {path.name}. "
+            "Use ASCII text. Rich box-drawing (U+2500-U+257F) is allowed."
+        )
+    return None
 
 
 def check_sys_argv(content: str, path: Path) -> str | None:
@@ -135,6 +164,7 @@ def main() -> int:
         return 0
 
     checks = [
+        check_emoji_in_source,
         check_sys_argv,
         check_bare_any_in_sig,
         check_dict_any_in_sig,

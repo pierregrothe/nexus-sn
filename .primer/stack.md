@@ -28,7 +28,9 @@ src/nexus/      -- Python package (src layout)
   assessment/   -- Layer 5d: scanner, readiness, validator, reporter
   execution/    -- Layer 5e: planner, dispatcher, rollback, reporter
   cli.py        -- Layer 6: Typer entry point
-  ui/           -- Layer 7: NiceGUI (optional; always-importable, runtime check)
+  ui/           -- Layer 7: CLI component library + NiceGUI (optional)
+    components/ -- StatusBadge, KeyValuePanel, DataTable, CommandGuide,
+                   Hint, Notice, default_marker, nexus_progress
 
 tests/
   fakes/        -- FakeServiceNowClient, FakeKeychainClient,

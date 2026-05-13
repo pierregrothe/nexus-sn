@@ -1,11 +1,11 @@
-+-- Instances -----------------------------------------------------------------+
-| Profile           URL                                      Token             |
-| * prod            acme.service-now.com                     7h 30m            |
-|   stage           stage.service-now.com                    14 min left       |
-+------------------------------------------------------------------------------+
-+-- nexus instance ------------------------------------------------------------+
-| nexus instance register <prof    Add an instance                             |
-| nexus instance connect [profi    Verify connection and refresh token         |
-| nexus instance list              Show all registered instances               |
-+------------------------------------------------------------------------------+
+╭── Instances ─────────────────────────────────────────────────────────────────╮
+│ Profile           URL                                      Token             │
+│ * prod            acme.service-now.com                     7h 30m            │
+│   stage           stage.service-now.com                    14 min left       │
+╰──────────────────────────────────────────────────────────────────────────────╯
+╭── nexus instance ────────────────────────────────────────────────────────────╮
+│ nexus instance register <prof    Add an instance                             │
+│ nexus instance connect [profi    Verify connection and refresh token         │
+│ nexus instance list              Show all registered instances               │
+╰──────────────────────────────────────────────────────────────────────────────╯
   Run nexus instance <command> --help for details.

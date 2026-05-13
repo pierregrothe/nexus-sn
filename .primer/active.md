@@ -1,48 +1,44 @@
 # NEXUS -- Active Work
 
-Last updated: 2026-05-12
-Session: plugin management roadmap complete (sub-projects A-L + E, 13 slices merged). 780 tests passing.
+Last updated: 2026-05-13
+Session: CLI UI library + plugin UAT pass complete. 824 tests passing.
 
 ## Current focus
 
-Plugin command UAT in progress. User wants every `nexus plugins ...`
-command and option validated individually, with issues tracked, then a
-bug-chase pass to trace root causes and propose remediations.
+Codebase is at a clean rest-state on main (ae3d582, PR #32). All plugin
+management sub-projects are shipped, plugin UAT defects are fixed, and the
+unified CLI UI library (ui/components/) is complete and wired across all
+commands.
 
-The Python codebase itself is at a clean rest-state on main: all
-roadmap-enumerated plugin sub-projects are shipped, both /simplify
-rounds have been applied, and the last merge (#28) bumped coverage
-ratchet baselines.
+Ready to pivot to the 2026.05 active roadmap: `nexus setup` credential
+wizard is the next feature to build.
 
 ## Recent Changes
 
-- #28 chore/plugins-simplify-trailing-five -- five trailing /simplify items
-  (_today() helper, isolate_home into conftest, single-plugin explain
-  filter, lightweight baselines list parse, orphans kwarg-only)
-- #27 chore/plugins-simplify-klje -- post-merge /simplify cleanups for K+L+J+E
-- #26 feat/plugins-ai-recommendations (E) -- AgentClient-backed recommend
-  deactivate, explain, roadmap subcommands
-- #25 feat/plugins-impact-cross-scope (J) -- cross-scope FK scan in
-  compute_impact with --no-cross-scope CLI opt-out
-- #24 feat/plugins-multi-baseline-drift (L) -- named baselines + plugins
-  baselines list/delete subcommands
+- #32 fix/scanner-latest-version -- read available_version field; diagnose
+  missing latest_version data with clear error guidance
+- #31 feat/cli-help-leaf-commands -- themed help panel on bare invocation
+  for every leaf command (badge + options table + examples)
+- #30 feat/cli-themed-command-guides -- themed two-box discovery view for
+  sub-app no-args entry (instance, capture, plugins, templates, assess)
+- #29 fix/plugins-uat-defects -- resolved 7 defects found during plugin
+  command UAT (drift --ack persistence, baselines list parsing, diff
+  output, recommend exit codes, export CSV, info unknown-plugin error)
 
 ## Open Blockers
 
-- Plugin command validation pass not yet started (user request).
 - MCPProbe._check_server() still stubbed.
 - PDI access-token cap (glide.oauth.access_token.expire_in.system_max_seconds)
   keeps tokens at 30 min regardless of token_lifetime request.
 - knowledge/mastery/ empty.
+- setup, sync, templates, assess commands raise NotImplementedError.
 
 ## Next Steps
 
-1. Walk every `nexus plugins` subcommand and option; log defects to a
-   tracking file in this session.
-2. Run a bug-chase to root-cause each defect; propose remediations.
-3. Pivot back to active roadmap: `nexus setup` -> GitHubSync ->
-   TemplateRegistry (per .primer/roadmap.md 2026.05).
+1. nexus setup command -- credential wizard, config write, initial sync.
+2. GitHubSync -- manifest fetch + template download from GitHub.
+3. TemplateRegistry -- list and get from local cache.
 
 ## Branch / remote state
 
-main: d7d5b66 (PR #28 merged). No active feature branch.
+main: ae3d582 (PR #32 merged). No active feature branch.

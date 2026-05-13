@@ -11,6 +11,9 @@ venv/
 .env
 .env.local
 
+# Claude Code local settings (machine-specific)
+.claude/settings.local.json
+
 # NEXUS runtime
 .nexus/
 
