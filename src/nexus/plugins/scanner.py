@@ -27,9 +27,12 @@ __all__ = ["PluginScanner"]
 
 log = logging.getLogger(__name__)
 
-_V_PLUGIN_FIELDS = "sys_id,id,name,version,active,requires,dependencies,installed_on"
+_V_PLUGIN_FIELDS = (
+    "sys_id,id,name,version,available_version,active,requires,dependencies,installed_on"
+)
 _STORE_FIELDS = (
-    "sys_id,scope,name,version,latest_version,active,vendor," "requires,dependencies,sys_created_on"
+    "sys_id,scope,name,version,latest_version,available_version,active,vendor,"
+    "requires,dependencies,sys_created_on"
 )
 _PAGE_LIMIT = 200
 _MAX_PAGES = 50  # safety cap; 50 * 200 = 10,000 rows
@@ -160,7 +163,14 @@ class PluginScanner:
         for _ in range(_MAX_PAGES):
             resp = await client.get(url, params=params)
             if resp.status_code != 200:
-                log.warning("plugin scan: %s returned HTTP %d", table, resp.status_code)
+                hint = ""
+                if resp.status_code == 403:
+                    hint = (
+                        " -- REST access denied; grant the OAuth user the appropriate"
+                        " role (e.g. app_store_pa_user_role for sys_store_app) to"
+                        " expose latest-version data"
+                    )
+                log.warning("plugin scan: %s returned HTTP %d%s", table, resp.status_code, hint)
                 return [], (table, resp.status_code)
             rows.extend(resp.json().get("result", []))
             next_url = _parse_next_link(resp.headers.get("Link", ""))
@@ -179,38 +189,59 @@ class PluginScanner:
     def _from_v_plugin(self, row: dict[str, object]) -> PluginInfo:
         """Build a PluginInfo from a v_plugin row."""
         plugin_id = str(row.get("id", ""))
+        version = str(row.get("version", ""))
         return PluginInfo(
             plugin_id=plugin_id,
             name=str(row.get("name", plugin_id)),
-            version=str(row.get("version", "")),
+            version=version,
             state="active" if _is_active(row.get("active")) else "inactive",
             source=_source_for(plugin_id, vendor=""),
             product_family=product_family_for(plugin_id).value,
             depends_on=_parse_deps(row.get("requires", "") or row.get("dependencies", "")),
             sys_id=str(row.get("sys_id", "")),
             installed_at=_parse_dt(row.get("installed_on", "")),
+            latest_version=_pick_latest_version(row, current=version),
         )
 
     def _from_store(self, row: dict[str, object]) -> PluginInfo:
         """Build a PluginInfo from a sys_store_app row."""
         plugin_id = _scope_value(row.get("scope", ""))
         vendor = str(row.get("vendor", ""))
+        version = str(row.get("version", ""))
         return PluginInfo(
             plugin_id=plugin_id,
             name=str(row.get("name", plugin_id)),
-            version=str(row.get("version", "")),
+            version=version,
             state="active" if _is_active(row.get("active")) else "inactive",
             source=_source_for(plugin_id, vendor=vendor),
             product_family=product_family_for(plugin_id).value,
             depends_on=_parse_deps(row.get("requires", "") or row.get("dependencies", "")),
             sys_id=str(row.get("sys_id", "")),
             installed_at=_parse_dt(row.get("sys_created_on", "")),
-            latest_version=str(row.get("latest_version", "")) or None,
+            latest_version=_pick_latest_version(row, current=version),
             vendor=vendor,
         )
 
 
 _ACTIVE_STATES = frozenset({"true", "1", "yes", "active", "installed", "enabled"})
+
+
+def _pick_latest_version(row: dict[str, object], *, current: str) -> str | None:
+    """Extract the most informative "latest version" field from an SN row.
+
+    Resolution order:
+        1. ``latest_version`` (sys_store_app) -- store catalog newest.
+        2. ``available_version`` (v_plugin) -- core plugin newest.
+
+    Returns ``None`` when no field is populated or when the candidate
+    equals ``current`` (no update available; nothing to surface).
+    """
+    candidate = str(row.get("latest_version", "") or row.get("available_version", ""))
+    if not candidate:
+        return None
+    if candidate == current:
+        return None
+    return candidate
 
 
 def _is_active(value: object) -> bool:

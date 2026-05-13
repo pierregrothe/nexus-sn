@@ -2013,7 +2013,23 @@ def plugins_updates(
         _emit_json(_UpdatesReport(updates=tuple(pending)))
         return
     if not pending:
-        console.print(Notice.info("Up to date."))
+        with_lv = sum(1 for p in inventory.plugins if p.latest_version is not None)
+        if with_lv == 0:
+            console.print(
+                Notice.warn(
+                    "No latest_version data captured -- updates cannot be detected. "
+                    "Likely causes: sys_store_app REST access denied (403), or "
+                    "v_plugin's available_version mirrors version on this instance."
+                )
+            )
+            console.print(
+                Hint(
+                    label="Grant role",
+                    command="grant the OAuth user 'app_store_pa_user_role' on the SN instance",
+                )
+            )
+        else:
+            console.print(Notice.info("Up to date."))
         if queue:
             console.print(Notice.info(f"Wrote empty queue to {queue}."))
         return

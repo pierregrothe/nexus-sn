@@ -158,6 +158,42 @@ def test_scan_leaves_latest_version_none_when_field_absent() -> None:
     assert incident.latest_version is None
 
 
+def test_scan_reads_available_version_from_v_plugin_when_newer() -> None:
+    """v_plugin's available_version field surfaces as latest_version when newer."""
+    rows: list[dict[str, object]] = [
+        {
+            "sys_id": "x",
+            "id": "com.glide.has_update",
+            "name": "Has Update",
+            "version": "1.0.0",
+            "available_version": "1.0.1",
+            "active": "active",
+            "requires": "",
+        }
+    ]
+    inv = asyncio.run(_scan(_transport_for(v_plugin_rows=rows, store_rows=[])))
+    plugin = next(p for p in inv.plugins if p.plugin_id == "com.glide.has_update")
+    assert plugin.latest_version == "1.0.1"
+
+
+def test_scan_leaves_latest_version_none_when_available_equals_current() -> None:
+    """available_version == version means 'up to date'; latest_version stays None."""
+    rows: list[dict[str, object]] = [
+        {
+            "sys_id": "y",
+            "id": "com.glide.no_update",
+            "name": "No Update",
+            "version": "2.0.0",
+            "available_version": "2.0.0",
+            "active": "active",
+            "requires": "",
+        }
+    ]
+    inv = asyncio.run(_scan(_transport_for(v_plugin_rows=rows, store_rows=[])))
+    plugin = next(p for p in inv.plugins if p.plugin_id == "com.glide.no_update")
+    assert plugin.latest_version is None
+
+
 def test_scan_populates_vendor_from_store_row() -> None:
     inv = asyncio.run(_scan(_transport_for()))
     acme = next(p for p in inv.plugins if p.plugin_id == "com.acme.helper")
