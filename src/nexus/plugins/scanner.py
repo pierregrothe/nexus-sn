@@ -15,7 +15,11 @@ from typing import Literal, cast
 import httpx
 
 from nexus.plugins.errors import PluginScanError
-from nexus.plugins.impact import ScopeRecordCountError, fetch_scope_counts_with_client
+from nexus.plugins.impact import (
+    ScopeRecordCountError,
+    ScopeRecordCountPending,
+    fetch_scope_counts_with_client,
+)
 from nexus.plugins.models import PluginInfo, PluginInventory, ScopeRecordCount
 from nexus.plugins.product_families import product_family_for
 
@@ -23,9 +27,9 @@ __all__ = ["PluginScanner"]
 
 log = logging.getLogger(__name__)
 
-_V_PLUGIN_FIELDS = "sys_id,id,name,version,active,dependencies,installed_on"
+_V_PLUGIN_FIELDS = "sys_id,id,name,version,active,requires,dependencies,installed_on"
 _STORE_FIELDS = (
-    "sys_id,scope,name,version,latest_version,active,vendor," "dependencies,sys_created_on"
+    "sys_id,scope,name,version,latest_version,active,vendor," "requires,dependencies,sys_created_on"
 )
 _PAGE_LIMIT = 200
 _MAX_PAGES = 50  # safety cap; 50 * 200 = 10,000 rows
@@ -179,10 +183,10 @@ class PluginScanner:
             plugin_id=plugin_id,
             name=str(row.get("name", plugin_id)),
             version=str(row.get("version", "")),
-            state="active" if _truthy(row.get("active")) else "inactive",
+            state="active" if _is_active(row.get("active")) else "inactive",
             source=_source_for(plugin_id, vendor=""),
             product_family=product_family_for(plugin_id).value,
-            depends_on=_parse_deps(row.get("dependencies", "")),
+            depends_on=_parse_deps(row.get("requires", "") or row.get("dependencies", "")),
             sys_id=str(row.get("sys_id", "")),
             installed_at=_parse_dt(row.get("installed_on", "")),
         )
@@ -195,10 +199,10 @@ class PluginScanner:
             plugin_id=plugin_id,
             name=str(row.get("name", plugin_id)),
             version=str(row.get("version", "")),
-            state="active" if _truthy(row.get("active")) else "inactive",
+            state="active" if _is_active(row.get("active")) else "inactive",
             source=_source_for(plugin_id, vendor=vendor),
             product_family=product_family_for(plugin_id).value,
-            depends_on=_parse_deps(row.get("dependencies", "")),
+            depends_on=_parse_deps(row.get("requires", "") or row.get("dependencies", "")),
             sys_id=str(row.get("sys_id", "")),
             installed_at=_parse_dt(row.get("sys_created_on", "")),
             latest_version=str(row.get("latest_version", "")) or None,
@@ -206,13 +210,23 @@ class PluginScanner:
         )
 
 
-def _truthy(value: object) -> bool:
-    """Coerce SN-style truthy values (bool or string) to bool."""
+_ACTIVE_STATES = frozenset({"true", "1", "yes", "active", "installed", "enabled"})
+
+
+def _is_active(value: object) -> bool:
+    """Return True when an SN plugin ``active`` field signals an active install.
+
+    SN exposes ``active`` inconsistently across releases and tables:
+    Zurich v_plugin returns the string ``"active"`` / ``"inactive"``;
+    older releases returned ``"true"`` / ``"false"`` or booleans; some
+    edge tables (sys_plugin) use ``"installed"``. This helper accepts
+    all observed truthy spellings.
+    """
     if isinstance(value, bool):
         return value
     if isinstance(value, str):
-        return value.lower() in ("true", "1", "yes")
-    return bool(value)
+        return value.strip().lower() in _ACTIVE_STATES
+    return False
 
 
 def _scope_value(value: object) -> str:
@@ -271,15 +285,27 @@ async def _fetch_counts(
         with partial data.
     """
     semaphore = asyncio.Semaphore(max_concurrency)
+    pending_count = 0
 
     async def _one(pid: str) -> tuple[str, tuple[ScopeRecordCount, ...] | None]:
+        nonlocal pending_count
         async with semaphore:
             try:
                 buckets = await fetch_scope_counts_with_client(client, pid)
+            except ScopeRecordCountPending:
+                pending_count += 1
+                log.debug("scan: count fetch pending (HTTP 202) for %s", pid)
+                return pid, None
             except ScopeRecordCountError as exc:
                 log.warning("scan: count fetch failed for %s -- %s", pid, exc)
                 return pid, None
             return pid, buckets
 
     results = await asyncio.gather(*(_one(pid) for pid in plugin_ids))
+    if pending_count:
+        log.info(
+            "scan: %d/%d plugin count fetches returned HTTP 202 (counts unavailable)",
+            pending_count,
+            len(plugin_ids),
+        )
     return dict(results)

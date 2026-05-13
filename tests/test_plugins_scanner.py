@@ -468,3 +468,81 @@ def test_parse_next_link_tolerates_whitespace_and_unquoted_rel() -> None:
 
     header = "<https://x.example/api?offset=200> ; rel=next"
     assert _parse_next_link(header) == "https://x.example/api?offset=200"
+
+
+def test_scan_maps_active_string_value_to_state_active() -> None:
+    """Zurich v_plugin returns the literal string 'active' for the active field."""
+    rows: list[dict[str, object]] = [
+        {
+            "sys_id": "x",
+            "id": "com.glide.zurich_style",
+            "name": "Zurich Plug",
+            "version": "1.0.0",
+            "active": "active",
+            "requires": "",
+            "dependencies": "",
+            "installed_on": "",
+        }
+    ]
+    inv = asyncio.run(_scan(_transport_for(v_plugin_rows=rows, store_rows=[])))
+    plugin = next(p for p in inv.plugins if p.plugin_id == "com.glide.zurich_style")
+    assert plugin.state == "active"
+
+
+def test_scan_maps_active_inactive_string_to_state_inactive() -> None:
+    rows: list[dict[str, object]] = [
+        {
+            "sys_id": "x",
+            "id": "com.glide.inactive_plug",
+            "name": "Plug",
+            "version": "1.0",
+            "active": "inactive",
+            "requires": "",
+            "dependencies": "",
+            "installed_on": "",
+        }
+    ]
+    inv = asyncio.run(_scan(_transport_for(v_plugin_rows=rows, store_rows=[])))
+    plugin = next(p for p in inv.plugins if p.plugin_id == "com.glide.inactive_plug")
+    assert plugin.state == "inactive"
+
+
+def test_scan_parses_requires_field_when_dependencies_absent() -> None:
+    """Zurich uses 'requires' for the dep list; we must read it."""
+    rows: list[dict[str, object]] = [
+        {
+            "sys_id": "x",
+            "id": "com.glide.has_reqs",
+            "name": "P",
+            "version": "1.0",
+            "active": "active",
+            "requires": "com.glide.oauth,com.glide.security",
+            "installed_on": "",
+        }
+    ]
+    inv = asyncio.run(_scan(_transport_for(v_plugin_rows=rows, store_rows=[])))
+    plugin = next(p for p in inv.plugins if p.plugin_id == "com.glide.has_reqs")
+    assert plugin.depends_on == ("com.glide.oauth", "com.glide.security")
+
+
+def test_fetch_counts_returns_none_on_http_202_without_warning(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """HTTP 202 means async-pending, not a fatal error -- log at DEBUG, not WARNING."""
+    transport = _transport_for(stats_status=202)
+
+    async def _run() -> dict[str, tuple[ScopeRecordCount, ...] | None]:
+        async with httpx.AsyncClient(
+            base_url="https://x.example",
+            headers={"Authorization": "Bearer t"},
+            transport=transport,
+        ) as client:
+            return await _fetch_counts(client, ("com.a", "com.b"))
+
+    with caplog.at_level(logging.INFO, logger="nexus.plugins.scanner"):
+        counts = asyncio.run(_run())
+    assert counts == {"com.a": None, "com.b": None}
+    warnings = [r for r in caplog.records if r.levelno == logging.WARNING]
+    assert warnings == [], "HTTP 202 must not log at WARNING"
+    summaries = [r for r in caplog.records if "returned HTTP 202" in r.getMessage()]
+    assert summaries, "scanner should log one summary line at INFO"

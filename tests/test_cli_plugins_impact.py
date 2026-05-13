@@ -391,4 +391,34 @@ def test_impact_warns_when_cross_scope_unavailable_and_not_opted_out(
     runner.invoke(app, ["instance", "use", "prod"])
     result = runner.invoke(app, ["plugins", "impact", "com.target"])
     assert result.exit_code == 0
-    assert "Cross-scope refs unavailable" in result.output
+    assert "Cross-scope scan unavailable" in result.output
+
+
+def test_impact_announces_skip_when_no_cross_scope_flag_used(
+    runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """--no-cross-scope must surface in the text output, not silently drop."""
+    _seed(tmp_path, "prod", (_info("com.target"),))
+    runner.invoke(app, ["instance", "use", "prod"])
+    _cross_scope_transport(monkeypatch)
+    monkeypatch.setattr("nexus.cli._acquire_token", _fake_acquire)
+    result = runner.invoke(app, ["plugins", "impact", "com.target", "--no-cross-scope"])
+    assert result.exit_code == 0
+    assert "Cross-scope scan skipped" in result.output
+
+
+def test_impact_reports_no_inbound_refs_when_scan_succeeds_with_empty_result(
+    runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Empty cross-scope result is a fact worth reporting, not silence."""
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"result": []})
+
+    monkeypatch.setattr("nexus.cli._impact_transport", lambda: httpx.MockTransport(handler))
+    monkeypatch.setattr("nexus.cli._acquire_token", _fake_acquire)
+    _seed(tmp_path, "prod", (_info("com.target"),))
+    runner.invoke(app, ["instance", "use", "prod"])
+    result = runner.invoke(app, ["plugins", "impact", "com.target"])
+    assert result.exit_code == 0
+    assert "No inbound cross-scope references" in result.output

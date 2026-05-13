@@ -201,3 +201,17 @@ def test_updates_errors_on_unknown_format_value(runner: CliRunner, tmp_path: Pat
     result = runner.invoke(app, ["plugins", "updates", "--format", "yaml"])
     assert result.exit_code == 1
     assert "Unknown --format" in result.output
+
+
+def test_updates_queue_writes_empty_file_when_up_to_date(runner: CliRunner, tmp_path: Path) -> None:
+    """--queue must always produce a file -- empty updates list when up-to-date."""
+    _seed(tmp_path, "prod", (_info("com.acme.helper", version="1.0.0"),))
+    runner.invoke(app, ["instance", "use", "prod"])
+    out_file = tmp_path / "empty-queue.yaml"
+    result = runner.invoke(app, ["plugins", "updates", "--queue", str(out_file)])
+    assert result.exit_code == 0
+    assert out_file.exists()
+    payload = _yaml.safe_load(out_file.read_text(encoding="utf-8"))
+    assert payload["updates"] == []
+    assert "Up to date" in result.output
+    assert "empty-queue.yaml" in result.output
