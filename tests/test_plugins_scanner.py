@@ -25,15 +25,20 @@ def _transport_for(
     store_rows: list[dict[str, object]] | None = None,
     stats_status: int = 200,
     stats_payload: dict[str, object] | None = None,
+    appmgr_status: int = 404,
+    appmgr_apps: list[dict[str, object]] | None = None,
 ) -> httpx.MockTransport:
-    """Build a transport that serves all three endpoints with the given rows/status."""
+    """Build a transport that serves all four endpoints with the given rows/status."""
     v_rows = v_plugin_rows if v_plugin_rows is not None else V_PLUGIN_ROWS
     s_rows = store_rows if store_rows is not None else SYS_STORE_APP_ROWS
     body: dict[str, object] = stats_payload if stats_payload is not None else {"result": []}
+    apps = appmgr_apps if appmgr_apps is not None else []
 
     def handler(req: httpx.Request) -> httpx.Response:
         if "/api/now/stats/sys_metadata" in req.url.path:
             return httpx.Response(stats_status, json=body)
+        if "/api/sn_appclient/appmanager/apps" in req.url.path:
+            return httpx.Response(appmgr_status, json={"result": {"apps": apps}})
         if "v_plugin" in req.url.path:
             return httpx.Response(v_plugin_status, json={"result": v_rows})
         if "sys_store_app" in req.url.path:
@@ -582,3 +587,68 @@ def test_fetch_counts_returns_none_on_http_202_without_warning(
     assert warnings == [], "HTTP 202 must not log at WARNING"
     summaries = [r for r in caplog.records if "returned HTTP 202" in r.getMessage()]
     assert summaries, "scanner should log one summary line at INFO"
+
+
+def test_scan_merges_appmanager_apps_into_inventory_with_latest_version() -> None:
+    """The App Manager endpoint contributes scoped apps with latest_version data."""
+    apps: list[dict[str, object]] = [
+        {
+            "sys_id": "abc",
+            "scope": "sn_csm_ec",
+            "name": "Engagement Messaging",
+            "version": "5.11.0",
+            "latest_version": "5.12.2",
+            "update_available": "1",
+            "vendor": "ServiceNow",
+        },
+        {
+            "sys_id": "def",
+            "scope": "sn_no_update",
+            "name": "Same Version",
+            "version": "2.0.0",
+            "latest_version": "2.0.0",
+            "update_available": "1",
+            "vendor": "ServiceNow",
+        },
+    ]
+    inv = asyncio.run(_scan(_transport_for(appmgr_status=200, appmgr_apps=apps)))
+    by_id = {p.plugin_id: p for p in inv.plugins}
+    assert "sn_csm_ec" in by_id
+    assert by_id["sn_csm_ec"].latest_version == "5.12.2"
+    assert by_id["sn_csm_ec"].version == "5.11.0"
+    # Same-version row carries through but latest_version normalises to None
+    assert "sn_no_update" in by_id
+    assert by_id["sn_no_update"].latest_version is None
+
+
+def test_scan_appmanager_skipped_when_endpoint_unavailable() -> None:
+    """404 / 405 / 500 on appmanager must not fail the scan; just skip the source."""
+    inv = asyncio.run(_scan(_transport_for(appmgr_status=404)))
+    # Existing v_plugin/sys_store_app rows still loaded:
+    assert any(p.plugin_id == "com.snc.incident" for p in inv.plugins)
+
+
+def test_scan_appmanager_filters_to_update_available_one_only() -> None:
+    """Rows where update_available != '1' are filtered out before merge."""
+    apps: list[dict[str, object]] = [
+        {
+            "scope": "sn_should_appear",
+            "name": "Has Update",
+            "version": "1.0",
+            "latest_version": "1.1",
+            "update_available": "1",
+            "vendor": "ServiceNow",
+        },
+        {
+            "scope": "sn_should_not_appear",
+            "name": "No Update",
+            "version": "1.0",
+            "latest_version": "1.0",
+            "update_available": "0",
+            "vendor": "ServiceNow",
+        },
+    ]
+    inv = asyncio.run(_scan(_transport_for(appmgr_status=200, appmgr_apps=apps)))
+    ids = {p.plugin_id for p in inv.plugins}
+    assert "sn_should_appear" in ids
+    assert "sn_should_not_appear" not in ids
