@@ -144,7 +144,7 @@ Infrastructure:
   scripts/sync_readme.py -- auto-updates version, Python req, test count in
     README.md on every /primer sync; warns on stub-list drift vs cli.py
 
-Tests: 833 passing. All real fakes, no mocks.
+Tests: 827 passing. All real fakes, no mocks.
 GitHub: https://github.com/pierregrothe/nexus-sn (public).
 
 ## Known Issues

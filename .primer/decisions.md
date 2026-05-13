@@ -338,3 +338,42 @@ Step 8 that runs the script if present (no-op on other projects).
 **Consequences:** /primer sync auto-updates three README fields. The zero-
 count guard prevents silently writing "0 tests" on pytest failure. The cli_found
 bool from _find_cli_stubs prevents false-positive warnings when cli.py is absent.
+
+---
+
+### 2026-05-13 -- Plugin execution full lifecycle in 2026.05.x (sub-projects M + N)
+
+**Status:** accepted
+
+**Context:** Plugin management layer (A-L+E) was assess+plan only -- no command
+could write to a SN instance. PromotionPlan YAML existed but could not be
+executed. Plugin installs, activates, and upgrades required manual SN work.
+
+**Decision:** Two sub-projects in 2026.05.x. M: additive ops (install/activate/
+upgrade/apply-plan) with ProgressPoller, sn_appclient probe + fallback, and
+best-effort rollback on partial apply failure. N: destructive ops (deactivate/
+uninstall) with mandatory impact gate (compute_impact blocks on non-zero deps;
+--force requires typing the plugin ID as second confirmation). Base plugin
+uninstall refused via REST (PluginUnsupportedError).
+
+**Consequences:** Full plugin lifecycle managed by NEXUS. assess -> plan ->
+execute -> rescan flow complete. Deactivation safety relies on the existing
+reverse-dependency graph from sub-project D2.
+
+---
+
+### 2026-05-13 -- Gantt diagram synced from roadmap.md via sync_readme.py
+
+**Status:** accepted
+
+**Context:** README.md Gantt was hand-maintained and drifted from roadmap.md
+on every roadmap change. Running /primer sync did not update the diagram.
+
+**Decision:** scripts/sync_readme.py now parses .primer/roadmap.md sections,
+infers date ranges from YYYY.MM prefixes, and regenerates the Mermaid Gantt
+between <!-- gantt --> HTML comment anchors. Runs automatically as Step 8 of
+/primer sync. No-op if anchors absent or roadmap.md missing.
+
+**Consequences:** Roadmap changes are reflected in README within one sync run.
+Foundation section uses hardcoded 2026-03/2026-05 dates. Backlog section
+skipped. Item text abbreviated at first ' -- ' separator, capped at 44 chars.

@@ -1,42 +1,39 @@
 # NEXUS -- Active Work
 
 Last updated: 2026-05-13
-Session: README sync script complete. 833 tests passing.
+Session: plugin execution design + release 2026.05.2 + Gantt sync. 827 tests.
 
 ## Current focus
 
-Codebase is at a clean rest-state on main (47cc076). The README sync
-script (`scripts/sync_readme.py`) is complete and wired into `/primer sync`
-as Step 8. Pre-edit hook now blocks emoji/icon characters while explicitly
-allowing Rich box-drawing (U+2500-U+257F).
+Codebase is at a clean rest-state on main (7308a96). Plugin execution design
+(sub-projects M + N) is approved and specced. Release 2026.05.2 is tagged and
+the GitHub Actions wheel is built. Gantt diagram in README.md now regenerates
+automatically from .primer/roadmap.md on every /primer sync.
 
-Ready to pivot to the 2026.05 active roadmap: `nexus setup` credential
-wizard is the next feature to build.
+Sub-project M (plugin execution core) is the next implementation target.
 
 ## Recent Changes
 
-- 47cc076 fix(scripts): guard zero test count, fix stub warning, export __all__
-- 4a184e8 docs(readme): update test count to 832 and add tests anchor
-- a7e0ba2 feat(scripts): sync_readme.py -- auto-update README on /primer sync
-- 84194af chore: fix README version placeholder + add scripts/ to pythonpath
-- 614d4ce docs(plans): README sync implementation plan
+- 7308a96 feat(scripts): sync Gantt from .primer/roadmap.md on /primer sync
+- 73d8645 docs(specs,roadmap): plugin execution design -- sub-projects M + N
+- 60f8154 docs(roadmap): add plugin apply engine to 2026.07 (then moved to 2026.05)
+- bcac380 chore(release): bump version to 2026.05.2
+- 09b76df feat(skills/release): bump version + update docs before tagging
 
 ## Open Blockers
 
 - MCPProbe._check_server() still stubbed.
-- PDI access-token cap (glide.oauth.access_token.expire_in.system_max_seconds)
-  keeps tokens at 30 min regardless of token_lifetime request.
+- PDI access-token cap keeps tokens at 30 min regardless of token_lifetime.
 - knowledge/mastery/ empty.
 - setup, sync, templates, assess commands raise NotImplementedError.
-- README stubs list (4 commands) diverges from cli.py stubs (7 commands:
-  apply, assess, rollback, run, setup, sync, templates). Needs manual fix.
+- README stubs list: templates_cmd in cli.py vs templates in README (naming gap).
 
 ## Next Steps
 
-1. Fix README stubs list to match cli.py (add apply, rollback, run).
-2. nexus setup command -- credential wizard, config write, initial sync.
-3. GitHubSync -- manifest fetch + template download from GitHub.
+1. Sub-project M: PluginExecutor + ProgressPoller + install/activate/upgrade/apply
+2. Sub-project N: deactivate/uninstall + mandatory impact gate
+3. nexus setup credential wizard (after M+N)
 
 ## Branch / remote state
 
-main: 47cc076. No active feature branch.
+main: 7308a96. No active feature branch.

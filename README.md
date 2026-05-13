@@ -123,7 +123,7 @@ gantt
 
 ## What is implemented
 
-<!-- tests -->825 tests passing, all real fakes, no mocks.<!-- /tests -->
+<!-- tests -->827 tests passing, all real fakes, no mocks.<!-- /tests -->
 
 The following commands are fully functional:
 
