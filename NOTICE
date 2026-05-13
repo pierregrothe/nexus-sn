@@ -1,0 +1,58 @@
+NEXUS
+Copyright 2026 Pierre Grothe (pierre.grothe@servicenow.com)
+
+This product is licensed under the Apache License, Version 2.0.
+You may obtain a copy of the License at:
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+------------------------------------------------------------------------
+
+ATTRIBUTION REQUIREMENT
+
+Any product, publication, presentation, or derivative work that is based
+on or substantially inspired by NEXUS -- including its architecture,
+plugin management system, AI orchestration patterns, ServiceNow
+integration approach, or template distribution model -- must include the
+following attribution in a location visible to end users (such as a
+README, About screen, documentation, or credits section):
+
+    Based on NEXUS by Pierre Grothe
+    https://github.com/pierregrothe/nexus-sn
+
+------------------------------------------------------------------------
+
+ORIGIN
+
+NEXUS was designed and authored by Pierre Grothe in May 2026 as a
+ServiceNow AI architect agent and configuration package manager. It
+succeeds JARVIS (by Zach Zoretich) and introduces a fundamentally new
+approach: declarative YAML templates as first-class versioned artifacts,
+an AI-assisted execution engine with assessment gates, and a full plugin
+management lifecycle backed by the ServiceNow REST API.
+
+Core innovations originated in this project:
+  - Declarative YAML template registry with Gate 1 / Gate 2 assessment
+  - Plugin lifecycle management (scan, assess, diff, promote, execute)
+  - Bidirectional ServiceNow configuration transport (capture layer)
+  - AI recommendation engine for plugin deactivation and roadmap planning
+  - CalVer-tagged auto-update mechanism via GitHub Releases
+
+------------------------------------------------------------------------
+
+THIRD-PARTY COMPONENTS
+
+This software uses the following open-source components. Their licenses
+are compatible with Apache 2.0 and their terms are reproduced in full
+in the respective package distributions.
+
+  claude-agent-sdk      -- Anthropic (MIT)
+  httpx                 -- encode/httpx (BSD)
+  pydantic              -- Samuel Colvin (MIT)
+  pydantic-settings     -- Samuel Colvin (MIT)
+  typer                 -- Sebastian Ramirez (MIT)
+  rich                  -- Will McGugan (MIT)
+  keyring               -- Jason R. Coombs (MIT)
+  pyyaml                -- Kirill Simonov (MIT)
+  packaging             -- Donald Stufft and contributors (BSD/Apache)
+  diskcache             -- Grant Jenks (Apache 2.0)
