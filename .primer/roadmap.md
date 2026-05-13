@@ -20,6 +20,15 @@
 - [x] Unified CLI UI library (ui/components/ -- StatusBadge, KeyValuePanel,
       DataTable, CommandGuide, Hint, Notice; themed discovery views + leaf help)
 
+## 2026.05 -- Plugin Execution [active]
+- [ ] Sub-project M: Plugin execution core -- nexus plugins install / activate /
+      upgrade / apply <plan.yaml>; PluginExecutor + ProgressPoller + OperationResult;
+      sn_appclient probe with app-management + v_plugin fallback; rollback on
+      partial apply-plan failure
+- [ ] Sub-project N: Destructive operations -- nexus plugins deactivate / uninstall;
+      mandatory impact gate (block on non-zero reverse deps / cross-scope refs);
+      --force escape with double confirmation; base plugin uninstall refused
+
 ## 2026.05 -- Setup + Sync [active]
 - [ ] nexus setup command -- credential wizard, config write, initial sync
 - [ ] GitHubSync -- manifest fetch + template download
@@ -40,9 +49,6 @@
 - [ ] ExecutionContext enrichment from enterprise MCP
 - [ ] Multi-step orchestration via Planner + Dispatcher
 - [ ] Rollback manager for failed deployments
-- [ ] Plugin apply engine -- execute PromotionPlan against SN (install, activate,
-      upgrade via store/plugin REST endpoints); approval gate, async activation
-      polling, per-action rollback on failure; feeds from nexus plugins promote
 
 ## 2026.08 -- Distribution [planned]
 - [ ] 100% line coverage, mypy strict, ruff 0 violations
