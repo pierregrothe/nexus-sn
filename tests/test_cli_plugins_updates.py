@@ -205,7 +205,11 @@ def test_updates_errors_on_unknown_format_value(runner: CliRunner, tmp_path: Pat
 
 def test_updates_queue_writes_empty_file_when_up_to_date(runner: CliRunner, tmp_path: Path) -> None:
     """--queue must always produce a file -- empty updates list when up-to-date."""
-    _seed(tmp_path, "prod", (_info("com.acme.helper", version="1.0.0"),))
+    _seed(
+        tmp_path,
+        "prod",
+        (_info("com.acme.helper", version="1.0.0", latest_version="1.0.0"),),
+    )
     runner.invoke(app, ["instance", "use", "prod"])
     out_file = tmp_path / "empty-queue.yaml"
     result = runner.invoke(app, ["plugins", "updates", "--queue", str(out_file)])
@@ -215,3 +219,15 @@ def test_updates_queue_writes_empty_file_when_up_to_date(runner: CliRunner, tmp_
     assert payload["updates"] == []
     assert "Up to date" in result.output
     assert "empty-queue.yaml" in result.output
+
+
+def test_updates_warns_when_no_latest_version_data_captured(
+    runner: CliRunner, tmp_path: Path
+) -> None:
+    """When every plugin lacks latest_version, surface the diagnostic Hint."""
+    _seed(tmp_path, "prod", (_info("com.acme.helper", version="1.0.0"),))
+    runner.invoke(app, ["instance", "use", "prod"])
+    result = runner.invoke(app, ["plugins", "updates"])
+    assert result.exit_code == 0
+    assert "No latest_version data captured" in result.output
+    assert "app_store_pa_user_role" in result.output

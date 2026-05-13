@@ -292,8 +292,8 @@ def test_leaf_invocation_with_flag_runs_command_not_help(
     assert result.exit_code == 0
     # Not the help panel -- guard let the body run:
     assert "Purpose:" not in result.output
-    # Body printed its own "Up to date" notice (no pending updates in seeded inventory):
-    assert "Up to date" in result.output
+    # Body ran (seeded inventory has no latest_version data -> diagnostic Hint):
+    assert "No latest_version data captured" in result.output
 
 
 def test_required_positional_bare_shows_help_not_missing_arg_error(
