@@ -108,12 +108,13 @@ class PluginScanner:
             timeout=30.0,
             transport=self._transport,
         ) as client:
-            (v_rows, v_err), (s_rows, s_err) = await asyncio.gather(
+            (v_rows, v_err), (s_rows, s_err), appmgr_rows = await asyncio.gather(
                 self._fetch(client, "v_plugin", _V_PLUGIN_FIELDS),
                 self._fetch(client, "sys_store_app", _STORE_FIELDS),
+                _fetch_appmanager_updates(client),
             )
 
-            if v_err is not None and s_err is not None:
+            if v_err is not None and s_err is not None and not appmgr_rows:
                 raise PluginScanError(s_err[0], s_err[1])
 
             by_id: dict[str, PluginInfo] = {}
@@ -124,6 +125,18 @@ class PluginScanner:
                 info = self._from_store(row)
                 # sys_store_app wins on conflict because it carries vendor.
                 by_id[info.plugin_id] = info
+            for row in appmgr_rows:
+                info = self._from_appmanager(row)
+                # appmanager only contributes when its scope is genuinely a
+                # new app (newer scoped apps that don't appear in v_plugin)
+                # OR when an existing entry lacks latest_version data.
+                existing = by_id.get(info.plugin_id)
+                if existing is None:
+                    by_id[info.plugin_id] = info
+                elif existing.latest_version is None and info.latest_version is not None:
+                    by_id[info.plugin_id] = existing.model_copy(
+                        update={"latest_version": info.latest_version}
+                    )
 
             if capture_counts:
                 breakdown = await _fetch_counts(client, tuple(by_id.keys()))
@@ -222,6 +235,34 @@ class PluginScanner:
             vendor=vendor,
         )
 
+    def _from_appmanager(self, row: dict[str, object]) -> PluginInfo:
+        """Build a PluginInfo from a /api/sn_appclient/appmanager/apps row.
+
+        The App Manager endpoint surfaces modern scoped apps (sn_*) that
+        do not appear in v_plugin. Each row carries ``scope`` (the canonical
+        plugin id), ``version`` (current), and ``latest_version`` (newest
+        available -- already discriminated by ``update_available == "1"``).
+        """
+        plugin_id = str(row.get("scope", ""))
+        vendor = str(row.get("vendor", "") or "")
+        version = str(row.get("version", ""))
+        latest = str(row.get("latest_version", "")) or None
+        if latest == version:
+            latest = None
+        return PluginInfo(
+            plugin_id=plugin_id,
+            name=str(row.get("name", plugin_id)),
+            version=version,
+            state="active",
+            source=_source_for(plugin_id, vendor=vendor),
+            product_family=product_family_for(plugin_id).value,
+            depends_on=(),
+            sys_id=str(row.get("sys_id", "")),
+            installed_at=None,
+            latest_version=latest,
+            vendor=vendor,
+        )
+
 
 _ACTIVE_STATES = frozenset({"true", "1", "yes", "active", "installed", "enabled"})
 
@@ -292,6 +333,57 @@ def _parse_dt(value: object) -> datetime | None:
         return datetime.strptime(str(value), "%Y-%m-%d %H:%M:%S").replace(tzinfo=UTC)
     except ValueError:
         return None
+
+
+_APPMANAGER_PATH = "/api/sn_appclient/appmanager/apps"
+_APPMANAGER_TAB_CONTEXT = "updates"
+
+
+async def _fetch_appmanager_updates(client: httpx.AsyncClient) -> tuple[dict[str, object], ...]:
+    """Fetch app entries with available updates from SN's Application Manager.
+
+    This endpoint is undocumented in the public REST API reference but is
+    what the SN Application Manager UI itself calls. It surfaces modern
+    scoped apps (``sn_*``) that do not appear in ``v_plugin`` and is
+    readable with regular admin credentials when ``sys_store_app`` REST
+    access is denied.
+
+    Each returned row carries: ``scope``, ``version``, ``latest_version``,
+    ``update_available``, ``vendor``, ``name``, ``sys_id``.
+
+    Args:
+        client: Open httpx.AsyncClient bound to the instance URL.
+
+    Returns:
+        Tuple of app rows where ``update_available == "1"``. Empty when
+        the endpoint is unavailable, returns a non-2xx status, or returns
+        malformed JSON.
+    """
+    try:
+        resp = await client.post(
+            f"{_APPMANAGER_PATH}?tab_context={_APPMANAGER_TAB_CONTEXT}",
+            headers={"Content-Type": "application/json"},
+            content="{}",
+        )
+    except httpx.RequestError as exc:
+        log.warning("plugin scan: appmanager endpoint unreachable -- %s", exc)
+        return ()
+    if resp.status_code != 200:
+        log.info(
+            "plugin scan: appmanager endpoint returned HTTP %d -- skipping",
+            resp.status_code,
+        )
+        return ()
+    try:
+        payload = resp.json()
+        apps_obj = payload.get("result", {}).get("apps", [])
+    except (KeyError, ValueError, TypeError) as exc:
+        log.warning("plugin scan: appmanager response malformed -- %s", exc)
+        return ()
+    if not isinstance(apps_obj, list):
+        return ()
+    apps = cast(list[dict[str, object]], apps_obj)
+    return tuple(app for app in apps if str(app.get("update_available", "")) == "1")
 
 
 _DEFAULT_COUNTS_CONCURRENCY = 16
