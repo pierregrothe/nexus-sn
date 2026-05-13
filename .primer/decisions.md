@@ -16,21 +16,24 @@ Append-only record of architectural and design decisions.
 **Consequences:** What follows from this decision.
 ```
 
-### 2026-05-07 -- API-direct architecture (no Claude Code dependency)
+### 2026-05-07 -- API-direct architecture (original intent)
 
-**Status:** accepted
+**Status:** superseded by ADR-015 (2026-05-08)
 
 **Context:** JARVIS required Claude Code + MCP protocol + Node.js, limiting deployment
 to developers who had Claude Desktop or Claude Code installed.
 
-**Decision:** NEXUS calls the Anthropic API directly using the Python SDK.
-No Claude Code, no MCP protocol, no Node.js. Ships as a pip package that
-runs on Windows, macOS, and Linux identically.
+**Decision (original):** NEXUS calls the Anthropic API directly using the Python SDK.
+No MCP server hosted by NEXUS. Ships as a pip package.
 
-**Consequences:** NEXUS can be installed anywhere Python runs. Enterprise MCP servers
-(Value Melody, SSC, BT1, etc.) are accessed via the Claude Enterprise API key's
-server-sent events channel, not via a local MCP host process. The capability probing
-layer must handle absent enterprise MCP gracefully.
+**Why superseded:** The standard Anthropic SDK with OAuth tokens was 429-gated at
+/v1/messages. The claude-agent-sdk was adopted instead (ADR-015), which spawns the
+Claude Code CLI as a subprocess. Claude Code CLI >= 2.0.0 is now a hard runtime
+dependency. NEXUS itself does not host or require an MCP server, which remains true.
+
+**Consequences (corrected):** NEXUS requires Python + Claude Code CLI installed and
+authenticated. Enterprise MCP servers are accessed through the Claude Enterprise
+account configuration, not via a local MCP host process.
 
 ---
 
@@ -126,25 +129,16 @@ testing only runs on release tags.
 
 **Status:** superseded by ADR-015 (2026-05-08)
 
-**Context:** Original design (ADR-001) assumed users would have Anthropic API keys.
-Smoke-test reality check exposed the gap: getting a key from ServiceNow's enterprise
-Claude account is a lengthy process; personal keys violate company AI usage guidelines
-and lack access to org MCP servers. Anthropic forbids third parties from offering
-claude.ai login flows -- but the Claude Agent SDK reads OAuth tokens from Claude Code's
-stored credentials, and the standard Anthropic SDK accepts those tokens via auth_token=.
+**Context:** Original design assumed users would have Anthropic API keys or could
+use Claude Code's stored OAuth token via the standard anthropic SDK (auth_token=).
+Both paths were policy-gated at /v1/messages and returned 429 in practice.
 
-**Decision:** AnthropicClient takes a Sequence[AuthProvider] instead of api_key:str.
-The default chain (get_default_providers()) is [ClaudeCodeOAuthProvider, AnthropicAPIKeyProvider].
-OAuth provider reads token from CLAUDE_CODE_OAUTH_TOKEN env, then ~/.claude/.credentials.json,
-then macOS Keychain ("Claude Code-credentials" via keyring lib). API key provider is
-the fallback for users without Claude Code. The architecture supports future Bedrock,
-Vertex, and Foundry providers without further interface changes.
+**Decision (deleted):** AnthropicClient + AuthProvider abstraction -- entirely removed
+in ADR-015. All auth code in auth/claude.py and the AuthProvider chain was deleted.
 
-**Consequences:** Users authenticated to Claude Code (the typical case for ServiceNow
-employees) get API access for free, including their org's MCP servers. ADR-001 (API-direct)
-remains valid -- still calling Anthropic directly via the standard SDK; OAuth uses the
-Bearer auth header (auth_token=) instead of X-Api-Key. Spec at
-docs/superpowers/specs/2026-05-07-pluggable-auth-design.md (PR #1).
+**Consequences:** Superseded without replacement -- ADR-015 delegates all auth to
+claude-agent-sdk, which handles the credential chain internally. Spec at
+docs/superpowers/specs/2026-05-07-pluggable-auth-design.md (PR #1, code since removed).
 
 ---
 
@@ -163,11 +157,13 @@ credentials -- succeeds.
 AgentClient async wrapper. Delete the AuthProvider abstraction (Agent SDK
 handles auth internally). Drop the anthropic package dependency.
 
-**Consequences:** NEXUS users with Claude Code installed get transparent
-LLM access. Subprocess overhead per call (~500ms-30s including SessionStart
-hooks). PR-#1's AuthProvider work is largely deleted (~250 lines removed,
-~150 lines added). ADR-001 partially superseded; the 2026-05-07
-AuthProvider entry is superseded by ADR-015.
+**Consequences:** Claude Code CLI >= 2.0.0 is a hard runtime dependency --
+the SDK raises CLINotFoundError if the CLI is absent. NEXUS cannot function
+without it. Auth chain inside the SDK: ANTHROPIC_API_KEY env >
+CLAUDE_CODE_OAUTH_TOKEN env > ~/.claude/.credentials.json > macOS Keychain.
+Subprocess overhead per call (~500ms-30s including SessionStart hooks).
+PR-#1's AuthProvider work deleted (~250 lines removed, ~150 lines added).
+ADR-001 partially superseded; AuthProvider entry superseded by ADR-015.
 Spec at docs/superpowers/specs/2026-05-08-agent-sdk-migration-design.md.
 
 
