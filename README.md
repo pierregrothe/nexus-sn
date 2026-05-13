@@ -2,8 +2,7 @@
 
 ServiceNow AI architect agent -- standalone CLI and optional web dashboard.
 
-Uses the Anthropic API directly. No Claude Code or Claude Desktop required.
-Runs on Windows, macOS, and Linux.
+Uses the Claude Agent SDK. Runs on Windows, macOS, and Linux.
 
 ## Architecture
 
@@ -38,9 +37,28 @@ graph TB
 
 ## Install
 
+Not yet on PyPI. Install from the latest GitHub release wheel or from source.
+
+**From the latest release wheel (recommended):**
+
 ```bash
-pip install nexus-sn          # CLI only
-pip install nexus-sn[ui]      # CLI + NiceGUI dashboard
+pip install https://github.com/pierregrothe/nexus-sn/releases/download/2026.05.1/nexus_sn-2026.5.1-py3-none-any.whl
+```
+
+**From source:**
+
+```bash
+git clone https://github.com/pierregrothe/nexus-sn.git
+cd nexus-sn
+pip install .
+```
+
+**With the optional NiceGUI dashboard:**
+
+```bash
+pip install "nexus_sn-2026.5.1-py3-none-any.whl[ui]"   # wheel
+# or
+pip install ".[ui]"                                       # from source
 ```
 
 ## Quick start

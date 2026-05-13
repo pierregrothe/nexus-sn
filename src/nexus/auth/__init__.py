@@ -4,14 +4,12 @@
 # Date: 2026-05-07
 """Credential storage and retrieval for NEXUS."""
 
-from nexus.auth.claude import ClaudeAuth
 from nexus.auth.errors import AuthError
 from nexus.auth.external_keychain import ExternalKeychainClient
 from nexus.auth.keychain import KeychainClient
 
 __all__ = [
     "AuthError",
-    "ClaudeAuth",
     "ExternalKeychainClient",
     "KeychainClient",
 ]

@@ -10,10 +10,8 @@ Config layer:
 Auth layer:
   KeychainClient + FakeKeychainClient -- OS keychain via keyring
   ExternalKeychainClient -- cross-app keychain reads (e.g., Claude Code credentials)
-  ClaudeAuth -- scaffolded keychain module for API key storage (unused; auth
-    handled by claude-agent-sdk reading Claude Code OAuth credentials)
-  SNAuth -- ServiceNow credentials retrieval
   AuthError hierarchy
+  LLM auth delegated entirely to claude-agent-sdk (no NEXUS-owned credential)
 
 Capabilities layer:
   FeatureFlag, MCPServer enums
