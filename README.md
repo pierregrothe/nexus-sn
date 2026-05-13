@@ -1,5 +1,9 @@
 # NEXUS
 
+<p align="center">
+  <img src="docs/assets/banner.svg" alt="NEXUS" width="900">
+</p>
+
 <!-- badges -->
 [![Release](https://img.shields.io/github/v/release/pierregrothe/nexus-sn)](https://github.com/pierregrothe/nexus-sn/releases)
 [![CI](https://github.com/pierregrothe/nexus-sn/actions/workflows/ci.yml/badge.svg)](https://github.com/pierregrothe/nexus-sn/actions/workflows/ci.yml)
