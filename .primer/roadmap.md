@@ -40,6 +40,9 @@
 - [ ] ExecutionContext enrichment from enterprise MCP
 - [ ] Multi-step orchestration via Planner + Dispatcher
 - [ ] Rollback manager for failed deployments
+- [ ] Plugin apply engine -- execute PromotionPlan against SN (install, activate,
+      upgrade via store/plugin REST endpoints); approval gate, async activation
+      polling, per-action rollback on failure; feeds from nexus plugins promote
 
 ## 2026.08 -- Distribution [planned]
 - [ ] 100% line coverage, mypy strict, ruff 0 violations
