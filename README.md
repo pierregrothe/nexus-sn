@@ -81,43 +81,19 @@ gantt
     title NEXUS Development Roadmap
     dateFormat YYYY-MM
     section Foundation
-        Config, auth, capabilities layers            :done, 2026-03, 2026-05
-        ServiceNow REST connector + error hierarchy  :done, 2026-03, 2026-05
-        ConnectorProtocol plugin system              :done, 2026-03, 2026-05
-        Instance management                          :done, 2026-03, 2026-05
-        CLI skeleton                                 :done, 2026-03, 2026-05
-        CI/CD lint, tests, release, template val...  :done, 2026-03, 2026-05
-        AgentClient backed by claude-agent-sdk       :done, 2026-03, 2026-05
-        nexus status command                         :done, 2026-03, 2026-05
-        nexus.capture layer                          :done, 2026-03, 2026-05
-        nexus capture command                        :done, 2026-03, 2026-05
-        nexus.plugins layer                          :done, 2026-03, 2026-05
-        nexus plugins command                        :done, 2026-03, 2026-05
-        Unified CLI UI library                       :done, 2026-03, 2026-05
+        Foundation                   :done, 2026-03, 2026-05
     section Plugin Execution
-        Sub-project M Plugin execution core          :active, 2026-05, 2026-06
-        Sub-project N Destructive operations         :active, 2026-05, 2026-06
+        Plugin Execution             :active, 2026-05, 2026-06
     section Setup + Sync
-        nexus setup command                          :active, 2026-05, 2026-06
-        GitHubSync                                   :active, 2026-05, 2026-06
-        TemplateRegistry                             :active, 2026-05, 2026-06
+        Setup + Sync                 :active, 2026-05, 2026-06
     section Assessment
-        RuleEngine + AssessmentReporter              : 2026-06, 2026-07
-        nexus assess command                         : 2026-06, 2026-07
-        Gate 1 readiness check + Gate 2 validatio... : 2026-06, 2026-07
+        Assessment                   : 2026-06, 2026-07
     section Template Library
-        NowAssistSkill + Workflow Pydantic schemas   : 2026-06, 2026-07
-        First 3+ community templates in templates/   : 2026-06, 2026-07
-        Template apply engine                        : 2026-06, 2026-07
+        Template Library             : 2026-06, 2026-07
     section Agent Specialists
-        8 domain specialist agents implemented       : 2026-07, 2026-08
-        ExecutionContext enrichment from enterpri... : 2026-07, 2026-08
-        Multi-step orchestration via Planner + Di... : 2026-07, 2026-08
-        Rollback manager for failed deployments      : 2026-07, 2026-08
+        Agent Specialists            : 2026-07, 2026-08
     section Distribution
-        100% line coverage, mypy strict, ruff 0 v... : 2026-08, 2026-09
-        README + getting started documentation       : 2026-08, 2026-09
-        PyPI publish                                 : 2026-08, 2026-09
+        Distribution                 : 2026-08, 2026-09
 ```
 <!-- /gantt -->
 

@@ -230,6 +230,10 @@ def _section_dates(label: str) -> tuple[str, str] | None:
 def _gen_gantt(sections: list[_RoadmapSection]) -> str:
     """Render roadmap sections as a Mermaid Gantt fenced code block.
 
+    One summary bar per section (milestone view). Per-item bars were
+    discarded because 1-2 month bars cannot fit long task labels -- text
+    overflows outside the box in GitHub's renderer.
+
     Args:
         sections: Parsed roadmap sections from _parse_roadmap().
 
@@ -249,24 +253,16 @@ def _gen_gantt(sections: list[_RoadmapSection]) -> str:
         if dates is None:
             continue
         start, end = dates
+        # Strip YYYY.MM prefix to produce a short section/bar label.
         display = re.sub(r"^\d{4}\.\d{2}\s*--\s*", "", sec.label).strip()
+        if sec.status == "done":
+            marker = ":done,"
+        elif sec.status == "active":
+            marker = ":active,"
+        else:
+            marker = ":"
         lines.append(f"    section {display}")
-        for item_text, item_done in sec.items:
-            if item_done or sec.status == "done":
-                marker = ":done,"
-            elif sec.status == "active":
-                marker = ":active,"
-            else:
-                marker = ""
-            # Mermaid uses ':' as the task-data separator, so colons inside
-            # task names break the parser. Strip them before building the line.
-            safe_text = item_text.replace(":", "")
-            entry = f"        {safe_text:<44}"
-            # Planned items have no status keyword; use bare ': start, end'.
-            if marker:
-                lines.append(f"{entry} {marker} {start}, {end}")
-            else:
-                lines.append(f"{entry} : {start}, {end}")
+        lines.append(f"        {display:<28} {marker} {start}, {end}")
         has_content = True
     if not has_content:
         return ""
