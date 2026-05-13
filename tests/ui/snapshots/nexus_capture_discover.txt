@@ -1,5 +1,5 @@
-+-- Custom scopes on prod -----------------------------------------------------+
-| Scope Key                          Name                           Skl   Flow |
-| x_snc_app                          ACME App                         3     12 |
-| x_snc_helper                       ACME Helper                      0      5 |
-+------------------------------------------------------------------------------+
+╭── Custom scopes on prod ─────────────────────────────────────────────────────╮
+│ Scope Key                          Name                           Skl   Flow │
+│ x_snc_app                          ACME App                         3     12 │
+│ x_snc_helper                       ACME Helper                      0      5 │
+╰──────────────────────────────────────────────────────────────────────────────╯

@@ -12,6 +12,13 @@
 - [x] nexus.capture layer (ScopeDiscoverer, ConfigFetcher, ArchiveWriter/Reader,
       UpdateSetXmlBuilder, UpdateSetWriter, CaptureEngine)
 - [x] nexus capture command (discover, pull, list, push)
+- [x] nexus.plugins layer -- 13 sub-projects (inventory, diff, updates, advisories,
+      orphans, impact, cleanups, drift, inventory-refinements, cross-scope,
+      multi-baseline, advisory-overrides, AI-recommendations) + UAT defect fixes
+- [x] nexus plugins command -- full subapp (scan, list, info, inventory, impact,
+      advisories, orphans, diff, updates, drift, baselines, recommend, export)
+- [x] Unified CLI UI library (ui/components/ -- StatusBadge, KeyValuePanel,
+      DataTable, CommandGuide, Hint, Notice; themed discovery views + leaf help)
 
 ## 2026.05 -- Setup + Sync [active]
 - [ ] nexus setup command -- credential wizard, config write, initial sync

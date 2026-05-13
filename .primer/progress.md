@@ -51,11 +51,20 @@ Updater layer:
 
 UI layer:
   NEXUS_THEME + themed Console -- ServiceNow brand colors
+  Semantic tokens: label/value/ok/warn/error/border.* styles
   GradientPanel -- Rich renderable with left-to-right RGB gradient border
   gradient_text() -- per-character RGB gradient coloring for value strings
   SN_BLUE, SN_LIME, SN_TEXT_START -- ServiceNow brand gradient stops
   banner_text() / print_banner() -- SN_BLUE->SN_LIME gradient NEXUS ASCII art
   StatusReporter -- 3-row dashboard (Identity | System, Integrations, Diagnostics | Auto-update)
+  ui.components/ -- unified CLI component library (wired across all commands):
+    StatusBadge -- ok/warn/error styled label-value chip
+    KeyValuePanel, two_col -- key-value panel with optional two-column layout
+    DataTable (DataColumn) -- typed Rich table with column definitions
+    CommandGuide -- themed help panel (badge + description + option rows + examples)
+    Hint -- contextual inline tip rendered below panels
+    Notice -- info/warn/error/success notice boxes with classmethod constructors
+    default_marker, nexus_progress -- marker glyph + progress bar factories
 
 Agents base:
   AgentProtocol, ExecutionContext, AgentResult
@@ -63,6 +72,7 @@ Agents base:
 Instances layer (fully functional end-to-end):
   InstanceMeta + InstanceSnapshot + ArtifactRecord -- Pydantic frozen models
   InstanceRegistry -- profile directory read/write, snapshot persistence
+  token_badge() -- StatusBadge factory for token expiry display
   SNOAuthClient -- OAuth2 Password Grant exchange + keychain token lifecycle
     _Account StrEnum -- typed keychain account keys
     UtcDatetime alias -- shared UTC validator
@@ -106,14 +116,19 @@ Plugins layer (plugin management roadmap A-L + E, 13 sub-projects):
 
 CLI:
   nexus status -- fully implemented (banner + tier detection + StatusReporter)
-  nexus instance -- full subapp, invoke_without_command shows list + quickstart
-  nexus capture -- discover, pull, list, push subcommands
-  nexus plugins -- scan, list, inventory, impact, advisories
-    (incl. defer/undo-defer/list-deferred), orphans, diff, updates, drift,
-    baselines list/delete, recommend deactivate/explain/roadmap, export
+  nexus instance -- full subapp; bare invocation shows two-box discovery view
+    (list + CommandGuide); all subcommands have themed help on bare invocation
+  nexus capture -- discover, pull, list, push; bare invocation shows discovery view
+  nexus plugins -- scan, list, info, inventory, impact (incl. --no-cross-scope,
+    --live, --format json), advisories (incl. defer/undo-defer/list-deferred,
+    --strict), orphans, diff, updates, drift (--ack, --strict, --baseline,
+    --format json), baselines list/delete, recommend deactivate/explain/roadmap,
+    export (yaml/csv); bare invocation shows two-box discovery view
   nexus reauth -- prints one-shot command for servers needing re-auth
   nexus update / --refresh -- manual update check + cache clear
-  setup, sync, templates, assess -- stubs
+  Every leaf command shows themed help panel (badge + options + examples) on bare
+    invocation (no arguments), replacing generic Typer default help
+  setup, sync, templates, assess -- stubs (raise NotImplementedError)
 
 Governance enforcement:
   Pre-edit hook (.claude/hooks/pre-edit-validate.py) -- 10 blocking rules
@@ -128,7 +143,7 @@ Infrastructure:
   .ratchet.json -- coverage baseline for all implemented modules
   .github/workflows/ci.yml + release.yml -- lean CI + GitHub Releases auto-update
 
-Tests: 780 passing. All real fakes, no mocks.
+Tests: 824 passing. All real fakes, no mocks.
 GitHub: https://github.com/pierregrothe/nexus-sn (public).
 
 ## Known Issues
