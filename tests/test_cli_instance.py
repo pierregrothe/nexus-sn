@@ -348,3 +348,48 @@ def test_instance_refresh_without_no_counts_flag_captures_counts_by_default(
     result = runner.invoke(app, ["instance", "refresh", "prod"])
     assert result.exit_code == 0, result.output
     assert captured.get("capture_counts") is True
+
+
+def test_instance_use_with_no_arg_and_single_profile_auto_picks(
+    runner: CliRunner, tmp_path: Path
+) -> None:
+    """One registered instance + 'instance use' (no arg) -> auto-promote it."""
+    _write_meta(tmp_path, _meta("only"))
+    result = runner.invoke(app, ["instance", "use"])
+    assert result.exit_code == 0, result.output
+    assert "Only one instance registered" in result.output
+    assert "Default instance set to 'only'" in result.output
+
+
+def test_instance_use_with_no_arg_and_no_profiles_errors(runner: CliRunner, tmp_path: Path) -> None:
+    """'instance use' (no arg, no instances) -> Exit 1 with Hint."""
+    result = runner.invoke(app, ["instance", "use"])
+    assert result.exit_code == 1
+    assert "No instances registered" in result.output
+    assert "nexus instance register" in result.output
+
+
+def test_instance_use_with_no_arg_and_multiple_profiles_picks_via_prompt(
+    runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Multiple instances + 'instance use' -> interactive picker reads stdin."""
+    _write_meta(tmp_path, _meta("dev"))
+    _write_meta(tmp_path, _meta("prod"))
+    monkeypatch.setattr(typer, "prompt", scripted_prompt(["2"]))
+    result = runner.invoke(app, ["instance", "use"])
+    assert result.exit_code == 0, result.output
+    assert "Multiple instances registered" in result.output
+    # Second entry (alphabetically 'prod') becomes default
+    assert "Default instance set to" in result.output
+
+
+def test_instance_delete_promotes_survivor_when_only_one_remains(
+    runner: CliRunner, tmp_path: Path
+) -> None:
+    """Deleting the default with exactly one survivor -> auto-promote it."""
+    _write_meta(tmp_path, _meta("dev"))
+    _write_meta(tmp_path, _meta("prod"))
+    runner.invoke(app, ["instance", "use", "dev"])
+    result = runner.invoke(app, ["instance", "delete", "dev", "--force"])
+    assert result.exit_code == 0, result.output
+    assert "Default instance promoted to 'prod'" in result.output

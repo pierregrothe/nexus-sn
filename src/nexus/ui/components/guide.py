@@ -54,7 +54,7 @@ class CommandGuide(BaseModel):
             expand=True,
         )
         table.add_column("cmd", no_wrap=True, ratio=2, overflow="fold")
-        table.add_column("desc", style="dim", ratio=3, overflow="fold")
+        table.add_column("desc", style="value", ratio=3, overflow="fold")
         for cmd, desc in self.items:
             cmd_text = gradient_text(
                 f"{self.app_name} {cmd}",
