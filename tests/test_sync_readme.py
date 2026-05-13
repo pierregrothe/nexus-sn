@@ -180,6 +180,41 @@ def test_sync_readme_warns_when_test_count_is_zero(tmp_path: Path) -> None:
     assert "<!-- tests -->" not in content
 
 
+def test_sync_readme_updates_gantt_when_roadmap_changes(tmp_path: Path) -> None:
+    readme = _README_BASE.replace(
+        "## What is implemented\n",
+        "## Roadmap\n\n<!-- gantt -->\n```mermaid\ngantt\n    old content\n```\n<!-- /gantt -->\n\n## What is implemented\n",
+    )
+    root = _make_project(tmp_path, readme)
+    primer_dir = root / ".primer"
+    primer_dir.mkdir()
+    (primer_dir / "roadmap.md").write_text(
+        "# Roadmap\n\n## Foundation [done]\n- [x] Config layer\n\n## 2026.05 -- Setup [active]\n- [ ] nexus setup command\n",
+        encoding="utf-8",
+    )
+    result = sync_readme(root, pytest_runner=FakePytest(100))
+    assert "gantt" in result.changed
+    content = (root / "README.md").read_text(encoding="utf-8")
+    assert "old content" not in content
+    assert "section Foundation" in content
+    assert "section Setup" in content
+    assert ":done," in content
+    assert ":active," in content
+
+
+def test_sync_readme_gantt_no_change_when_roadmap_absent(tmp_path: Path) -> None:
+    readme = _README_BASE.replace(
+        "## What is implemented\n",
+        "## Roadmap\n\n<!-- gantt -->\n```mermaid\ngantt\n    handcrafted\n```\n<!-- /gantt -->\n\n## What is implemented\n",
+    )
+    root = _make_project(tmp_path, readme)
+    # No .primer/roadmap.md -- Gantt must be left unchanged
+    result = sync_readme(root, pytest_runner=FakePytest(100))
+    assert "gantt" not in result.changed
+    content = (root / "README.md").read_text(encoding="utf-8")
+    assert "handcrafted" in content
+
+
 def test_sync_readme_exits_1_if_readme_missing(tmp_path: Path) -> None:
     (tmp_path / "pyproject.toml").write_text(_PYPROJECT, encoding="utf-8")
     # README.md deliberately absent

@@ -11,6 +11,7 @@ Reads:
   - pyproject.toml: version, python requirement
   - pytest --collect-only -q: test count
   - src/nexus/cli.py: stub command names
+  - .primer/roadmap.md: roadmap sections for Gantt regeneration
 
 Writes README.md in-place. Prints a summary of changed fields.
 
@@ -37,9 +38,22 @@ __all__ = [
 REPO_ROOT = Path(__file__).parent.parent
 
 _APP_CMD_RE = re.compile(r"@\w+(?:\.\w+)*\.command\(")
+_GANTT_RE = re.compile(r"<!-- gantt -->.*?<!-- /gantt -->", re.DOTALL)
+_SECTION_RE = re.compile(r"^## (.+?)(?:\s*\[(done|active|planned)\])?\s*$")
+_ITEM_RE = re.compile(r"^- \[([ x])\]\s*(.+)")
+_YEAR_MONTH_RE = re.compile(r"^(\d{4})\.(\d{2})")
 _DEF_RE = re.compile(r"^\s*def (\w+)\(")
 _STUB_BODY_RE = re.compile(r"not yet implemented", re.IGNORECASE)
 _ANCHOR_RE = re.compile(r"<!-- tests -->.*?<!-- /tests -->")
+
+
+@dataclass(slots=True)
+class _RoadmapSection:
+    """One parsed section from .primer/roadmap.md."""
+
+    label: str
+    status: str  # "done" | "active" | "planned"
+    items: tuple[tuple[str, bool], ...]  # (display_text, is_done)
 
 
 @dataclass(slots=True)
@@ -114,6 +128,143 @@ def _parse_test_count(output: str) -> int | None:
         if m:
             return int(m.group(1))
     return None
+
+
+def _parse_roadmap(root: Path) -> list[_RoadmapSection]:
+    """Parse .primer/roadmap.md into a list of sections with items.
+
+    Args:
+        root: Project root directory.
+
+    Returns:
+        Ordered list of sections. Returns empty list if roadmap.md absent.
+    """
+    path = root / ".primer" / "roadmap.md"
+    if not path.exists():
+        return []
+    sections: list[_RoadmapSection] = []
+    current_label: str | None = None
+    current_status = "planned"
+    current_items: list[tuple[str, bool]] = []
+    pending_item: str | None = None
+
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        sec_m = _SECTION_RE.match(raw_line)
+        if sec_m:
+            if pending_item is not None:
+                current_items.append((_abbreviate(pending_item), False))
+                pending_item = None
+            if current_label is not None:
+                sections.append(
+                    _RoadmapSection(current_label, current_status, tuple(current_items))
+                )
+            current_label = sec_m.group(1).strip()
+            current_status = sec_m.group(2) or "planned"
+            current_items = []
+            continue
+
+        if current_label is None:
+            continue
+
+        item_m = _ITEM_RE.match(raw_line)
+        if item_m:
+            if pending_item is not None:
+                current_items.append((_abbreviate(pending_item), False))
+            is_done = item_m.group(1) == "x"
+            pending_item = item_m.group(2).strip()
+            if is_done:
+                current_items.append((_abbreviate(pending_item), True))
+                pending_item = None
+        elif pending_item is not None and raw_line.startswith(" "):
+            # continuation line -- ignore; abbreviation already applied
+            pass
+        elif pending_item is not None:
+            current_items.append((_abbreviate(pending_item), False))
+            pending_item = None
+
+    if pending_item is not None:
+        current_items.append((_abbreviate(pending_item), False))
+    if current_label is not None:
+        sections.append(_RoadmapSection(current_label, current_status, tuple(current_items)))
+    return sections
+
+
+def _abbreviate(text: str) -> str:
+    """Return a short Gantt-safe label from a roadmap item line.
+
+    Takes the first clause before ' -- ' or ' (' and caps at 44 chars.
+
+    Args:
+        text: Full item text from the roadmap.
+
+    Returns:
+        Abbreviated display string safe for Mermaid Gantt.
+    """
+    short = re.split(r"\s+--\s+|\s+\(", text)[0].strip()
+    return short if len(short) <= 44 else short[:41] + "..."
+
+
+def _section_dates(label: str) -> tuple[str, str] | None:
+    """Infer Gantt start/end dates from a roadmap section label.
+
+    YYYY.MM prefixes produce a one-month band. 'Foundation' maps to the
+    project start band. Sections without a date (Backlog) return None.
+
+    Args:
+        label: Section label string e.g. '2026.05 -- Plugin Execution'.
+
+    Returns:
+        (start, end) in YYYY-MM format, or None to skip the section.
+    """
+    m = _YEAR_MONTH_RE.match(label)
+    if m:
+        year, month = int(m.group(1)), int(m.group(2))
+        end_month = month % 12 + 1
+        end_year = year + (1 if month == 12 else 0)
+        return f"{year}-{month:02d}", f"{end_year}-{end_month:02d}"
+    if "Foundation" in label:
+        return "2026-03", "2026-05"
+    return None
+
+
+def _gen_gantt(sections: list[_RoadmapSection]) -> str:
+    """Render roadmap sections as a Mermaid Gantt fenced code block.
+
+    Args:
+        sections: Parsed roadmap sections from _parse_roadmap().
+
+    Returns:
+        Complete ```mermaid ... ``` string, or empty string if no
+        sections have inferable dates.
+    """
+    lines = [
+        "```mermaid",
+        "gantt",
+        "    title NEXUS Development Roadmap",
+        "    dateFormat YYYY-MM",
+    ]
+    has_content = False
+    for sec in sections:
+        dates = _section_dates(sec.label)
+        if dates is None:
+            continue
+        start, end = dates
+        display = re.sub(r"^\d{4}\.\d{2}\s*--\s*", "", sec.label).strip()
+        lines.append(f"    section {display}")
+        for item_text, item_done in sec.items:
+            if item_done or sec.status == "done":
+                marker = ":done,"
+            elif sec.status == "active":
+                marker = ":active,"
+            else:
+                marker = ""
+            entry = f"        {item_text:<44}"
+            lines.append(f"{entry} {marker} {start}, {end}" if marker else f"{entry} {start}, {end}")
+        has_content = True
+    if not has_content:
+        return ""
+    lines.append("```")
+    return "\n".join(lines)
 
 
 def _find_cli_stubs(root: Path) -> tuple[set[str], bool]:
@@ -262,6 +413,17 @@ def sync_readme(
                 if heading in updated:
                     updated = updated.replace(heading, f"{heading}\n\n{tests_text}", 1)
                     result.changed.append("test_count")
+
+    # -- Roadmap Gantt (HTML comment anchor, regenerated from .primer/roadmap.md) --
+    sections = _parse_roadmap(root)
+    if sections:
+        gantt_block = _gen_gantt(sections)
+        if gantt_block:
+            new_gantt = f"<!-- gantt -->\n{gantt_block}\n<!-- /gantt -->"
+            existing_gantt = _GANTT_RE.search(updated)
+            if existing_gantt and existing_gantt.group() != new_gantt:
+                updated = _GANTT_RE.sub(new_gantt, updated)
+                result.changed.append("gantt")
 
     # -- Stub-mismatch warning (always checked, even when nothing changed) --
     cli_stubs, cli_found = _find_cli_stubs(root)
