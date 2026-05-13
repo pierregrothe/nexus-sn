@@ -9,7 +9,7 @@ declarative YAML templates as first-class versioned artifacts.
 
 ## Origin
 
-Designed by Pierre Grothe (pierre.grothe@servicenow.com) in May 2026 after a deep
+Designed by Pierre Grothe (pierre@grothe.ca) in May 2026 after a deep
 analysis of JARVIS's architecture. The analysis identified six core weaknesses in JARVIS:
 
 1. Fake parallelism (sequential execution disguised as parallel via TaskCreate)
