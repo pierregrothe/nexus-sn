@@ -1,39 +1,40 @@
 # NEXUS -- Active Work
 
 Last updated: 2026-05-13
-Session: plugin execution design + release 2026.05.2 + Gantt sync. 827 tests.
+Session: README badges + Gantt fixes + decisions.md corrections. 830 tests.
 
-## Current focus
+## Current Focus
 
-Codebase is at a clean rest-state on main (7308a96). Plugin execution design
-(sub-projects M + N) is approved and specced. Release 2026.05.2 is tagged and
-the GitHub Actions wheel is built. Gantt diagram in README.md now regenerates
-automatically from .primer/roadmap.md on every /primer sync.
+Codebase is at a clean rest-state on main (b920af6). README now has a
+shields.io badge row (Release, CI, License, Python, Tests, LOC) synced
+automatically by /primer sync. Gantt Mermaid render errors on GitHub are
+fixed. decisions.md corrected: Claude Code CLI >= 2.0.0 is a hard runtime
+dependency (not optional).
 
 Sub-project M (plugin execution core) is the next implementation target.
 
 ## Recent Changes
 
-- 7308a96 feat(scripts): sync Gantt from .primer/roadmap.md on /primer sync
-- 73d8645 docs(specs,roadmap): plugin execution design -- sub-projects M + N
-- 60f8154 docs(roadmap): add plugin apply engine to 2026.07 (then moved to 2026.05)
-- bcac380 chore(release): bump version to 2026.05.2
-- 09b76df feat(skills/release): bump version + update docs before tagging
+- b920af6 feat(scripts,readme): add badge row synced by /primer sync
+- c25282c docs(decisions): correct three wrong Claude Code claims
+- e2507b1 fix(scripts): one bar per section in Gantt -- labels always fit
+- 63858ec fix(scripts): strip colons from Mermaid Gantt task names
+- fd9ab6c fix(scripts): add required colon before dates in Mermaid Gantt
 
 ## Open Blockers
 
+- Claude Code CLI >= 2.0.0 required -- hard runtime dependency via SDK.
 - MCPProbe._check_server() still stubbed.
-- PDI access-token cap keeps tokens at 30 min regardless of token_lifetime.
+- PDI access-token cap keeps tokens at 30 min.
 - knowledge/mastery/ empty.
-- setup, sync, templates, assess commands raise NotImplementedError.
-- README stubs list: templates_cmd in cli.py vs templates in README (naming gap).
+- setup, sync, templates, assess, apply, run, rollback raise NotImplementedError.
 
 ## Next Steps
 
 1. Sub-project M: PluginExecutor + ProgressPoller + install/activate/upgrade/apply
 2. Sub-project N: deactivate/uninstall + mandatory impact gate
-3. nexus setup credential wizard (after M+N)
+3. nexus setup credential wizard
 
 ## Branch / remote state
 
-main: 7308a96. No active feature branch.
+main: b920af6. No active feature branch.

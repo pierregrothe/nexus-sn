@@ -373,3 +373,25 @@ between <!-- gantt --> HTML comment anchors. Runs automatically as Step 8 of
 **Consequences:** Roadmap changes are reflected in README within one sync run.
 Foundation section uses hardcoded 2026-03/2026-05 dates. Backlog section
 skipped. Item text abbreviated at first ' -- ' separator, capped at 44 chars.
+
+---
+
+### 2026-05-13 -- README badge row synced from live project data
+
+**Status:** accepted
+
+**Context:** README had no visual project health indicators. Version, Python
+requirement, and test count were text-only. LOC was not tracked anywhere.
+Badges are standard in open-source Python projects (see google/adk-python).
+
+**Decision:** Six shields.io badges added below the # NEXUS title, wrapped in
+<!-- badges --> HTML comment anchors. Three are static GitHub badges that
+auto-update (Release version from github/v/release, CI status from Actions,
+License). Three are computed by scripts/sync_readme.py on every /primer sync:
+Python version (from pyproject.toml), test count (from pytest --collect-only),
+LOC (counted from src/nexus/**/*.py with _count_loc()). Special characters in
+shield URLs are percent-encoded (+ -> %2B, , -> %2C, space -> %20).
+
+**Consequences:** Badge row stays current without manual maintenance. LOC is
+now a tracked metric visible at a glance. /primer sync Step 8 handles all
+updates; no new dependencies required (pure stdlib).
