@@ -316,3 +316,25 @@ protocol structurally without inheriting from ServiceNowClient.
 **Consequences:** All type errors in capture test files resolved. The protocol
 is minimal -- only the 4 methods used by the capture layer. Future connectors
 that satisfy the protocol can be injected without code changes.
+
+---
+
+### 2026-05-13 -- README sync via injectable-runner script (scripts/)
+
+**Status:** accepted
+
+**Context:** README.md version, Python requirement, and test count were
+hand-maintained and frequently stale between milestones. The primer skill
+had no mechanism to update the README as part of /primer sync.
+
+**Decision:** `scripts/sync_readme.py` -- a stdlib-only standalone script
+with an injectable pytest runner (`Callable[[Path], str] | None`) so tests
+never spawn subprocesses. Two anchor strategies: line-match for version and
+Python req, HTML comment anchors (`<!-- tests -->`) for test count. Stub
+mismatch detection always runs (not gated on changes). Exit code 1 on
+missing README; 0 including warnings. Primer skill SKILL.md extended with
+Step 8 that runs the script if present (no-op on other projects).
+
+**Consequences:** /primer sync auto-updates three README fields. The zero-
+count guard prevents silently writing "0 tests" on pytest failure. The cli_found
+bool from _find_cli_stubs prevents false-positive warnings when cli.py is absent.

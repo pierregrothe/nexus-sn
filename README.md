@@ -82,7 +82,7 @@ gantt
 
 ## What is implemented
 
-<!-- tests -->832 tests passing, all real fakes, no mocks.<!-- /tests -->
+<!-- tests -->833 tests passing, all real fakes, no mocks.<!-- /tests -->
 
 The following commands are fully functional:
 
@@ -100,6 +100,9 @@ The following commands are stubs (not yet implemented):
 - `nexus sync` -- pull latest templates from GitHub (2026.05)
 - `nexus templates` -- browse and apply templates (2026.05)
 - `nexus assess` -- instance health scan (2026.06)
+- `nexus apply` -- deploy a template (2026.06)
+- `nexus run` -- free-form AI orchestration (2026.07)
+- `nexus rollback` -- undo a previous deployment (2026.07)
 
 ## Plugin management
 

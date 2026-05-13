@@ -1,29 +1,25 @@
 # NEXUS -- Active Work
 
 Last updated: 2026-05-13
-Session: CLI UI library + plugin UAT pass complete. 824 tests passing.
+Session: README sync script complete. 833 tests passing.
 
 ## Current focus
 
-Codebase is at a clean rest-state on main (ae3d582, PR #32). All plugin
-management sub-projects are shipped, plugin UAT defects are fixed, and the
-unified CLI UI library (ui/components/) is complete and wired across all
-commands.
+Codebase is at a clean rest-state on main (47cc076). The README sync
+script (`scripts/sync_readme.py`) is complete and wired into `/primer sync`
+as Step 8. Pre-edit hook now blocks emoji/icon characters while explicitly
+allowing Rich box-drawing (U+2500-U+257F).
 
 Ready to pivot to the 2026.05 active roadmap: `nexus setup` credential
 wizard is the next feature to build.
 
 ## Recent Changes
 
-- #32 fix/scanner-latest-version -- read available_version field; diagnose
-  missing latest_version data with clear error guidance
-- #31 feat/cli-help-leaf-commands -- themed help panel on bare invocation
-  for every leaf command (badge + options table + examples)
-- #30 feat/cli-themed-command-guides -- themed two-box discovery view for
-  sub-app no-args entry (instance, capture, plugins, templates, assess)
-- #29 fix/plugins-uat-defects -- resolved 7 defects found during plugin
-  command UAT (drift --ack persistence, baselines list parsing, diff
-  output, recommend exit codes, export CSV, info unknown-plugin error)
+- 47cc076 fix(scripts): guard zero test count, fix stub warning, export __all__
+- 4a184e8 docs(readme): update test count to 832 and add tests anchor
+- a7e0ba2 feat(scripts): sync_readme.py -- auto-update README on /primer sync
+- 84194af chore: fix README version placeholder + add scripts/ to pythonpath
+- 614d4ce docs(plans): README sync implementation plan
 
 ## Open Blockers
 
@@ -32,13 +28,15 @@ wizard is the next feature to build.
   keeps tokens at 30 min regardless of token_lifetime request.
 - knowledge/mastery/ empty.
 - setup, sync, templates, assess commands raise NotImplementedError.
+- README stubs list (4 commands) diverges from cli.py stubs (7 commands:
+  apply, assess, rollback, run, setup, sync, templates). Needs manual fix.
 
 ## Next Steps
 
-1. nexus setup command -- credential wizard, config write, initial sync.
-2. GitHubSync -- manifest fetch + template download from GitHub.
-3. TemplateRegistry -- list and get from local cache.
+1. Fix README stubs list to match cli.py (add apply, rollback, run).
+2. nexus setup command -- credential wizard, config write, initial sync.
+3. GitHubSync -- manifest fetch + template download from GitHub.
 
 ## Branch / remote state
 
-main: ae3d582 (PR #32 merged). No active feature branch.
+main: 47cc076. No active feature branch.

@@ -75,7 +75,7 @@ pre-commit >= 4.0
   warn_return_any = true, warn_unused_ignores = true, strict_equality = true
 ban-relative-imports = "all"
 banned: unittest.mock, pytest_mock (use fakes)
-pytest asyncio_mode = "auto", pythonpath = ["src"]
+pytest asyncio_mode = "auto", pythonpath = ["src", "scripts"]
 coverage fail-under = 100
 
 [pyrightconfig.json] pythonVersion = "3.14", typeCheckingMode = "strict"

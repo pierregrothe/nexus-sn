@@ -142,8 +142,10 @@ Infrastructure:
   pyrightconfig.json -- strict, py314
   .ratchet.json -- coverage baseline for all implemented modules
   .github/workflows/ci.yml + release.yml -- lean CI + GitHub Releases auto-update
+  scripts/sync_readme.py -- auto-updates version, Python req, test count in
+    README.md on every /primer sync; warns on stub-list drift vs cli.py
 
-Tests: 824 passing. All real fakes, no mocks.
+Tests: 833 passing. All real fakes, no mocks.
 GitHub: https://github.com/pierregrothe/nexus-sn (public).
 
 ## Known Issues
@@ -159,34 +161,3 @@ GitHub: https://github.com/pierregrothe/nexus-sn (public).
   templates, assessment, execution, knowledge).
 - 8 grandfathered dict[str, Any] usages in src/nexus/connectors/servicenow/client.py.
 
-## What's Left
-
-2026.05 -- MVP Commands:
-  GitHubSync -- manifest fetch + template download (next up)
-  TemplateRegistry -- list and get from local cache
-  RuleEngine + AssessmentReporter
-  nexus setup command -- credential wizard
-
-2026.06 -- Template Library:
-  NowAssistSkill + Workflow Pydantic schemas
-  First 3+ community templates in templates/
-  Template apply engine (ApplyEngine)
-  Gate 1 readiness check + Gate 2 validation check
-
-2026.07 -- Agent Specialists:
-  8 domain specialist agents (each takes AgentClientProtocol)
-  ExecutionContext enrichment from enterprise MCP (via Agent SDK mcp_servers)
-  Multi-step orchestration via Planner + Dispatcher
-  Rollback manager for failed deployments
-
-2026.08 -- Distribution:
-  100% line coverage, mypy strict, ruff 0 violations
-  README + getting started documentation
-  PyPI publish (nexus-sn)
-
-Backlog:
-  NiceGUI web interface (nexus[ui] optional extra)
-  Knowledge mastery KB (206 ServiceNow product docs)
-  MCPProbe with real enterprise MCP endpoints
-  JIRA, GitHub, Confluence connectors
-  Refactor servicenow/client.py dict[str, Any] -> typed alias
