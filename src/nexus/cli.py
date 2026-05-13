@@ -15,6 +15,7 @@ import asyncio
 import csv
 import logging
 import re
+import sys
 import uuid
 from collections import Counter
 from collections.abc import Iterable
@@ -191,8 +192,25 @@ def _trunc(s: str, width: int) -> str:
     return s if len(s) <= width else s[: width - 3] + "..."
 
 
-console = Console(theme=NEXUS_THEME)
-err_console = Console(stderr=True, theme=NEXUS_THEME)
+def _force_utf8_streams() -> None:
+    """Reconfigure stdout/stderr to UTF-8 so Rich's box and ellipsis chars render.
+
+    Windows defaults stdout to the system code page (cp1252 on en-US).
+    Rich's Panel/Table borders and ellipsis truncation use characters
+    outside cp1252 and crash with UnicodeEncodeError on legacy_windows
+    code paths. Forcing UTF-8 with ``errors='replace'`` keeps NEXUS
+    usable on default Git Bash / cmd.exe while honoring the project's
+    ASCII-only output rule (no glyphs are introduced by NEXUS itself).
+    """
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            reconfigure(encoding="utf-8", errors="replace")
+
+
+_force_utf8_streams()
+console = Console(theme=NEXUS_THEME, safe_box=True)
+err_console = Console(stderr=True, theme=NEXUS_THEME, safe_box=True)
 
 _FORMATS = ("text", "json")
 
@@ -1558,7 +1576,8 @@ def plugins_updates(
         str,
         typer.Option(
             "--queue",
-            help="Write a YAML queue of pending updates to the given path.",
+            help="Write a YAML queue of pending updates to the given path "
+            "(writes an empty updates list when up-to-date).",
         ),
     ] = "",
     output_format: Annotated[
@@ -1570,11 +1589,29 @@ def plugins_updates(
     _validate_format(output_format)
     meta, inventory = _load_inventory_or_exit(instance)
     pending = plugins_with_updates(inventory)
+    if queue:
+        payload: dict[str, object] = {
+            "instance": meta.profile,
+            "captured_at": inventory.captured_at.isoformat(),
+            "updates": [
+                {
+                    "plugin_id": p.plugin_id,
+                    "name": p.name,
+                    "product_family": p.product_family,
+                    "current_version": p.version,
+                    "latest_version": p.latest_version,
+                }
+                for p in pending
+            ],
+        }
+        Path(queue).write_text(_yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
     if output_format == "json":
         _emit_json(_UpdatesReport(updates=tuple(pending)))
         return
     if not pending:
         console.print(Notice.info("Up to date."))
+        if queue:
+            console.print(Notice.info(f"Wrote empty queue to {queue}."))
         return
     rows: list[list[RenderableType]] = [
         [
@@ -1601,21 +1638,7 @@ def plugins_updates(
     )
     console.print(Notice.info(f"{len(pending)} update(s) available."))
     if queue:
-        payload: dict[str, object] = {
-            "instance": meta.profile,
-            "captured_at": inventory.captured_at.isoformat(),
-            "updates": [
-                {
-                    "plugin_id": p.plugin_id,
-                    "name": p.name,
-                    "product_family": p.product_family,
-                    "current_version": p.version,
-                    "latest_version": p.latest_version,
-                }
-                for p in pending
-            ],
-        }
-        Path(queue).write_text(_yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
+        console.print(Notice.info(f"Wrote queue ({len(pending)} entries) to {queue}."))
         console.print(
             Hint(
                 label="Before applying",
@@ -2142,10 +2165,18 @@ def _render_impact(impact: PluginImpact, *, opted_out: bool = False) -> None:
         )
         total_records = sum(c.count for c in impact.record_counts)
 
-    if not impact.cross_scope_available:
-        if not opted_out:
-            console.print(Notice.warn("Cross-scope refs unavailable -- could not reach instance."))
-    elif impact.cross_scope_refs:
+    if opted_out:
+        console.print(Notice.info("Cross-scope scan skipped (--no-cross-scope)."))
+    elif not impact.cross_scope_available:
+        console.print(
+            Notice.warn(
+                "Cross-scope scan unavailable -- the SN aggregate API errored "
+                "(likely permissions or async-pending). See logs for detail."
+            )
+        )
+    elif not impact.cross_scope_refs:
+        console.print(Notice.info("No inbound cross-scope references."))
+    if impact.cross_scope_available and impact.cross_scope_refs:
         ref_rows: list[list[RenderableType]] = [
             [
                 r.source_scope,

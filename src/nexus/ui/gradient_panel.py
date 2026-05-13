@@ -106,7 +106,7 @@ class GradientPanel:
 
     def __rich_console__(self, console: Console, options: ConsoleOptions) -> RenderResult:
         """Render the panel with gradient borders to the console."""
-        box = rich_box.ROUNDED
+        box = rich_box.ASCII if console.legacy_windows else rich_box.ROUNDED
         width = options.max_width
         inner_width = max(width - 2, 1)
 

@@ -32,6 +32,7 @@ from nexus.plugins.models import (
 
 __all__ = [
     "ScopeRecordCountError",
+    "ScopeRecordCountPending",
     "compute_impact",
     "fetch_cross_scope_refs",
     "fetch_scope_counts_with_client",
@@ -109,6 +110,15 @@ class ScopeRecordCountError(Exception):
     """
 
 
+class ScopeRecordCountPending(Exception):
+    """Raised when the aggregate REST call returned HTTP 202 (async queued).
+
+    Signals "result not ready yet" rather than a genuine failure. Callers
+    that drive a batch scan can downgrade this to DEBUG and emit a single
+    summary line at scan-end instead of one WARNING per plugin.
+    """
+
+
 async def fetch_scope_counts_with_client(
     client: httpx.AsyncClient,
     plugin_id: str,
@@ -135,6 +145,8 @@ async def fetch_scope_counts_with_client(
         "sysparm_group_by": "sys_class_name",
     }
     response = await client.get("/api/now/stats/sys_metadata", params=params)
+    if response.status_code == 202:
+        raise ScopeRecordCountPending(f"aggregate API returned HTTP 202 for {plugin_id}")
     if response.status_code != 200:
         raise ScopeRecordCountError(f"aggregate API returned HTTP {response.status_code}")
     try:

@@ -88,10 +88,29 @@ Capture layer (bidirectional SN config transport):
     sys_ai_agent (+capability)
   config/types.py -- UtcDatetime shared across instances and capture layers
 
+Plugins layer (plugin management roadmap A-L + E, 13 sub-projects):
+  PluginScanner -- paginated REST scan of sys_plugin + sys_store_app with
+    RFC 5988 Link-header pagination
+  PluginInventory + PluginInfo -- frozen models with record_counts breakdown
+    per scope and total_records helper
+  compute_impact -- transitive reverse-dependency walk + per-table record
+    counts + cross-scope FK references (cross_scope=True default)
+  compute_advisories -- CVE / EOL / license findings with severity sort
+  apply_overrides + AdvisoryOverride -- per-instance deferred findings
+  orphan_candidates -- zero-deps + zero-records detection
+  diff_inventories -- cross-instance plugin diff
+  detect_updates -- comparison against store catalog
+  detect_drift + named-baseline registry -- multi-baseline drift detection
+  build_deactivation_context / build_explain_context / build_roadmap_context --
+    AI prompt builders fed into AgentClient (claude-haiku-4-5)
+
 CLI:
   nexus status -- fully implemented (banner + tier detection + StatusReporter)
   nexus instance -- full subapp, invoke_without_command shows list + quickstart
   nexus capture -- discover, pull, list, push subcommands
+  nexus plugins -- scan, list, inventory, impact, advisories
+    (incl. defer/undo-defer/list-deferred), orphans, diff, updates, drift,
+    baselines list/delete, recommend deactivate/explain/roadmap, export
   nexus reauth -- prints one-shot command for servers needing re-auth
   nexus update / --refresh -- manual update check + cache clear
   setup, sync, templates, assess -- stubs
@@ -109,7 +128,7 @@ Infrastructure:
   .ratchet.json -- coverage baseline for all implemented modules
   .github/workflows/ci.yml + release.yml -- lean CI + GitHub Releases auto-update
 
-Tests: 344 passing. All real fakes, no mocks.
+Tests: 780 passing. All real fakes, no mocks.
 GitHub: https://github.com/pierregrothe/nexus-sn (public).
 
 ## Known Issues

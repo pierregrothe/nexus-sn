@@ -1,83 +1,48 @@
 # NEXUS -- Active Work
 
-Last updated: 2026-05-09
-Session: nexus.capture layer complete + /simplify in progress. 344 tests passing.
+Last updated: 2026-05-12
+Session: plugin management roadmap complete (sub-projects A-L + E, 13 slices merged). 780 tests passing.
 
 ## Current focus
 
-/simplify review found several efficiency and quality issues in the capture layer.
-Fixes in progress (uncommitted):
+Plugin command UAT in progress. User wants every `nexus plugins ...`
+command and option validated individually, with issues tracked, then a
+bug-chase pass to trace root causes and propose remediations.
 
-  fetcher.py:
-    _row_to_record() extracted -- eliminates 25-line duplication between
-    _fetch_table() and _fetch_related().
-    New test: test_fetch_records_preserves_ref_field_values -- exercises
-    the SnRefField dict branch previously uncovered.
+The Python codebase itself is at a clean rest-state on main: all
+roadmap-enumerated plugin sub-projects are shipped, both /simplify
+rounds have been applied, and the last merge (#28) bumped coverage
+ratchet baselines.
 
-  scope.py:
-    Pagination loop added -- fixes silent truncation at 500 scopes.
-    asyncio.gather() for count_records -- 5 concurrent calls per scope
-    instead of 5 serial calls.
+## Recent Changes
 
-  connectors/servicenow/protocol.py (new):
-    ServiceNowClientProtocol -- structural interface used by ConfigFetcher,
-    ScopeDiscoverer, UpdateSetWriter so FakeServiceNowClient satisfies the
-    type without inheriting from ServiceNowClient.
+- #28 chore/plugins-simplify-trailing-five -- five trailing /simplify items
+  (_today() helper, isolate_home into conftest, single-plugin explain
+  filter, lightweight baselines list parse, orphans kwarg-only)
+- #27 chore/plugins-simplify-klje -- post-merge /simplify cleanups for K+L+J+E
+- #26 feat/plugins-ai-recommendations (E) -- AgentClient-backed recommend
+  deactivate, explain, roadmap subcommands
+- #25 feat/plugins-impact-cross-scope (J) -- cross-scope FK scan in
+  compute_impact with --no-cross-scope CLI opt-out
+- #24 feat/plugins-multi-baseline-drift (L) -- named baselines + plugins
+  baselines list/delete subcommands
 
-  Still to apply: AI_AUTOMATION.key constant for "ai_automation" string
-  literals in engine.py, protocol.py, cli.py; capture_list YAML warning
-  and ArchiveManifest.model_validate improvement.
+## Open Blockers
 
-Next after /simplify:
-  Step 2: nexus setup command -- credential wizard, config write, initial sync
-  Step 3: GitHubSync.fetch_manifest() + download_changed()
-  Step 4: TemplateRegistry.list() + get()
+- Plugin command validation pass not yet started (user request).
+- MCPProbe._check_server() still stubbed.
+- PDI access-token cap (glide.oauth.access_token.expire_in.system_max_seconds)
+  keeps tokens at 30 min regardless of token_lifetime request.
+- knowledge/mastery/ empty.
 
-## What was completed in the recent sessions
+## Next Steps
 
-instance management UX (8 commits, 2026-05-08):
-
-  OAuth auto-provisioning:
-    _provision_oauth() -- POSTs to /api/now/table/oauth_entity via Basic auth,
-      generates client_secret (UUID4), extracts client_id from response.
-      Falls back to _print_oauth_setup() + manual prompts on any failure.
-    Register wizard now asks only: Instance URL, Username, Password.
-    Auto-provisioned OAuth apps request token_lifetime=28800 (8h).
-
-  Version detection:
-    _detect_sn_version() extracted as shared helper (register + connect).
-    Probes glide.buildtag, then glide.buildtag.last (PDIs store value there),
-      then falls back to nameLIKEbuildtag search.
-    instance_connect now re-detects and persists version/build/instance_name.
-    Visible warning printed when version cannot be detected.
-
-  Scanner resilience:
-    InstanceScanner._fetch() now treats HTTP 400/404 as table-not-available
-      and returns [] instead of raising SnapshotError.
-    Fixes nexus instance refresh on PDIs without ai_skill (NowAssist) table.
-
-  instance_callback with invoke_without_command=True:
-    Shows registered instances table or full quickstart when no subcommand given.
-    Command guide always shown at the bottom.
-
-  CLI helpers:
-    _resolve_profile(), _oauth_for(), _set_default_profile() extracted.
-    TokenExpiredError message now shows delete + re-register steps.
-
-Test suite: 296 passing. All real fakes, no mocks.
-
-## Blockers / open questions
-
-- MCPProbe._check_server() still stubbed (returns False). Enterprise MCP
-  endpoint URLs unknown. Probing strategy will revisit once Agent SDK
-  MCP wiring is designed.
-- PDI access token cap: glide.oauth.access_token.expire_in.system_max_seconds
-  overrides token_lifetime on the OAuth app record. Token stays at 30 min
-  on PDIs regardless of what we request. Needs SN admin to raise the cap.
-- knowledge/mastery/ empty. Decision pending: copy from JARVIS or build fresh.
-- 8 grandfathered dict[str, Any] in src/nexus/connectors/servicenow/client.py.
+1. Walk every `nexus plugins` subcommand and option; log defects to a
+   tracking file in this session.
+2. Run a bug-chase to root-cause each defect; propose remediations.
+3. Pivot back to active roadmap: `nexus setup` -> GitHubSync ->
+   TemplateRegistry (per .primer/roadmap.md 2026.05).
 
 ## Branch / remote state
 
-main: e817e27 (instance UX + fixes merged)
-Next: branch from main and start MVP Step 2 (GitHubSync).
+main: d7d5b66 (PR #28 merged). No active feature branch.

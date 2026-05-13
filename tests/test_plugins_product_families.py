@@ -42,3 +42,29 @@ def test_product_family_for_unknown_id_returns_uncategorized() -> None:
 
 def test_product_family_for_empty_string_returns_uncategorized() -> None:
     assert product_family_for("") == ProductFamily.UNCATEGORIZED
+
+
+def test_product_family_for_unknown_glide_id_defaults_to_platform() -> None:
+    """com.glide.* plugins fall through keyword rules to PLATFORM."""
+    assert product_family_for("com.glide.something_unknown") == ProductFamily.PLATFORM
+
+
+def test_product_family_for_unknown_id_with_itsm_keyword_returns_itsm() -> None:
+    """Keyword rules bucket 'incident' substring as ITSM even without YAML entry."""
+    assert product_family_for("com.acme.major_incident_handler") == ProductFamily.ITSM
+
+
+def test_product_family_for_unknown_id_with_cmdb_keyword_returns_itom() -> None:
+    assert product_family_for("com.acme.cmdb_helper") == ProductFamily.ITOM
+
+
+def test_product_family_for_unknown_id_with_asset_keyword_returns_itam() -> None:
+    assert product_family_for("com.acme.asset_management_addon") == ProductFamily.ITAM
+
+
+def test_product_family_for_unknown_id_with_secops_keyword_returns_secops() -> None:
+    assert product_family_for("com.acme.vulnerability_scanner") == ProductFamily.SEC_OPS
+
+
+def test_product_family_for_unknown_id_with_workflow_keyword_returns_platform() -> None:
+    assert product_family_for("com.acme.workflow_helper") == ProductFamily.PLATFORM

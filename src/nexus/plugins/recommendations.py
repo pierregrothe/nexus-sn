@@ -38,7 +38,16 @@ EXPLAIN_SYSTEM_PROMPT = (
     "Output four short markdown sections: '## What it does' (2-3 lines), "
     "'## Why you might keep it' (bulleted), '## Why you might drop it' "
     "(bulleted), and '## Verdict' (3 lines max). Ground every claim in the "
-    "evidence provided -- do not invent numbers."
+    "evidence provided -- do not invent numbers. "
+    "NEVER recommend deactivating a core ServiceNow platform plugin even "
+    "when its evidence shows zero records or zero dependents -- those "
+    "signals can be wrong on fresh PDIs and async-pending counts. Treat "
+    "as load-bearing: any 'com.glide.*' plugin; any 'com.snc.*' that names "
+    "incident, change, problem, cmdb, knowledge, sla, asset, contract, "
+    "service_catalog, workflow, or oauth; anything whose vendor is "
+    "'ServiceNow' or whose source is 'servicenow'. For such plugins the "
+    "verdict must be 'Keep' with a one-line note that scope-owned record "
+    "counts can be misleading on demo or freshly-refreshed instances."
 )
 
 ROADMAP_SYSTEM_PROMPT = (
