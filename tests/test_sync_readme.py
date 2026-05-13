@@ -172,6 +172,14 @@ def test_sync_readme_warns_when_pytest_output_unparseable(tmp_path: Path) -> Non
     assert "<!-- tests -->" not in content
 
 
+def test_sync_readme_warns_when_test_count_is_zero(tmp_path: Path) -> None:
+    root = _make_project(tmp_path)
+    result = sync_readme(root, pytest_runner=FakePytest(0))
+    assert any("test count is 0" in w for w in result.warnings)
+    content = (root / "README.md").read_text(encoding="utf-8")
+    assert "<!-- tests -->" not in content
+
+
 def test_sync_readme_exits_1_if_readme_missing(tmp_path: Path) -> None:
     (tmp_path / "pyproject.toml").write_text(_PYPROJECT, encoding="utf-8")
     # README.md deliberately absent

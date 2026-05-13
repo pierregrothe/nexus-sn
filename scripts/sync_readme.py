@@ -29,7 +29,10 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
-__all__: list[str] = []
+__all__ = [
+    "SyncResult",
+    "sync_readme",
+]
 
 REPO_ROOT = Path(__file__).parent.parent
 
@@ -113,22 +116,22 @@ def _parse_test_count(output: str) -> int | None:
     return None
 
 
-def _find_cli_stubs(root: Path) -> set[str]:
-    """Return command names whose bodies contain 'not yet implemented'.
+def _find_cli_stubs(root: Path) -> tuple[set[str], bool]:
+    """Return (stub command names, cli_found) for src/nexus/cli.py.
 
-    Scans src/nexus/cli.py for @app.command() decorated functions
-    that print a 'not yet implemented' message within 20 lines of
-    the def statement.
+    Scans for @app.command() decorated functions that print
+    'not yet implemented' within 20 lines of the def statement.
 
     Args:
         root: Project root directory.
 
     Returns:
-        Set of function-name strings matching stub commands.
+        Tuple of (stubs set, cli_found bool). If cli.py does not exist,
+        returns (empty set, False).
     """
     cli_path = root / "src" / "nexus" / "cli.py"
     if not cli_path.exists():
-        return set()
+        return set(), False
     lines = cli_path.read_text(encoding="utf-8").splitlines()
     stubs: set[str] = set()
     pending_name: str | None = None
@@ -149,7 +152,7 @@ def _find_cli_stubs(root: Path) -> set[str]:
         elif decorator_line >= 0 and (i - decorator_line) > 20:
             pending_name = None
             decorator_line = -1
-    return stubs
+    return stubs, True
 
 
 def _find_readme_stubs(readme: str) -> set[str]:
@@ -220,7 +223,7 @@ def sync_readme(
 
     if test_count is None:
         result.warnings.append(
-            "test count could not be determined (pytest returned 0 or failed); "
+            "test count could not be determined (pytest output unparseable); "
             "skipping test_count update"
         )
 
@@ -240,25 +243,30 @@ def sync_readme(
 
     # -- Test count (HTML comment anchor) --
     if test_count is not None:
-        tests_text = (
-            f"<!-- tests -->{test_count} tests passing, "
-            f"all real fakes, no mocks.<!-- /tests -->"
-        )
-        existing = _ANCHOR_RE.search(updated)
-        if existing:
-            if existing.group() != tests_text:
-                updated = _ANCHOR_RE.sub(tests_text, updated)
-                result.changed.append("test_count")
+        if test_count == 0:
+            result.warnings.append(
+                "test count is 0; skipping test_count update"
+            )
         else:
-            heading = "## What is implemented"
-            if heading in updated:
-                updated = updated.replace(heading, f"{heading}\n\n{tests_text}", 1)
-                result.changed.append("test_count")
+            tests_text = (
+                f"<!-- tests -->{test_count} tests passing, "
+                f"all real fakes, no mocks.<!-- /tests -->"
+            )
+            existing = _ANCHOR_RE.search(updated)
+            if existing:
+                if existing.group() != tests_text:
+                    updated = _ANCHOR_RE.sub(tests_text, updated)
+                    result.changed.append("test_count")
+            else:
+                heading = "## What is implemented"
+                if heading in updated:
+                    updated = updated.replace(heading, f"{heading}\n\n{tests_text}", 1)
+                    result.changed.append("test_count")
 
     # -- Stub-mismatch warning (always checked, even when nothing changed) --
-    cli_stubs = _find_cli_stubs(root)
+    cli_stubs, cli_found = _find_cli_stubs(root)
     readme_stubs = _find_readme_stubs(updated)
-    if cli_stubs and cli_stubs != readme_stubs:
+    if cli_found and cli_stubs != readme_stubs:
         cli_names = ", ".join(sorted(cli_stubs))
         readme_names = ", ".join(sorted(readme_stubs))
         result.warnings.append(
