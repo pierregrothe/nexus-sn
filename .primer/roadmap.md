@@ -62,3 +62,10 @@
 - [ ] JIRA, GitHub, Confluence connectors
 - [ ] Extend capture to DEVELOPER_PLATFORM table group
       (business rules, script includes, ACLs, scheduled jobs)
+- [ ] Wire `/api/sn_appclient/appmanager/products?tab_context=updates`
+      into scanner (alectri demo shows 269 product updates beyond the 762 apps)
+- [ ] Plugin install/activate over REST via the discovered sn_appclient
+      install lifecycle endpoints -- prerequisite for sub-projects M/N
+- [ ] Mine the broader scripted-REST catalog (120 services / 218 ops, see
+      docs/sn-internal-api-catalog.md) for assessment + automation features
+      not currently reachable through the documented Table API
