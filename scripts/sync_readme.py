@@ -258,8 +258,10 @@ def _gen_gantt(sections: list[_RoadmapSection]) -> str:
                 marker = ":active,"
             else:
                 marker = ""
-            entry = f"        {item_text:<44}"
-            # Mermaid Gantt requires a colon before dates on every task line.
+            # Mermaid uses ':' as the task-data separator, so colons inside
+            # task names break the parser. Strip them before building the line.
+            safe_text = item_text.replace(":", "")
+            entry = f"        {safe_text:<44}"
             # Planned items have no status keyword; use bare ': start, end'.
             if marker:
                 lines.append(f"{entry} {marker} {start}, {end}")

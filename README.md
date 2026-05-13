@@ -86,7 +86,7 @@ gantt
         ConnectorProtocol plugin system              :done, 2026-03, 2026-05
         Instance management                          :done, 2026-03, 2026-05
         CLI skeleton                                 :done, 2026-03, 2026-05
-        CI/CD: lint, tests, release, template val... :done, 2026-03, 2026-05
+        CI/CD lint, tests, release, template val...  :done, 2026-03, 2026-05
         AgentClient backed by claude-agent-sdk       :done, 2026-03, 2026-05
         nexus status command                         :done, 2026-03, 2026-05
         nexus.capture layer                          :done, 2026-03, 2026-05
@@ -95,8 +95,8 @@ gantt
         nexus plugins command                        :done, 2026-03, 2026-05
         Unified CLI UI library                       :done, 2026-03, 2026-05
     section Plugin Execution
-        Sub-project M: Plugin execution core         :active, 2026-05, 2026-06
-        Sub-project N: Destructive operations        :active, 2026-05, 2026-06
+        Sub-project M Plugin execution core          :active, 2026-05, 2026-06
+        Sub-project N Destructive operations         :active, 2026-05, 2026-06
     section Setup + Sync
         nexus setup command                          :active, 2026-05, 2026-06
         GitHubSync                                   :active, 2026-05, 2026-06
