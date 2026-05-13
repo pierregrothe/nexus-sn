@@ -17,7 +17,7 @@ overhead and work regardless of whether the venv is active.
 
 src/nexus/      -- Python package (src layout)
   config/       -- Layer 1: settings, paths, config manager
-  auth/         -- Layer 2: Claude API key + SN credentials + keychain
+  auth/         -- Layer 2: Claude Code OAuth + SN credentials + keychain
   capabilities/ -- Layer 3: MCP probe + feature flags + CapabilitySet
   api/          -- Layer 4a: claude-agent-sdk wrapper (AgentClient async query)
   connectors/   -- Layer 4b: connector plugin system
@@ -114,10 +114,12 @@ CHANGELOG.md entry required for every release.
 ## Secrets
 
 OS keychain (keyring) for:
-  - Claude Enterprise API key: service="nexus-claude", username="api_key"
   - SN password per profile: service="nexus-sn-<profile>", username=<username>
-Env var overrides for CI:
-  NEXUS_CLAUDE_API_KEY, NEXUS_SN_PASSWORD_<PROFILE>
+LLM auth is handled by claude-agent-sdk (no NEXUS-owned credential):
+  ANTHROPIC_API_KEY env > CLAUDE_CODE_OAUTH_TOKEN env >
+  ~/.claude/.credentials.json > macOS Keychain "Claude Code-credentials"
+Env var override for CI (SN only):
+  NEXUS_SN_PASSWORD_<PROFILE>
 Never in config files. Never logged.
 
 ## Config file

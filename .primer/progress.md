@@ -10,7 +10,8 @@ Config layer:
 Auth layer:
   KeychainClient + FakeKeychainClient -- OS keychain via keyring
   ExternalKeychainClient -- cross-app keychain reads (e.g., Claude Code credentials)
-  ClaudeAuth -- Claude Enterprise API key retrieval (env var or keychain)
+  ClaudeAuth -- scaffolded keychain module for API key storage (unused; auth
+    handled by claude-agent-sdk reading Claude Code OAuth credentials)
   SNAuth -- ServiceNow credentials retrieval
   AuthError hierarchy
 

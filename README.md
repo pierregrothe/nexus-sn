@@ -137,7 +137,8 @@ nexus plugins export --format csv         # export inventory to CSV
 
 - Python 3.14+
 - ServiceNow instance with REST API access
-- Claude Enterprise API key (Anthropic)
+- Claude Code installed and authenticated (OAuth credentials are read automatically),
+  or `ANTHROPIC_API_KEY` env var set as a fallback for CI / scripted use
 
 ## Contributing templates
 
