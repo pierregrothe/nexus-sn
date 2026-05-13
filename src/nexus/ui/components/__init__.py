@@ -12,6 +12,7 @@ method or a tiny helper function. Callers do
 
 from nexus.ui.components.badge import StatusBadge
 from nexus.ui.components.guide import CommandGuide
+from nexus.ui.components.help import CommandHelp, CommandHelpEntry
 from nexus.ui.components.hint import Hint
 from nexus.ui.components.marker import default_marker
 from nexus.ui.components.notice import Notice
@@ -21,6 +22,8 @@ from nexus.ui.components.table import DataColumn, DataTable
 
 __all__ = [
     "CommandGuide",
+    "CommandHelp",
+    "CommandHelpEntry",
     "DataColumn",
     "DataTable",
     "Hint",

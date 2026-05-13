@@ -15,6 +15,8 @@ Public API:
 from nexus.ui.banner import banner_text, gradient, print_banner
 from nexus.ui.components import (
     CommandGuide,
+    CommandHelp,
+    CommandHelpEntry,
     DataColumn,
     DataTable,
     Hint,
@@ -34,6 +36,8 @@ __all__ = [
     "SN_BLUE",
     "SN_LIME",
     "CommandGuide",
+    "CommandHelp",
+    "CommandHelpEntry",
     "DataColumn",
     "DataTable",
     "GradientPanel",

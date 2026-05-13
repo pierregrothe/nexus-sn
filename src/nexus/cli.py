@@ -101,6 +101,8 @@ from nexus.plugins.recommendations import (
 from nexus.plugins.updates import plugins_with_updates
 from nexus.ui import (
     CommandGuide,
+    CommandHelp,
+    CommandHelpEntry,
     DataColumn,
     DataTable,
     Hint,
@@ -124,7 +126,6 @@ log = logging.getLogger(__name__)
 app = typer.Typer(
     name="nexus",
     help="NEXUS -- ServiceNow AI architect agent",
-    no_args_is_help=True,
 )
 
 instance_app = typer.Typer(name="instance", help="Manage ServiceNow instances.")
@@ -138,23 +139,204 @@ plugins_app = typer.Typer(
 )
 app.add_typer(plugins_app)
 
-_PLUGINS_HELP = [
-    ("list", "Show all plugins with optional --product / --source / --state filters"),
-    ("info <plugin_id>", "Show full details and dependencies for one plugin"),
-    ("export", "Write the inventory to YAML or CSV"),
-    ("diff <a> <b>", "Show cross-instance plugin differences"),
-    ("promote <src> --to <dst>", "Write an action plan to make <dst> match <src>"),
-    ("updates", "Show plugins with newer versions available"),
-    ("advisories", "Show EOL / CVE / license findings"),
-    ("impact <plugin_id>", "Show reverse-deps + scope record counts"),
-    ("orphans", "Show plugins with no dependents and no scope records"),
+
+def _help_entry(command: str, purpose: str, example: str) -> CommandHelpEntry:
+    """Tiny constructor wrapper; avoids restating Pydantic keywords below."""
+    return CommandHelpEntry(command=command, purpose=purpose, example=example)
+
+
+def _guide_items(entries: list[CommandHelpEntry]) -> list[tuple[str, str]]:
+    """Project a CommandHelpEntry list into ``(command, short_description)`` pairs.
+
+    The short description is the first sentence of ``purpose`` (split on
+    ``". "``) so the Box-2 listing stays single-line per row.
+    """
+    out: list[tuple[str, str]] = []
+    for entry in entries:
+        first = entry.purpose.split(". ", 1)[0].rstrip(".")
+        out.append((entry.command, first))
+    return out
+
+
+_PLUGINS_PARENT = _help_entry(
+    "plugins",
+    "Inspect the plugin inventory of registered instances -- dependencies, "
+    "advisories, drift, AI recommendations, and more.",
+    "nexus plugins list --product ITSM",
+)
+
+_INSTANCE_PARENT = _help_entry(
+    "instance",
+    "Manage registered ServiceNow instances: register, connect, refresh, list, "
+    "and switch the default profile.",
+    "nexus instance register prod",
+)
+
+_CAPTURE_PARENT = _help_entry(
+    "capture",
+    "Bidirectional ServiceNow config transport: discover custom scopes, pull "
+    "them as YAML archives, push archives back as update sets.",
+    "nexus capture discover --instance prod",
+)
+
+_PLUGINS_RECOMMEND_PARENT = _help_entry(
+    "plugins recommend",
+    "AI-backed plugin recommendations (currently: which plugins are safest to " "deactivate).",
+    "nexus plugins recommend deactivate",
+)
+
+_PLUGINS_BASELINES_PARENT = _help_entry(
+    "plugins baselines",
+    "Manage named plugin drift baselines. Drift is computed against the named "
+    "baseline; multiple baselines can coexist per instance.",
+    "nexus plugins baselines list",
+)
+
+_NEXUS_PARENT = _help_entry(
+    "nexus",
+    "NEXUS -- ServiceNow AI architect agent. Capture, assess, and act on "
+    "ServiceNow instances from the command line.",
+    "nexus instance list",
+)
+
+
+_PLUGINS_HELP: list[CommandHelpEntry] = [
+    _help_entry(
+        "list",
+        "Show all plugins installed on the resolved instance with optional "
+        "--product / --source / --state filters.",
+        "nexus plugins list --product ITSM --state active",
+    ),
+    _help_entry(
+        "info <plugin_id>",
+        "Show full details and direct dependencies for one plugin.",
+        "nexus plugins info com.snc.incident",
+    ),
+    _help_entry(
+        "export",
+        "Write the plugin inventory to a YAML or CSV file.",
+        "nexus plugins export --format csv --out plugins.csv",
+    ),
+    _help_entry(
+        "diff <a> <b>",
+        "Show cross-instance plugin differences with optional --status filter.",
+        "nexus plugins diff dev prod --status only_in_a",
+    ),
+    _help_entry(
+        "promote <src> --to <dst>",
+        "Write an additive action plan to make <dst> match <src>.",
+        "nexus plugins promote dev --to prod --out plan.yaml",
+    ),
+    _help_entry(
+        "updates",
+        "Show plugins with newer versions available; optionally write a YAML queue.",
+        "nexus plugins updates --queue updates.yaml",
+    ),
+    _help_entry(
+        "advisories",
+        "Show EOL / CVE / license findings for plugins on an instance.",
+        "nexus plugins advisories --severity high --strict",
+    ),
+    _help_entry(
+        "defer <id> <type> <details>",
+        "Defer an EOL/CVE/license advisory finding on a plugin.",
+        "nexus plugins defer com.acme.helper cve 'CVE-2024-1234' --reason 'patch slated'",
+    ),
+    _help_entry(
+        "undo-defer <id> <type> <details>",
+        "Remove a previously deferred advisory finding.",
+        "nexus plugins undo-defer com.acme.helper cve 'CVE-2024-1234'",
+    ),
+    _help_entry(
+        "list-deferred",
+        "List all deferred advisory findings for an instance.",
+        "nexus plugins list-deferred --format json",
+    ),
+    _help_entry(
+        "impact <plugin_id>",
+        "Show reverse dependencies, scope-owned record counts, and cross-scope "
+        "FK references for a plugin.",
+        "nexus plugins impact com.snc.incident --live",
+    ),
+    _help_entry(
+        "orphans",
+        "Show plugins with no dependents AND no scope-owned records.",
+        "nexus plugins orphans --state inactive",
+    ),
+    _help_entry(
+        "drift",
+        "Show plugin drift on an instance since a baseline; --ack sets a new baseline.",
+        "nexus plugins drift --baseline preprod --strict",
+    ),
+    _help_entry(
+        "explain <plugin_id>",
+        "AI-generated explanation of what a plugin does and whether to keep it.",
+        "nexus plugins explain com.snc.incident",
+    ),
+    _help_entry(
+        "roadmap",
+        "AI-generated remediation roadmap from advisories + orphans + deferred overrides.",
+        "nexus plugins roadmap",
+    ),
+    _help_entry(
+        "recommend deactivate",
+        "AI recommendation of plugins safest to deactivate.",
+        "nexus plugins recommend deactivate",
+    ),
+    _help_entry(
+        "baselines list",
+        "Show all named baselines for an instance.",
+        "nexus plugins baselines list",
+    ),
+    _help_entry(
+        "baselines delete <name>",
+        "Delete a named baseline.",
+        "nexus plugins baselines delete preprod --yes",
+    ),
 ]
 
-_CAPTURE_HELP = [
-    ("discover", "List scopes with custom AI/automation configs"),
-    ("pull --scope <key>", "Capture a scope to a YAML archive"),
-    ("list", "Show local archives"),
-    ("push <archive>", "Push an archive into an update set"),
+_CAPTURE_HELP: list[CommandHelpEntry] = [
+    _help_entry(
+        "discover",
+        "List scopes with custom AI / automation configs on the resolved instance.",
+        "nexus capture discover --instance prod",
+    ),
+    _help_entry(
+        "pull --scope <key>",
+        "Capture a scope to a YAML archive on disk.",
+        "nexus capture pull --scope x_company_app",
+    ),
+    _help_entry(
+        "list",
+        "Show local archives previously captured.",
+        "nexus capture list",
+    ),
+    _help_entry(
+        "push <archive>",
+        "Push a captured archive into a sys_update_set on an instance.",
+        "nexus capture push archives/2026-05-12.yaml --to prod",
+    ),
+]
+
+_PLUGINS_RECOMMEND_HELP: list[CommandHelpEntry] = [
+    _help_entry(
+        "deactivate",
+        "List plugins safest to deactivate, with AI-generated rationale.",
+        "nexus plugins recommend deactivate --instance prod",
+    ),
+]
+
+_PLUGINS_BASELINES_HELP: list[CommandHelpEntry] = [
+    _help_entry(
+        "list",
+        "Show all named baselines captured for an instance.",
+        "nexus plugins baselines list --instance prod",
+    ),
+    _help_entry(
+        "delete <name>",
+        "Delete a named baseline (use --yes to skip the confirmation prompt).",
+        "nexus plugins baselines delete preprod --yes",
+    ),
 ]
 
 # Custom scope prefixes -- anything else is an OOTB ServiceNow application.
@@ -273,13 +455,91 @@ def _configure_logging(level: str = "WARNING") -> None:
     )
 
 
-@app.callback()
+_TOP_LEVEL_HELP: list[CommandHelpEntry] = [
+    _help_entry(
+        "status",
+        "Show NEXUS identity, tier, MCP integrations, and diagnostics dashboard.",
+        "nexus status",
+    ),
+    _help_entry(
+        "instance",
+        "Manage registered ServiceNow instances (register, connect, refresh, ...).",
+        "nexus instance list",
+    ),
+    _help_entry(
+        "capture",
+        "Bidirectional config transport: discover scopes, pull archives, push update sets.",
+        "nexus capture discover --instance prod",
+    ),
+    _help_entry(
+        "plugins",
+        "Plugin inventory, advisories, drift, AI recommendations, and more.",
+        "nexus plugins list --product ITSM",
+    ),
+    _help_entry(
+        "reauth",
+        "Print one-shot commands for MCP servers needing re-authentication.",
+        "nexus reauth",
+    ),
+    _help_entry(
+        "update",
+        "Manual update check (GitHub Releases) and cache refresh.",
+        "nexus update --refresh",
+    ),
+    _help_entry(
+        "setup",
+        "First-run wizard (interactive credentials + instance + initial sync).",
+        "nexus setup",
+    ),
+    _help_entry(
+        "sync",
+        "Pull the latest templates from the GitHub registry (stub).",
+        "nexus sync",
+    ),
+    _help_entry(
+        "templates",
+        "Browse and inspect available templates (stub).",
+        "nexus templates",
+    ),
+    _help_entry(
+        "assess",
+        "Run an instance health scan or targeted assessment (stub).",
+        "nexus assess --for-template incident-tuner",
+    ),
+    _help_entry(
+        "apply <template>",
+        "Deploy a template to the configured ServiceNow instance (stub).",
+        "nexus apply incident-tuner",
+    ),
+    _help_entry(
+        "run <request>",
+        "Free-form AI orchestration request (stub).",
+        "nexus run 'reduce P3 incident backlog'",
+    ),
+    _help_entry(
+        "rollback <job_id>",
+        "Undo a previous deployment by job ID (stub).",
+        "nexus rollback job-1234",
+    ),
+    _help_entry(
+        "ui",
+        "Start the NiceGUI dashboard (requires pip install nexus-sn[ui]).",
+        "nexus ui",
+    ),
+]
+
+
+@app.callback(invoke_without_command=True)
 def main(
+    ctx: typer.Context,
     log_level: Annotated[str, typer.Option("--log-level", envvar="NEXUS_LOG_LEVEL")] = "WARNING",
 ) -> None:
     """NEXUS -- ServiceNow AI architect agent."""
     _configure_logging(log_level)
     check_and_maybe_update()
+    if ctx.invoked_subcommand is None:
+        console.print(CommandHelp(title="nexus", entry=_NEXUS_PARENT))
+        console.print(CommandGuide(app_name="nexus", items=_guide_items(_TOP_LEVEL_HELP)))
 
 
 @app.command()
@@ -790,14 +1050,43 @@ def _build_capture_engine(profile: str) -> tuple[CaptureEngine, ServiceNowClient
     return engine, client
 
 
-_INSTANCE_HELP = [
-    ("register <profile>", "Add an instance (wizard: URL, credentials)"),
-    ("connect [profile]", "Verify connection and refresh token"),
-    ("refresh [profile]", "Pull a fresh artifact snapshot"),
-    ("status [profile]", "Show metadata and snapshot detail"),
-    ("use <profile>", "Set as the default instance"),
-    ("delete <profile>", "Remove an instance and its credentials"),
-    ("list", "Show all registered instances"),
+_INSTANCE_HELP: list[CommandHelpEntry] = [
+    _help_entry(
+        "register <profile>",
+        "Register a new instance (interactive wizard prompting for URL, "
+        "username, and password; OAuth app is auto-provisioned).",
+        "nexus instance register prod",
+    ),
+    _help_entry(
+        "connect [profile]",
+        "Verify the connection and refresh the OAuth access token.",
+        "nexus instance connect prod",
+    ),
+    _help_entry(
+        "refresh [profile]",
+        "Pull a fresh artifact + plugin snapshot from the instance.",
+        "nexus instance refresh prod",
+    ),
+    _help_entry(
+        "status [profile]",
+        "Show metadata and the latest snapshot detail for an instance.",
+        "nexus instance status prod",
+    ),
+    _help_entry(
+        "use <profile>",
+        "Set the given profile as the configured default instance.",
+        "nexus instance use prod",
+    ),
+    _help_entry(
+        "delete <profile>",
+        "Remove an instance and its keychain credentials.",
+        "nexus instance delete prod --yes",
+    ),
+    _help_entry(
+        "list",
+        "Show all registered instances with their token state.",
+        "nexus instance list",
+    ),
 ]
 
 
@@ -820,7 +1109,8 @@ def instance_callback(ctx: typer.Context) -> None:
     else:
         instance_list()
 
-    console.print(CommandGuide(app_name="nexus instance", items=_INSTANCE_HELP))
+    console.print(CommandHelp(title="nexus instance", entry=_INSTANCE_PARENT))
+    console.print(CommandGuide(app_name="nexus instance", items=_guide_items(_INSTANCE_HELP)))
 
 
 @instance_app.command("list")
@@ -1138,8 +1428,8 @@ def plugins_callback(ctx: typer.Context) -> None:
     """Show the plugin inventory and the available subcommands."""
     if ctx.invoked_subcommand is not None:
         return
-    plugins_list()  # default flags: empty strings, no filtering
-    console.print(CommandGuide(app_name="nexus plugins", items=_PLUGINS_HELP))
+    console.print(CommandHelp(title="nexus plugins", entry=_PLUGINS_PARENT))
+    console.print(CommandGuide(app_name="nexus plugins", items=_guide_items(_PLUGINS_HELP)))
 
 
 @plugins_app.command("list")
@@ -2477,8 +2767,22 @@ def plugins_roadmap(
 # nexus plugins recommend
 # ---------------------------------------------------------------------------
 
-recommend_app = typer.Typer(no_args_is_help=True, help="AI recommendations.")
+recommend_app = typer.Typer(help="AI recommendations.")
 plugins_app.add_typer(recommend_app, name="recommend")
+
+
+@recommend_app.callback(invoke_without_command=True)
+def plugins_recommend_callback(ctx: typer.Context) -> None:
+    """Show the available 'plugins recommend' subcommands."""
+    if ctx.invoked_subcommand is not None:
+        return
+    console.print(CommandHelp(title="nexus plugins recommend", entry=_PLUGINS_RECOMMEND_PARENT))
+    console.print(
+        CommandGuide(
+            app_name="nexus plugins recommend",
+            items=_guide_items(_PLUGINS_RECOMMEND_HELP),
+        )
+    )
 
 
 @recommend_app.command("deactivate")
@@ -2509,8 +2813,22 @@ def plugins_recommend_deactivate(
 # nexus plugins baselines
 # ---------------------------------------------------------------------------
 
-baselines_app = typer.Typer(no_args_is_help=True, help="Manage plugin drift baselines.")
+baselines_app = typer.Typer(help="Manage plugin drift baselines.")
 plugins_app.add_typer(baselines_app, name="baselines")
+
+
+@baselines_app.callback(invoke_without_command=True)
+def plugins_baselines_callback(ctx: typer.Context) -> None:
+    """Show the available 'plugins baselines' subcommands."""
+    if ctx.invoked_subcommand is not None:
+        return
+    console.print(CommandHelp(title="nexus plugins baselines", entry=_PLUGINS_BASELINES_PARENT))
+    console.print(
+        CommandGuide(
+            app_name="nexus plugins baselines",
+            items=_guide_items(_PLUGINS_BASELINES_HELP),
+        )
+    )
 
 
 @baselines_app.command("list")
@@ -2583,8 +2901,8 @@ def capture_callback(ctx: typer.Context) -> None:
     """Show local archives and available commands."""
     if ctx.invoked_subcommand is not None:
         return
-    capture_list()
-    console.print(CommandGuide(app_name="nexus capture", items=_CAPTURE_HELP))
+    console.print(CommandHelp(title="nexus capture", entry=_CAPTURE_PARENT))
+    console.print(CommandGuide(app_name="nexus capture", items=_guide_items(_CAPTURE_HELP)))
 
 
 @capture_app.command("discover")

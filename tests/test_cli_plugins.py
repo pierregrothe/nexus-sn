@@ -214,16 +214,19 @@ def test_plugins_export_rejects_unknown_format(runner: CliRunner, tmp_path: Path
     assert result.exit_code != 0
 
 
-def test_plugins_no_subcommand_shows_list_and_command_guide(
+def test_plugins_no_subcommand_shows_parent_detail_and_subcommand_guide(
     runner: CliRunner, tmp_path: Path
 ) -> None:
     _seed(tmp_path, "dev", (_info("com.snc.incident"),))
     runner.invoke(app, ["instance", "use", "dev"])
-    # Widen the runner terminal so CommandGuide rows aren't truncated to "expo..."
+    # Widen the runner terminal so CommandGuide rows aren't truncated.
     result = runner.invoke(app, ["plugins"], env={"COLUMNS": "200"})
     assert result.exit_code == 0
-    assert "com.snc.incident" in result.output
-    assert "nexus plugins" in result.output  # CommandGuide title
+    # Box 1: parent detail panel
+    assert "nexus plugins" in result.output
+    assert "Purpose:" in result.output
+    assert "Example:" in result.output
+    # Box 2: subcommand listing
     assert "list" in result.output
     assert "info" in result.output
     assert "export" in result.output
