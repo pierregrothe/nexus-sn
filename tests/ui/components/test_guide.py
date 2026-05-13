@@ -24,7 +24,7 @@ def _record_console() -> Console:
         force_terminal=True,
         color_system="truecolor",
         theme=NEXUS_THEME,
-        width=80,
+        width=120,
     )
 
 

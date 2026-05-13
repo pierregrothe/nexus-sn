@@ -4,8 +4,8 @@
 |   stage           stage.service-now.com                    14 min left       |
 +------------------------------------------------------------------------------+
 +-- nexus instance ------------------------------------------------------------+
-| nexus instance register <profile>       Add an instance                      |
-| nexus instance connect [profile]        Verify connection and refresh token  |
-| nexus instance list                     Show all registered instances        |
+| nexus instance register <prof    Add an instance                             |
+| nexus instance connect [profi    Verify connection and refresh token         |
+| nexus instance list              Show all registered instances               |
 +------------------------------------------------------------------------------+
   Run nexus instance <command> --help for details.
