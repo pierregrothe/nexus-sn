@@ -259,7 +259,12 @@ def _gen_gantt(sections: list[_RoadmapSection]) -> str:
             else:
                 marker = ""
             entry = f"        {item_text:<44}"
-            lines.append(f"{entry} {marker} {start}, {end}" if marker else f"{entry} {start}, {end}")
+            # Mermaid Gantt requires a colon before dates on every task line.
+            # Planned items have no status keyword; use bare ': start, end'.
+            if marker:
+                lines.append(f"{entry} {marker} {start}, {end}")
+            else:
+                lines.append(f"{entry} : {start}, {end}")
         has_content = True
     if not has_content:
         return ""

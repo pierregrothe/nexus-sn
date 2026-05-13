@@ -102,22 +102,22 @@ gantt
         GitHubSync                                   :active, 2026-05, 2026-06
         TemplateRegistry                             :active, 2026-05, 2026-06
     section Assessment
-        RuleEngine + AssessmentReporter              2026-06, 2026-07
-        nexus assess command                         2026-06, 2026-07
-        Gate 1 readiness check + Gate 2 validatio... 2026-06, 2026-07
+        RuleEngine + AssessmentReporter              : 2026-06, 2026-07
+        nexus assess command                         : 2026-06, 2026-07
+        Gate 1 readiness check + Gate 2 validatio... : 2026-06, 2026-07
     section Template Library
-        NowAssistSkill + Workflow Pydantic schemas   2026-06, 2026-07
-        First 3+ community templates in templates/   2026-06, 2026-07
-        Template apply engine                        2026-06, 2026-07
+        NowAssistSkill + Workflow Pydantic schemas   : 2026-06, 2026-07
+        First 3+ community templates in templates/   : 2026-06, 2026-07
+        Template apply engine                        : 2026-06, 2026-07
     section Agent Specialists
-        8 domain specialist agents implemented       2026-07, 2026-08
-        ExecutionContext enrichment from enterpri... 2026-07, 2026-08
-        Multi-step orchestration via Planner + Di... 2026-07, 2026-08
-        Rollback manager for failed deployments      2026-07, 2026-08
+        8 domain specialist agents implemented       : 2026-07, 2026-08
+        ExecutionContext enrichment from enterpri... : 2026-07, 2026-08
+        Multi-step orchestration via Planner + Di... : 2026-07, 2026-08
+        Rollback manager for failed deployments      : 2026-07, 2026-08
     section Distribution
-        100% line coverage, mypy strict, ruff 0 v... 2026-08, 2026-09
-        README + getting started documentation       2026-08, 2026-09
-        PyPI publish                                 2026-08, 2026-09
+        100% line coverage, mypy strict, ruff 0 v... : 2026-08, 2026-09
+        README + getting started documentation       : 2026-08, 2026-09
+        PyPI publish                                 : 2026-08, 2026-09
 ```
 <!-- /gantt -->
 
