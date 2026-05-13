@@ -82,6 +82,8 @@ gantt
 
 ## What is implemented
 
+<!-- tests -->832 tests passing, all real fakes, no mocks.<!-- /tests -->
+
 The following commands are fully functional:
 
 - `nexus status` -- tier detection, MCP capability probe, auto-update check
