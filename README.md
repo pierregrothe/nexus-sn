@@ -42,7 +42,7 @@ Not yet on PyPI. Install from the latest GitHub release wheel or from source.
 **From the latest release wheel (recommended):**
 
 ```bash
-pip install https://github.com/pierregrothe/nexus-sn/releases/download/2026.05.1/nexus_sn-2026.5.1-py3-none-any.whl
+pip install https://github.com/pierregrothe/nexus-sn/releases/download/2026.05.2/nexus_sn-2026.5.2-py3-none-any.whl
 ```
 
 **From source:**
@@ -56,7 +56,7 @@ pip install .
 **With the optional NiceGUI dashboard:**
 
 ```bash
-pip install "nexus_sn-2026.5.1-py3-none-any.whl[ui]"   # wheel
+pip install "nexus_sn-2026.5.2-py3-none-any.whl[ui]"   # wheel
 # or
 pip install ".[ui]"                                       # from source
 ```
@@ -100,7 +100,7 @@ gantt
 
 ## What is implemented
 
-<!-- tests -->833 tests passing, all real fakes, no mocks.<!-- /tests -->
+<!-- tests -->825 tests passing, all real fakes, no mocks.<!-- /tests -->
 
 The following commands are fully functional:
 
@@ -164,7 +164,7 @@ See `docs/CONTRIBUTING.md`.
 
 ## Version
 
-CalVer: 2026.05.1
+CalVer: 2026.05.2
 
 ## License
 
