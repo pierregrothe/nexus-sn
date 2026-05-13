@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
-from sync_readme import sync_readme
+from sync_readme import _count_loc, _gen_badges, sync_readme
 
 __all__: list[str] = []
 
@@ -213,6 +213,40 @@ def test_sync_readme_gantt_no_change_when_roadmap_absent(tmp_path: Path) -> None
     assert "gantt" not in result.changed
     content = (root / "README.md").read_text(encoding="utf-8")
     assert "handcrafted" in content
+
+
+def test_sync_readme_updates_badges_when_loc_changes(tmp_path: Path) -> None:
+    readme = _README_BASE.replace(
+        "## What is implemented\n",
+        "<!-- badges -->\n[![LOC](https://img.shields.io/badge/LOC-1%2C000-blue)](x)\n<!-- /badges -->\n\n## What is implemented\n",
+    )
+    root = _make_project(tmp_path, readme)
+    # Write a src/nexus/sample.py so _count_loc returns > 1000
+    src = root / "src" / "nexus"
+    src.mkdir(parents=True, exist_ok=True)
+    (src / "sample.py").write_text("\n".join(["x = 1"] * 2000), encoding="utf-8")
+    result = sync_readme(root, pytest_runner=FakePytest(100))
+    assert "badges" in result.changed
+    content = (root / "README.md").read_text(encoding="utf-8")
+    assert "LOC-1%2C000" not in content
+    assert "LOC-" in content
+
+
+def test_count_loc_sums_python_files(tmp_path: Path) -> None:
+    src = tmp_path / "src" / "nexus"
+    src.mkdir(parents=True)
+    (src / "a.py").write_text("x = 1\ny = 2\n", encoding="utf-8")
+    (src / "b.py").write_text("z = 3\n", encoding="utf-8")
+    assert _count_loc(tmp_path) == 3
+
+
+def test_gen_badges_encodes_special_chars() -> None:
+    block = _gen_badges("3.14+", 827, 13736)
+    assert "3.14%2B" in block
+    assert "827%20passing" in block
+    assert "13%2C736" in block
+    assert block.startswith("<!-- badges -->")
+    assert block.endswith("<!-- /badges -->")
 
 
 def test_sync_readme_exits_1_if_readme_missing(tmp_path: Path) -> None:

@@ -10,6 +10,7 @@ Called by /primer sync as Step 8.
 Reads:
   - pyproject.toml: version, python requirement
   - pytest --collect-only -q: test count
+  - src/nexus/**/*.py: lines of code count
   - src/nexus/cli.py: stub command names
   - .primer/roadmap.md: roadmap sections for Gantt regeneration
 
@@ -38,6 +39,7 @@ __all__ = [
 REPO_ROOT = Path(__file__).parent.parent
 
 _APP_CMD_RE = re.compile(r"@\w+(?:\.\w+)*\.command\(")
+_BADGES_RE = re.compile(r"<!-- badges -->.*?<!-- /badges -->", re.DOTALL)
 _GANTT_RE = re.compile(r"<!-- gantt -->.*?<!-- /gantt -->", re.DOTALL)
 _SECTION_RE = re.compile(r"^## (.+?)(?:\s*\[(done|active|planned)\])?\s*$")
 _ITEM_RE = re.compile(r"^- \[([ x])\]\s*(.+)")
@@ -128,6 +130,60 @@ def _parse_test_count(output: str) -> int | None:
         if m:
             return int(m.group(1))
     return None
+
+
+def _count_loc(root: Path) -> int:
+    """Count total lines across all Python source files in src/nexus/.
+
+    Args:
+        root: Project root directory.
+
+    Returns:
+        Total line count, or 0 if the source directory is absent.
+    """
+    src = root / "src" / "nexus"
+    if not src.exists():
+        return 0
+    return sum(
+        len(p.read_text(encoding="utf-8", errors="ignore").splitlines())
+        for p in src.rglob("*.py")
+        if "__pycache__" not in str(p)
+    )
+
+
+def _gen_badges(python_req: str, test_count: int | None, loc: int) -> str:
+    """Render the badge row as a markdown string between anchor comments.
+
+    Static badges (Release, CI, License) use auto-updating GitHub/shields URLs.
+    Dynamic badges (Python version, tests, LOC) are computed from live data.
+
+    Args:
+        python_req: Python version string e.g. "3.14+".
+        test_count: Collected test count, or None if unavailable.
+        loc: Total source lines of code.
+
+    Returns:
+        Full badge block including anchor comments.
+    """
+    py_enc = python_req.replace("+", "%2B")
+    loc_enc = f"{loc:,}".replace(",", "%2C")
+    tests_enc = f"{test_count}%20passing" if test_count else "unknown"
+    tests_color = "brightgreen" if test_count else "lightgrey"
+    return "\n".join([
+        "<!-- badges -->",
+        "[![Release](https://img.shields.io/github/v/release/pierregrothe/nexus-sn)]"
+        "(https://github.com/pierregrothe/nexus-sn/releases)",
+        "[![CI](https://github.com/pierregrothe/nexus-sn/actions/workflows/ci.yml/badge.svg)]"
+        "(https://github.com/pierregrothe/nexus-sn/actions/workflows/ci.yml)",
+        "[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)",
+        f"[![Python {python_req}](https://img.shields.io/badge/python-{py_enc}-blue)]"
+        "(https://www.python.org/downloads/)",
+        f"[![Tests](https://img.shields.io/badge/tests-{tests_enc}-{tests_color})]"
+        "(https://github.com/pierregrothe/nexus-sn/actions)",
+        f"[![LOC](https://img.shields.io/badge/LOC-{loc_enc}-blue)]"
+        "(https://github.com/pierregrothe/nexus-sn/tree/main/src)",
+        "<!-- /badges -->",
+    ])
 
 
 def _parse_roadmap(root: Path) -> list[_RoadmapSection]:
@@ -371,9 +427,17 @@ def sync_readme(
 
     version, python_req = _read_project_data(root)
     test_count = _parse_test_count(runner(root))
+    loc = _count_loc(root)
     result = SyncResult()
     text = readme_path.read_text(encoding="utf-8")
     updated = text
+
+    # -- Badges (HTML comment anchor) --
+    new_badges = _gen_badges(python_req, test_count, loc)
+    existing_badges = _BADGES_RE.search(updated)
+    if existing_badges and existing_badges.group() != new_badges:
+        updated = _BADGES_RE.sub(new_badges, updated)
+        result.changed.append("badges")
 
     if test_count is None:
         result.warnings.append(

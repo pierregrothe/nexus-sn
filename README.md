@@ -1,5 +1,14 @@
 # NEXUS
 
+<!-- badges -->
+[![Release](https://img.shields.io/github/v/release/pierregrothe/nexus-sn)](https://github.com/pierregrothe/nexus-sn/releases)
+[![CI](https://github.com/pierregrothe/nexus-sn/actions/workflows/ci.yml/badge.svg)](https://github.com/pierregrothe/nexus-sn/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![Python 3.14+](https://img.shields.io/badge/python-3.14%2B-blue)](https://www.python.org/downloads/)
+[![Tests](https://img.shields.io/badge/tests-827%20passing-brightgreen)](https://github.com/pierregrothe/nexus-sn/actions)
+[![LOC](https://img.shields.io/badge/LOC-13%2C736-blue)](https://github.com/pierregrothe/nexus-sn/tree/main/src)
+<!-- /badges -->
+
 ServiceNow AI architect agent -- standalone CLI and optional web dashboard.
 
 Uses the Claude Agent SDK. Runs on Windows, macOS, and Linux.
