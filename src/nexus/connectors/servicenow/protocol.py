@@ -60,3 +60,56 @@ class ServiceNowClientProtocol(Protocol):
     ) -> dict[str, int]:
         """Return record counts per distinct field value via the Aggregate API."""
         ...
+
+    async def appmanager_dependencies(
+        self,
+        plugin_id: str,
+        version: str | None = None,
+    ) -> list[dict[str, object]]:
+        """Pre-flight dependency cascade from sn_appclient.
+
+        Args:
+            plugin_id: Plugin scope, e.g. "sn_si".
+            version: Target version, e.g. "13.9.23". None means latest.
+
+        Returns:
+            List of raw dependency entries from SN.
+        """
+        ...
+
+    async def submit_install(
+        self,
+        source_app_id: str,
+        version: str | None = None,
+    ) -> dict[str, object]:
+        """Submit an install via /api/sn_appclient/appmanager/app/install (GET).
+
+        Args:
+            source_app_id: SN sys_id of the app (from PluginInfo.sys_id).
+            version: Target version to install.
+
+        Returns:
+            Raw result dict containing trackerId, status, links.progress.url,
+            update_set, rollback_version.
+        """
+        ...
+
+    async def submit_activate(self, source_app_id: str) -> dict[str, object]:
+        """Submit an activate via /api/sn_appclient/appmanager/app/activate (GET)."""
+        ...
+
+    async def submit_upgrade(
+        self,
+        source_app_id: str,
+        target_version: str | None = None,
+    ) -> dict[str, object]:
+        """Submit an upgrade.
+
+        SN treats upgrade as install with a newer version so this calls the
+        same install endpoint with the target version.
+        """
+        ...
+
+    async def fetch_progress(self, tracker_id: str) -> dict[str, object]:
+        """Fetch one poll of /api/sn_appclient/appmanager/progress/{tracker_id}."""
+        ...

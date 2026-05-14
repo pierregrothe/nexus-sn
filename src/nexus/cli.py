@@ -21,7 +21,7 @@ from collections import Counter
 from collections.abc import Iterable
 from datetime import UTC, date, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated
+from typing import TYPE_CHECKING, Annotated, cast
 
 if TYPE_CHECKING:
     from nexus.api.agent_client import AgentClientProtocol
@@ -63,6 +63,7 @@ from nexus.instances.scanner import InstanceScanner
 from nexus.plugins import PluginInventory, PluginScanError, PluginScanner
 from nexus.plugins.advisories import AdvisoryDatabase, compute_advisories
 from nexus.plugins.baselines import DEFAULT_BASELINE_NAME, validate_baseline_name
+from nexus.plugins.dependencies import DependencyEntry
 from nexus.plugins.diff import (
     PluginDiff,
     PluginDiffEntry,
@@ -79,6 +80,7 @@ from nexus.plugins.errors import (
     PluginAdvisoryDataError,
     PluginImpactError,
 )
+from nexus.plugins.executor import OperationResult
 from nexus.plugins.impact import compute_impact
 from nexus.plugins.models import (
     AdvisoryFinding,
@@ -307,6 +309,30 @@ _PLUGINS_HELP: list[CommandHelpEntry] = [
         "AI-curated short list of plugins safest to turn off, with one-line "
         "rationale per candidate. Excludes anything load-bearing.",
         "nexus plugins recommend deactivate",
+    ),
+    _help_entry(
+        "activate <plugin-id>",
+        "Activate an installed plugin on the resolved instance. Blocks until SN "
+        "reports terminal status.",
+        "nexus plugins activate com.snc.discovery",
+    ),
+    _help_entry(
+        "apply <plan.yaml>",
+        "Execute a PromotionPlan YAML produced by `nexus plugins promote`. Rolls "
+        "back partial failures.",
+        "nexus plugins apply promote-dev-to-prod.yaml",
+    ),
+    _help_entry(
+        "install <plugin-id>",
+        "Install a plugin on the resolved instance. Shows the SN dependency "
+        "cascade preview and blocks until terminal status.",
+        "nexus plugins install com.snc.discovery",
+    ),
+    _help_entry(
+        "upgrade <plugin-id> [--to X.Y.Z]",
+        "Upgrade a plugin to the latest available version, or to a specific "
+        "version with --to. Shows the dependency cascade.",
+        "nexus plugins upgrade com.snc.discovery --to 21.0",
     ),
     _help_entry(
         "baselines list",
@@ -1529,6 +1555,54 @@ def _plugins_for(profile: str) -> tuple[InstanceMeta, PluginInventory] | None:
     return meta, inv
 
 
+def _dependencies_panel(deps: tuple[DependencyEntry, ...], plugin_id: str) -> DataTable:
+    """Render an SN dependency cascade as a DataTable.
+
+    Args:
+        deps: Dependency entries from fetch_dependencies.
+        plugin_id: The target plugin id (shown in title).
+
+    Returns:
+        DataTable suitable for console.print().
+    """
+    rows: list[list[RenderableType]] = [
+        [d.id, d.status, "yes" if d.active else "no", d.min_version] for d in deps
+    ]
+    return DataTable(
+        title=f"Dependency cascade for {plugin_id}",
+        columns=[
+            DataColumn(header="Plugin", width=36),
+            DataColumn(header="Status", width=20),
+            DataColumn(header="Active", width=8),
+            DataColumn(header="Min Version", width=14),
+        ],
+        rows=rows,
+    )
+
+
+def _result_panel(result: OperationResult) -> KeyValuePanel:
+    """Render an OperationResult as a KeyValuePanel.
+
+    Args:
+        result: The OperationResult returned by PluginExecutor.
+
+    Returns:
+        KeyValuePanel suitable for console.print().
+    """
+    status_text = "success" if result.success else "failed"
+    return KeyValuePanel(
+        title=f"{result.action} {result.plugin_id}",
+        rows=[
+            KvRow(label="Status", value=status_text),
+            KvRow(label="Tracker", value=result.tracker_id or "-"),
+            KvRow(label="Duration", value=f"{result.duration_s:.1f}s"),
+            KvRow(label="Update set", value=result.update_set or "-"),
+            KvRow(label="Rollback version", value=result.rollback_version or "-"),
+            KvRow(label="Message", value=result.message or "-"),
+        ],
+    )
+
+
 @plugins_app.callback(invoke_without_command=True)
 def plugins_callback(ctx: typer.Context) -> None:
     """Show the plugin inventory and the available subcommands."""
@@ -1957,6 +2031,172 @@ def plugins_promote(
             ],
         )
     )
+
+
+@plugins_app.command("install")
+def plugins_install(
+    plugin_id: Annotated[str, typer.Argument(help="Plugin ID to install (e.g. com.snc.discovery)")],
+    instance: Annotated[
+        str, typer.Option("--instance", help="Instance profile (default: configured default)")
+    ] = "",
+    version: Annotated[
+        str | None, typer.Option("--version", help="Pin to this version (default: latest)")
+    ] = None,
+    yes: Annotated[bool, typer.Option("--yes", help="Skip the confirmation prompt")] = False,
+) -> None:
+    """Install a plugin on the resolved instance.
+
+    Shows the SN dependency cascade pre-flight, prompts for confirmation
+    (unless ``--yes``), then blocks with a progress bar until SN reports
+    terminal status.
+    """
+    from nexus.plugins.dependencies import fetch_dependencies  # noqa: PLC0415
+    from nexus.plugins.executor import PluginExecutor  # noqa: PLC0415
+
+    resolved = _plugins_for(instance)
+    if resolved is None:
+        console.print(Notice.warn("Plugin inventory empty."))
+        console.print(Hint(label="Refresh", command="nexus instance refresh"))
+        raise typer.Exit(1)
+    meta, inventory = resolved
+    _, _, token, _ = _acquire_token(meta.profile)
+
+    async def _run() -> None:
+        async with ServiceNowClient(instance_url=meta.url, token=token) as client:
+            deps = await fetch_dependencies(client, plugin_id, version)
+            if deps:
+                console.print(_dependencies_panel(deps, plugin_id))
+            if not yes and not typer.confirm(f"Install {plugin_id} against {meta.profile}?"):
+                raise typer.Exit(0)
+            executor = PluginExecutor(client=client, inventory=inventory)
+            result = await executor.install(plugin_id, version)
+            console.print(_result_panel(result))
+            if not result.success:
+                raise typer.Exit(1)
+
+    asyncio.run(_run())
+
+
+@plugins_app.command("activate")
+def plugins_activate(
+    plugin_id: Annotated[str, typer.Argument(help="Plugin ID to activate")],
+    instance: Annotated[
+        str, typer.Option("--instance", help="Instance profile (default: configured default)")
+    ] = "",
+    yes: Annotated[bool, typer.Option("--yes", help="Skip the confirmation prompt")] = False,
+) -> None:
+    """Activate an installed plugin on the resolved instance."""
+    from nexus.plugins.executor import PluginExecutor  # noqa: PLC0415
+
+    resolved = _plugins_for(instance)
+    if resolved is None:
+        console.print(Notice.warn("Plugin inventory empty."))
+        console.print(Hint(label="Refresh", command="nexus instance refresh"))
+        raise typer.Exit(1)
+    meta, inventory = resolved
+    _, _, token, _ = _acquire_token(meta.profile)
+
+    async def _run() -> None:
+        async with ServiceNowClient(instance_url=meta.url, token=token) as client:
+            if not yes and not typer.confirm(f"Activate {plugin_id} against {meta.profile}?"):
+                raise typer.Exit(0)
+            executor = PluginExecutor(client=client, inventory=inventory)
+            result = await executor.activate(plugin_id)
+            console.print(_result_panel(result))
+            if not result.success:
+                raise typer.Exit(1)
+
+    asyncio.run(_run())
+
+
+@plugins_app.command("upgrade")
+def plugins_upgrade(
+    plugin_id: Annotated[str, typer.Argument(help="Plugin ID to upgrade")],
+    instance: Annotated[
+        str, typer.Option("--instance", help="Instance profile (default: configured default)")
+    ] = "",
+    to: Annotated[
+        str | None, typer.Option("--to", help="Target version (default: latest available)")
+    ] = None,
+    yes: Annotated[bool, typer.Option("--yes", help="Skip the confirmation prompt")] = False,
+) -> None:
+    """Upgrade an installed plugin on the resolved instance."""
+    from nexus.plugins.dependencies import fetch_dependencies  # noqa: PLC0415
+    from nexus.plugins.executor import PluginExecutor  # noqa: PLC0415
+
+    resolved = _plugins_for(instance)
+    if resolved is None:
+        console.print(Notice.warn("Plugin inventory empty."))
+        console.print(Hint(label="Refresh", command="nexus instance refresh"))
+        raise typer.Exit(1)
+    meta, inventory = resolved
+    _, _, token, _ = _acquire_token(meta.profile)
+
+    async def _run() -> None:
+        async with ServiceNowClient(instance_url=meta.url, token=token) as client:
+            deps = await fetch_dependencies(client, plugin_id, to)
+            if deps:
+                console.print(_dependencies_panel(deps, plugin_id))
+            if not yes and not typer.confirm(f"Upgrade {plugin_id} on {meta.profile}?"):
+                raise typer.Exit(0)
+            executor = PluginExecutor(client=client, inventory=inventory)
+            result = await executor.upgrade(plugin_id, to)
+            console.print(_result_panel(result))
+            if not result.success:
+                raise typer.Exit(1)
+
+    asyncio.run(_run())
+
+
+@plugins_app.command("apply")
+def plugins_apply(
+    plan_file: Annotated[Path, typer.Argument(help="Path to PromotionPlan YAML")],
+    instance: Annotated[
+        str, typer.Option("--instance", help="Instance profile (default: configured default)")
+    ] = "",
+    yes: Annotated[bool, typer.Option("--yes", help="Skip the confirmation prompt")] = False,
+) -> None:
+    """Execute a PromotionPlan YAML produced by `nexus plugins promote`.
+
+    Rolls back partial failures in reverse order (best-effort).
+    """
+    from nexus.plugins.executor import PluginExecutor  # noqa: PLC0415
+
+    if not plan_file.exists():
+        err_console.print(Notice.error(f"Plan file not found: {plan_file}"))
+        raise typer.Exit(2)
+    raw_payload = _yaml.safe_load(plan_file.read_text(encoding="utf-8"))
+    # YAML loads sequences as lists; PromotionPlan.actions is tuple[...] under
+    # strict mode, so coerce before validating.
+    if isinstance(raw_payload, dict):
+        payload = cast(dict[str, object], raw_payload)
+        actions = payload.get("actions")
+        if isinstance(actions, list):
+            payload["actions"] = tuple(cast(list[object], actions))
+        plan = PromotionPlan.model_validate(payload)
+    else:
+        plan = PromotionPlan.model_validate(raw_payload)
+
+    resolved = _plugins_for(instance)
+    if resolved is None:
+        console.print(Notice.warn("Plugin inventory empty."))
+        console.print(Hint(label="Refresh", command="nexus instance refresh"))
+        raise typer.Exit(1)
+    meta, inventory = resolved
+    _, _, token, _ = _acquire_token(meta.profile)
+
+    async def _run() -> None:
+        async with ServiceNowClient(instance_url=meta.url, token=token) as client:
+            console.print(f"Plan: {len(plan.actions)} actions against {meta.profile}")
+            if not yes and not typer.confirm("Proceed?"):
+                raise typer.Exit(0)
+            executor = PluginExecutor(client=client, inventory=inventory)
+            log = await executor.apply_plan(plan, console=console)
+            console.print(f"Done: {log.success_count} ok, {log.failure_count} failed")
+            if log.failure_count:
+                raise typer.Exit(1)
+
+    asyncio.run(_run())
 
 
 @plugins_app.command("updates")

@@ -10,8 +10,13 @@ __all__ = [
     "InvalidBaselineNameError",
     "PluginAdvisoryDataError",
     "PluginBaselineNotFoundError",
+    "PluginBatchError",
+    "PluginExecutionError",
     "PluginImpactError",
+    "PluginNotFoundError",
+    "PluginProgressError",
     "PluginScanError",
+    "PluginTimeoutError",
 ]
 
 
@@ -131,3 +136,65 @@ class PluginBaselineNotFoundError(Exception):
         """Store the profile name and a human-readable message."""
         super().__init__(f"no plugin baseline saved for profile: {profile}")
         self.profile = profile
+
+
+class PluginExecutionError(Exception):
+    """Base class for plugin execution failures."""
+
+
+class PluginProgressError(PluginExecutionError):
+    """Raised when SN's progress endpoint reports a terminal failure state.
+
+    Attributes:
+        tracker_id: The sn_appclient tracker GUID.
+        sn_status: SN's numeric status string (e.g. "3" for Failed).
+        error_message: SN's error message field.
+    """
+
+    def __init__(self, tracker_id: str, sn_status: str, error_message: str) -> None:
+        """Store tracker ID, status, and error message alongside the message."""
+        super().__init__(f"plugin operation failed: {error_message} (status={sn_status})")
+        self.tracker_id = tracker_id
+        self.sn_status = sn_status
+        self.error_message = error_message
+
+
+class PluginTimeoutError(PluginExecutionError):
+    """Raised when progress polling exceeds the configured timeout.
+
+    Attributes:
+        tracker_id: The sn_appclient tracker GUID.
+        elapsed_s: Seconds elapsed before timeout.
+    """
+
+    def __init__(self, tracker_id: str, elapsed_s: float) -> None:
+        """Store tracker ID and elapsed time alongside the message."""
+        super().__init__(f"plugin operation timed out after {elapsed_s:.0f}s")
+        self.tracker_id = tracker_id
+        self.elapsed_s = elapsed_s
+
+
+class PluginNotFoundError(PluginExecutionError):
+    """Raised when the requested plugin_id is not in the loaded inventory.
+
+    Attributes:
+        plugin_id: The unknown plugin identifier.
+    """
+
+    def __init__(self, plugin_id: str) -> None:
+        """Store the unknown plugin ID alongside the message."""
+        super().__init__(f"plugin not found in inventory: {plugin_id}")
+        self.plugin_id = plugin_id
+
+
+class PluginBatchError(PluginExecutionError):
+    """Raised when the multipart batch envelope itself is malformed.
+
+    Attributes:
+        batch_response: The raw response fragment for debugging.
+    """
+
+    def __init__(self, batch_response: str) -> None:
+        """Store the batch response fragment alongside the message."""
+        super().__init__("malformed batch response from ServiceNow")
+        self.batch_response = batch_response
