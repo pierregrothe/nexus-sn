@@ -178,7 +178,11 @@ async def test_batch_upgrade_does_not_invoke_rollback_on_failure(
     """Regression guard: batch must never use apply_plan's rollback path."""
 
     class _NoRollbackExecutor(PluginExecutor):
-        async def _rollback(self, completed, console):  # noqa: ARG002
+        async def _rollback(
+            self,
+            completed: list[OperationResult],
+            console: Console,
+        ) -> list[OperationResult]:
             raise AssertionError("batch_upgrade must not invoke _rollback")
 
     client = FakeServiceNowClient()
