@@ -218,7 +218,7 @@ class PluginExecutor:
         try:
             final = await poller.poll(tracker_id)
         except (PluginProgressError, PluginTimeoutError) as exc:
-            err_msg = getattr(exc, "error_message", str(exc))
+            err_msg = getattr(exc, "error_message", "") or str(exc)
             return OperationResult(
                 action="install",
                 plugin_id=plugin_id,
@@ -282,7 +282,7 @@ class PluginExecutor:
         try:
             final = await poller.poll(tracker_id)
         except (PluginProgressError, PluginTimeoutError) as exc:
-            err_msg = getattr(exc, "error_message", str(exc))
+            err_msg = getattr(exc, "error_message", "") or str(exc)
             return OperationResult(
                 action="activate",
                 plugin_id=plugin_id,
@@ -350,7 +350,7 @@ class PluginExecutor:
         try:
             final = await poller.poll(tracker_id)
         except (PluginProgressError, PluginTimeoutError) as exc:
-            err_msg = getattr(exc, "error_message", str(exc))
+            err_msg = getattr(exc, "error_message", "") or str(exc)
             return OperationResult(
                 action="upgrade",
                 plugin_id=plugin_id,
@@ -501,7 +501,7 @@ class PluginExecutor:
             try:
                 final = await poller.poll(tracker_id)
             except (PluginProgressError, PluginTimeoutError) as exc:
-                err_msg = getattr(exc, "error_message", str(exc))
+                err_msg = getattr(exc, "error_message", "") or str(exc)
                 rollback_results.append(
                     OperationResult(
                         action=rb_action,

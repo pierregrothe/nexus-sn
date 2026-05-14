@@ -2166,6 +2166,10 @@ def plugins_apply(
         err_console.print(Notice.error(f"Plan file not found: {plan_file}"))
         raise typer.Exit(2)
     payload = _yaml.safe_load(plan_file.read_text(encoding="utf-8"))
+    # YAML loads sequences as lists; PromotionPlan.actions is tuple[...] under
+    # strict mode, so coerce before validating.
+    if isinstance(payload, dict) and isinstance(payload.get("actions"), list):
+        payload["actions"] = tuple(payload["actions"])
     plan = PromotionPlan.model_validate(payload)
 
     resolved = _plugins_for(instance)

@@ -96,17 +96,22 @@ class ProgressState(BaseModel):
             pct = int(cast(int | str, pct_raw)) if not isinstance(pct_raw, bool) else 0
         except TypeError, ValueError:
             pct = 0
-        # Status label / error: optional with sensible defaults
+        # Status label: prefer "status_label" (kickoff) then "name" (progress poll)
         label = raw.get("status_label")
-        if label is None:
-            label = ""
+        if not label:
+            label = raw.get("name", "")
+        # Error: prefer "error" (kickoff). Progress polls put the failure
+        # description in "message" instead, so fall back to that.
+        err = raw.get("error")
+        if not err:
+            err = raw.get("message", "") or ""
         update_set_raw = raw.get("update_set")
         rollback_raw = raw.get("rollback_version")
         return cls(
             status=str(status_val),
-            status_label=str(label),
+            status_label=str(label) if label else "",
             percent_complete=pct,
-            error=str(raw.get("error", "")),
+            error=str(err),
             tracker_id=str(tracker),
             update_set=str(update_set_raw) if update_set_raw else None,
             rollback_version=str(rollback_raw) if rollback_raw else None,
