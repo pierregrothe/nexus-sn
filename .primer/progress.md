@@ -97,7 +97,7 @@ Capture layer (bidirectional SN config transport):
     sys_ai_agent (+capability)
   config/types.py -- UtcDatetime shared across instances and capture layers
 
-Plugins layer (plugin management roadmap A-L + E, 13 sub-projects):
+Plugins layer (plugin management roadmap A-N, 15 sub-projects):
   PluginScanner -- paginated REST scan of sys_plugin + sys_store_app with
     RFC 5988 Link-header pagination
   PluginInventory + PluginInfo -- frozen models with record_counts breakdown
@@ -112,6 +112,21 @@ Plugins layer (plugin management roadmap A-L + E, 13 sub-projects):
   detect_drift + named-baseline registry -- multi-baseline drift detection
   build_deactivation_context / build_explain_context / build_roadmap_context --
     AI prompt builders fed into AgentClient (claude-haiku-4-5)
+  PluginExecutor (sub-project M+N) -- install / activate / upgrade / apply_plan
+    against the discovered sn_appclient/appmanager endpoints; mandatory
+    impact gate combining local reverse_dependencies BFS + live SN
+    appmanager/dependencies cascade; --force second-confirm; base-plugin
+    refusal; cached snapshot for repeated gate checks; targeted v_plugin
+    refresh after install so install->activate combos in one plan resolve
+    sys_ids; rollback in reverse on partial apply_plan failure
+  ProgressPoller -- async polling of /api/sn_appclient/appmanager/progress/{id}
+    with dual-shape normalisation (kickoff response status/trackerId vs
+    progress-poll response state/sys_id)
+  fetch_dependencies + DependencyEntry -- typed pre-flight cascade preview
+  OperationResult + OperationLog -- frozen result models
+  PluginExecutionError hierarchy -- PluginProgressError, PluginTimeoutError,
+    PluginNotFoundError, PluginBatchError, PluginImpactBlockError,
+    PluginUnsupportedError
 
 CLI:
   nexus status -- fully implemented (banner + tier detection + StatusReporter)
@@ -120,9 +135,13 @@ CLI:
   nexus capture -- discover, pull, list, push; bare invocation shows discovery view
   nexus plugins -- scan, list, info, inventory, impact (incl. --no-cross-scope,
     --live, --format json), advisories (incl. defer/undo-defer/list-deferred,
-    --strict), orphans, diff, updates, drift (--ack, --strict, --baseline,
-    --format json), baselines list/delete, recommend deactivate/explain/roadmap,
-    export (yaml/csv); bare invocation shows two-box discovery view
+    --strict), orphans, diff, updates (--queue file output), drift (--ack,
+    --strict, --baseline, --format json), baselines list/delete, recommend
+    deactivate/explain/roadmap, export (yaml/csv), promote, install, activate,
+    upgrade, apply (PromotionPlan YAML; defaults target to plan.target_profile),
+    deactivate / uninstall (forward-compatible stubs -- SN does not expose
+    these via any programmatic API; see spec addendum 2026-05-14e);
+    bare invocation shows two-box discovery view
   nexus reauth -- prints one-shot command for servers needing re-auth
   nexus update / --refresh -- manual update check + cache clear
   Every leaf command shows themed help panel (badge + options + examples) on bare
@@ -143,8 +162,16 @@ Infrastructure:
   .github/workflows/ci.yml + release.yml -- lean CI + GitHub Releases auto-update
   scripts/sync_readme.py -- auto-updates version, Python req, test count in
     README.md on every /primer sync; warns on stub-list drift vs cli.py
+  scripts/dump_sn_api_catalog.py -- mines sys_ws_operation for the full SN
+    scripted-REST catalog (120 services / 218 ops); used to discover the
+    sn_appclient action endpoints
+  scripts/smoke_plugins.py -- 55-test live smoke suite for nexus plugins
+    (discovery, help, list/info/export filters, install/activate/upgrade/
+    apply/deactivate/uninstall happy + cancellation + missing-arg + unknown-
+    plugin + force-confirm-rejection paths; cross-instance diff +
+    promote->apply round-trip)
 
-Tests: 830 passing. All real fakes, no mocks.
+Tests: 887 passing. All real fakes, no mocks.
 GitHub: https://github.com/pierregrothe/nexus-sn (public).
 
 ## Known Issues
@@ -159,4 +186,10 @@ GitHub: https://github.com/pierregrothe/nexus-sn (public).
 - Stub modules at 0% coverage (agents/specialists/*, connectors/servicenow/*,
   templates, assessment, execution, knowledge).
 - 8 grandfathered dict[str, Any] usages in src/nexus/connectors/servicenow/client.py.
+- nexus plugins deactivate / uninstall fail loudly against live SN -- platform
+  does not expose these via Bearer REST, session AJAX, or any other
+  programmatic API. CLI commands present as forward-compatible stubs; will
+  start working without code changes if SN ever exposes them. See spec
+  addendum docs/superpowers/specs/2026-05-13-plugin-execution-design.md
+  (Update 2026-05-14e) for the full 8-source confirmation.
 

@@ -395,3 +395,43 @@ shield URLs are percent-encoded (+ -> %2B, , -> %2C, space -> %20).
 **Consequences:** Badge row stays current without manual maintenance. LOC is
 now a tracked metric visible at a glance. /primer sync Step 8 handles all
 updates; no new dependencies required (pure stdlib).
+
+---
+
+### 2026-05-14 -- Plugin deactivate/uninstall is platform-blocked by SN
+
+**Status:** accepted
+
+**Context:** Sub-project N added `nexus plugins deactivate` and `nexus plugins
+uninstall` CLI commands. Smoke testing against a live PDI revealed the
+hypothesised `/api/sn_appclient/appmanager/app/<action>` endpoints return
+HTTP 400 -- SN interprets the action name as a sourceAppId path parameter.
+
+Exhaustive investigation followed: mining `sys_ws_operation` (30 ops total
+under sn_appclient; install/update/repair/activate/rollback exist; uninstall
+and deactivate do NOT), reading `AppManagerHandler` and `PluginsData` script
+includes (6 + 22 methods; no uninstall handler anywhere), attempting
+session-cookie auth via `/login.do` + `g_ck` CSRF (returns
+`<xml error="com.snc.apps.AppsAjaxProcessor is not public"/>`), probing
+`/api/now/v1/processor/`, GraphQL introspection (no mutations), and direct
+table operations (HTTP 403 ACL). Web research confirmed via SN KB0716414,
+official docs, community forums, the official SN SDK, and pysnow/aiosnow
+library surveys: ServiceNow has consciously designed plugin uninstall as a
+UI-only operation with no programmatic API path.
+
+**Decision:** Keep the CLI commands as forward-compatible stubs. Live SN
+operation fails loudly with a clear error message pointing at the spec
+addendum. Unit tests pass against FakeServiceNowClient. The executor wiring,
+impact gate, --force second-confirm, base-plugin refusal, and rollback path
+all remain in place. If SN ever exposes these via REST (a /plugin/uninstall
+or /app/uninstall operation appearing in sys_ws_operation), the executor
+needs no changes -- only the SN client's `submit_deactivate` / `submit_uninstall`
+methods would need their endpoint constants updated.
+
+**Consequences:** NEXUS plugin lifecycle is complete for everything SN
+exposes (install, upgrade, activate, apply, diff, promote, drift,
+advisories, impact, AI recommendations). Deactivate and uninstall are
+documented as out-of-scope due to platform limitations. Users perform
+those operations via the SN App Manager UI. Spec addendum
+`docs/superpowers/specs/2026-05-13-plugin-execution-design.md` documents
+the eight independent confirmation sources.

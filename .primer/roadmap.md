@@ -20,14 +20,15 @@
 - [x] Unified CLI UI library (ui/components/ -- StatusBadge, KeyValuePanel,
       DataTable, CommandGuide, Hint, Notice; themed discovery views + leaf help)
 
-## 2026.05 -- Plugin Execution [active]
-- [ ] Sub-project M: Plugin execution core -- nexus plugins install / activate /
+## 2026.05 -- Plugin Execution [done]
+- [x] Sub-project M: Plugin execution core -- nexus plugins install / activate /
       upgrade / apply <plan.yaml>; PluginExecutor + ProgressPoller + OperationResult;
       sn_appclient probe with app-management + v_plugin fallback; rollback on
       partial apply-plan failure
-- [ ] Sub-project N: Destructive operations -- nexus plugins deactivate / uninstall;
+- [x] Sub-project N: Destructive operations -- nexus plugins deactivate / uninstall;
       mandatory impact gate (block on non-zero reverse deps / cross-scope refs);
       --force escape with double confirmation; base plugin uninstall refused
+      (live action paths blocked by SN platform -- see spec addendum 2026-05-14e)
 
 ## 2026.05 -- Setup + Sync [active]
 - [ ] nexus setup command -- credential wizard, config write, initial sync
