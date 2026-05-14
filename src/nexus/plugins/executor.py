@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import time
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Literal, cast
 
 from pydantic import BaseModel, ConfigDict
@@ -18,11 +19,14 @@ if TYPE_CHECKING:
     from nexus.connectors.servicenow.protocol import ServiceNowClientProtocol
     from nexus.plugins.diff import PromotionPlan
 
+from nexus.plugins.dependencies import fetch_dependencies
 from nexus.plugins.errors import (
+    PluginImpactBlockError,
     PluginNotFoundError,
     PluginProgressError,
     PluginTimeoutError,
 )
+from nexus.plugins.impact import reverse_dependencies
 from nexus.plugins.models import PluginInfo, PluginInventory
 from nexus.plugins.progress import ProgressPoller
 
@@ -134,6 +138,91 @@ class PluginExecutor:
         if info is None:
             raise PluginNotFoundError(plugin_id)
         return info
+
+    @staticmethod
+    def _failure_result(
+        action: Literal[
+            "install",
+            "activate",
+            "upgrade",
+            "deactivate",
+            "uninstall",
+            "rollback_install",
+            "rollback_activate",
+            "rollback_upgrade",
+        ],
+        plugin_id: str,
+        message: str,
+        started: float,
+        *,
+        tracker_id: str = "",
+    ) -> OperationResult:
+        """Build an unsuccessful OperationResult.
+
+        Args:
+            action: Operation label.
+            plugin_id: Canonical plugin identifier.
+            message: Error description.
+            started: time.monotonic() value at the start of the operation.
+            tracker_id: Progress tracker sys_id, empty string when unknown.
+
+        Returns:
+            OperationResult with success=False.
+        """
+        return OperationResult(
+            action=action,
+            plugin_id=plugin_id,
+            success=False,
+            message=message,
+            duration_s=time.monotonic() - started,
+            tracker_id=tracker_id,
+            update_set=None,
+            rollback_version=None,
+        )
+
+    async def _check_impact_gate(
+        self,
+        plugin_id: str,
+        *,
+        force: bool,
+    ) -> None:
+        """Check the impact gate. Raise PluginImpactBlockError when triggered.
+
+        Combines two signals:
+        - local: reverse_dependencies(inventory, plugin_id) -- pure BFS over snapshot.
+        - SN-live: fetch_dependencies(client, plugin_id, version) -- live cascade.
+
+        Trips when force=False AND either source reports >0 entries.
+        ``local_cross_scope_refs`` is fixed at 0 for sub-project N (cross-scope
+        FK scan requires url+token not currently exposed on the executor).
+
+        Args:
+            plugin_id: Plugin under consideration.
+            force: When True, the gate is bypassed entirely.
+
+        Raises:
+            PluginImpactBlockError: When force=False and the gate trips.
+        """
+        if force:
+            return
+        info = self.lookup(plugin_id)
+        snapshot_inventory = PluginInventory(
+            captured_at=datetime.now(UTC),
+            sn_version="snapshot",
+            plugins=tuple(self._by_id.values()),
+        )
+        local_rev = reverse_dependencies(snapshot_inventory, plugin_id)
+        local_rev_count = len(local_rev)
+        sn_deps = await fetch_dependencies(self._client, plugin_id, info.version)
+        sn_count = len(sn_deps)
+        if local_rev_count == 0 and sn_count == 0:
+            return
+        raise PluginImpactBlockError(
+            plugin_id=plugin_id,
+            local_reverse_deps=local_rev_count,
+            local_cross_scope_refs=0,
+            sn_dependency_count=sn_count,
+        )
 
     async def _refresh_one(self, plugin_id: str) -> None:
         """Fetch the v_plugin row for plugin_id and patch into the in-memory map.
@@ -372,6 +461,115 @@ class PluginExecutor:
             rollback_version=final.rollback_version,
         )
 
+    async def deactivate(
+        self,
+        plugin_id: str,
+        *,
+        force: bool = False,
+    ) -> OperationResult:
+        """Deactivate plugin_id with mandatory impact gate.
+
+        Args:
+            plugin_id: Canonical plugin identifier (must be in snapshot).
+            force: When True, the impact gate is bypassed. The CLI surfaces
+                this with a type-the-plugin-id second-confirm prompt.
+
+        Returns:
+            OperationResult describing the outcome.
+        """
+        started = time.monotonic()
+        try:
+            info = self.lookup(plugin_id)
+        except PluginNotFoundError as exc:
+            return self._failure_result("deactivate", plugin_id, str(exc), started)
+        try:
+            await self._check_impact_gate(plugin_id, force=force)
+        except PluginImpactBlockError as exc:
+            return self._failure_result("deactivate", plugin_id, str(exc), started)
+        try:
+            raw = await self._client.submit_deactivate(info.sys_id)
+        except Exception as exc:
+            return self._failure_result("deactivate", plugin_id, str(exc), started)
+        tracker_id = str(raw.get("trackerId", ""))
+        poller = ProgressPoller(self._client)
+        try:
+            final = await poller.poll(tracker_id)
+        except (PluginProgressError, PluginTimeoutError) as exc:
+            err_msg = getattr(exc, "error_message", "") or str(exc)
+            return self._failure_result(
+                "deactivate", plugin_id, err_msg, started, tracker_id=tracker_id
+            )
+        return OperationResult(
+            action="deactivate",
+            plugin_id=plugin_id,
+            success=True,
+            message=final.status_label,
+            duration_s=time.monotonic() - started,
+            tracker_id=tracker_id,
+            update_set=final.update_set,
+            rollback_version=final.rollback_version,
+        )
+
+    async def uninstall(
+        self,
+        plugin_id: str,
+        *,
+        force: bool = False,
+    ) -> OperationResult:
+        """Uninstall plugin_id with mandatory impact gate + base-plugin refusal.
+
+        Refuses unconditionally (no --force escape) when the target is a base
+        ServiceNow plugin (source == "servicenow") because SN REST does not
+        support uninstalling those.
+
+        Args:
+            plugin_id: Canonical plugin identifier (must be in snapshot).
+            force: When True, the impact gate is bypassed (does NOT bypass
+                the base-plugin refusal).
+
+        Returns:
+            OperationResult describing the outcome.
+        """
+        started = time.monotonic()
+        try:
+            info = self.lookup(plugin_id)
+        except PluginNotFoundError as exc:
+            return self._failure_result("uninstall", plugin_id, str(exc), started)
+        if info.source == "servicenow":
+            return self._failure_result(
+                "uninstall",
+                plugin_id,
+                "base ServiceNow plugins cannot be uninstalled via REST",
+                started,
+            )
+        try:
+            await self._check_impact_gate(plugin_id, force=force)
+        except PluginImpactBlockError as exc:
+            return self._failure_result("uninstall", plugin_id, str(exc), started)
+        try:
+            raw = await self._client.submit_uninstall(info.sys_id)
+        except Exception as exc:
+            return self._failure_result("uninstall", plugin_id, str(exc), started)
+        tracker_id = str(raw.get("trackerId", ""))
+        poller = ProgressPoller(self._client)
+        try:
+            final = await poller.poll(tracker_id)
+        except (PluginProgressError, PluginTimeoutError) as exc:
+            err_msg = getattr(exc, "error_message", "") or str(exc)
+            return self._failure_result(
+                "uninstall", plugin_id, err_msg, started, tracker_id=tracker_id
+            )
+        return OperationResult(
+            action="uninstall",
+            plugin_id=plugin_id,
+            success=True,
+            message=final.status_label,
+            duration_s=time.monotonic() - started,
+            tracker_id=tracker_id,
+            update_set=final.update_set,
+            rollback_version=final.rollback_version,
+        )
+
     async def apply_plan(
         self,
         plan: PromotionPlan,
@@ -476,9 +674,9 @@ class PluginExecutor:
 
             try:
                 if op.action == "install":
-                    raw = await self._client.submit_install(info.sys_id, None)
+                    raw = await self._client.submit_uninstall(info.sys_id)
                 elif op.action == "activate":
-                    raw = await self._client.submit_activate(info.sys_id)
+                    raw = await self._client.submit_deactivate(info.sys_id)
                 else:  # upgrade
                     raw = await self._client.submit_upgrade(info.sys_id, op.rollback_version)
             except Exception as exc:
