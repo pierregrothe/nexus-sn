@@ -528,3 +528,55 @@ The install GET issued immediately after returned `trackerId =
 Progress was then polled at `/api/sn_appclient/appmanager/progress/9e2bd8e2...`
 showing nested sub-operations (Installing application package -> Installing
 application sn_sec_panfw:10.5.2 -> Loading data for sn_sec_panfw -> ...).
+
+### Update 2026-05-14: deactivate/uninstall endpoint discovery (NOT YET RESOLVED)
+
+A live verification on the alectri PDI revealed that the hypothesised
+endpoint pattern `/api/sn_appclient/appmanager/app/<action>` only works
+for the literal action `install`. Other action keywords fall through to a
+path-parameter handler that interprets the segment as a `sourceAppId`:
+
+```
+GET /api/sn_appclient/appmanager/app/deactivate?app_id=<sys_id>
+-> HTTP 400 {"error":{"message":"AppsData.getAppInfoFromInstance():
+            No app found matching sourceAppId:deactivate"}}
+```
+
+Discovery results (`sn_outlook_addin` store app, sys_id ending in 943):
+```
+GET  /app/<sys_id>                      -> 200 (info read)
+GET  /app/install?app_id=<sys_id>       -> 200 (kickoff -- verified working)
+GET  /app/deactivate?app_id=<sys_id>    -> 400 "No app found matching sourceAppId:deactivate"
+GET  /app/uninstall?app_id=<sys_id>     -> 400 (same)
+GET  /app/activate?app_id=<sys_id>      -> 400 (same -- by parity, likely also wrong)
+POST /app/<keyword>                     -> 405 "Method not Supported"
+GET  /app/<sys_id>/deactivate           -> 400 "Requested URI does not represent any resource"
+PATCH /api/now/table/sys_store_app/<id> -> 403 "Failed API level ACL Validation"
+DELETE /api/now/table/sys_store_app/<id> -> 403 (same)
+```
+
+The real deactivate/uninstall endpoints are not yet discovered. The App
+Manager UI's "Uninstall" button on a store-app detail page opens a
+confirmation dialog whose API call was not captured during this session
+(button click + dialog confirm did not fire a visible POST/GET against
+the captured network log; the dialog likely requires further interaction).
+
+**Implications:**
+- `submit_install` and `submit_upgrade` are verified working live.
+- `submit_activate` follows the same path-with-keyword pattern as install
+  and **may work** for the right inputs but has not been verified live.
+- `submit_deactivate` and `submit_uninstall` as currently implemented in
+  `ServiceNowClient` **return 400 against live SN**. The CLI surfaces this
+  via the OperationResult message but the operation cannot succeed.
+
+**Resolution paths (deferred to a follow-up sub-project):**
+1. Capture the live App Manager UI's "Uninstall" network call via Chrome
+   DevTools (manual clicks + DevTools Network panel, not the in-conversation
+   interceptor which can't reliably auto-confirm the popup).
+2. Mine the discovered scripted-REST catalog (`docs/sn-internal-api-catalog.md`,
+   120 services / 218 ops) for an explicit deactivate/uninstall operation.
+3. Use the `sn_install_history` table workflow if it exposes a deactivate trigger.
+
+Until then, the executor's deactivate/uninstall methods are wired and
+unit-tested but will fail live with HTTP 400. The CLI commands exist for
+forward compatibility with the correct endpoints once discovered.

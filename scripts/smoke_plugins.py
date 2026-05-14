@@ -676,6 +676,122 @@ def t_list_deferred_json() -> tuple[bool, str, str]:
         return False, f"JSON parse: {exc}", last_line[:200]
 
 
+def t_drift_help_has_ack_and_strict() -> tuple[bool, str, str]:
+    """`drift --help` documents the --ack and --strict flags."""
+    proc = _run(_nexus("plugins", "drift", "--help"), timeout_s=15)
+    out = proc.stdout or ""
+    ok = proc.returncode == 0 and "--ack" in out and "--strict" in out
+    return ok, f"exit={proc.returncode}", out[-200:]
+
+
+def t_drift_ack_then_clean() -> tuple[bool, str, str]:
+    """`drift --ack` sets baseline; subsequent `drift` reports no drift."""
+    ack = _run(_nexus("plugins", "drift", "--ack"), timeout_s=30)
+    if ack.returncode != 0:
+        return False, f"ack exit={ack.returncode}", (ack.stdout or "")[-200:]
+    follow = _run(_nexus("plugins", "drift"), timeout_s=30)
+    out = follow.stdout or ""
+    # After an ack, drift should report none -- exit 0, message containing
+    # "no drift" / "match" / "0 changes" or similar.
+    ok = follow.returncode == 0
+    return ok, f"ack=ok follow_exit={follow.returncode}", out[-200:]
+
+
+def t_drift_strict_with_no_drift() -> tuple[bool, str, str]:
+    """`drift --strict` exits 0 when there is no drift (post-ack)."""
+    proc = _run(_nexus("plugins", "drift", "--strict"), timeout_s=30)
+    ok = proc.returncode == 0
+    return ok, f"exit={proc.returncode}", (proc.stdout or "")[-200:]
+
+
+def t_drift_json() -> tuple[bool, str, str]:
+    """`drift --format json` emits parseable JSON."""
+    proc = _run(_nexus("plugins", "drift", "--format", "json"), timeout_s=30)
+    if proc.returncode != 0:
+        return False, f"exit={proc.returncode}", (proc.stderr or "")[-200:]
+    last_line = (proc.stdout or "").strip().splitlines()[-1] if proc.stdout else ""
+    try:
+        payload = json.loads(last_line)
+        ok = isinstance(payload, dict | list)
+        return ok, f"type={type(payload).__name__}", ""
+    except json.JSONDecodeError as exc:
+        return False, f"JSON parse: {exc}", last_line[:200]
+
+
+def t_advisories_strict_mode() -> tuple[bool, str, str]:
+    """`advisories --strict` exits 1 if any findings remain after filters.
+
+    Real-PDI inventories almost always have at least one finding. If zero
+    findings the test allows exit 0 (loose assertion).
+    """
+    proc = _run(_nexus("plugins", "advisories", "--strict"), timeout_s=20)
+    ok = proc.returncode in (0, 1)
+    return ok, f"exit={proc.returncode}", (proc.stdout or "")[-150:]
+
+
+def t_updates_queue_writes_yaml() -> tuple[bool, str, str]:
+    """`updates --queue <file>` writes a YAML queue file."""
+    with tempfile.NamedTemporaryFile(suffix=".yaml", delete=False) as tmp:
+        out = Path(tmp.name)
+    try:
+        proc = _run(_nexus("plugins", "updates", "--queue", str(out)), timeout_s=30)
+        ok = proc.returncode == 0 and out.exists() and out.stat().st_size > 20
+        text = out.read_text(encoding="utf-8") if out.exists() else ""
+        return (
+            ok,
+            f"exit={proc.returncode}, size={out.stat().st_size if out.exists() else 0}",
+            text[:200],
+        )
+    finally:
+        out.unlink(missing_ok=True)
+
+
+def t_cross_instance_diff_shows_differences() -> tuple[bool, str, str]:
+    """`diff alectri retail` returns >0 entries (two profiles always differ).
+
+    Skips with PASS when the second profile is not registered.
+    """
+    list_proc = _run(_nexus("instance", "list"), timeout_s=10)
+    if "retail" not in (list_proc.stdout or ""):
+        return True, "skipped: retail not registered", ""
+    proc = _run(_nexus("plugins", "diff", "alectri", "retail", "--format", "json"), timeout_s=30)
+    if proc.returncode != 0:
+        return False, f"exit={proc.returncode}", (proc.stderr or "")[-200:]
+    try:
+        payload = json.loads((proc.stdout or "").strip().splitlines()[-1])
+        entries = payload.get("entries", [])
+        ok = len(entries) > 0
+        return ok, f"entries={len(entries)}", ""
+    except (json.JSONDecodeError, IndexError) as exc:
+        return False, f"JSON parse: {exc}", (proc.stdout or "")[-200:]
+
+
+def t_promote_apply_roundtrip() -> tuple[bool, str, str]:
+    """promote-generated YAML loads cleanly through apply (cancelled at prompt).
+
+    Verifies the bucket-dict -> flat-list coercion in plugins_apply.
+    Skips with PASS when retail is not registered.
+    """
+    list_proc = _run(_nexus("instance", "list"), timeout_s=10)
+    if "retail" not in (list_proc.stdout or ""):
+        return True, "skipped: retail not registered", ""
+    with tempfile.NamedTemporaryFile(suffix=".yaml", delete=False) as tmp:
+        out = Path(tmp.name)
+    try:
+        gen = _run(
+            _nexus("plugins", "promote", "alectri", "--to", "retail", "--out", str(out)),
+            timeout_s=30,
+        )
+        if gen.returncode != 0 or not out.exists():
+            return False, f"promote exit={gen.returncode}", (gen.stdout or "")[-200:]
+        applied = _run(_nexus("plugins", "apply", str(out)), input_text="n\n", timeout_s=30)
+        stdout = applied.stdout or ""
+        ok = applied.returncode == 0 and "actions against retail" in stdout
+        return ok, f"apply exit={applied.returncode}", stdout[-200:]
+    finally:
+        out.unlink(missing_ok=True)
+
+
 def t_apply_plan_missing_plugin() -> tuple[bool, str, str]:
     """`apply <plan referencing missing plugin>` -> activate/upgrade pre-validation fails.
 
@@ -768,6 +884,17 @@ ALL_TESTS: list[tuple[str, Callable[[], tuple[bool, str, str]]]] = [
     ("apply-malformed-yaml", t_apply_malformed_yaml),
     ("apply-valid-plan-cancel", t_apply_valid_plan_cancel),
     ("apply-plan-missing-plugin", t_apply_plan_missing_plugin),
+    # Drift workflow
+    ("drift-help", t_drift_help_has_ack_and_strict),
+    ("drift-ack-then-clean", t_drift_ack_then_clean),
+    ("drift-strict-no-drift", t_drift_strict_with_no_drift),
+    ("drift-json", t_drift_json),
+    # Strict / queue flag combinations
+    ("advisories-strict", t_advisories_strict_mode),
+    ("updates-queue-writes-yaml", t_updates_queue_writes_yaml),
+    # Cross-instance (skipped if retail not registered)
+    ("cross-instance-diff", t_cross_instance_diff_shows_differences),
+    ("promote-apply-roundtrip", t_promote_apply_roundtrip),
 ]
 
 

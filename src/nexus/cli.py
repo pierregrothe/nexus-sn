@@ -2203,11 +2203,19 @@ def plugins_upgrade(
 def plugins_apply(
     plan_file: Annotated[Path, typer.Argument(help="Path to PromotionPlan YAML")],
     instance: Annotated[
-        str, typer.Option("--instance", help="Instance profile (default: configured default)")
+        str,
+        typer.Option(
+            "--instance",
+            help="Override the plan's target_profile (default: use plan's target_profile)",
+        ),
     ] = "",
     yes: Annotated[bool, typer.Option("--yes", help="Skip the confirmation prompt")] = False,
 ) -> None:
     """Execute a PromotionPlan YAML produced by `nexus plugins promote`.
+
+    Defaults the target instance to the plan's ``target_profile`` field so a
+    dev->prod plan applies to prod even when the local default is dev. Use
+    ``--instance`` to force a different target.
 
     Rolls back partial failures in reverse order (best-effort).
     """
@@ -2217,18 +2225,35 @@ def plugins_apply(
         err_console.print(Notice.error(f"Plan file not found: {plan_file}"))
         raise typer.Exit(2)
     raw_payload = _yaml.safe_load(plan_file.read_text(encoding="utf-8"))
-    # YAML loads sequences as lists; PromotionPlan.actions is tuple[...] under
-    # strict mode, so coerce before validating.
+    # Two YAML shapes are supported:
+    #   (a) flat list shape (matches PromotionPlan.actions tuple natively):
+    #       actions: [{action: install, plugin_id: ...}, ...]
+    #   (b) bucket-dict shape emitted by `nexus plugins promote`:
+    #       actions: {install: [{plugin_id: ...}, ...], activate: [...], upgrade: [...]}
+    # Detect (b) and flatten into (a) before validation.
     if isinstance(raw_payload, dict):
         payload = cast(dict[str, object], raw_payload)
         actions = payload.get("actions")
-        if isinstance(actions, list):
+        if isinstance(actions, dict):
+            # Bucket-dict shape: flatten into a list with explicit `action` keys.
+            # `current_version` is omitted by promote for install rows, so
+            # default it to None when missing so PromoteAction validation passes.
+            flat: list[dict[str, object]] = []
+            buckets = cast(dict[str, list[dict[str, object]]], actions)
+            for action_name in ("install", "activate", "upgrade"):
+                for row in buckets.get(action_name, []):
+                    flat.append({"action": action_name, "current_version": None, **row})
+            payload["actions"] = tuple(flat)
+        elif isinstance(actions, list):
             payload["actions"] = tuple(cast(list[object], actions))
         plan = PromotionPlan.model_validate(payload)
     else:
         plan = PromotionPlan.model_validate(raw_payload)
 
-    resolved = _plugins_for(instance)
+    # Default the target instance to the plan's target_profile when --instance
+    # is empty. Explicit --instance always wins.
+    effective_instance = instance or plan.target_profile
+    resolved = _plugins_for(effective_instance)
     if resolved is None:
         console.print(Notice.warn("Plugin inventory empty."))
         console.print(Hint(label="Refresh", command="nexus instance refresh"))
