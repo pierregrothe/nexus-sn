@@ -170,3 +170,25 @@ async def test_batch_upgrade_one_fails_others_continue(console: Console) -> None
     ]
     assert [r.success for r in report.results] == [True, False, True]
     assert report.exit_code == 1
+
+
+async def test_batch_upgrade_does_not_invoke_rollback_on_failure(
+    console: Console,
+) -> None:
+    """Regression guard: batch must never use apply_plan's rollback path."""
+
+    class _NoRollbackExecutor(PluginExecutor):
+        async def _rollback(self, completed, console):  # noqa: ARG002
+            raise AssertionError("batch_upgrade must not invoke _rollback")
+
+    client = FakeServiceNowClient()
+    client.queue_upgrade_response(_upgrade_kickoff("t-a"))
+    client.set_progress_sequence("t-a", [_progress("2", 100, tracker="t-a")])
+    client.queue_upgrade_response(_upgrade_kickoff("t-b"))
+    client.set_progress_sequence("t-b", [_progress("3", 100, err="boom", tracker="t-b")])
+
+    inv = _inventory(_info("com.acme.a"), _info("com.acme.b"))
+    executor = _NoRollbackExecutor(client=client, inventory=inv)
+    report = await executor.batch_upgrade(inv.plugins, families=(), console=console)
+    assert report.failed == 1
+    assert report.succeeded == 1
