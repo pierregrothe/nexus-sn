@@ -354,12 +354,13 @@ class ServiceNowClient:
     async def submit_deactivate(self, source_app_id: str) -> dict[str, object]:
         """GET app/deactivate?app_id=<source_app_id>.
 
-        NOTE: As of 2026-05-14 live discovery, this endpoint returns HTTP 400
-        on Yokohama PDIs because SN interprets ``deactivate`` as a path-
-        positional ``sourceAppId`` rather than an action keyword. The real
-        deactivate endpoint is not yet discovered. See the Addendum section
-        in docs/superpowers/specs/2026-05-13-plugin-execution-design.md.
-        Callers should expect SNClientError until that work lands.
+        KNOWN-BROKEN: live capture on Yokohama PDIs (2026-05-14b addendum)
+        revealed there is no action-keyword endpoint at this path. The real
+        flow is a two-step POST to
+        /api/sn_appclient/appmanager/register_tracker_info with the full app
+        metadata as body. This method will return SNClientError (HTTP 400)
+        against live SN until rewritten in a follow-up sub-project.
+        Unit tests still pass against FakeServiceNowClient canned responses.
         """
         params: dict[str, str | int] = {"app_id": source_app_id}
         response = await self._get(self._APPMANAGER_DEACTIVATE, params=params)
@@ -368,8 +369,9 @@ class ServiceNowClient:
     async def submit_uninstall(self, source_app_id: str) -> dict[str, object]:
         """GET app/uninstall?app_id=<source_app_id>.
 
-        NOTE: Same caveat as ``submit_deactivate`` -- endpoint returns 400
-        on live SN until the real uninstall endpoint is discovered.
+        KNOWN-BROKEN: same caveat as ``submit_deactivate`` -- the App Manager
+        UI uses register_tracker_info, not a /app/uninstall keyword path.
+        See spec addendum 2026-05-14b for the captured flow.
         """
         params: dict[str, str | int] = {"app_id": source_app_id}
         response = await self._get(self._APPMANAGER_UNINSTALL, params=params)
