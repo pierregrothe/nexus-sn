@@ -10,10 +10,12 @@ from nexus.plugins.errors import (
     PluginBaselineNotFoundError,
     PluginBatchError,
     PluginExecutionError,
+    PluginImpactBlockError,
     PluginNotFoundError,
     PluginProgressError,
     PluginScanError,
     PluginTimeoutError,
+    PluginUnsupportedError,
 )
 
 __all__: list[str] = []
@@ -69,4 +71,30 @@ def test_plugin_not_found_error_carries_plugin_id() -> None:
 def test_plugin_batch_error_preserves_response_fragment() -> None:
     err = PluginBatchError(batch_response="--boundary\r\nbad")
     assert "boundary" in err.batch_response
+    assert isinstance(err, PluginExecutionError)
+
+
+def test_plugin_impact_block_error_carries_counts() -> None:
+    err = PluginImpactBlockError(
+        plugin_id="com.x",
+        local_reverse_deps=3,
+        local_cross_scope_refs=2,
+        sn_dependency_count=1,
+    )
+    assert err.plugin_id == "com.x"
+    assert err.local_reverse_deps == 3
+    assert err.local_cross_scope_refs == 2
+    assert err.sn_dependency_count == 1
+    assert "com.x" in str(err)
+    assert isinstance(err, PluginExecutionError)
+
+
+def test_plugin_unsupported_error_carries_reason() -> None:
+    err = PluginUnsupportedError(
+        plugin_id="com.snc.incident",
+        reason="base ServiceNow plugins cannot be uninstalled via REST",
+    )
+    assert err.plugin_id == "com.snc.incident"
+    assert "cannot be uninstalled" in err.reason
+    assert "com.snc.incident" in str(err)
     assert isinstance(err, PluginExecutionError)

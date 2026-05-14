@@ -12,11 +12,13 @@ __all__ = [
     "PluginBaselineNotFoundError",
     "PluginBatchError",
     "PluginExecutionError",
+    "PluginImpactBlockError",
     "PluginImpactError",
     "PluginNotFoundError",
     "PluginProgressError",
     "PluginScanError",
     "PluginTimeoutError",
+    "PluginUnsupportedError",
 ]
 
 
@@ -198,3 +200,51 @@ class PluginBatchError(PluginExecutionError):
         """Store the batch response fragment alongside the message."""
         super().__init__("malformed batch response from ServiceNow")
         self.batch_response = batch_response
+
+
+class PluginImpactBlockError(PluginExecutionError):
+    """Raised when the impact gate blocks a destructive operation.
+
+    Attributes:
+        plugin_id: Plugin being deactivated/uninstalled.
+        local_reverse_deps: Count from compute_impact().
+        local_cross_scope_refs: Count from compute_impact().
+        sn_dependency_count: Count from SN's appmanager/dependencies.
+    """
+
+    def __init__(
+        self,
+        plugin_id: str,
+        local_reverse_deps: int,
+        local_cross_scope_refs: int,
+        sn_dependency_count: int,
+    ) -> None:
+        """Store the three counts and a human-readable message."""
+        super().__init__(
+            f"impact gate blocked operation on {plugin_id}: "
+            f"local_reverse_deps={local_reverse_deps}, "
+            f"local_cross_scope_refs={local_cross_scope_refs}, "
+            f"sn_dependency_count={sn_dependency_count}"
+        )
+        self.plugin_id = plugin_id
+        self.local_reverse_deps = local_reverse_deps
+        self.local_cross_scope_refs = local_cross_scope_refs
+        self.sn_dependency_count = sn_dependency_count
+
+
+class PluginUnsupportedError(PluginExecutionError):
+    """Raised when an operation is fundamentally unsupported by SN REST.
+
+    Currently used for: uninstalling a base ServiceNow plugin
+    (source == "servicenow").
+
+    Attributes:
+        plugin_id: The plugin id.
+        reason: Human-readable explanation.
+    """
+
+    def __init__(self, plugin_id: str, reason: str) -> None:
+        """Store the plugin id and the reason for refusal."""
+        super().__init__(f"{plugin_id}: {reason}")
+        self.plugin_id = plugin_id
+        self.reason = reason
