@@ -169,21 +169,23 @@ def _gen_badges(python_req: str, test_count: int | None, loc: int) -> str:
     loc_enc = f"{loc:,}".replace(",", "%2C")
     tests_enc = f"{test_count}%20passing" if test_count else "unknown"
     tests_color = "brightgreen" if test_count else "lightgrey"
-    return "\n".join([
-        "<!-- badges -->",
-        "[![Release](https://img.shields.io/github/v/release/pierregrothe/nexus-sn)]"
-        "(https://github.com/pierregrothe/nexus-sn/releases)",
-        "[![CI](https://github.com/pierregrothe/nexus-sn/actions/workflows/ci.yml/badge.svg)]"
-        "(https://github.com/pierregrothe/nexus-sn/actions/workflows/ci.yml)",
-        "[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)",
-        f"[![Python {python_req}](https://img.shields.io/badge/python-{py_enc}-blue)]"
-        "(https://www.python.org/downloads/)",
-        f"[![Tests](https://img.shields.io/badge/tests-{tests_enc}-{tests_color})]"
-        "(https://github.com/pierregrothe/nexus-sn/actions)",
-        f"[![LOC](https://img.shields.io/badge/LOC-{loc_enc}-blue)]"
-        "(https://github.com/pierregrothe/nexus-sn/tree/main/src)",
-        "<!-- /badges -->",
-    ])
+    return "\n".join(
+        [
+            "<!-- badges -->",
+            "[![Release](https://img.shields.io/github/v/release/pierregrothe/nexus-sn)]"
+            "(https://github.com/pierregrothe/nexus-sn/releases)",
+            "[![CI](https://github.com/pierregrothe/nexus-sn/actions/workflows/ci.yml/badge.svg)]"
+            "(https://github.com/pierregrothe/nexus-sn/actions/workflows/ci.yml)",
+            "[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)",
+            f"[![Python {python_req}](https://img.shields.io/badge/python-{py_enc}-blue)]"
+            "(https://www.python.org/downloads/)",
+            f"[![Tests](https://img.shields.io/badge/tests-{tests_enc}-{tests_color})]"
+            "(https://github.com/pierregrothe/nexus-sn/actions)",
+            f"[![LOC](https://img.shields.io/badge/LOC-{loc_enc}-blue)]"
+            "(https://github.com/pierregrothe/nexus-sn/tree/main/src)",
+            "<!-- /badges -->",
+        ]
+    )
 
 
 def _parse_roadmap(root: Path) -> list[_RoadmapSection]:
@@ -462,9 +464,7 @@ def sync_readme(
     # -- Test count (HTML comment anchor) --
     if test_count is not None:
         if test_count == 0:
-            result.warnings.append(
-                "test count is 0; skipping test_count update"
-            )
+            result.warnings.append("test count is 0; skipping test_count update")
         else:
             tests_text = (
                 f"<!-- tests -->{test_count} tests passing, "

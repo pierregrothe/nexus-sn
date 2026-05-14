@@ -352,13 +352,25 @@ class ServiceNowClient:
         return await self.submit_install(source_app_id, target_version)
 
     async def submit_deactivate(self, source_app_id: str) -> dict[str, object]:
-        """GET app/deactivate?app_id=<source_app_id>."""
+        """GET app/deactivate?app_id=<source_app_id>.
+
+        NOTE: As of 2026-05-14 live discovery, this endpoint returns HTTP 400
+        on Yokohama PDIs because SN interprets ``deactivate`` as a path-
+        positional ``sourceAppId`` rather than an action keyword. The real
+        deactivate endpoint is not yet discovered. See the Addendum section
+        in docs/superpowers/specs/2026-05-13-plugin-execution-design.md.
+        Callers should expect SNClientError until that work lands.
+        """
         params: dict[str, str | int] = {"app_id": source_app_id}
         response = await self._get(self._APPMANAGER_DEACTIVATE, params=params)
         return cast(dict[str, object], response.get("result", {}))
 
     async def submit_uninstall(self, source_app_id: str) -> dict[str, object]:
-        """GET app/uninstall?app_id=<source_app_id>."""
+        """GET app/uninstall?app_id=<source_app_id>.
+
+        NOTE: Same caveat as ``submit_deactivate`` -- endpoint returns 400
+        on live SN until the real uninstall endpoint is discovered.
+        """
         params: dict[str, str | int] = {"app_id": source_app_id}
         response = await self._get(self._APPMANAGER_UNINSTALL, params=params)
         return cast(dict[str, object], response.get("result", {}))
