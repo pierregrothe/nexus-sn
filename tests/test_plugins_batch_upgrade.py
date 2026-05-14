@@ -192,3 +192,25 @@ async def test_batch_upgrade_does_not_invoke_rollback_on_failure(
     report = await executor.batch_upgrade(inv.plugins, families=(), console=console)
     assert report.failed == 1
     assert report.succeeded == 1
+
+
+async def test_batch_upgrade_echoes_families_on_report(console: Console) -> None:
+    client = FakeServiceNowClient()
+    client.queue_upgrade_response(_upgrade_kickoff("t-a"))
+    client.set_progress_sequence("t-a", [_progress("2", 100, tracker="t-a")])
+    inv = _inventory(_info("com.acme.a"))
+    executor = PluginExecutor(client=client, inventory=inv)
+    report = await executor.batch_upgrade(
+        inv.plugins, families=("ITSM", "ITOM"), console=console
+    )
+    assert report.families == ("ITSM", "ITOM")
+
+
+async def test_batch_upgrade_empty_targets_returns_empty_report(console: Console) -> None:
+    client = FakeServiceNowClient()
+    inv = _inventory()
+    executor = PluginExecutor(client=client, inventory=inv)
+    report = await executor.batch_upgrade((), families=(), console=console)
+    assert report.target_count == 0
+    assert report.results == ()
+    assert report.exit_code == 0
