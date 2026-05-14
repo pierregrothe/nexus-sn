@@ -141,3 +141,32 @@ async def test_batch_upgrade_all_succeed_in_order(console: Console) -> None:
     )
     assert all(r.success for r in report.results)
     assert report.exit_code == 0
+
+
+async def test_batch_upgrade_one_fails_others_continue(console: Console) -> None:
+    client = FakeServiceNowClient()
+    # a -> success
+    client.queue_upgrade_response(_upgrade_kickoff("t-a"))
+    client.set_progress_sequence("t-a", [_progress("2", 100, tracker="t-a")])
+    # b -> SN reports failure (status "3" = Failed)
+    client.queue_upgrade_response(_upgrade_kickoff("t-b"))
+    client.set_progress_sequence("t-b", [_progress("3", 100, err="boom", tracker="t-b")])
+    # c -> success
+    client.queue_upgrade_response(_upgrade_kickoff("t-c"))
+    client.set_progress_sequence("t-c", [_progress("2", 100, tracker="t-c")])
+
+    inv = _inventory(_info("com.acme.a"), _info("com.acme.b"), _info("com.acme.c"))
+    executor = PluginExecutor(client=client, inventory=inv)
+
+    report = await executor.batch_upgrade(inv.plugins, families=(), console=console)
+
+    assert report.target_count == 3
+    assert report.succeeded == 2
+    assert report.failed == 1
+    assert [r.plugin_id for r in report.results] == [
+        "com.acme.a",
+        "com.acme.b",
+        "com.acme.c",
+    ]
+    assert [r.success for r in report.results] == [True, False, True]
+    assert report.exit_code == 1
