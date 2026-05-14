@@ -218,3 +218,96 @@ class PluginExecutor:
             tracker_id=tracker_id, update_set=final.update_set,
             rollback_version=final.rollback_version,
         )
+
+    async def activate(self, plugin_id: str) -> OperationResult:
+        """Activate plugin_id (must already be installed).
+
+        Args:
+            plugin_id: Canonical plugin identifier (must be in snapshot).
+
+        Returns:
+            OperationResult describing the outcome.
+        """
+        started = time.monotonic()
+        try:
+            info = self.lookup(plugin_id)
+        except PluginNotFoundError as exc:
+            return OperationResult(
+                action="activate", plugin_id=plugin_id, success=False,
+                message=str(exc), duration_s=time.monotonic() - started,
+                tracker_id="", update_set=None, rollback_version=None,
+            )
+        try:
+            raw = await self._client.submit_activate(info.sys_id)
+        except Exception as exc:
+            return OperationResult(
+                action="activate", plugin_id=plugin_id, success=False,
+                message=str(exc), duration_s=time.monotonic() - started,
+                tracker_id="", update_set=None, rollback_version=None,
+            )
+        tracker_id = str(raw.get("trackerId", ""))
+        poller = ProgressPoller(self._client)
+        try:
+            final = await poller.poll(tracker_id)
+        except (PluginProgressError, PluginTimeoutError) as exc:
+            err_msg = getattr(exc, "error_message", str(exc))
+            return OperationResult(
+                action="activate", plugin_id=plugin_id, success=False,
+                message=err_msg, duration_s=time.monotonic() - started,
+                tracker_id=tracker_id, update_set=None, rollback_version=None,
+            )
+        return OperationResult(
+            action="activate", plugin_id=plugin_id, success=True,
+            message=final.status_label, duration_s=time.monotonic() - started,
+            tracker_id=tracker_id, update_set=final.update_set,
+            rollback_version=final.rollback_version,
+        )
+
+    async def upgrade(
+        self,
+        plugin_id: str,
+        target_version: str | None = None,
+    ) -> OperationResult:
+        """Upgrade plugin_id (optionally to a specific target_version).
+
+        Args:
+            plugin_id: Canonical plugin identifier (must be in snapshot).
+            target_version: Target version, or None to upgrade to latest.
+
+        Returns:
+            OperationResult preserving rollback_version from SN.
+        """
+        started = time.monotonic()
+        try:
+            info = self.lookup(plugin_id)
+        except PluginNotFoundError as exc:
+            return OperationResult(
+                action="upgrade", plugin_id=plugin_id, success=False,
+                message=str(exc), duration_s=time.monotonic() - started,
+                tracker_id="", update_set=None, rollback_version=None,
+            )
+        try:
+            raw = await self._client.submit_upgrade(info.sys_id, target_version)
+        except Exception as exc:
+            return OperationResult(
+                action="upgrade", plugin_id=plugin_id, success=False,
+                message=str(exc), duration_s=time.monotonic() - started,
+                tracker_id="", update_set=None, rollback_version=None,
+            )
+        tracker_id = str(raw.get("trackerId", ""))
+        poller = ProgressPoller(self._client)
+        try:
+            final = await poller.poll(tracker_id)
+        except (PluginProgressError, PluginTimeoutError) as exc:
+            err_msg = getattr(exc, "error_message", str(exc))
+            return OperationResult(
+                action="upgrade", plugin_id=plugin_id, success=False,
+                message=err_msg, duration_s=time.monotonic() - started,
+                tracker_id=tracker_id, update_set=None, rollback_version=None,
+            )
+        return OperationResult(
+            action="upgrade", plugin_id=plugin_id, success=True,
+            message=final.status_label, duration_s=time.monotonic() - started,
+            tracker_id=tracker_id, update_set=final.update_set,
+            rollback_version=final.rollback_version,
+        )

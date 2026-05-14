@@ -131,3 +131,49 @@ async def test_install_unknown_plugin_returns_failure(client: FakeServiceNowClie
     result = await exe.install("com.nope")
     assert not result.success
     assert "com.nope" in result.message
+
+
+@pytest.mark.asyncio
+async def test_activate_returns_success_result(client: FakeServiceNowClient) -> None:
+    inv = _inventory(_info("com.x", state="inactive"))
+    client.queue_activate_response(_install_response("act-1"))
+    client.set_progress_sequence("act-1", [_progress("2", 100, tracker="act-1")])
+    exe = PluginExecutor(client=client, inventory=inv)
+    result = await exe.activate("com.x")
+    assert result.success
+    assert result.action == "activate"
+    assert result.plugin_id == "com.x"
+
+
+@pytest.mark.asyncio
+async def test_activate_unknown_plugin_returns_failure(client: FakeServiceNowClient) -> None:
+    inv = _inventory()  # empty
+    exe = PluginExecutor(client=client, inventory=inv)
+    result = await exe.activate("com.nope")
+    assert not result.success
+    assert "com.nope" in result.message
+    assert result.action == "activate"
+
+
+@pytest.mark.asyncio
+async def test_upgrade_returns_rollback_version(client: FakeServiceNowClient) -> None:
+    inv = _inventory(_info("com.x"))
+    client.queue_upgrade_response(_install_response("up-1"))
+    # Final progress carries the rollback_version from SN
+    final_progress = _progress("2", 100, tracker="up-1")
+    final_progress["rollback_version"] = "1.4"
+    client.set_progress_sequence("up-1", [final_progress])
+    exe = PluginExecutor(client=client, inventory=inv)
+    result = await exe.upgrade("com.x", target_version="2.0")
+    assert result.success
+    assert result.rollback_version == "1.4"
+    assert result.action == "upgrade"
+
+
+@pytest.mark.asyncio
+async def test_upgrade_unknown_plugin_returns_failure(client: FakeServiceNowClient) -> None:
+    inv = _inventory()
+    exe = PluginExecutor(client=client, inventory=inv)
+    result = await exe.upgrade("com.nope")
+    assert not result.success
+    assert result.action == "upgrade"
