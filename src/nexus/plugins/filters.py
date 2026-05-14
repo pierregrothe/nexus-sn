@@ -47,4 +47,4 @@ def available_families(
         Tuple of (family_name, plugin_count) sorted by family_name.
     """
     counter: Counter[str] = Counter(p.product_family for p in plugins)
-    return tuple(sorted(counter.items(), key=lambda item: item[0]))
+    return tuple(sorted(counter.items(), key=lambda item: item[0].casefold()))

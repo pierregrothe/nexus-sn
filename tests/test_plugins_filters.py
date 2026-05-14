@@ -48,7 +48,7 @@ def test_filter_by_family_multiple_families() -> None:
 def test_filter_by_family_case_insensitive() -> None:
     plugins = (_info("com.acme.incident", product_family="ITSM"),)
     result = filter_by_family(plugins, ("itsm",))
-    assert len(result) == 1
+    assert result == plugins
 
 
 def test_filter_by_family_empty_filter_returns_all() -> None:
