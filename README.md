@@ -9,8 +9,8 @@
 [![CI](https://github.com/pierregrothe/nexus-sn/actions/workflows/ci.yml/badge.svg)](https://github.com/pierregrothe/nexus-sn/actions/workflows/ci.yml)
 [![License: Source Available](https://img.shields.io/badge/license-Source%20Available-orange)](LICENSE)
 [![Python 3.14+](https://img.shields.io/badge/python-3.14%2B-blue)](https://www.python.org/downloads/)
-[![Tests](https://img.shields.io/badge/tests-830%20passing-brightgreen)](https://github.com/pierregrothe/nexus-sn/actions)
-[![LOC](https://img.shields.io/badge/LOC-13%2C736-blue)](https://github.com/pierregrothe/nexus-sn/tree/main/src)
+[![Tests](https://img.shields.io/badge/tests-887%20passing-brightgreen)](https://github.com/pierregrothe/nexus-sn/actions)
+[![LOC](https://img.shields.io/badge/LOC-15%2C496-blue)](https://github.com/pierregrothe/nexus-sn/tree/main/src)
 <!-- /badges -->
 
 ServiceNow AI architect agent -- standalone CLI and optional web dashboard.
@@ -96,7 +96,7 @@ gantt
     section Foundation
         Foundation                   :done, 2026-03, 2026-05
     section Plugin Execution
-        Plugin Execution             :active, 2026-05, 2026-06
+        Plugin Execution             :done, 2026-05, 2026-06
     section Setup + Sync
         Setup + Sync                 :active, 2026-05, 2026-06
     section Assessment
@@ -112,15 +112,17 @@ gantt
 
 ## What is implemented
 
-<!-- tests -->830 tests passing, all real fakes, no mocks.<!-- /tests -->
+<!-- tests -->887 tests passing, all real fakes, no mocks.<!-- /tests -->
 
 The following commands are fully functional:
 
 - `nexus status` -- tier detection, MCP capability probe, auto-update check
 - `nexus instance` -- register, connect, refresh, list, delete, use
 - `nexus capture` -- discover, pull, list, push (bidirectional SN config transport)
-- `nexus plugins` -- scan, list, info, inventory, impact, advisories, orphans,
-  diff, updates, drift, baselines, recommend, export
+- `nexus plugins` -- scan, list, info, impact, advisories, orphans, diff,
+  updates, drift, baselines, recommend, export, promote, install, activate,
+  upgrade, apply (full lifecycle including PromotionPlan execution against
+  ServiceNow's discovered sn_appclient endpoints)
 - `nexus reauth` -- OAuth token refresh helper
 - `nexus update` -- manual update check
 
@@ -136,7 +138,7 @@ The following commands are stubs (not yet implemented):
 
 ## Plugin management
 
-The `nexus plugins` subapp covers the full lifecycle of ServiceNow application plugins:
+The `nexus plugins` subapp covers the full lifecycle of ServiceNow application plugins -- inventory and analysis on the read side, install / upgrade / apply on the write side:
 
 ```mermaid
 flowchart LR
@@ -150,7 +152,15 @@ flowchart LR
     adv --> defer["defer finding\n(per-instance override)"]
     imp --> rec["recommend\n(AI deactivation plan)"]
     inv --> export["export\n(YAML / CSV)"]
+    diff --> promote["promote\n(generate PromotionPlan YAML)"]
+    promote --> apply["apply\n(execute against target instance)"]
+    inv --> exec["install / activate /\nupgrade"]
+    exec --> poll["ProgressPoller\n(sn_appclient/progress)"]
+    apply --> poll
+    poll --> result["OperationResult\n(rollback on partial failure)"]
 ```
+
+Read-side commands (analysis):
 
 ```bash
 nexus plugins scan                        # full inventory (v_plugin + sys_store_app)
@@ -162,6 +172,22 @@ nexus plugins diff <instance-a> <instance-b>  # cross-instance comparison
 nexus plugins recommend deactivate <id>   # AI-generated deactivation plan
 nexus plugins export --format csv         # export inventory to CSV
 ```
+
+Write-side commands (execution):
+
+```bash
+nexus plugins install <plugin-id>         # install with dependency-cascade preview
+nexus plugins upgrade <plugin-id> --to X.Y.Z   # upgrade to a specific version
+nexus plugins activate <plugin-id>        # activate an installed plugin
+nexus plugins promote dev --to prod --out plan.yaml  # generate PromotionPlan
+nexus plugins apply plan.yaml             # execute the plan; rolls back on partial failure
+```
+
+Note: `nexus plugins deactivate` and `nexus plugins uninstall` exist as
+forward-compatible stubs but fail loudly on live ServiceNow. ServiceNow does
+not expose deactivation or uninstall via any programmatic API on Yokohama --
+the `AppsAjaxProcessor` is flagged "not public" and only the SN UI can
+invoke it. Use the ServiceNow Application Manager UI for those operations.
 
 ## Requirements
 

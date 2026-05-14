@@ -176,7 +176,8 @@ def _gen_badges(python_req: str, test_count: int | None, loc: int) -> str:
             "(https://github.com/pierregrothe/nexus-sn/releases)",
             "[![CI](https://github.com/pierregrothe/nexus-sn/actions/workflows/ci.yml/badge.svg)]"
             "(https://github.com/pierregrothe/nexus-sn/actions/workflows/ci.yml)",
-            "[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)",
+            "[![License: Source Available]"
+            "(https://img.shields.io/badge/license-Source%20Available-orange)](LICENSE)",
             f"[![Python {python_req}](https://img.shields.io/badge/python-{py_enc}-blue)]"
             "(https://www.python.org/downloads/)",
             f"[![Tests](https://img.shields.io/badge/tests-{tests_enc}-{tests_color})]"
