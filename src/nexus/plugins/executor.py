@@ -646,6 +646,48 @@ class PluginExecutor:
                 return OperationLog(results=tuple(results) + tuple(rollback))
         return OperationLog(results=tuple(results))
 
+    async def batch_upgrade(
+        self,
+        targets: tuple[PluginInfo, ...],
+        *,
+        families: tuple[str, ...] = (),
+        console: Console,
+    ) -> BatchUpgradeReport:
+        """Upgrade each target plugin sequentially. Skip-on-fail; never rolls back.
+
+        Each plugin is upgraded to its ``latest_version`` (passed straight to
+        ``submit_upgrade`` -- ``None`` means "latest available"). Failures are
+        recorded but the loop continues.
+
+        Args:
+            targets: Plugins to upgrade, in execution order. Already filtered
+                upstream (by family, by needs-update).
+            families: Family filter names, echoed onto the report for audit.
+                Empty tuple when no filter was applied.
+            console: Rich console for per-plugin status output.
+
+        Returns:
+            BatchUpgradeReport with per-plugin OperationResult in execution order.
+        """
+        results: list[OperationResult] = []
+        for plugin in targets:
+            console.print(f"[label]upgrade {plugin.plugin_id}[/]")
+            result = await self.upgrade(plugin.plugin_id, plugin.latest_version)
+            results.append(result)
+            if result.success:
+                console.print(f"[ok]ok {plugin.plugin_id} -> {result.message}[/]")
+            else:
+                console.print(f"[error]fail {plugin.plugin_id}: {result.message}[/]")
+        succeeded = sum(1 for r in results if r.success)
+        failed = len(results) - succeeded
+        return BatchUpgradeReport(
+            results=tuple(results),
+            families=families,
+            target_count=len(results),
+            succeeded=succeeded,
+            failed=failed,
+        )
+
     async def _rollback(
         self,
         completed: list[OperationResult],

@@ -114,3 +114,30 @@ def test_batch_upgrade_report_exit_code_with_failures() -> None:
         failed=1,
     )
     assert report.exit_code == 1
+
+
+async def test_batch_upgrade_all_succeed_in_order(console: Console) -> None:
+    client = FakeServiceNowClient()
+    for tracker in ("t-a", "t-b", "t-c"):
+        client.queue_upgrade_response(_upgrade_kickoff(tracker))
+        client.set_progress_sequence(tracker, [_progress("2", 100, tracker=tracker)])
+    inv = _inventory(
+        _info("com.acme.a"),
+        _info("com.acme.b"),
+        _info("com.acme.c"),
+    )
+    executor = PluginExecutor(client=client, inventory=inv)
+
+    targets = inv.plugins
+    report = await executor.batch_upgrade(targets, families=(), console=console)
+
+    assert report.target_count == 3
+    assert report.succeeded == 3
+    assert report.failed == 0
+    assert tuple(r.plugin_id for r in report.results) == (
+        "com.acme.a",
+        "com.acme.b",
+        "com.acme.c",
+    )
+    assert all(r.success for r in report.results)
+    assert report.exit_code == 0
