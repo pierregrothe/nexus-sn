@@ -33,3 +33,34 @@ def test_filter_by_family_single_match() -> None:
     )
     result = filter_by_family(plugins, ("ITSM",))
     assert tuple(p.plugin_id for p in result) == ("com.acme.incident", "com.acme.problem")
+
+
+def test_filter_by_family_multiple_families() -> None:
+    plugins = (
+        _info("com.acme.incident", product_family="ITSM"),
+        _info("com.acme.cmdb", product_family="ITOM"),
+        _info("com.acme.hr", product_family="HRSD"),
+    )
+    result = filter_by_family(plugins, ("ITSM", "ITOM"))
+    assert tuple(p.plugin_id for p in result) == ("com.acme.incident", "com.acme.cmdb")
+
+
+def test_filter_by_family_case_insensitive() -> None:
+    plugins = (_info("com.acme.incident", product_family="ITSM"),)
+    result = filter_by_family(plugins, ("itsm",))
+    assert len(result) == 1
+
+
+def test_filter_by_family_empty_filter_returns_all() -> None:
+    plugins = (
+        _info("com.acme.a", product_family="ITSM"),
+        _info("com.acme.b", product_family="ITOM"),
+    )
+    result = filter_by_family(plugins, ())
+    assert result == plugins
+
+
+def test_filter_by_family_no_match_returns_empty() -> None:
+    plugins = (_info("com.acme.incident", product_family="ITSM"),)
+    result = filter_by_family(plugins, ("ITOM",))
+    assert result == ()
