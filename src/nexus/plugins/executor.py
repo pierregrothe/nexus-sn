@@ -117,6 +117,9 @@ class PluginExecutor:
             raise TypeError(f"inventory must be PluginInventory, got {type(inventory).__name__}")
         self._client = client
         self._by_id: dict[str, PluginInfo] = {p.plugin_id: p for p in inventory.plugins}
+        # Cached synthetic inventory for impact-gate BFS. Invalidated whenever
+        # _by_id changes (currently only via _refresh_one after install).
+        self._cached_snapshot: PluginInventory | None = None
 
     def has_plugin(self, plugin_id: str) -> bool:
         """Return True if the plugin is known to this executor."""
@@ -206,12 +209,13 @@ class PluginExecutor:
         if force:
             return
         info = self.lookup(plugin_id)
-        snapshot_inventory = PluginInventory(
-            captured_at=datetime.now(UTC),
-            sn_version="snapshot",
-            plugins=tuple(self._by_id.values()),
-        )
-        local_rev = reverse_dependencies(snapshot_inventory, plugin_id)
+        if self._cached_snapshot is None:
+            self._cached_snapshot = PluginInventory(
+                captured_at=datetime.now(UTC),
+                sn_version="snapshot",
+                plugins=tuple(self._by_id.values()),
+            )
+        local_rev = reverse_dependencies(self._cached_snapshot, plugin_id)
         local_rev_count = len(local_rev)
         sn_deps = await fetch_dependencies(self._client, plugin_id, info.version)
         sn_count = len(sn_deps)
@@ -256,6 +260,7 @@ class PluginExecutor:
             sys_id=str(row.get("sys_id", "")),
             installed_at=None,
         )
+        self._cached_snapshot = None
 
     async def install(
         self,
