@@ -580,3 +580,85 @@ the captured network log; the dialog likely requires further interaction).
 Until then, the executor's deactivate/uninstall methods are wired and
 unit-tested but will fail live with HTTP 400. The CLI commands exist for
 forward compatibility with the correct endpoints once discovered.
+
+### Update 2026-05-14b: live trusted-event capture of Uninstall flow
+
+A second round of live capture on the alectri PDI using Chrome's trusted
+input events (synthetic `.click()` was rejected by the web components'
+`event.isTrusted` filter, so we had to use the Chrome extension's real
+`left_click` action) finally captured the real flow. Findings:
+
+1. **Many App Manager Uninstall buttons are UI-disabled.** On the
+   `sn_outlook_addin` detail page the Uninstall button had
+   `class="now-button-bare -secondary -md is-disabled"` and `disabled=true`,
+   even for the system administrator. Clicking does nothing. The set of
+   plugins users can uninstall via App Manager is smaller than expected.
+
+2. **For an uninstallable plugin (`sn_cld_intg_gcp` Cloud Integrations
+   GCP) the click chain is:**
+
+   ```
+   Click "Uninstall" -> dialog opens asking confirm with retain-data
+                       checkbox
+   Click "OK" in dialog
+     -> POST /api/sn_appclient/appmanager/register_tracker_info
+        Body: a ~5.6KB JSON payload of the FULL app metadata --
+              logo, name, vendor, scope, version, sys_id, dependencies,
+              versions[] array, isInstalled, can_install_or_upgrade,
+              install_tracker_id, etc.
+        Response: {"result":{"registered":true},"session":{"notifications":[]}}
+     -> (additional kickoff endpoint URL was blocked from interceptor
+        display by the extension's security guard; SN UI subsequently
+        rendered a failure dialog reading:
+          "Uninstallation failed -- Dependent applications sn_clin_gcp,
+           sn_clin_sn_cld_spend_gcp still exist. Delete or move them to
+           uninstall 'Cloud Integrations GCP'")
+   ```
+
+3. **Architectural truth:** the SN App Manager uninstall is NOT a single
+   GET-with-action-keyword call. It is a two-step flow that posts full
+   plugin metadata to a tracker-registration endpoint before kicking off
+   a server-side operation. The "registered: true" response confirms only
+   that the tracker was created, not that the operation succeeded -- a
+   subsequent server-side dependency check can refuse the operation.
+
+4. **The action keyword itself is implicit in the body's `source` /
+   `isInstalled` / `block_install` fields, not the URL path.** This is
+   why GET `/app/deactivate?app_id=...` returned 400 -- there is no
+   `deactivate` action endpoint at all; the App Manager re-uses one
+   tracker-registration endpoint for all operations and the SN backend
+   determines the action from the body.
+
+5. **What we still do not have:** the exact follow-up call after
+   `register_tracker_info` that SN polls for progress, plus the precise
+   request-body subset required for an uninstall (vs install -- the body
+   today carries all metadata; SN must look at specific fields to decide
+   the action). Verifying these requires either:
+   - A successful uninstall capture against a plugin with NO dependents
+     so the operation actually completes and we see the full sequence.
+   - Or DevTools Network panel inspection by the user (not feasible from
+     the in-conversation interceptor due to the extension's URL/body
+     masking on tokenised query strings).
+
+**Updated implications for sub-project N implementation:**
+
+- `submit_install` and `submit_upgrade` REMAIN verified working live.
+- `submit_activate` was never verified live; same caveat as before.
+- `submit_deactivate` and `submit_uninstall` as currently coded **CANNOT
+  work** against the live SN App Manager because there is no action-keyword
+  endpoint. They will need to be rewritten to:
+    a. GET `/api/sn_appclient/appmanager/app/<sys_id>` to obtain the full
+       app metadata.
+    b. POST that metadata to
+       `/api/sn_appclient/appmanager/register_tracker_info` to start the
+       operation (and surface the `registered: true` response).
+    c. Poll the eventual tracker ID via the progress endpoint that we
+       already know (`/api/sn_appclient/appmanager/progress/{id}`).
+  Step (a -> b) substitution must happen before either method can run
+  against live SN.
+
+This is being deferred to a follow-up branch because the precise tracker
+ID resolution between step (b) and step (c) was not captured. The
+current sub-project N code remains in the tree (with executor wiring,
+unit tests, and CLI commands) as a forward-compatible stub; it fails
+loudly on live SN until the rewrite lands.
