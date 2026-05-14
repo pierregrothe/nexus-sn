@@ -662,3 +662,105 @@ ID resolution between step (b) and step (c) was not captured. The
 current sub-project N code remains in the tree (with executor wiring,
 unit tests, and CLI commands) as a forward-compatible stub; it fails
 loudly on live SN until the rewrite lands.
+
+### Update 2026-05-14c: DEFINITIVE -- mining sys_ws_operation + sys_script_include + sys_ui_action
+
+A direct query against the alectri PDI's metadata tables (using the
+already-discovered `sys_ws_definition`/`sys_ws_operation` mining
+technique from `scripts/dump_sn_api_catalog.py`) revealed the complete
+truth about App Manager actions. Two queries were definitive:
+
+**1. Every `sys_ws_operation` under `sn_appclient` (30 rows):**
+
+```
+GET   /progress/{trackerId}              GET   /pluginpreinstallinfo
+GET   /app_info_from_store/{sourceAppId}/{version}
+POST  /plugins                           POST  /products
+POST  /apps                              GET   /pendingbatchinstallations
+GET   /sync_apps                         GET   /plugin/activate     <--
+GET   /installations                     POST  /batch/dependencies
+GET   /plugin/repair        <--          POST  /dependencies
+GET   /installations/{trackerId}         GET   /app/update          <--
+GET   /manifest                          POST  /schedule
+GET   /get_page_config                   GET   /app/repair          <--
+GET   /app/{appID}                       GET   /plugin/{pluginId}
+GET   /batch/{batchId}                   GET   /filters
+POST  /register_tracker_info             GET   /product/{productId}
+GET   /plugin/rollback      <--          POST  /product/install
+GET   /app/install          <--          GET   /progress/app/{appId}
+GET   /loadDemoData
+```
+
+The action endpoints exposed via REST are: **install (app)**, **update
+(app)**, **repair (app + plugin)**, **activate (plugin)**, **rollback
+(plugin)**, **install (product)**. There is **NO** `/plugin/deactivate`,
+`/plugin/uninstall`, `/app/deactivate`, or `/app/uninstall` operation.
+
+**2. Every method on `AppManagerHandler` (the handler all action ops
+delegate to):**
+
+```
+installApp, updateApp, repairApp, activatePlugin, repairPlugin, installProduct
+```
+
+Six methods. No `uninstallApp`. No `deactivatePlugin`. No `uninstallPlugin`.
+
+**3. The legacy uninstall mechanism (from `sys_ui_action` + `sys_ui_page`
+`uninstall_app_dialog` client script):**
+
+```javascript
+dd.setPreference('sysparm_function', 'uninstallApplication');
+dd.setPreference('sysparm_sys_id', appId);
+dd.setPreference('sysparm_plugin_id', '${JS:sysparm_plugin_id}');
+dd.setPreference('sysparm_delete_all', del);
+dd.setPreference('sysparm_ajax_processor', 'com.snc.apps.AppsAjaxProcessor');
+dd.render();  // -> POST /xmlhttp.do with the preferences as form fields
+```
+
+The SN App Manager UI calls
+**`POST /xmlhttp.do`** with `sysparm_processor=com.snc.apps.AppsAjaxProcessor`
+and `sysparm_function=uninstallApplication`. The `AppsAjaxProcessor`
+class is a Java backend processor (`com.snc.apps.*` namespace), not a
+scripted JS REST operation.
+
+**Critical: `/xmlhttp.do` rejects OAuth Bearer auth with HTTP 401
+"invalid token".** It only accepts session-cookie or Basic-auth login.
+
+### Architectural conclusion for NEXUS
+
+Plugin and app **deactivate / uninstall cannot be implemented via the
+OAuth-bearer REST APIs** that NEXUS currently uses. To support these,
+NEXUS would have to:
+
+1. Store the user's SN password (already done via OS keychain for the
+   OAuth `password` grant).
+2. Login via Basic auth (or grant a session cookie via that login).
+3. Call `POST /xmlhttp.do` with the cookie + AppsAjaxProcessor params.
+4. Parse the legacy XML response to extract `workerId` (tracker).
+5. Poll the existing progress endpoint with that workerId.
+
+This is an architectural pivot from "REST-only Bearer auth" to "REST +
+legacy session-cookie auth". The pivot is non-trivial but tractable:
+NEXUS already has the password in the keychain (used for OAuth grant),
+so a Basic-auth login is just an additional code path.
+
+**Recommendation:** sub-project N's CLI commands remain available as
+forward-compatible stubs, clearly labeled "live operation not yet
+implemented -- see spec addendum 2026-05-14c". The `xmlhttp.do +
+AjaxProcessor` rewrite is its own future sub-project because:
+- It introduces a new auth path (session-cookie alongside Bearer)
+- Legacy AjaxProcessor responses are XML, not JSON (separate parser)
+- The behaviour gates that we built into the executor (impact check,
+  --force, base-plugin refusal) all remain reusable as-is
+
+The unit tests pass against `FakeServiceNowClient` and exercise the
+executor logic correctly. The CLI commands fail loudly on live SN
+with a clear error message. No silent breakage.
+
+### Companion files
+
+- `docs/sn-internal-api-catalog.md` -- catalog of all sn_appclient ops,
+  unchanged. Update 2026-05-14c confirmed it is complete (30 ops).
+- `scripts/dump_sn_api_catalog.py` -- the mining script that generated
+  the catalog. Used by Update 2026-05-14c to perform the definitive
+  search.

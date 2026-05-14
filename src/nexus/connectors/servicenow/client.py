@@ -354,13 +354,17 @@ class ServiceNowClient:
     async def submit_deactivate(self, source_app_id: str) -> dict[str, object]:
         """GET app/deactivate?app_id=<source_app_id>.
 
-        KNOWN-BROKEN: live capture on Yokohama PDIs (2026-05-14b addendum)
-        revealed there is no action-keyword endpoint at this path. The real
-        flow is a two-step POST to
-        /api/sn_appclient/appmanager/register_tracker_info with the full app
-        metadata as body. This method will return SNClientError (HTTP 400)
-        against live SN until rewritten in a follow-up sub-project.
-        Unit tests still pass against FakeServiceNowClient canned responses.
+        DEFINITIVELY UNSUPPORTED via Bearer-auth REST: a sys_ws_operation
+        mining query against alectri PDI (Yokohama) found no
+        deactivate operation under sn_appclient at all. AppManagerHandler
+        has 6 methods (installApp, updateApp, repairApp, activatePlugin,
+        repairPlugin, installProduct) -- no deactivate method exists.
+        The SN App Manager UI accomplishes deactivate/uninstall via the
+        legacy ``POST /xmlhttp.do`` + ``com.snc.apps.AppsAjaxProcessor``
+        which requires session-cookie / Basic auth (rejects Bearer with
+        HTTP 401). See spec addendum 2026-05-14c. NEXUS sub-project N
+        live support requires a session-auth code path that is out of
+        scope for the current OAuth-only architecture.
         """
         params: dict[str, str | int] = {"app_id": source_app_id}
         response = await self._get(self._APPMANAGER_DEACTIVATE, params=params)
@@ -369,9 +373,8 @@ class ServiceNowClient:
     async def submit_uninstall(self, source_app_id: str) -> dict[str, object]:
         """GET app/uninstall?app_id=<source_app_id>.
 
-        KNOWN-BROKEN: same caveat as ``submit_deactivate`` -- the App Manager
-        UI uses register_tracker_info, not a /app/uninstall keyword path.
-        See spec addendum 2026-05-14b for the captured flow.
+        Same caveat as ``submit_deactivate``: no REST operation exists.
+        See spec addendum 2026-05-14c for the full mining results.
         """
         params: dict[str, str | int] = {"app_id": source_app_id}
         response = await self._get(self._APPMANAGER_UNINSTALL, params=params)
