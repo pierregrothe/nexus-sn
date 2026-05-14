@@ -376,67 +376,6 @@ _PLUGINS_BASELINES_HELP: list[CommandHelpEntry] = [
 ]
 
 
-def _find_leaf_help(path: tuple[str, ...]) -> CommandHelpEntry | None:
-    """Look up a leaf command's CommandHelpEntry by its path under ``nexus``.
-
-    Catalogs are read at call time (not at definition time), so this works
-    even though ``_TOP_LEVEL_HELP`` and ``_INSTANCE_HELP`` are defined later
-    in the module than this function.
-
-    Args:
-        path: Tuple of subcommand tokens, e.g. ``("plugins", "updates")``.
-
-    Returns:
-        The matching CommandHelpEntry, or ``None`` if no curated entry exists.
-    """
-    if len(path) == 1:
-        bucket: list[CommandHelpEntry] = _TOP_LEVEL_HELP
-    elif len(path) == 2:
-        parent = path[0]
-        if parent == "plugins":
-            bucket = _PLUGINS_HELP
-        elif parent == "instance":
-            bucket = _INSTANCE_HELP
-        elif parent == "capture":
-            bucket = _CAPTURE_HELP
-        else:
-            return None
-    elif len(path) == 3 and path[:2] == ("plugins", "recommend"):
-        bucket = _PLUGINS_RECOMMEND_HELP
-    elif len(path) == 3 and path[:2] == ("plugins", "baselines"):
-        bucket = _PLUGINS_BASELINES_HELP
-    else:
-        return None
-    last = path[-1]
-    for entry in bucket:
-        if entry.command.split()[0] == last:
-            return entry
-    return None
-
-
-def _show_help_if_bare(*path: str) -> bool:
-    """Print the leaf-command help panel when invocation is bare.
-
-    A "bare" invocation has no arguments, options, or flags beyond the
-    command path itself. Detection inspects ``sys.argv`` (Click's CliRunner
-    rewrites it during tests, so this works under unit tests too).
-
-    Args:
-        *path: Subcommand tokens under ``nexus``, e.g. ``"plugins", "updates"``.
-
-    Returns:
-        True when help was printed and the caller should return immediately;
-        False when the user supplied arguments and the command body should run.
-    """
-    if sys.argv[1:] != list(path):
-        return False
-    entry = _find_leaf_help(path)
-    if entry is None:
-        return False
-    console.print(CommandHelp(title=" ".join(("nexus", *path)), entry=entry))
-    return True
-
-
 # Custom scope prefixes -- anything else is an OOTB ServiceNow application.
 _CUSTOM_SCOPE_PREFIXES = ("x_", "u_")
 
@@ -655,8 +594,6 @@ def main(
 @app.command()
 def setup() -> None:
     """First-run wizard: configure credentials, instances, and sync templates."""
-    if _show_help_if_bare("setup"):
-        return
     console.print("[bold]NEXUS Setup[/bold]")
     console.print("Interactive setup wizard -- not yet implemented.")
     console.print("Configure manually by editing ~/.nexus/config.yaml")
@@ -1240,8 +1177,6 @@ def instance_callback(ctx: typer.Context) -> None:
 @instance_app.command("list")
 def instance_list() -> None:
     """Show all registered ServiceNow instances."""
-    if _show_help_if_bare("instance", "list"):
-        return
     registry = _instance_registry()
     metas = registry.list_all()
     if not metas:
@@ -1289,8 +1224,6 @@ def instance_list() -> None:
 @instance_app.command("status")
 def instance_status(profile: str = typer.Argument("")) -> None:
     """Show metadata and snapshot summary for an instance."""
-    if _show_help_if_bare("instance", "status"):
-        return
     registry, meta = _resolve_profile(profile)
 
     console.print()
@@ -1348,15 +1281,10 @@ def instance_status(profile: str = typer.Argument("")) -> None:
 
 @instance_app.command("delete")
 def instance_delete(
-    profile: Annotated[str, typer.Argument(help="Instance profile to delete")] = "",
+    profile: Annotated[str, typer.Argument(help="Instance profile to delete")],
     force: Annotated[bool, typer.Option("--force", help="Skip confirmation")] = False,
 ) -> None:
     """Remove a registered instance and its keychain entries."""
-    if _show_help_if_bare("instance", "delete"):
-        return
-    if not profile:
-        err_console.print(Notice.error("Missing argument: PROFILE"))
-        raise typer.Exit(2)
     if not force:
         if not typer.confirm(f"Delete instance {profile!r} and all its data?"):
             raise typer.Abort()
@@ -1428,8 +1356,6 @@ def instance_use(
 @instance_app.command("connect")
 def instance_connect(profile: str = typer.Argument("")) -> None:
     """Verify connectivity and refresh token if near expiry."""
-    if _show_help_if_bare("instance", "connect"):
-        return
     registry, meta, token, new_expiry = _acquire_token(profile)
     profile = meta.profile
 
@@ -1474,8 +1400,6 @@ def instance_refresh(
     ] = False,
 ) -> None:
     """Pull a fresh artifact snapshot from the instance."""
-    if _show_help_if_bare("instance", "refresh"):
-        return
     registry, meta, token, new_expiry = _acquire_token(profile)
     profile = meta.profile
 
@@ -1524,14 +1448,9 @@ def instance_refresh(
 
 @instance_app.command("register")
 def instance_register(
-    profile: Annotated[str, typer.Argument(help="Profile name to register")] = "",
+    profile: Annotated[str, typer.Argument(help="Profile name to register")],
 ) -> None:
     """Interactive wizard to register a new ServiceNow instance via OAuth2."""
-    if _show_help_if_bare("instance", "register"):
-        return
-    if not profile:
-        err_console.print(Notice.error("Missing argument: PROFILE"))
-        raise typer.Exit(2)
     paths = NexusPaths.from_env()
     if (paths.instances_dir / profile).exists():
         err_console.print(
@@ -1638,8 +1557,6 @@ def plugins_list(
     ] = "text",
 ) -> None:
     """Show all plugins installed on the resolved instance."""
-    if _show_help_if_bare("plugins", "list"):
-        return
     _validate_format(output_format)
     resolved = _plugins_for(instance)
     if resolved is None:
@@ -1689,9 +1606,7 @@ def plugins_list(
 
 @plugins_app.command("info")
 def plugins_info(
-    plugin_id: Annotated[
-        str, typer.Argument(help="SN plugin identifier (e.g. com.snc.incident)")
-    ] = "",
+    plugin_id: Annotated[str, typer.Argument(help="SN plugin identifier (e.g. com.snc.incident)")],
     instance: Annotated[
         str, typer.Option("--instance", help="Instance profile (default: configured default)")
     ] = "",
@@ -1701,11 +1616,6 @@ def plugins_info(
     ] = "text",
 ) -> None:
     """Show full details and direct dependencies for one plugin."""
-    if _show_help_if_bare("plugins", "info"):
-        return
-    if not plugin_id:
-        err_console.print(Notice.error("Missing argument: PLUGIN_ID"))
-        raise typer.Exit(2)
     _validate_format(output_format)
     resolved = _plugins_for(instance)
     if resolved is None:
@@ -1781,8 +1691,6 @@ def plugins_export(
     ] = "",
 ) -> None:
     """Write the plugin inventory to a YAML or CSV file."""
-    if _show_help_if_bare("plugins", "export"):
-        return
     if fmt not in ("yaml", "csv"):
         err_console.print(Notice.error(f"Unknown format {fmt!r}; use yaml or csv."))
         raise typer.Exit(1)
@@ -1900,8 +1808,8 @@ def _load_inventory_or_exit(profile: str) -> tuple[InstanceMeta, PluginInventory
 
 @plugins_app.command("diff")
 def plugins_diff(
-    profile_a: Annotated[str, typer.Argument(help="First profile")] = "",
-    profile_b: Annotated[str, typer.Argument(help="Second profile")] = "",
+    profile_a: Annotated[str, typer.Argument(help="First profile")],
+    profile_b: Annotated[str, typer.Argument(help="Second profile")],
     status: Annotated[
         str,
         typer.Option(
@@ -1915,11 +1823,6 @@ def plugins_diff(
     ] = "text",
 ) -> None:
     """Show cross-instance plugin differences."""
-    if _show_help_if_bare("plugins", "diff"):
-        return
-    if not profile_a or not profile_b:
-        err_console.print(Notice.error("Missing arguments: PROFILE_A and PROFILE_B both required"))
-        raise typer.Exit(2)
     _validate_format(output_format)
     meta_a, inv_a = _load_inventory_or_exit(profile_a)
     meta_b, inv_b = _load_inventory_or_exit(profile_b)
@@ -1993,7 +1896,7 @@ def _promote_payload(plan: PromotionPlan) -> dict[str, object]:
 
 @plugins_app.command("promote")
 def plugins_promote(
-    source: Annotated[str, typer.Argument(help="Source profile")] = "",
+    source: Annotated[str, typer.Argument(help="Source profile")],
     target: Annotated[
         str, typer.Option("--to", help="Target profile to bring up to match source.")
     ] = "",
@@ -2006,11 +1909,6 @@ def plugins_promote(
     ] = "",
 ) -> None:
     """Write an additive action plan to make <target> match <source>."""
-    if _show_help_if_bare("plugins", "promote"):
-        return
-    if not source or not target:
-        err_console.print(Notice.error("Missing arguments: SOURCE and --to both required"))
-        raise typer.Exit(2)
     if source == target:
         err_console.print(
             Notice.error("Source and target are the same profile; nothing to promote.")
@@ -2084,8 +1982,6 @@ def plugins_updates(
     ] = "text",
 ) -> None:
     """Show plugins with newer versions available; optionally write a YAML queue."""
-    if _show_help_if_bare("plugins", "updates"):
-        return
     _validate_format(output_format)
     meta, inventory = _load_inventory_or_exit(instance)
     pending = plugins_with_updates(inventory)
@@ -2322,8 +2218,6 @@ def plugins_advisories(
     ] = False,
 ) -> None:
     """Show EOL / CVE / license findings for plugins on an instance."""
-    if _show_help_if_bare("plugins", "advisories"):
-        return
     _validate_format(output_format)
     meta, inventory = _load_inventory_or_exit(instance)
     try:
@@ -2396,9 +2290,9 @@ def plugins_advisories(
 
 @plugins_app.command("defer")
 def plugins_advisories_defer(
-    plugin_id: Annotated[str, typer.Argument(help="SN plugin identifier")] = "",
-    advisory_type: Annotated[str, typer.Argument(help="eol | cve | license")] = "",
-    details: Annotated[str, typer.Argument(help="Exact finding details string")] = "",
+    plugin_id: Annotated[str, typer.Argument(help="SN plugin identifier")],
+    advisory_type: Annotated[str, typer.Argument(help="eol | cve | license")],
+    details: Annotated[str, typer.Argument(help="Exact finding details string")],
     reason: Annotated[str, typer.Option("--reason", help="Required justification")] = "",
     instance: Annotated[
         str,
@@ -2406,8 +2300,6 @@ def plugins_advisories_defer(
     ] = "",
 ) -> None:
     """Defer an EOL/CVE/license advisory finding on a plugin."""
-    if _show_help_if_bare("plugins", "defer"):
-        return
     if not plugin_id or not advisory_type or not details or not reason:
         err_console.print(
             Notice.error("Missing required: PLUGIN_ID, ADVISORY_TYPE, DETAILS, --reason")
@@ -2472,20 +2364,15 @@ def plugins_advisories_defer(
 
 @plugins_app.command("undo-defer")
 def plugins_advisories_undo_defer(
-    plugin_id: Annotated[str, typer.Argument(help="SN plugin identifier")] = "",
-    advisory_type: Annotated[str, typer.Argument(help="eol | cve | license")] = "",
-    details: Annotated[str, typer.Argument(help="Exact finding details string")] = "",
+    plugin_id: Annotated[str, typer.Argument(help="SN plugin identifier")],
+    advisory_type: Annotated[str, typer.Argument(help="eol | cve | license")],
+    details: Annotated[str, typer.Argument(help="Exact finding details string")],
     instance: Annotated[
         str,
         typer.Option("--instance", help="Instance profile (default: configured default)"),
     ] = "",
 ) -> None:
     """Remove a previously deferred advisory finding."""
-    if _show_help_if_bare("plugins", "undo-defer"):
-        return
-    if not plugin_id or not advisory_type or not details:
-        err_console.print(Notice.error("Missing required: PLUGIN_ID, ADVISORY_TYPE, DETAILS"))
-        raise typer.Exit(2)
     try:
         wanted_type = AdvisoryType(advisory_type)
     except ValueError as exc:
@@ -2522,8 +2409,6 @@ def plugins_advisories_list_deferred(
     ] = "text",
 ) -> None:
     """List all deferred advisory findings for an instance."""
-    if _show_help_if_bare("plugins", "list-deferred"):
-        return
     _validate_format(output_format)
     paths = NexusPaths.from_env()
     registry = InstanceRegistry(paths.instances_dir)
@@ -2615,11 +2500,6 @@ def plugins_impact(
     ] = False,
 ) -> None:
     """Show reverse dependencies + scope-owned record counts for a plugin."""
-    if _show_help_if_bare("plugins", "impact"):
-        return
-    if not plugin_id:
-        err_console.print(Notice.error("Missing argument: PLUGIN_ID"))
-        raise typer.Exit(2)
     _validate_format(output_format)
     _, inventory = _load_inventory_or_exit(instance)
     _registry, meta, token, _expiry = _acquire_token(instance)
@@ -2780,8 +2660,6 @@ def plugins_orphans(
     ] = "text",
 ) -> None:
     """Show plugins with no dependents AND no scope-owned records."""
-    if _show_help_if_bare("plugins", "orphans"):
-        return
     _validate_format(output_format)
     meta, inventory = _load_inventory_or_exit(instance)
     if all(p.record_counts is None for p in inventory.plugins):
@@ -2862,8 +2740,6 @@ def plugins_drift(
     ] = DEFAULT_BASELINE_NAME,
 ) -> None:
     """Show plugin drift on an instance since the last baseline."""
-    if _show_help_if_bare("plugins", "drift"):
-        return
     _validate_format(output_format)
     try:
         validate_baseline_name(baseline_name)
@@ -2946,18 +2822,13 @@ def plugins_drift(
 
 @plugins_app.command("explain")
 def plugins_explain(
-    plugin_id: Annotated[str, typer.Argument(help="Plugin to explain.")] = "",
+    plugin_id: Annotated[str, typer.Argument(help="Plugin to explain.")],
     instance: Annotated[
         str,
         typer.Option("--instance", help="Instance profile (default: configured default)"),
     ] = "",
 ) -> None:
     """Explain what a plugin does and whether the user likely needs it."""
-    if _show_help_if_bare("plugins", "explain"):
-        return
-    if not plugin_id:
-        err_console.print(Notice.error("Missing argument: PLUGIN_ID"))
-        raise typer.Exit(2)
     _, inventory = _load_inventory_or_exit(instance)
     plugin = next((p for p in inventory.plugins if p.plugin_id == plugin_id), None)
     if plugin is None:
@@ -2996,8 +2867,6 @@ def plugins_roadmap(
     ] = "",
 ) -> None:
     """Draft an AI-generated remediation roadmap."""
-    if _show_help_if_bare("plugins", "roadmap"):
-        return
     meta, inventory = _load_inventory_or_exit(instance)
     db = AdvisoryDatabase.load()
     advisories = compute_advisories(inventory, db, today=_today())
@@ -3051,8 +2920,6 @@ def plugins_recommend_deactivate(
     ] = "",
 ) -> None:
     """List plugins safest to deactivate, with AI rationale."""
-    if _show_help_if_bare("plugins", "recommend", "deactivate"):
-        return
     _, inventory = _load_inventory_or_exit(instance)
     db = AdvisoryDatabase.load()
     advisories = compute_advisories(inventory, db, today=_today())
@@ -3099,8 +2966,6 @@ def plugins_baselines_list(
     ] = "",
 ) -> None:
     """Show all named baselines for an instance."""
-    if _show_help_if_bare("plugins", "baselines", "list"):
-        return
     paths = NexusPaths.from_env()
     registry = InstanceRegistry(paths.instances_dir)
     meta, _ = _load_inventory_or_exit(instance)
@@ -3126,7 +2991,7 @@ def plugins_baselines_list(
 
 @baselines_app.command("delete")
 def plugins_baselines_delete(
-    name: Annotated[str, typer.Argument(help="Baseline name to delete.")] = "",
+    name: Annotated[str, typer.Argument(help="Baseline name to delete.")],
     instance: Annotated[
         str,
         typer.Option("--instance", help="Instance profile (default: configured default)"),
@@ -3137,11 +3002,6 @@ def plugins_baselines_delete(
     ] = False,
 ) -> None:
     """Delete a named baseline."""
-    if _show_help_if_bare("plugins", "baselines", "delete"):
-        return
-    if not name:
-        err_console.print(Notice.error("Missing argument: NAME"))
-        raise typer.Exit(2)
     try:
         validate_baseline_name(name)
     except InvalidBaselineNameError as exc:
@@ -3187,8 +3047,6 @@ def capture_discover(
     ] = False,
 ) -> None:
     """Discover which of your scopes have custom AI/automation configs."""
-    if _show_help_if_bare("capture", "discover"):
-        return
 
     async def _run() -> None:
         engine, client = _build_capture_engine(instance)
@@ -3335,8 +3193,6 @@ def capture_pull(
 
     Run 'nexus capture discover' first to see scope keys.
     """
-    if _show_help_if_bare("capture", "pull"):
-        return
     if not scope:
         err_console.print("At least one --scope is required.")
         err_console.print("  Run 'nexus capture discover' to see your scope keys.")
@@ -3387,8 +3243,6 @@ def capture_list(
     instance: Annotated[str | None, typer.Argument(help="Filter by instance")] = None,
 ) -> None:
     """List local capture archives."""
-    if _show_help_if_bare("capture", "list"):
-        return
     archives_root = NexusPaths.from_env().archives_dir
     if not archives_root.exists():
         console.print(
@@ -3432,18 +3286,13 @@ def capture_list(
 
 @capture_app.command("push")
 def capture_push(
-    archive: Annotated[str, typer.Argument(help="Path to archive directory")] = "",
+    archive: Annotated[str, typer.Argument(help="Path to archive directory")],
     instance: Annotated[
         str, typer.Argument(help="Target instance profile (default: configured default)")
     ] = "",
     update_set: Annotated[str, typer.Option(help="Update set name")] = "NEXUS-capture",
 ) -> None:
     """Push a local archive into an update set on the target instance."""
-    if _show_help_if_bare("capture", "push"):
-        return
-    if not archive:
-        err_console.print(Notice.error("Missing argument: ARCHIVE"))
-        raise typer.Exit(2)
 
     async def _run() -> None:
         engine, client = _build_capture_engine(instance)
@@ -3473,8 +3322,6 @@ def status(
     ] = False,
 ) -> None:
     """Show NEXUS tier and available enterprise MCP servers."""
-    if _show_help_if_bare("status"):
-        return
     if refresh:
         clear_cache(TierDetector.detect)
 
@@ -3495,8 +3342,6 @@ def reauth(
     ] = None,
 ) -> None:
     """Print the command to re-authenticate one or more MCP servers."""
-    if _show_help_if_bare("reauth"):
-        return
     detection = _detect_tier()
 
     if server is not None:
@@ -3539,8 +3384,6 @@ def update(
     Plain ``nexus update`` runs the same auto-update path the CLI callback
     triggers. With ``--check-only``, fetch and report without installing.
     """
-    if _show_help_if_bare("update"):
-        return
     if not check_only:
         check_and_maybe_update()
         return
@@ -3569,8 +3412,6 @@ def update(
 @app.command()
 def sync() -> None:
     """Pull the latest templates from the GitHub registry."""
-    if _show_help_if_bare("sync"):
-        return
     console.print(Notice.info("Syncing templates -- not yet implemented."))
     console.print(Notice.info("Configure github_repo in ~/.nexus/config.yaml first."))
 
@@ -3578,8 +3419,6 @@ def sync() -> None:
 @app.command("templates")
 def templates_cmd() -> None:
     """Browse and inspect available templates."""
-    if _show_help_if_bare("templates"):
-        return
     console.print(Notice.info("Template browser -- not yet implemented. Run 'nexus sync' first."))
 
 
@@ -3591,8 +3430,6 @@ def assess(
     job: Annotated[str, typer.Option("--job", help="Validate a past deployment by job ID")] = "",
 ) -> None:
     """Run an instance health scan or targeted assessment."""
-    if _show_help_if_bare("assess"):
-        return
     if for_template:
         console.print(
             Notice.info(f"Readiness check for template: {for_template!r} -- not yet implemented.")
@@ -3607,15 +3444,10 @@ def assess(
 
 @app.command()
 def apply(
-    template: Annotated[str, typer.Argument(help="Template name to deploy")] = "",
+    template: Annotated[str, typer.Argument(help="Template name to deploy")],
     dry_run: Annotated[bool, typer.Option("--dry-run")] = False,
 ) -> None:
     """Deploy a template to the configured ServiceNow instance."""
-    if _show_help_if_bare("apply"):
-        return
-    if not template:
-        err_console.print(Notice.error("Missing argument: TEMPLATE"))
-        raise typer.Exit(2)
     console.print(
         Notice.info(f"Applying template: {template!r} (dry_run={dry_run}) -- not yet implemented.")
     )
@@ -3623,35 +3455,23 @@ def apply(
 
 @app.command()
 def run(
-    request: Annotated[str, typer.Argument(help="Free-form orchestration request")] = "",
+    request: Annotated[str, typer.Argument(help="Free-form orchestration request")],
 ) -> None:
     """Free-form AI orchestration request."""
-    if _show_help_if_bare("run"):
-        return
-    if not request:
-        err_console.print(Notice.error("Missing argument: REQUEST"))
-        raise typer.Exit(2)
     console.print(Notice.info(f"Running: {request!r} -- not yet implemented."))
 
 
 @app.command()
 def rollback(
-    job_id: Annotated[str, typer.Argument(help="Job ID to roll back")] = "",
+    job_id: Annotated[str, typer.Argument(help="Job ID to roll back")],
 ) -> None:
     """Undo a previous deployment by job ID."""
-    if _show_help_if_bare("rollback"):
-        return
-    if not job_id:
-        err_console.print(Notice.error("Missing argument: JOB_ID"))
-        raise typer.Exit(2)
     console.print(Notice.info(f"Rolling back job: {job_id!r} -- not yet implemented."))
 
 
 @app.command()
 def ui() -> None:
     """Start the NiceGUI dashboard (requires pip install nexus-sn[ui])."""
-    if _show_help_if_bare("ui"):
-        return
     try:
         start_ui()
     except ImportError as exc:
