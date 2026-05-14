@@ -42,7 +42,7 @@ from nexus.plugins.errors import (
     PluginTimeoutError,
     PluginUnsupportedError,
 )
-from nexus.plugins.executor import OperationLog, OperationResult, PluginExecutor
+from nexus.plugins.executor import BatchUpgradeReport, OperationLog, OperationResult, PluginExecutor
 from nexus.plugins.filters import available_families, filter_by_family
 from nexus.plugins.impact import compute_impact, reverse_dependencies
 from nexus.plugins.models import (
@@ -87,6 +87,7 @@ __all__ = [
     "AdvisorySet",
     "AdvisoryType",
     "BaselineNotFoundError",
+    "BatchUpgradeReport",
     "CrossScopeRef",
     "DependencyEntry",
     "InvalidBaselineNameError",
