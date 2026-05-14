@@ -267,43 +267,25 @@ def test_info_errors_on_unknown_format_value(runner: CliRunner, tmp_path: Path) 
     assert "Unknown --format" in result.output
 
 
-def test_bare_leaf_invocation_shows_themed_help_panel(
-    runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+def test_bare_leaf_invocation_runs_against_default_instance(
+    runner: CliRunner, tmp_path: Path
 ) -> None:
-    """`nexus plugins updates` (no args) should print Purpose/Example, not run."""
+    """`nexus plugins updates` (no args) runs the command against the default instance."""
     _seed(tmp_path, "prod", (_info("com.x"),))
     runner.invoke(app, ["instance", "use", "prod"])
-    monkeypatch.setattr("sys.argv", ["nexus", "plugins", "updates"])
     result = runner.invoke(app, ["plugins", "updates"])
     assert result.exit_code == 0
-    assert "Purpose:" in result.output
-    assert "Example:" in result.output
-    assert "nexus plugins updates" in result.output
-
-
-def test_leaf_invocation_with_flag_runs_command_not_help(
-    runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """`nexus plugins updates --instance prod` should run the command, not show help."""
-    _seed(tmp_path, "prod", (_info("com.x"),))
-    runner.invoke(app, ["instance", "use", "prod"])
-    monkeypatch.setattr("sys.argv", ["nexus", "plugins", "updates", "--instance", "prod"])
-    result = runner.invoke(app, ["plugins", "updates", "--instance", "prod"])
-    assert result.exit_code == 0
-    # Not the help panel -- guard let the body run:
-    assert "Purpose:" not in result.output
     # Body ran (seeded inventory has no latest_version data -> diagnostic Hint):
     assert "No latest_version data captured" in result.output
 
 
-def test_required_positional_bare_shows_help_not_missing_arg_error(
-    runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+def test_required_positional_bare_exits_with_typer_missing_arg_error(
+    runner: CliRunner, tmp_path: Path
 ) -> None:
-    """`nexus plugins info` (no plugin_id) should show themed help, not Typer error."""
+    """`nexus plugins info` (no plugin_id) -> Typer's standard 'Missing argument' error."""
     _seed(tmp_path, "prod", (_info("com.x"),))
     runner.invoke(app, ["instance", "use", "prod"])
-    monkeypatch.setattr("sys.argv", ["nexus", "plugins", "info"])
     result = runner.invoke(app, ["plugins", "info"])
-    assert result.exit_code == 0
-    assert "Purpose:" in result.output
-    assert "nexus plugins info" in result.output
+    # Typer exit code 2 on missing required arg:
+    assert result.exit_code == 2
+    assert "Missing argument" in result.output or "PLUGIN_ID" in result.output
