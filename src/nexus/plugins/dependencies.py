@@ -5,11 +5,16 @@
 
 """Pre-flight dependency cascade via /api/sn_appclient/appmanager/dependencies."""
 
-from typing import Literal, cast
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Literal, cast
 
 from pydantic import BaseModel, ConfigDict
 
-__all__ = ["DependencyEntry"]
+if TYPE_CHECKING:
+    from nexus.connectors.servicenow.protocol import ServiceNowClientProtocol
+
+__all__ = ["DependencyEntry", "fetch_dependencies"]
 
 _FROZEN = ConfigDict(frozen=True, strict=True, extra="forbid")
 
@@ -58,8 +63,11 @@ class DependencyEntry(BaseModel):
     @classmethod
     def from_sn(cls, raw: dict[str, object]) -> DependencyEntry:
         """Build from the raw SN dict (handles 'Id' -> 'id' and 'minVersion' -> 'min_version')."""
-        type_value = raw.get("type", "Plugin")
-        if type_value not in ("Application", "Plugin"):
+        type_raw = raw.get("type", "Plugin")
+        type_value: Literal["Application", "Plugin"]
+        if type_raw == "Application":
+            type_value = "Application"
+        else:
             type_value = "Plugin"
         return cls(
             id=str(raw.get("Id", "")),
@@ -77,3 +85,22 @@ class DependencyEntry(BaseModel):
             has_license=bool(raw.get("has_license", False)),
             is_allowed_install=bool(raw.get("is_allowed_install", False)),
         )
+
+
+async def fetch_dependencies(
+    client: ServiceNowClientProtocol,
+    plugin_id: str,
+    version: str | None = None,
+) -> tuple[DependencyEntry, ...]:
+    """Pre-flight SN dependency cascade for a plugin install/upgrade.
+
+    Args:
+        client: ServiceNow client conforming to the protocol.
+        plugin_id: Canonical plugin identifier (e.g. "sn_si").
+        version: Target version, or None for "latest".
+
+    Returns:
+        Tuple of typed DependencyEntry objects, in SN's render order.
+    """
+    raw_rows = await client.appmanager_dependencies(plugin_id, version)
+    return tuple(DependencyEntry.from_sn(row) for row in raw_rows)

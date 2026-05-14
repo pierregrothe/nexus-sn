@@ -14,11 +14,20 @@ ProgressPoller (added in Task 6) drives a Rich progress bar by polling
 /api/sn_appclient/appmanager/progress/{tracker_id} until a terminal status.
 """
 
-from typing import cast
+from __future__ import annotations
+
+import asyncio
+import time
+from typing import TYPE_CHECKING, cast
 
 from pydantic import BaseModel, ConfigDict
 
-__all__ = ["ProgressState"]
+if TYPE_CHECKING:
+    from nexus.connectors.servicenow.protocol import ServiceNowClientProtocol
+
+from nexus.plugins.errors import PluginProgressError, PluginTimeoutError
+
+__all__ = ["DEFAULT_POLL_INTERVAL_S", "DEFAULT_TIMEOUT_S", "ProgressPoller", "ProgressState"]
 
 _FROZEN = ConfigDict(frozen=True, strict=True, extra="forbid")
 
@@ -102,3 +111,59 @@ class ProgressState(BaseModel):
             update_set=str(update_set_raw) if update_set_raw else None,
             rollback_version=str(rollback_raw) if rollback_raw else None,
         )
+
+
+DEFAULT_POLL_INTERVAL_S = 3.0
+DEFAULT_TIMEOUT_S = 600.0
+
+
+class ProgressPoller:
+    """Polls /api/sn_appclient/appmanager/progress/{tracker_id} until terminal.
+
+    Args:
+        client: ServiceNow client conforming to the protocol.
+        poll_interval_s: Seconds between polls. Default 3s.
+        timeout_s: Maximum total wall time in seconds. Default 600s.
+    """
+
+    def __init__(
+        self,
+        client: ServiceNowClientProtocol,
+        *,
+        poll_interval_s: float = DEFAULT_POLL_INTERVAL_S,
+        timeout_s: float = DEFAULT_TIMEOUT_S,
+    ) -> None:
+        """Store client + poll/timeout config."""
+        self._client = client
+        self._poll_interval_s = poll_interval_s
+        self._timeout_s = timeout_s
+
+    async def poll(self, tracker_id: str) -> ProgressState:
+        """Poll until terminal. Returns the final ProgressState on success.
+
+        Args:
+            tracker_id: The sn_appclient progress tracker GUID.
+
+        Returns:
+            Final ProgressState when SN reports success.
+
+        Raises:
+            PluginProgressError: SN reports a failed or cancelled terminal status.
+            PluginTimeoutError: Polling exceeds timeout_s seconds.
+        """
+        started = time.monotonic()
+        while True:
+            elapsed = time.monotonic() - started
+            if elapsed > self._timeout_s:
+                raise PluginTimeoutError(tracker_id=tracker_id, elapsed_s=elapsed)
+            raw = await self._client.fetch_progress(tracker_id)
+            state = ProgressState.from_sn(raw)
+            if state.is_terminal:
+                if not state.is_success:
+                    raise PluginProgressError(
+                        tracker_id=tracker_id,
+                        sn_status=state.status,
+                        error_message=state.error,
+                    )
+                return state
+            await asyncio.sleep(self._poll_interval_s)
