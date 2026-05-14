@@ -806,9 +806,46 @@ def _detect_sn_version(url: str, token: str, profile: str) -> tuple[str, str, st
                             sn_version = _parse_buildtag_version(val)
                             break
 
+            # On many PDIs an ACL blocks reading `glide.buildtag*` via the
+            # Table API but `/stats.do` returns the same info as plain text.
+            if sn_version == "unknown":
+                r = client.get("/stats.do")
+                log.debug("stats.do fallback status=%d body=%.300s", r.status_code, r.text[:300])
+                if r.status_code == 200 and r.text:
+                    sn_build, sn_version = _parse_stats_do(r.text)
+
     except httpx.RequestError:
         pass
     return sn_version, sn_build, instance_name
+
+
+def _parse_stats_do(text: str) -> tuple[str, str]:
+    """Extract build tag + version from a /stats.do response body.
+
+    ``/stats.do`` returns plain text or HTML with lines like::
+
+        Build tag: glide-yokohama-09-04-2025__patch4-01-22-2026
+        Build name: Yokohama
+
+    Args:
+        text: Raw response body.
+
+    Returns:
+        ``(build_tag, version)`` -- ``("", "unknown")`` when no match found.
+    """
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        # Match "Build tag:" or "<br/>Build tag:" in HTML-formatted responses.
+        if "Build tag:" not in line:
+            continue
+        val = line.split("Build tag:", 1)[1].strip()
+        # Strip trailing HTML breaks / tags
+        for sep in ("<br", "</", "&nbsp;"):
+            if sep in val:
+                val = val.split(sep, 1)[0].strip()
+        if val:
+            return val, _parse_buildtag_version(val)
+    return "", "unknown"
 
 
 def _print_oauth_setup(url: str, profile: str) -> None:
