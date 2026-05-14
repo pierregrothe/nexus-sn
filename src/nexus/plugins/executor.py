@@ -30,7 +30,7 @@ from nexus.plugins.impact import reverse_dependencies
 from nexus.plugins.models import PluginInfo, PluginInventory
 from nexus.plugins.progress import ProgressPoller
 
-__all__ = ["OperationLog", "OperationResult", "PluginExecutor"]
+__all__ = ["BatchUpgradeReport", "OperationLog", "OperationResult", "PluginExecutor"]
 
 _FROZEN = ConfigDict(frozen=True, strict=True, extra="forbid")
 
@@ -92,6 +92,32 @@ class OperationLog(BaseModel):
     def failure_count(self) -> int:
         """Number of results with success=False."""
         return sum(1 for r in self.results if not r.success)
+
+
+class BatchUpgradeReport(BaseModel):
+    """Aggregate result of PluginExecutor.batch_upgrade.
+
+    Attributes:
+        results: One OperationResult per attempted plugin, in execution order.
+        families: Family names used to filter targets, echoed back on the report.
+            Empty tuple when no filter was applied.
+        target_count: Number of plugins attempted (==len(results)).
+        succeeded: Number of results with success=True.
+        failed: Number of results with success=False.
+    """
+
+    model_config = _FROZEN
+
+    results: tuple[OperationResult, ...]
+    families: tuple[str, ...]
+    target_count: int
+    succeeded: int
+    failed: int
+
+    @property
+    def exit_code(self) -> int:
+        """0 when all succeeded (including empty target -- idempotent), 1 when any failed."""
+        return 0 if self.failed == 0 else 1
 
 
 class PluginExecutor:
