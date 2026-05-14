@@ -1,7 +1,7 @@
 # tests/test_plugins_errors.py
 # Tests for the plugins layer error hierarchy.
 # Author: Pierre Grothe
-# Date: 2026-05-14
+# Date: 2026-05-11
 """Tests for plugin error types."""
 
 import pytest
