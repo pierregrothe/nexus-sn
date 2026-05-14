@@ -2226,9 +2226,7 @@ def plugins_deactivate(
             help="Bypass the impact gate (requires typing the plugin id at the second prompt)",
         ),
     ] = False,
-    yes: Annotated[
-        bool, typer.Option("--yes", help="Skip the action confirmation prompt")
-    ] = False,
+    yes: Annotated[bool, typer.Option("--yes", help="Skip the action confirmation prompt")] = False,
 ) -> None:
     """Deactivate a plugin on the resolved instance.
 
@@ -2251,9 +2249,7 @@ def plugins_deactivate(
 
     async def _run() -> None:
         async with ServiceNowClient(instance_url=meta.url, token=token) as client:
-            if not yes and not typer.confirm(
-                f"Deactivate {plugin_id} on {meta.profile}?"
-            ):
+            if not yes and not typer.confirm(f"Deactivate {plugin_id} on {meta.profile}?"):
                 raise typer.Exit(0)
             if force:
                 typed = typer.prompt(
@@ -2285,9 +2281,7 @@ def plugins_uninstall(
             help="Bypass the impact gate (requires typing the plugin id at the second prompt)",
         ),
     ] = False,
-    yes: Annotated[
-        bool, typer.Option("--yes", help="Skip the action confirmation prompt")
-    ] = False,
+    yes: Annotated[bool, typer.Option("--yes", help="Skip the action confirmation prompt")] = False,
 ) -> None:
     """Uninstall a non-base plugin on the resolved instance.
 
@@ -2311,9 +2305,7 @@ def plugins_uninstall(
 
     async def _run() -> None:
         async with ServiceNowClient(instance_url=meta.url, token=token) as client:
-            if not yes and not typer.confirm(
-                f"Uninstall {plugin_id} on {meta.profile}?"
-            ):
+            if not yes and not typer.confirm(f"Uninstall {plugin_id} on {meta.profile}?"):
                 raise typer.Exit(0)
             if force:
                 typed = typer.prompt(
