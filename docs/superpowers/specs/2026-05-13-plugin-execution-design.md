@@ -373,3 +373,158 @@ This completes the plugin management tier: assess (A-L+E) -> plan (B promote)
 -> execute (M+N). The full lifecycle is then:
 
   scan -> analyze -> plan -> execute -> rescan -> verify
+
+## Addendum: Live discovery findings (Task 1)
+
+Captured 2026-05-14 on Yokohama PDI demoalectritechzu143890 via in-browser
+fetch() interceptor on two app detail pages. Two captures performed:
+
+1. Mitigation Controls Monitoring 4.1.4 -> 4.2.0 -- batch-wrapped path
+2. Palo Alto Networks NGFW for Security Operations 10.4.7 -> 10.5.2 -- direct path
+
+The Application Manager uses two different paths depending on whether
+dependent applications also need updating. This addendum documents both
+because we cannot predict which a given install/upgrade will trigger.
+
+### Endpoint summary (replaces speculative section in main spec)
+
+```
+POST /api/sn_appclient/appmanager/dependencies
+  Headers:  Content-Type: application/json
+  Body:     {"dependencies": "<scope>:<version>"}      # single string field
+  Returns:  {"result": [DependencyEntry, ...], "session": {...}}
+
+  Example:
+    POST body: {"dependencies": "sn_si:13.9.23"}
+    Response:  {"result": [{"orig_string": "sn_si:13.9.23",
+                            "Id": "Security Incident Response",
+                            "type": "Application",
+                            "minVersion": "13.9.23",
+                            "source_app_id": "82878663ff123100158bffffffffff67",
+                            "installed": true, "active": true, "hide_on_ui": false,
+                            "status": "Installed", "status_value": "installed",
+                            "order": 2, "link": "nav_to.do?...",
+                            "has_license": false, "is_allowed_install": true}],
+                "session": {"notifications": []}}
+
+GET  /api/sn_appclient/appmanager/app/install
+  Query params (captured from network log; exact key names BLOCKED from display
+  by the extension security guard, must be confirmed during Task 4 test fixture
+  construction -- the UI source bundle is the canonical reference):
+    likely: app_id=<source_app_id>&version=<target_version>
+  Returns: install/upgrade kickoff response
+    {"result": {"status": "0",                       # numeric string
+                "status_label": "Pending",
+                "status_message": "", "status_detail": "",
+                "error": "",
+                "links": {"progress": {"id": "<trackerId>",
+                                       "url": "/api/sn_cicd/progress/<trackerId>"}},
+                "percent_complete": 0,
+                "update_set": null,                  # populated for some upgrades
+                "rollback_version": "10.4.7",        # SN tracks rollback target
+                "trackerId": "<sys_id>"},
+     "session": {"notifications": []}}
+
+  Note: the install/upgrade is a GET with query params, NOT a POST. There is
+  no separate /app/upgrade endpoint -- install handles both install (when the
+  plugin isn't yet present) and upgrade (when it is, and the version differs).
+  This matches Service-Now's "everything is an install" model in the App
+  Repository.
+
+GET  /api/sn_appclient/appmanager/progress/{tracker_sys_id}
+  Returns: per-poll progress with nested sub-operation tree
+    {"result": {"name": "Install from the App Repository",
+                "state": "0" | "1" | "2" | "3",
+                "message": "Executing queued operation",
+                "sys_id": "<trackerId>",
+                "percent_complete": "99",            # STRING, not int
+                "updated_on": 1778775777000,         # epoch milliseconds
+                "results": [<recursive nested sub-operations>]},
+     "session": {"notifications": []}}
+
+  Field name divergence from the install response (which used "status" and
+  "trackerId"): progress uses "state" and "sys_id". The integration must
+  normalise both shapes into one ProgressState model.
+
+POST /api/now/v1/batch                     # FALLBACK PATH, observed once
+  When the dependency cascade requires multiple plugins to install/update,
+  the UI submits a multipart batch wrapping per-plugin GETs. The response is
+  multipart/mixed with one Content-Type: application/json part per inner
+  request. Each part body matches the install/upgrade response shape above.
+
+  We do NOT implement the batch path in sub-project M. The direct GET path
+  works for single-plugin operations, which is what PromotionPlan emits one
+  at a time. Multi-plugin cascades are SN-server-managed by the install
+  endpoint itself once it queues the work; we only need to poll progress.
+```
+
+### State value enumeration
+
+From the captures plus the install response, SN's state enum is:
+```
+"0" = Pending      (initial response or pre-execution)
+"1" = In Progress  (executing, percent_complete < 100)
+"2" = Success      (terminal -- presumed; not yet observed in capture)
+"3" = Failed       (terminal; observed once in earlier failed test)
+"4" = Cancelled    (terminal; not yet observed)
+```
+
+Treat any state >= "2" as terminal. Treat "2" as success, "3" and "4" as
+failure for OperationResult.success classification.
+
+### Activate / deactivate / uninstall (NOT captured live)
+
+The captures targeted upgrade (which uses /app/install). The other operations
+were not captured because they require finding plugins in specific states on
+the PDI. The strongest hypothesis from the URL pattern is:
+
+```
+GET /api/sn_appclient/appmanager/app/activate?app_id=...
+GET /api/sn_appclient/appmanager/app/deactivate?app_id=...
+GET /api/sn_appclient/appmanager/app/uninstall?app_id=...
+```
+
+Task 4's implementer SHOULD verify these endpoint paths on a live PDI before
+hard-coding them. If the paths are wrong, the captured install response shape
+should still match (it's the kickoff envelope, not the operation-specific
+body). The poller and the response model are operation-agnostic.
+
+### Plan deltas required (Task 4 + Task 7 substitutions)
+
+When the implementer reaches Task 4, the following plan-as-written changes
+apply because the original assumed POST + batch wrapping:
+
+- `submit_install(plugin_id, version)` becomes a `GET` to
+  `/api/sn_appclient/appmanager/app/install` with query params, returning
+  the `result` object from the response.
+- `submit_activate(plugin_id)` becomes a `GET` to
+  `/api/sn_appclient/appmanager/app/activate?app_id=<source_app_id>` --
+  CONFIRM ON A LIVE PDI before hard-coding.
+- `submit_upgrade(plugin_id, target_version)` reuses `submit_install`
+  with a target_version query param (SN treats it as an install with a
+  newer version).
+- No `_submit_via_batch` helper needed. The batch path is fallback-only
+  and deferred to a follow-up sub-project if a single-plugin operation
+  ever returns a multi-step cascade response.
+- Progress polling path is `/api/sn_appclient/appmanager/progress/{tracker}`
+  (NOT `/api/sn_cicd/progress/...` despite what the install response says).
+- `ProgressState.from_sn` must accept BOTH the install-response shape
+  (status/trackerId fields) AND the progress-poll shape (state/sys_id
+  fields), normalising into the same model. Update Task 3's model and
+  Task 6's poller accordingly.
+
+### sn_si:13.9.23 example (the actual capture)
+
+The Palo Alto NGFW upgrade triggered exactly one dependency POST and one
+install GET. The dependency POST body was simply:
+```
+{"dependencies": "sn_si:13.9.23"}
+```
+Where `sn_si` is the scope of the Security Incident Response plugin that
+NGFW depends on, and `13.9.23` is the minimum version required.
+
+The install GET issued immediately after returned `trackerId =
+"9e2bd8e23b3803106c7dfa9aa4e45abd"` and `rollback_version = "10.4.7"`.
+Progress was then polled at `/api/sn_appclient/appmanager/progress/9e2bd8e2...`
+showing nested sub-operations (Installing application package -> Installing
+application sn_sec_panfw:10.5.2 -> Loading data for sn_sec_panfw -> ...).
