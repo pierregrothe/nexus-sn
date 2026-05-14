@@ -108,3 +108,33 @@ def test_plugins_bare_invocation_lists_new_commands(runner: CliRunner, tmp_path:
     assert result.exit_code == 0
     for cmd in ("install", "activate", "upgrade", "apply"):
         assert cmd in result.output, f"missing {cmd} in plugins help output"
+
+
+def test_plugins_deactivate_command_exists(runner: CliRunner, tmp_path: Path) -> None:
+    _seed(tmp_path, "prod", (_info("com.x"),))
+    runner.invoke(app, ["instance", "use", "prod"])
+    result = runner.invoke(app, ["plugins", "deactivate", "--help"])
+    assert result.exit_code == 0
+    assert "deactivate" in result.output.lower()
+    assert "--force" in result.output
+
+
+def test_plugins_uninstall_command_exists(runner: CliRunner, tmp_path: Path) -> None:
+    _seed(tmp_path, "prod", (_info("com.x"),))
+    runner.invoke(app, ["instance", "use", "prod"])
+    result = runner.invoke(app, ["plugins", "uninstall", "--help"])
+    assert result.exit_code == 0
+    assert "uninstall" in result.output.lower()
+    assert "--force" in result.output
+
+
+def test_plugins_bare_invocation_lists_deactivate_uninstall(
+    runner: CliRunner, tmp_path: Path
+) -> None:
+    """`nexus plugins` bare-invocation discovery includes deactivate + uninstall."""
+    _seed(tmp_path, "prod", (_info("com.x"),))
+    runner.invoke(app, ["instance", "use", "prod"])
+    result = runner.invoke(app, ["plugins"], env={"COLUMNS": "200"})
+    assert result.exit_code == 0
+    for cmd in ("deactivate", "uninstall"):
+        assert cmd in result.output, f"missing {cmd} in plugins help output"

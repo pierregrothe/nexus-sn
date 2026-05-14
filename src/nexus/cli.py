@@ -251,6 +251,13 @@ _PLUGINS_HELP: list[CommandHelpEntry] = [
         "nexus plugins advisories --severity high --strict",
     ),
     _help_entry(
+        "deactivate <plugin-id>",
+        "Deactivate a plugin on the resolved instance. Mandatory impact "
+        "gate blocks the op when reverse-deps exist; --force bypasses with a "
+        "type-the-plugin-id confirmation.",
+        "nexus plugins deactivate com.acme.app",
+    ),
+    _help_entry(
         "defer <id> <type> <details>",
         "Mute a single EOL/CVE/license finding with a written reason. "
         "Deferred findings are hidden from 'advisories' until "
@@ -327,6 +334,13 @@ _PLUGINS_HELP: list[CommandHelpEntry] = [
         "Install a plugin on the resolved instance. Shows the SN dependency "
         "cascade preview and blocks until terminal status.",
         "nexus plugins install com.snc.discovery",
+    ),
+    _help_entry(
+        "uninstall <plugin-id>",
+        "Uninstall a non-base plugin on the resolved instance. Base "
+        "ServiceNow plugins (source=='servicenow') are refused even with "
+        "--force.",
+        "nexus plugins uninstall com.acme.app",
     ),
     _help_entry(
         "upgrade <plugin-id> [--to X.Y.Z]",
@@ -2194,6 +2208,125 @@ def plugins_apply(
             log = await executor.apply_plan(plan, console=console)
             console.print(f"Done: {log.success_count} ok, {log.failure_count} failed")
             if log.failure_count:
+                raise typer.Exit(1)
+
+    asyncio.run(_run())
+
+
+@plugins_app.command("deactivate")
+def plugins_deactivate(
+    plugin_id: Annotated[str, typer.Argument(help="Plugin ID to deactivate")],
+    instance: Annotated[
+        str, typer.Option("--instance", help="Instance profile (default: configured default)")
+    ] = "",
+    force: Annotated[
+        bool,
+        typer.Option(
+            "--force",
+            help="Bypass the impact gate (requires typing the plugin id at the second prompt)",
+        ),
+    ] = False,
+    yes: Annotated[
+        bool, typer.Option("--yes", help="Skip the action confirmation prompt")
+    ] = False,
+) -> None:
+    """Deactivate a plugin on the resolved instance.
+
+    The impact gate blocks the operation when the plugin has reverse-deps
+    or SN reports dependents. ``--force`` bypasses the gate but always
+    requires typing the plugin id at a second confirmation prompt;
+    ``--yes`` only skips the first prompt and never the second.
+    """
+    import asyncio  # noqa: PLC0415
+
+    from nexus.plugins.executor import PluginExecutor  # noqa: PLC0415
+
+    resolved = _plugins_for(instance)
+    if resolved is None:
+        console.print(Notice.warn("Plugin inventory empty."))
+        console.print(Hint(label="Refresh", command="nexus instance refresh"))
+        raise typer.Exit(1)
+    meta, inventory = resolved
+    _, _, token, _ = _acquire_token(meta.profile)
+
+    async def _run() -> None:
+        async with ServiceNowClient(instance_url=meta.url, token=token) as client:
+            if not yes and not typer.confirm(
+                f"Deactivate {plugin_id} on {meta.profile}?"
+            ):
+                raise typer.Exit(0)
+            if force:
+                typed = typer.prompt(
+                    f"--force bypasses the impact gate. Type the plugin id "
+                    f"({plugin_id}) to confirm"
+                )
+                if typed != plugin_id:
+                    err_console.print(Notice.error("Confirmation mismatch; aborting."))
+                    raise typer.Exit(2)
+            executor = PluginExecutor(client=client, inventory=inventory)
+            result = await executor.deactivate(plugin_id, force=force)
+            console.print(_result_panel(result))
+            if not result.success:
+                raise typer.Exit(1)
+
+    asyncio.run(_run())
+
+
+@plugins_app.command("uninstall")
+def plugins_uninstall(
+    plugin_id: Annotated[str, typer.Argument(help="Plugin ID to uninstall")],
+    instance: Annotated[
+        str, typer.Option("--instance", help="Instance profile (default: configured default)")
+    ] = "",
+    force: Annotated[
+        bool,
+        typer.Option(
+            "--force",
+            help="Bypass the impact gate (requires typing the plugin id at the second prompt)",
+        ),
+    ] = False,
+    yes: Annotated[
+        bool, typer.Option("--yes", help="Skip the action confirmation prompt")
+    ] = False,
+) -> None:
+    """Uninstall a non-base plugin on the resolved instance.
+
+    Base ServiceNow plugins (source == 'servicenow') cannot be uninstalled
+    via REST and are refused unconditionally -- ``--force`` does NOT bypass
+    that refusal. For non-base plugins the impact gate applies the same way
+    as ``deactivate``: it blocks on non-zero reverse-deps unless ``--force``
+    is given with a type-the-plugin-id confirmation.
+    """
+    import asyncio  # noqa: PLC0415
+
+    from nexus.plugins.executor import PluginExecutor  # noqa: PLC0415
+
+    resolved = _plugins_for(instance)
+    if resolved is None:
+        console.print(Notice.warn("Plugin inventory empty."))
+        console.print(Hint(label="Refresh", command="nexus instance refresh"))
+        raise typer.Exit(1)
+    meta, inventory = resolved
+    _, _, token, _ = _acquire_token(meta.profile)
+
+    async def _run() -> None:
+        async with ServiceNowClient(instance_url=meta.url, token=token) as client:
+            if not yes and not typer.confirm(
+                f"Uninstall {plugin_id} on {meta.profile}?"
+            ):
+                raise typer.Exit(0)
+            if force:
+                typed = typer.prompt(
+                    f"--force bypasses the impact gate. Type the plugin id "
+                    f"({plugin_id}) to confirm"
+                )
+                if typed != plugin_id:
+                    err_console.print(Notice.error("Confirmation mismatch; aborting."))
+                    raise typer.Exit(2)
+            executor = PluginExecutor(client=client, inventory=inventory)
+            result = await executor.uninstall(plugin_id, force=force)
+            console.print(_result_panel(result))
+            if not result.success:
                 raise typer.Exit(1)
 
     asyncio.run(_run())
