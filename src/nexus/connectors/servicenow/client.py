@@ -289,6 +289,8 @@ class ServiceNowClient:
     _APPMANAGER_DEPS = "/api/sn_appclient/appmanager/dependencies"
     _APPMANAGER_INSTALL = "/api/sn_appclient/appmanager/app/install"
     _APPMANAGER_ACTIVATE = "/api/sn_appclient/appmanager/app/activate"
+    _APPMANAGER_DEACTIVATE = "/api/sn_appclient/appmanager/app/deactivate"
+    _APPMANAGER_UNINSTALL = "/api/sn_appclient/appmanager/app/uninstall"
     _APPMANAGER_PROGRESS = "/api/sn_appclient/appmanager/progress"
 
     async def appmanager_dependencies(
@@ -348,6 +350,18 @@ class ServiceNowClient:
         same install endpoint with the target version.
         """
         return await self.submit_install(source_app_id, target_version)
+
+    async def submit_deactivate(self, source_app_id: str) -> dict[str, object]:
+        """GET app/deactivate?app_id=<source_app_id>."""
+        params: dict[str, str | int] = {"app_id": source_app_id}
+        response = await self._get(self._APPMANAGER_DEACTIVATE, params=params)
+        return cast(dict[str, object], response.get("result", {}))
+
+    async def submit_uninstall(self, source_app_id: str) -> dict[str, object]:
+        """GET app/uninstall?app_id=<source_app_id>."""
+        params: dict[str, str | int] = {"app_id": source_app_id}
+        response = await self._get(self._APPMANAGER_UNINSTALL, params=params)
+        return cast(dict[str, object], response.get("result", {}))
 
     async def fetch_progress(self, tracker_id: str) -> dict[str, object]:
         """Fetch one poll of /api/sn_appclient/appmanager/progress/{tracker_id}."""

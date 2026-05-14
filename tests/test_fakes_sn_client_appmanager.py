@@ -57,3 +57,36 @@ async def test_set_progress_sequence_yields_in_order() -> None:
     b = await client.fetch_progress("t1")
     assert a["status"] == "1"
     assert b["status"] == "2"
+
+
+@pytest.mark.asyncio
+async def test_queue_deactivate_response_returns_fifo() -> None:
+    client = FakeServiceNowClient()
+    client.queue_deactivate_response({"trackerId": "d1"})
+    client.queue_deactivate_response({"trackerId": "d2"})
+    first = await client.submit_deactivate("sys1")
+    second = await client.submit_deactivate("sys2")
+    assert first["trackerId"] == "d1"
+    assert second["trackerId"] == "d2"
+
+
+@pytest.mark.asyncio
+async def test_submit_deactivate_raises_when_unqueued() -> None:
+    client = FakeServiceNowClient()
+    with pytest.raises(RuntimeError):
+        await client.submit_deactivate("sys1")
+
+
+@pytest.mark.asyncio
+async def test_queue_uninstall_response_returns_fifo() -> None:
+    client = FakeServiceNowClient()
+    client.queue_uninstall_response({"trackerId": "u1"})
+    raw = await client.submit_uninstall("sys-x")
+    assert raw["trackerId"] == "u1"
+
+
+@pytest.mark.asyncio
+async def test_submit_uninstall_raises_when_unqueued() -> None:
+    client = FakeServiceNowClient()
+    with pytest.raises(RuntimeError):
+        await client.submit_uninstall("sys1")

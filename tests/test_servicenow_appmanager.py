@@ -237,3 +237,93 @@ async def test_fetch_progress_returns_raw_dict() -> None:
     assert captured["path"] == "/api/sn_appclient/appmanager/progress/tracker-xyz"
     assert raw["state"] == "2"
     assert raw["sys_id"] == "tracker-xyz"
+
+
+@pytest.mark.asyncio
+async def test_submit_deactivate_uses_get_with_app_id() -> None:
+    captured: dict[str, object] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["method"] = request.method
+        captured["path"] = request.url.path
+        captured["query"] = dict(request.url.params)
+        return httpx.Response(
+            200,
+            json={
+                "result": {
+                    "trackerId": "t-deact",
+                    "status": "0",
+                    "status_label": "Pending",
+                    "status_message": "",
+                    "status_detail": "",
+                    "error": "",
+                    "percent_complete": 0,
+                    "update_set": None,
+                    "rollback_version": None,
+                    "links": {"progress": {"id": "t-deact", "url": "x"}},
+                }
+            },
+        )
+
+    transport = httpx.MockTransport(handler)
+    async with ServiceNowClient("test.service-now.com", token="t") as c:
+        c._client = httpx.AsyncClient(  # pyright: ignore[reportPrivateUsage]
+            base_url=c._base_url,
+            headers={
+                "Authorization": "Bearer t",
+                "Accept": "application/json",
+                "Content-Type": "application/json",
+            },
+            transport=transport,
+        )
+        result = await c.submit_deactivate(source_app_id="sys-deact")
+
+    assert captured["method"] == "GET"
+    assert captured["path"] == "/api/sn_appclient/appmanager/app/deactivate"
+    assert captured["query"] == {"app_id": "sys-deact"}
+    assert result["trackerId"] == "t-deact"
+
+
+@pytest.mark.asyncio
+async def test_submit_uninstall_uses_get_with_app_id() -> None:
+    captured: dict[str, object] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["method"] = request.method
+        captured["path"] = request.url.path
+        captured["query"] = dict(request.url.params)
+        return httpx.Response(
+            200,
+            json={
+                "result": {
+                    "trackerId": "t-uninst",
+                    "status": "0",
+                    "status_label": "Pending",
+                    "status_message": "",
+                    "status_detail": "",
+                    "error": "",
+                    "percent_complete": 0,
+                    "update_set": None,
+                    "rollback_version": None,
+                    "links": {"progress": {"id": "t-uninst", "url": "x"}},
+                }
+            },
+        )
+
+    transport = httpx.MockTransport(handler)
+    async with ServiceNowClient("test.service-now.com", token="t") as c:
+        c._client = httpx.AsyncClient(  # pyright: ignore[reportPrivateUsage]
+            base_url=c._base_url,
+            headers={
+                "Authorization": "Bearer t",
+                "Accept": "application/json",
+                "Content-Type": "application/json",
+            },
+            transport=transport,
+        )
+        result = await c.submit_uninstall(source_app_id="sys-uninst")
+
+    assert captured["method"] == "GET"
+    assert captured["path"] == "/api/sn_appclient/appmanager/app/uninstall"
+    assert captured["query"] == {"app_id": "sys-uninst"}
+    assert result["trackerId"] == "t-uninst"
