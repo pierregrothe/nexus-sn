@@ -12,6 +12,7 @@ the advisory checkers (EOL, CVE, license), the impact analyzer
 
 from nexus.plugins.advisories import AdvisoryDatabase, compute_advisories
 from nexus.plugins.baselines import DEFAULT_BASELINE_NAME, validate_baseline_name
+from nexus.plugins.dependencies import DependencyEntry, fetch_dependencies
 from nexus.plugins.diff import (
     PluginDiff,
     PluginDiffEntry,
@@ -31,9 +32,15 @@ from nexus.plugins.errors import (
     InvalidBaselineNameError,
     PluginAdvisoryDataError,
     PluginBaselineNotFoundError,
+    PluginBatchError,
+    PluginExecutionError,
     PluginImpactError,
+    PluginNotFoundError,
+    PluginProgressError,
     PluginScanError,
+    PluginTimeoutError,
 )
+from nexus.plugins.executor import OperationLog, OperationResult, PluginExecutor
 from nexus.plugins.impact import compute_impact, reverse_dependencies
 from nexus.plugins.models import (
     AdvisoryFinding,
@@ -51,6 +58,12 @@ from nexus.plugins.models import (
 from nexus.plugins.orphans import orphan_candidates
 from nexus.plugins.overrides import AdvisoryOverride, AdvisoryOverrideSet, apply_overrides
 from nexus.plugins.product_families import product_family_for
+from nexus.plugins.progress import (
+    DEFAULT_POLL_INTERVAL_S,
+    DEFAULT_TIMEOUT_S,
+    ProgressPoller,
+    ProgressState,
+)
 from nexus.plugins.recommendations import (
     build_deactivation_context,
     build_explain_context,
@@ -61,6 +74,8 @@ from nexus.plugins.updates import plugins_with_updates
 
 __all__ = [
     "DEFAULT_BASELINE_NAME",
+    "DEFAULT_POLL_INTERVAL_S",
+    "DEFAULT_TIMEOUT_S",
     "AdvisoryDatabase",
     "AdvisoryFinding",
     "AdvisoryOverride",
@@ -70,20 +85,31 @@ __all__ = [
     "AdvisoryType",
     "BaselineNotFoundError",
     "CrossScopeRef",
+    "DependencyEntry",
     "InvalidBaselineNameError",
+    "OperationLog",
+    "OperationResult",
     "PluginAdvisoryDataError",
     "PluginBaselineNotFoundError",
+    "PluginBatchError",
     "PluginDiff",
     "PluginDiffEntry",
     "PluginDriftEntry",
     "PluginDriftReport",
+    "PluginExecutionError",
+    "PluginExecutor",
     "PluginImpact",
     "PluginImpactError",
     "PluginInfo",
     "PluginInventory",
+    "PluginNotFoundError",
+    "PluginProgressError",
     "PluginScanError",
     "PluginScanner",
+    "PluginTimeoutError",
     "ProductFamily",
+    "ProgressPoller",
+    "ProgressState",
     "PromoteAction",
     "PromotionPlan",
     "ReverseDependency",
@@ -97,6 +123,7 @@ __all__ = [
     "compute_diff",
     "compute_drift",
     "compute_impact",
+    "fetch_dependencies",
     "orphan_candidates",
     "plugins_with_updates",
     "product_family_for",
