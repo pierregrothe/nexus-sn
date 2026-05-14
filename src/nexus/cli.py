@@ -21,7 +21,7 @@ from collections import Counter
 from collections.abc import Iterable
 from datetime import UTC, date, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated
+from typing import TYPE_CHECKING, Annotated, cast
 
 if TYPE_CHECKING:
     from nexus.api.agent_client import AgentClientProtocol
@@ -2165,12 +2165,17 @@ def plugins_apply(
     if not plan_file.exists():
         err_console.print(Notice.error(f"Plan file not found: {plan_file}"))
         raise typer.Exit(2)
-    payload = _yaml.safe_load(plan_file.read_text(encoding="utf-8"))
+    raw_payload = _yaml.safe_load(plan_file.read_text(encoding="utf-8"))
     # YAML loads sequences as lists; PromotionPlan.actions is tuple[...] under
     # strict mode, so coerce before validating.
-    if isinstance(payload, dict) and isinstance(payload.get("actions"), list):
-        payload["actions"] = tuple(payload["actions"])
-    plan = PromotionPlan.model_validate(payload)
+    if isinstance(raw_payload, dict):
+        payload = cast(dict[str, object], raw_payload)
+        actions = payload.get("actions")
+        if isinstance(actions, list):
+            payload["actions"] = tuple(cast(list[object], actions))
+        plan = PromotionPlan.model_validate(payload)
+    else:
+        plan = PromotionPlan.model_validate(raw_payload)
 
     resolved = _plugins_for(instance)
     if resolved is None:
