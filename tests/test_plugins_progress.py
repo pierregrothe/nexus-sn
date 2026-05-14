@@ -15,9 +15,17 @@ __all__: list[str] = []
 
 
 def _raw(status: str, pct: int, err: str = "", tracker: str = "t1") -> dict[str, object]:
-    return {"status": status, "status_label": "x", "percent_complete": pct,
-            "error": err, "update_set": None, "rollback_version": None,
-            "trackerId": tracker, "status_message": "", "status_detail": ""}
+    return {
+        "status": status,
+        "status_label": "x",
+        "percent_complete": pct,
+        "error": err,
+        "update_set": None,
+        "rollback_version": None,
+        "trackerId": tracker,
+        "status_message": "",
+        "status_detail": "",
+    }
 
 
 @pytest.mark.asyncio

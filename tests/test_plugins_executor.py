@@ -23,33 +23,54 @@ __all__: list[str] = []
 
 def _info(pid: str, *, state: str = "active") -> PluginInfo:
     return PluginInfo(
-        plugin_id=pid, name=pid, version="1.0",
+        plugin_id=pid,
+        name=pid,
+        version="1.0",
         state="active" if state == "active" else "inactive",
-        source="servicenow", product_family="ITSM", depends_on=(),
-        sys_id=f"sysid-{pid}", installed_at=None,
+        source="servicenow",
+        product_family="ITSM",
+        depends_on=(),
+        sys_id=f"sysid-{pid}",
+        installed_at=None,
     )
 
 
 def _inventory(*plugins: PluginInfo) -> PluginInventory:
     return PluginInventory(
-        captured_at=datetime.now(UTC), sn_version="Xanadu", plugins=plugins,
+        captured_at=datetime.now(UTC),
+        sn_version="Xanadu",
+        plugins=plugins,
     )
 
 
 def _install_response(tracker: str = "t1") -> dict[str, Any]:
     return {
-        "status": "0", "status_label": "Pending", "status_message": "",
-        "status_detail": "", "error": "", "percent_complete": 0,
-        "update_set": None, "rollback_version": None, "trackerId": tracker,
-        "links": {"progress": {"id": tracker, "url": f"/api/sn_appclient/appmanager/progress/{tracker}"}},
+        "status": "0",
+        "status_label": "Pending",
+        "status_message": "",
+        "status_detail": "",
+        "error": "",
+        "percent_complete": 0,
+        "update_set": None,
+        "rollback_version": None,
+        "trackerId": tracker,
+        "links": {
+            "progress": {"id": tracker, "url": f"/api/sn_appclient/appmanager/progress/{tracker}"}
+        },
     }
 
 
 def _progress(status: str, pct: int, err: str = "", tracker: str = "t1") -> dict[str, Any]:
     return {
-        "status": status, "status_label": "x", "percent_complete": pct,
-        "error": err, "update_set": None, "rollback_version": None,
-        "trackerId": tracker, "status_message": "", "status_detail": "",
+        "status": status,
+        "status_label": "x",
+        "percent_complete": pct,
+        "error": err,
+        "update_set": None,
+        "rollback_version": None,
+        "trackerId": tracker,
+        "status_message": "",
+        "status_detail": "",
     }
 
 
@@ -68,7 +89,9 @@ def test_constructor_snapshots_inventory_map(client: FakeServiceNowClient) -> No
 
 def test_constructor_raises_on_invalid_inventory_type(client: FakeServiceNowClient) -> None:
     with pytest.raises(TypeError):
-        PluginExecutor(client=client, inventory="not an inventory")  # pyright: ignore[reportArgumentType]
+        PluginExecutor(
+            client=client, inventory="not an inventory"
+        )  # pyright: ignore[reportArgumentType]
 
 
 def test_lookup_raises_for_unknown_plugin(client: FakeServiceNowClient) -> None:
@@ -84,10 +107,14 @@ async def test_refresh_after_install_adds_new_plugin(client: FakeServiceNowClien
     inv = _inventory(_info("com.a"))
     exe = PluginExecutor(client=client, inventory=inv)
     # Seed v_plugin row that the targeted refresh will fetch
-    client._tables.setdefault("v_plugin", []).append({
-        "name": "com.newly_installed", "sys_id": "newsysid",
-        "version": "1.0", "state": "active",
-    })
+    client._tables.setdefault("v_plugin", []).append(
+        {
+            "name": "com.newly_installed",
+            "sys_id": "newsysid",
+            "version": "1.0",
+            "state": "active",
+        }
+    )
     await exe._refresh_one("com.newly_installed")
     assert exe.has_plugin("com.newly_installed")
 
@@ -96,11 +123,12 @@ async def test_refresh_after_install_adds_new_plugin(client: FakeServiceNowClien
 async def test_install_returns_success_result(client: FakeServiceNowClient) -> None:
     inv = _inventory(_info("com.x"))
     client.queue_install_response(_install_response("t1"))
-    client.set_progress_sequence("t1", [_progress("1", 50, tracker="t1"),
-                                         _progress("2", 100, tracker="t1")])
-    client._tables["v_plugin"] = [{
-        "name": "com.x", "sys_id": "sid", "version": "1.0", "state": "active"
-    }]
+    client.set_progress_sequence(
+        "t1", [_progress("1", 50, tracker="t1"), _progress("2", 100, tracker="t1")]
+    )
+    client._tables["v_plugin"] = [
+        {"name": "com.x", "sys_id": "sid", "version": "1.0", "state": "active"}
+    ]
     exe = PluginExecutor(client=client, inventory=inv)
     result = await exe.install("com.x", version="1.0")
     assert result.success
@@ -185,14 +213,33 @@ async def test_upgrade_unknown_plugin_returns_failure(client: FakeServiceNowClie
 async def test_apply_plan_executes_actions_in_stable_order(client: FakeServiceNowClient) -> None:
     inv = _inventory(_info("com.b", state="inactive"))
     plan = PromotionPlan(
-        source_profile="dev", target_profile="prod",
+        source_profile="dev",
+        target_profile="prod",
         actions=(
-            PromoteAction(action="install", plugin_id="com.a", name="com.a",
-                          product_family="ITSM", target_version="1.0", current_version=None),
-            PromoteAction(action="activate", plugin_id="com.b", name="com.b",
-                          product_family="ITSM", target_version="1.0", current_version=None),
-            PromoteAction(action="upgrade", plugin_id="com.b", name="com.b",
-                          product_family="ITSM", target_version="2.0", current_version="1.0"),
+            PromoteAction(
+                action="install",
+                plugin_id="com.a",
+                name="com.a",
+                product_family="ITSM",
+                target_version="1.0",
+                current_version=None,
+            ),
+            PromoteAction(
+                action="activate",
+                plugin_id="com.b",
+                name="com.b",
+                product_family="ITSM",
+                target_version="1.0",
+                current_version=None,
+            ),
+            PromoteAction(
+                action="upgrade",
+                plugin_id="com.b",
+                name="com.b",
+                product_family="ITSM",
+                target_version="2.0",
+                current_version="1.0",
+            ),
         ),
     )
     # Seed inventory for com.a so install can find sys_id via lookup
@@ -203,7 +250,9 @@ async def test_apply_plan_executes_actions_in_stable_order(client: FakeServiceNo
     client.set_progress_sequence("t-i", [_progress("2", 100, tracker="t-i")])
     client.set_progress_sequence("t-a", [_progress("2", 100, tracker="t-a")])
     client.set_progress_sequence("t-u", [_progress("2", 100, tracker="t-u")])
-    client._tables["v_plugin"] = [{"name": "com.a", "sys_id": "ai", "version": "1.0", "state": "active"}]
+    client._tables["v_plugin"] = [
+        {"name": "com.a", "sys_id": "ai", "version": "1.0", "state": "active"}
+    ]
 
     exe = PluginExecutor(client=client, inventory=inv)
     log = await exe.apply_plan(plan, console=Console(quiet=True))
@@ -217,10 +266,17 @@ async def test_apply_plan_executes_actions_in_stable_order(client: FakeServiceNo
 async def test_apply_plan_rejects_unknown_plugin_for_activate(client: FakeServiceNowClient) -> None:
     inv = _inventory()  # empty
     plan = PromotionPlan(
-        source_profile="dev", target_profile="prod",
+        source_profile="dev",
+        target_profile="prod",
         actions=(
-            PromoteAction(action="activate", plugin_id="com.nope", name="com.nope",
-                          product_family="ITSM", target_version="1.0", current_version=None),
+            PromoteAction(
+                action="activate",
+                plugin_id="com.nope",
+                name="com.nope",
+                product_family="ITSM",
+                target_version="1.0",
+                current_version=None,
+            ),
         ),
     )
     exe = PluginExecutor(client=client, inventory=inv)
@@ -232,18 +288,33 @@ async def test_apply_plan_rejects_unknown_plugin_for_activate(client: FakeServic
 async def test_apply_plan_rollback_on_install_failure(client: FakeServiceNowClient) -> None:
     inv = _inventory(_info("com.a"), _info("com.b", state="inactive"))
     plan = PromotionPlan(
-        source_profile="dev", target_profile="prod",
+        source_profile="dev",
+        target_profile="prod",
         actions=(
-            PromoteAction(action="install", plugin_id="com.a", name="com.a",
-                          product_family="ITSM", target_version="1.0", current_version=None),
-            PromoteAction(action="activate", plugin_id="com.b", name="com.b",
-                          product_family="ITSM", target_version="1.0", current_version=None),
+            PromoteAction(
+                action="install",
+                plugin_id="com.a",
+                name="com.a",
+                product_family="ITSM",
+                target_version="1.0",
+                current_version=None,
+            ),
+            PromoteAction(
+                action="activate",
+                plugin_id="com.b",
+                name="com.b",
+                product_family="ITSM",
+                target_version="1.0",
+                current_version=None,
+            ),
         ),
     )
     # install com.a succeeds
     client.queue_install_response(_install_response("t1"))
     client.set_progress_sequence("t1", [_progress("2", 100, tracker="t1")])
-    client._tables["v_plugin"] = [{"name": "com.a", "sys_id": "ai", "version": "1.0", "state": "active"}]
+    client._tables["v_plugin"] = [
+        {"name": "com.a", "sys_id": "ai", "version": "1.0", "state": "active"}
+    ]
     # activate com.b fails
     client.queue_activate_response(_install_response("t2"))
     client.set_progress_sequence("t2", [_progress("3", 50, err="boom", tracker="t2")])
@@ -265,14 +336,33 @@ async def test_apply_plan_rollback_on_install_failure(client: FakeServiceNowClie
 async def test_rollback_continues_through_secondary_failures(client: FakeServiceNowClient) -> None:
     inv = _inventory(_info("com.a"), _info("com.c"), _info("com.b", state="inactive"))
     plan = PromotionPlan(
-        source_profile="dev", target_profile="prod",
+        source_profile="dev",
+        target_profile="prod",
         actions=(
-            PromoteAction(action="install", plugin_id="com.a", name="com.a",
-                          product_family="ITSM", target_version="1.0", current_version=None),
-            PromoteAction(action="install", plugin_id="com.c", name="com.c",
-                          product_family="ITSM", target_version="1.0", current_version=None),
-            PromoteAction(action="activate", plugin_id="com.b", name="com.b",
-                          product_family="ITSM", target_version="1.0", current_version=None),
+            PromoteAction(
+                action="install",
+                plugin_id="com.a",
+                name="com.a",
+                product_family="ITSM",
+                target_version="1.0",
+                current_version=None,
+            ),
+            PromoteAction(
+                action="install",
+                plugin_id="com.c",
+                name="com.c",
+                product_family="ITSM",
+                target_version="1.0",
+                current_version=None,
+            ),
+            PromoteAction(
+                action="activate",
+                plugin_id="com.b",
+                name="com.b",
+                product_family="ITSM",
+                target_version="1.0",
+                current_version=None,
+            ),
         ),
     )
     # Two installs succeed

@@ -50,8 +50,9 @@ async def test_fetch_progress_auto_terminates_when_sequence_empty() -> None:
 @pytest.mark.asyncio
 async def test_set_progress_sequence_yields_in_order() -> None:
     client = FakeServiceNowClient()
-    client.set_progress_sequence("t1", [{"status": "1", "percent_complete": 50},
-                                         {"status": "2", "percent_complete": 100}])
+    client.set_progress_sequence(
+        "t1", [{"status": "1", "percent_complete": 50}, {"status": "2", "percent_complete": 100}]
+    )
     a = await client.fetch_progress("t1")
     b = await client.fetch_progress("t1")
     assert a["status"] == "1"

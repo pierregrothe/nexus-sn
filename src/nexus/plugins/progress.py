@@ -94,7 +94,7 @@ class ProgressState(BaseModel):
         pct_raw = raw.get("percent_complete", 0) or 0
         try:
             pct = int(cast(int | str, pct_raw)) if not isinstance(pct_raw, bool) else 0
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             pct = 0
         # Status label / error: optional with sensible defaults
         label = raw.get("status_label")

@@ -110,9 +110,7 @@ class PluginExecutor:
     ) -> None:
         """Snapshot the inventory into a plugin_id -> PluginInfo map."""
         if not isinstance(inventory, PluginInventory):
-            raise TypeError(
-                f"inventory must be PluginInventory, got {type(inventory).__name__}"
-            )
+            raise TypeError(f"inventory must be PluginInventory, got {type(inventory).__name__}")
         self._client = client
         self._by_id: dict[str, PluginInfo] = {p.plugin_id: p for p in inventory.plugins}
 
@@ -160,7 +158,9 @@ class PluginExecutor:
             plugin_id=plugin_id,
             name=str(row.get("name", plugin_id)),
             version=str(row.get("version", "")),
-            state=cast(Literal["active", "inactive"], state),  # pyright: ignore[reportUnnecessaryCast]
+            state=cast(
+                Literal["active", "inactive"], state
+            ),  # pyright: ignore[reportUnnecessaryCast]
             source="servicenow",
             product_family="Unclassified",
             depends_on=(),
@@ -191,17 +191,27 @@ class PluginExecutor:
             info = self.lookup(plugin_id)
         except PluginNotFoundError as exc:
             return OperationResult(
-                action="install", plugin_id=plugin_id, success=False,
-                message=str(exc), duration_s=time.monotonic() - started,
-                tracker_id="", update_set=None, rollback_version=None,
+                action="install",
+                plugin_id=plugin_id,
+                success=False,
+                message=str(exc),
+                duration_s=time.monotonic() - started,
+                tracker_id="",
+                update_set=None,
+                rollback_version=None,
             )
         try:
             raw = await self._client.submit_install(info.sys_id, version)
         except Exception as exc:
             return OperationResult(
-                action="install", plugin_id=plugin_id, success=False,
-                message=str(exc), duration_s=time.monotonic() - started,
-                tracker_id="", update_set=None, rollback_version=None,
+                action="install",
+                plugin_id=plugin_id,
+                success=False,
+                message=str(exc),
+                duration_s=time.monotonic() - started,
+                tracker_id="",
+                update_set=None,
+                rollback_version=None,
             )
         tracker_id = str(raw.get("trackerId", ""))
         poller = ProgressPoller(self._client)
@@ -210,15 +220,24 @@ class PluginExecutor:
         except (PluginProgressError, PluginTimeoutError) as exc:
             err_msg = getattr(exc, "error_message", str(exc))
             return OperationResult(
-                action="install", plugin_id=plugin_id, success=False,
-                message=err_msg, duration_s=time.monotonic() - started,
-                tracker_id=tracker_id, update_set=None, rollback_version=None,
+                action="install",
+                plugin_id=plugin_id,
+                success=False,
+                message=err_msg,
+                duration_s=time.monotonic() - started,
+                tracker_id=tracker_id,
+                update_set=None,
+                rollback_version=None,
             )
         await self._refresh_one(plugin_id)
         return OperationResult(
-            action="install", plugin_id=plugin_id, success=True,
-            message=final.status_label, duration_s=time.monotonic() - started,
-            tracker_id=tracker_id, update_set=final.update_set,
+            action="install",
+            plugin_id=plugin_id,
+            success=True,
+            message=final.status_label,
+            duration_s=time.monotonic() - started,
+            tracker_id=tracker_id,
+            update_set=final.update_set,
             rollback_version=final.rollback_version,
         )
 
@@ -236,17 +255,27 @@ class PluginExecutor:
             info = self.lookup(plugin_id)
         except PluginNotFoundError as exc:
             return OperationResult(
-                action="activate", plugin_id=plugin_id, success=False,
-                message=str(exc), duration_s=time.monotonic() - started,
-                tracker_id="", update_set=None, rollback_version=None,
+                action="activate",
+                plugin_id=plugin_id,
+                success=False,
+                message=str(exc),
+                duration_s=time.monotonic() - started,
+                tracker_id="",
+                update_set=None,
+                rollback_version=None,
             )
         try:
             raw = await self._client.submit_activate(info.sys_id)
         except Exception as exc:
             return OperationResult(
-                action="activate", plugin_id=plugin_id, success=False,
-                message=str(exc), duration_s=time.monotonic() - started,
-                tracker_id="", update_set=None, rollback_version=None,
+                action="activate",
+                plugin_id=plugin_id,
+                success=False,
+                message=str(exc),
+                duration_s=time.monotonic() - started,
+                tracker_id="",
+                update_set=None,
+                rollback_version=None,
             )
         tracker_id = str(raw.get("trackerId", ""))
         poller = ProgressPoller(self._client)
@@ -255,14 +284,23 @@ class PluginExecutor:
         except (PluginProgressError, PluginTimeoutError) as exc:
             err_msg = getattr(exc, "error_message", str(exc))
             return OperationResult(
-                action="activate", plugin_id=plugin_id, success=False,
-                message=err_msg, duration_s=time.monotonic() - started,
-                tracker_id=tracker_id, update_set=None, rollback_version=None,
+                action="activate",
+                plugin_id=plugin_id,
+                success=False,
+                message=err_msg,
+                duration_s=time.monotonic() - started,
+                tracker_id=tracker_id,
+                update_set=None,
+                rollback_version=None,
             )
         return OperationResult(
-            action="activate", plugin_id=plugin_id, success=True,
-            message=final.status_label, duration_s=time.monotonic() - started,
-            tracker_id=tracker_id, update_set=final.update_set,
+            action="activate",
+            plugin_id=plugin_id,
+            success=True,
+            message=final.status_label,
+            duration_s=time.monotonic() - started,
+            tracker_id=tracker_id,
+            update_set=final.update_set,
             rollback_version=final.rollback_version,
         )
 
@@ -285,17 +323,27 @@ class PluginExecutor:
             info = self.lookup(plugin_id)
         except PluginNotFoundError as exc:
             return OperationResult(
-                action="upgrade", plugin_id=plugin_id, success=False,
-                message=str(exc), duration_s=time.monotonic() - started,
-                tracker_id="", update_set=None, rollback_version=None,
+                action="upgrade",
+                plugin_id=plugin_id,
+                success=False,
+                message=str(exc),
+                duration_s=time.monotonic() - started,
+                tracker_id="",
+                update_set=None,
+                rollback_version=None,
             )
         try:
             raw = await self._client.submit_upgrade(info.sys_id, target_version)
         except Exception as exc:
             return OperationResult(
-                action="upgrade", plugin_id=plugin_id, success=False,
-                message=str(exc), duration_s=time.monotonic() - started,
-                tracker_id="", update_set=None, rollback_version=None,
+                action="upgrade",
+                plugin_id=plugin_id,
+                success=False,
+                message=str(exc),
+                duration_s=time.monotonic() - started,
+                tracker_id="",
+                update_set=None,
+                rollback_version=None,
             )
         tracker_id = str(raw.get("trackerId", ""))
         poller = ProgressPoller(self._client)
@@ -304,14 +352,23 @@ class PluginExecutor:
         except (PluginProgressError, PluginTimeoutError) as exc:
             err_msg = getattr(exc, "error_message", str(exc))
             return OperationResult(
-                action="upgrade", plugin_id=plugin_id, success=False,
-                message=err_msg, duration_s=time.monotonic() - started,
-                tracker_id=tracker_id, update_set=None, rollback_version=None,
+                action="upgrade",
+                plugin_id=plugin_id,
+                success=False,
+                message=err_msg,
+                duration_s=time.monotonic() - started,
+                tracker_id=tracker_id,
+                update_set=None,
+                rollback_version=None,
             )
         return OperationResult(
-            action="upgrade", plugin_id=plugin_id, success=True,
-            message=final.status_label, duration_s=time.monotonic() - started,
-            tracker_id=tracker_id, update_set=final.update_set,
+            action="upgrade",
+            plugin_id=plugin_id,
+            success=True,
+            message=final.status_label,
+            duration_s=time.monotonic() - started,
+            tracker_id=tracker_id,
+            update_set=final.update_set,
             rollback_version=final.rollback_version,
         )
 
@@ -403,12 +460,18 @@ class PluginExecutor:
 
             info = self._by_id.get(op.plugin_id)
             if info is None:
-                rollback_results.append(OperationResult(
-                    action=rb_action, plugin_id=op.plugin_id, success=False,
-                    message="rollback failed: plugin not in inventory",
-                    duration_s=time.monotonic() - started,
-                    tracker_id="", update_set=None, rollback_version=None,
-                ))
+                rollback_results.append(
+                    OperationResult(
+                        action=rb_action,
+                        plugin_id=op.plugin_id,
+                        success=False,
+                        message="rollback failed: plugin not in inventory",
+                        duration_s=time.monotonic() - started,
+                        tracker_id="",
+                        update_set=None,
+                        rollback_version=None,
+                    )
+                )
                 continue
 
             try:
@@ -419,12 +482,18 @@ class PluginExecutor:
                 else:  # upgrade
                     raw = await self._client.submit_upgrade(info.sys_id, op.rollback_version)
             except Exception as exc:
-                rollback_results.append(OperationResult(
-                    action=rb_action, plugin_id=op.plugin_id, success=False,
-                    message=f"rollback failed: {exc}",
-                    duration_s=time.monotonic() - started,
-                    tracker_id="", update_set=None, rollback_version=None,
-                ))
+                rollback_results.append(
+                    OperationResult(
+                        action=rb_action,
+                        plugin_id=op.plugin_id,
+                        success=False,
+                        message=f"rollback failed: {exc}",
+                        duration_s=time.monotonic() - started,
+                        tracker_id="",
+                        update_set=None,
+                        rollback_version=None,
+                    )
+                )
                 continue
 
             tracker_id = str(raw.get("trackerId", ""))
@@ -433,18 +502,29 @@ class PluginExecutor:
                 final = await poller.poll(tracker_id)
             except (PluginProgressError, PluginTimeoutError) as exc:
                 err_msg = getattr(exc, "error_message", str(exc))
-                rollback_results.append(OperationResult(
-                    action=rb_action, plugin_id=op.plugin_id, success=False,
-                    message=f"rollback failed: {err_msg}",
-                    duration_s=time.monotonic() - started,
-                    tracker_id=tracker_id, update_set=None, rollback_version=None,
-                ))
+                rollback_results.append(
+                    OperationResult(
+                        action=rb_action,
+                        plugin_id=op.plugin_id,
+                        success=False,
+                        message=f"rollback failed: {err_msg}",
+                        duration_s=time.monotonic() - started,
+                        tracker_id=tracker_id,
+                        update_set=None,
+                        rollback_version=None,
+                    )
+                )
                 continue
-            rollback_results.append(OperationResult(
-                action=rb_action, plugin_id=op.plugin_id, success=True,
-                message=final.status_label,
-                duration_s=time.monotonic() - started,
-                tracker_id=tracker_id, update_set=final.update_set,
-                rollback_version=final.rollback_version,
-            ))
+            rollback_results.append(
+                OperationResult(
+                    action=rb_action,
+                    plugin_id=op.plugin_id,
+                    success=True,
+                    message=final.status_label,
+                    duration_s=time.monotonic() - started,
+                    tracker_id=tracker_id,
+                    update_set=final.update_set,
+                    rollback_version=final.rollback_version,
+                )
+            )
         return rollback_results

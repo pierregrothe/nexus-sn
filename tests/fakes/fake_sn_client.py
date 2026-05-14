@@ -306,8 +306,14 @@ class FakeServiceNowClient:
         seq = self._progress_sequences.get(tracker_id, [])
         if not seq:
             return {
-                "status": "2", "status_label": "Success", "percent_complete": 100,
-                "error": "", "update_set": None, "rollback_version": None,
-                "trackerId": tracker_id, "status_message": "", "status_detail": "",
+                "status": "2",
+                "status_label": "Success",
+                "percent_complete": 100,
+                "error": "",
+                "update_set": None,
+                "rollback_version": None,
+                "trackerId": tracker_id,
+                "status_message": "",
+                "status_detail": "",
             }
         return seq.pop(0)
