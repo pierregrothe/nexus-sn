@@ -765,6 +765,60 @@ with a clear error message. No silent breakage.
   the catalog. Used by Update 2026-05-14c to perform the definitive
   search.
 
+### Update 2026-05-14e: web research + final exhaustive confirmation
+
+After the on-instance discovery, I did extensive web research to verify
+this is a known platform limitation, not a documentation gap on the
+PDI. Sources consulted:
+
+1. **ServiceNow KB0716414 -- "How to manage ServiceNow plugins when
+   uninstallation isn't possible"**: official SN support article. Quote:
+   *"After a plugin is activated, you cannot disable or deactivate it.
+   This is a fundamental limitation in ServiceNow -- you cannot uninstall
+   a plugin, and after a plugin is activated, you cannot disable or
+   deactivate it."*
+
+2. **ServiceNow official docs (Utah / Washington DC / Tokyo bundles)**:
+   the Uninstall an Application pages describe only UI-driven workflows;
+   no programmatic API is provided.
+
+3. **ServiceNow Community forum consensus**: every relevant thread
+   reaches the same conclusion -- use the UI, or wipe and refresh non-
+   production instances. No working programmatic workaround exists.
+
+4. **ServiceNow SDK (servicenow.github.io/sdk)**: the official SDK
+   reference lists no plugin uninstall or deactivate API. The SDK is
+   focused on *creating* and configuring ServiceNow objects, not
+   removing them.
+
+5. **GitHub project survey**: pysnow (the most popular Python SN
+   client), aiosnow (its async successor), and other community
+   libraries cover only documented REST endpoints. No project has
+   solved programmatic uninstall.
+
+6. **GraphQL introspection**: `/api/now/graphql` did not expose any
+   mutation matching ``uninstall`` or ``deactivate`` in its schema.
+
+7. **Direct API surface probing** on the alectri PDI (Yokohama):
+
+   ```
+   POST /api/now/v1/processor/AppsAjaxProcessor             -> 400 (not a resource)
+   POST /api/now/v1/processor/com.snc.apps.AppsAjaxProcessor -> 400 (not a resource)
+   POST /api/sn_appclient/processor                          -> 400 (not a resource)
+   POST /api/now/v1/uninstall_app                            -> 400 (not a resource)
+   POST /sn_appclient/xmlhttp.do                             -> 200 (login HTML)
+   POST /x_sn_appclient/xmlhttp.do                           -> 200 (login HTML)
+   ```
+
+8. **All script includes inspected**: ``UninstallValidator`` has only
+   validation methods (canUninstall, validate, validateDependencies,
+   addDependentsToList, validateJumboDependencies, updateAppInfo,
+   addWarningDetail). ``AppManagerHandler`` has only install/update/
+   repair/activate methods. ``PluginsData`` has rollback but no
+   uninstall. The actual uninstall logic lives in the Java class
+   ``com.snc.apps.AppsAjaxProcessor`` which is platform-internal and
+   "not public" per its own response.
+
 ### Update 2026-05-14d: AppsAjaxProcessor is not public
 
 I attempted to wire a session-cookie auth pivot (post `/login.do`,
