@@ -764,3 +764,61 @@ with a clear error message. No silent breakage.
 - `scripts/dump_sn_api_catalog.py` -- the mining script that generated
   the catalog. Used by Update 2026-05-14c to perform the definitive
   search.
+
+### Update 2026-05-14d: AppsAjaxProcessor is not public
+
+I attempted to wire a session-cookie auth pivot (post `/login.do`,
+extract `g_ck` CSRF token, post `/xmlhttp.do` with the cookies + CSRF
+token). The login + CSRF extraction work as expected (200 status,
+JSESSIONID + glide cookies issued, valid `g_ck` parsed from the login
+response HTML). However the very first call to AppsAjaxProcessor with
+all of that in place returns:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<xml error="com.snc.apps.AppsAjaxProcessor is not public"
+     sysparm_max="15"
+     sysparm_processor="com.snc.apps.AppsAjaxProcessor"/>
+```
+
+The processor is flagged "not public" in SN's AjaxProcessor registry --
+it's intentionally inaccessible from outside an authenticated UI page
+session. SN has architecturally decided that plugin/app uninstall is a
+UI-only operation. There is no clean way around this short of full UI
+emulation (driving a real browser session via headless Chrome with
+trusted-event clicks, which the in-conversation interceptor can't do
+reliably because of `event.isTrusted` filtering on the web components).
+
+### Final architectural conclusion for NEXUS
+
+Plugin/app **deactivate and uninstall cannot be implemented via REST,
+session-cookie AJAX, or any other programmatic API** that ServiceNow
+exposes on Yokohama PDIs. The only programmatic-ish paths are:
+
+1. **REST (this is what NEXUS uses) -- BLOCKED:** sn_appclient namespace
+   has 30 operations, none of them deactivate or uninstall.
+2. **xmlhttp.do AjaxProcessor with session cookies -- BLOCKED:**
+   AppsAjaxProcessor is "not public".
+3. **Direct table operations (PATCH v_plugin / DELETE sys_store_app) --
+   BLOCKED:** API-level ACL refuses even for admin (HTTP 403).
+4. **Driving a real browser session -- POSSIBLE but out of scope:**
+   would require launching headless Chrome with a real OS user gesture
+   simulation, capturing the UI's trusted-event clicks. Could be
+   implemented as a sub-project but breaks the "CLI tool" model.
+
+**Practical recommendation for NEXUS users today:**
+- For deactivate/uninstall, use the ServiceNow Application Manager UI
+  directly (Now Experience -> Application Manager -> select plugin ->
+  Uninstall). NEXUS provides everything else: inventory, dependency
+  cascade preview via ``nexus plugins impact``, install/upgrade/apply.
+- The ``nexus plugins deactivate`` and ``nexus plugins uninstall`` CLI
+  commands remain in the tree as forward-compatible stubs. They fail
+  loudly against live SN with a clear error message pointing at this
+  spec addendum. Unit tests pass against the fake.
+- If a future SN release exposes these via REST (a `/plugin/uninstall`
+  or `/app/uninstall` operation appearing in sys_ws_operation), the
+  executor wiring + impact gate + CLI commands are all already in
+  place; the only work needed is to add the SN client method.
+
+This addendum closes the investigation. The honest conclusion is that
+the gap is in ServiceNow itself, not in NEXUS.
