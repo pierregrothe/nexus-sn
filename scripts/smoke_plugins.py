@@ -416,6 +416,48 @@ def t_explain_help() -> tuple[bool, str, str]:
     return ok, f"exit={proc.returncode}", out[-200:]
 
 
+def t_deactivate_help() -> tuple[bool, str, str]:
+    """`deactivate --help` shows --force option."""
+    proc = _run(_nexus("plugins", "deactivate", "--help"), timeout_s=15)
+    out = proc.stdout or ""
+    ok = proc.returncode == 0 and "--force" in out
+    return ok, f"exit={proc.returncode}", out[-200:]
+
+
+def t_uninstall_help() -> tuple[bool, str, str]:
+    """`uninstall --help` shows --force option."""
+    proc = _run(_nexus("plugins", "uninstall", "--help"), timeout_s=15)
+    out = proc.stdout or ""
+    ok = proc.returncode == 0 and "--force" in out
+    return ok, f"exit={proc.returncode}", out[-200:]
+
+
+def t_deactivate_cancel() -> tuple[bool, str, str]:
+    """`deactivate <plugin>` cancelled at action prompt -> exit 0."""
+    proc = _run(
+        _nexus("plugins", "deactivate", "com.glideapp.knowledge"),
+        input_text="n\n",
+        timeout_s=30,
+    )
+    ok = proc.returncode == 0
+    return ok, f"exit={proc.returncode}", proc.stdout[-200:]
+
+
+def t_uninstall_base_plugin_refused() -> tuple[bool, str, str]:
+    """`uninstall <base-plugin>` with --yes immediately refuses (no force escape).
+
+    Uses a known base plugin (source=='servicenow') from the inventory.
+    The executor refuses with PluginUnsupportedError; CLI returns exit 1.
+    """
+    proc = _run(
+        _nexus("plugins", "uninstall", "com.glideapp.knowledge", "--yes"),
+        timeout_s=20,
+    )
+    out = proc.stdout or ""
+    ok = proc.returncode == 1 and "cannot be uninstalled" in out
+    return ok, f"exit={proc.returncode}", out[-200:]
+
+
 # ---------------------------------------------------------------------------
 # Test registry + driver
 # ---------------------------------------------------------------------------
@@ -448,6 +490,10 @@ ALL_TESTS: list[tuple[str, Callable[[], tuple[bool, str, str]]]] = [
     ("apply-missing-file", t_apply_missing_file),
     ("apply-malformed-yaml", t_apply_malformed_yaml),
     ("apply-valid-plan-cancel", t_apply_valid_plan_cancel),
+    ("deactivate-help", t_deactivate_help),
+    ("uninstall-help", t_uninstall_help),
+    ("deactivate-cancel", t_deactivate_cancel),
+    ("uninstall-base-refused", t_uninstall_base_plugin_refused),
 ]
 
 

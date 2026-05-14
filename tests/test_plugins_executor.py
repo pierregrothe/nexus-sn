@@ -318,8 +318,8 @@ async def test_apply_plan_rollback_on_install_failure(client: FakeServiceNowClie
     # activate com.b fails
     client.queue_activate_response(_install_response("t2"))
     client.set_progress_sequence("t2", [_progress("3", 50, err="boom", tracker="t2")])
-    # rollback of "install com.a" -> submit_install (uninstall placeholder until sub-project N)
-    client.queue_install_response(_install_response("rb-1"))
+    # rollback of "install com.a" -> submit_uninstall (real undo endpoint)
+    client.queue_uninstall_response(_install_response("rb-1"))
     client.set_progress_sequence("rb-1", [_progress("2", 100, tracker="rb-1")])
 
     exe = PluginExecutor(client=client, inventory=inv)
@@ -379,7 +379,7 @@ async def test_rollback_continues_through_secondary_failures(client: FakeService
     client.set_progress_sequence("ta", [_progress("3", 0, err="x", tracker="ta")])
     # First rollback (for com.c -- LIFO) has NO response queued -> fails
     # Second rollback (for com.a) has a response queued -> succeeds
-    client.queue_install_response(_install_response("rb-a"))
+    client.queue_uninstall_response(_install_response("rb-a"))
     client.set_progress_sequence("rb-a", [_progress("2", 100, tracker="rb-a")])
 
     exe = PluginExecutor(client=client, inventory=inv)
@@ -393,3 +393,188 @@ async def test_rollback_continues_through_secondary_failures(client: FakeService
     failures = sum(1 for r in rb_results if not r.success)
     assert successes == 1
     assert failures == 1
+
+
+@pytest.mark.asyncio
+async def test_deactivate_blocked_by_local_reverse_deps(client: FakeServiceNowClient) -> None:
+    """Deactivate is refused without --force when reverse-deps exist."""
+    inv = _inventory(
+        _info("com.a"),
+        PluginInfo(
+            plugin_id="com.b",
+            name="com.b",
+            version="1.0",
+            state="active",
+            source="servicenow",
+            product_family="ITSM",
+            depends_on=("com.a",),
+            sys_id="sysid-com.b",
+            installed_at=None,
+        ),
+    )
+    exe = PluginExecutor(client=client, inventory=inv)
+    result = await exe.deactivate("com.a")
+    assert not result.success
+    assert "impact gate blocked" in result.message
+    assert result.action == "deactivate"
+
+
+@pytest.mark.asyncio
+async def test_deactivate_force_bypasses_impact_gate(client: FakeServiceNowClient) -> None:
+    """force=True skips the gate and proceeds to submit_deactivate."""
+    inv = _inventory(
+        _info("com.a"),
+        PluginInfo(
+            plugin_id="com.b",
+            name="com.b",
+            version="1.0",
+            state="active",
+            source="servicenow",
+            product_family="ITSM",
+            depends_on=("com.a",),
+            sys_id="sysid-com.b",
+            installed_at=None,
+        ),
+    )
+    client.queue_deactivate_response(_install_response("td-1"))
+    client.set_progress_sequence("td-1", [_progress("2", 100, tracker="td-1")])
+    exe = PluginExecutor(client=client, inventory=inv)
+    result = await exe.deactivate("com.a", force=True)
+    assert result.success
+    assert result.action == "deactivate"
+
+
+@pytest.mark.asyncio
+async def test_deactivate_success_when_no_deps(client: FakeServiceNowClient) -> None:
+    """When no local reverse-deps and SN returns empty cascade, deactivate works."""
+    inv = _inventory(_info("com.lonely"))
+    client.queue_deactivate_response(_install_response("td-2"))
+    client.set_progress_sequence("td-2", [_progress("2", 100, tracker="td-2")])
+    exe = PluginExecutor(client=client, inventory=inv)
+    result = await exe.deactivate("com.lonely")
+    assert result.success
+
+
+@pytest.mark.asyncio
+async def test_deactivate_unknown_plugin_returns_failure(client: FakeServiceNowClient) -> None:
+    """Deactivating an unknown plugin returns a failure result."""
+    inv = _inventory()
+    exe = PluginExecutor(client=client, inventory=inv)
+    result = await exe.deactivate("com.nope")
+    assert not result.success
+    assert "com.nope" in result.message
+    assert result.action == "deactivate"
+
+
+@pytest.mark.asyncio
+async def test_uninstall_refused_for_base_servicenow_plugin(client: FakeServiceNowClient) -> None:
+    """source=='servicenow' uninstall is refused regardless of --force."""
+    inv = _inventory(_info("com.snc.incident"))
+    exe = PluginExecutor(client=client, inventory=inv)
+    result = await exe.uninstall("com.snc.incident", force=True)
+    assert not result.success
+    assert "cannot be uninstalled" in result.message
+    assert result.action == "uninstall"
+
+
+@pytest.mark.asyncio
+async def test_uninstall_succeeds_for_non_base_plugin(client: FakeServiceNowClient) -> None:
+    """Non-base (store/custom) plugins can be uninstalled."""
+    inv = _inventory(
+        PluginInfo(
+            plugin_id="com.acme.app",
+            name="acme",
+            version="1.0",
+            state="active",
+            source="store",
+            product_family="ITSM",
+            depends_on=(),
+            sys_id="acme-sys",
+            installed_at=None,
+        ),
+    )
+    client.queue_uninstall_response(_install_response("tu-1"))
+    client.set_progress_sequence("tu-1", [_progress("2", 100, tracker="tu-1")])
+    exe = PluginExecutor(client=client, inventory=inv)
+    result = await exe.uninstall("com.acme.app")
+    assert result.success
+    assert result.action == "uninstall"
+
+
+@pytest.mark.asyncio
+async def test_uninstall_blocked_by_impact_gate(client: FakeServiceNowClient) -> None:
+    """Non-base plugin with reverse-deps blocked unless --force."""
+    inv = _inventory(
+        PluginInfo(
+            plugin_id="com.acme.app",
+            name="acme",
+            version="1.0",
+            state="active",
+            source="store",
+            product_family="ITSM",
+            depends_on=(),
+            sys_id="acme-sys",
+            installed_at=None,
+        ),
+        PluginInfo(
+            plugin_id="com.dep",
+            name="dep",
+            version="1.0",
+            state="active",
+            source="store",
+            product_family="ITSM",
+            depends_on=("com.acme.app",),
+            sys_id="dep-sys",
+            installed_at=None,
+        ),
+    )
+    exe = PluginExecutor(client=client, inventory=inv)
+    result = await exe.uninstall("com.acme.app")
+    assert not result.success
+    assert "impact gate blocked" in result.message
+
+
+@pytest.mark.asyncio
+async def test_rollback_uses_real_uninstall_endpoint(client: FakeServiceNowClient) -> None:
+    """After M->N transition, rollback of 'install' calls submit_uninstall (not submit_install)."""
+    plan = PromotionPlan(
+        source_profile="dev",
+        target_profile="prod",
+        actions=(
+            PromoteAction(
+                action="install",
+                plugin_id="com.a",
+                name="com.a",
+                product_family="ITSM",
+                target_version="1.0",
+                current_version=None,
+            ),
+            PromoteAction(
+                action="activate",
+                plugin_id="com.b",
+                name="com.b",
+                product_family="ITSM",
+                target_version="1.0",
+                current_version=None,
+            ),
+        ),
+    )
+    inv = _inventory(_info("com.a"), _info("com.b", state="inactive"))
+    # install com.a succeeds
+    client.queue_install_response(_install_response("ti"))
+    client.set_progress_sequence("ti", [_progress("2", 100, tracker="ti")])
+    client._tables["v_plugin"] = [
+        {"name": "com.a", "sys_id": "ai", "version": "1.0", "state": "active"}
+    ]
+    # activate com.b fails
+    client.queue_activate_response(_install_response("ta"))
+    client.set_progress_sequence("ta", [_progress("3", 50, err="boom", tracker="ta")])
+    # rollback of 'install com.a' MUST call submit_uninstall (not submit_install)
+    client.queue_uninstall_response(_install_response("rb-u"))
+    client.set_progress_sequence("rb-u", [_progress("2", 100, tracker="rb-u")])
+
+    exe = PluginExecutor(client=client, inventory=inv)
+    log = await exe.apply_plan(plan, console=Console(quiet=True))
+    rb = [r for r in log.results if r.action == "rollback_install"]
+    assert len(rb) == 1
+    assert rb[0].success

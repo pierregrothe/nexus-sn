@@ -34,11 +34,13 @@ from nexus.plugins.errors import (
     PluginBaselineNotFoundError,
     PluginBatchError,
     PluginExecutionError,
+    PluginImpactBlockError,
     PluginImpactError,
     PluginNotFoundError,
     PluginProgressError,
     PluginScanError,
     PluginTimeoutError,
+    PluginUnsupportedError,
 )
 from nexus.plugins.executor import OperationLog, OperationResult, PluginExecutor
 from nexus.plugins.impact import compute_impact, reverse_dependencies
@@ -99,6 +101,7 @@ __all__ = [
     "PluginExecutionError",
     "PluginExecutor",
     "PluginImpact",
+    "PluginImpactBlockError",
     "PluginImpactError",
     "PluginInfo",
     "PluginInventory",
@@ -107,6 +110,7 @@ __all__ = [
     "PluginScanError",
     "PluginScanner",
     "PluginTimeoutError",
+    "PluginUnsupportedError",
     "ProductFamily",
     "ProgressPoller",
     "ProgressState",

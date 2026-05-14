@@ -110,6 +110,14 @@ class ServiceNowClientProtocol(Protocol):
         """
         ...
 
+    async def submit_deactivate(self, source_app_id: str) -> dict[str, object]:
+        """Submit a deactivate via /api/sn_appclient/appmanager/app/deactivate (GET)."""
+        ...
+
+    async def submit_uninstall(self, source_app_id: str) -> dict[str, object]:
+        """Submit an uninstall via /api/sn_appclient/appmanager/app/uninstall (GET)."""
+        ...
+
     async def fetch_progress(self, tracker_id: str) -> dict[str, object]:
         """Fetch one poll of /api/sn_appclient/appmanager/progress/{tracker_id}."""
         ...

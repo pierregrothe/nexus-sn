@@ -30,6 +30,8 @@ class FakeServiceNowClient:
         self._install_responses: list[dict[str, Any]] = []
         self._activate_responses: list[dict[str, Any]] = []
         self._upgrade_responses: list[dict[str, Any]] = []
+        self._deactivate_responses: list[dict[str, Any]] = []
+        self._uninstall_responses: list[dict[str, Any]] = []
         self._progress_sequences: dict[str, list[dict[str, Any]]] = {}
 
     async def __aenter__(self) -> FakeServiceNowClient:
@@ -148,6 +150,22 @@ class FakeServiceNowClient:
             raw_result: Response dict to queue.
         """
         self._upgrade_responses.append(dict(raw_result))
+
+    def queue_deactivate_response(self, raw_result: dict[str, Any]) -> None:
+        """Queue one deactivate response (FIFO).
+
+        Args:
+            raw_result: Response dict to queue.
+        """
+        self._deactivate_responses.append(dict(raw_result))
+
+    def queue_uninstall_response(self, raw_result: dict[str, Any]) -> None:
+        """Queue one uninstall response (FIFO).
+
+        Args:
+            raw_result: Response dict to queue.
+        """
+        self._uninstall_responses.append(dict(raw_result))
 
     def set_progress_sequence(self, tracker_id: str, sequence: list[dict[str, Any]]) -> None:
         """Set the sequence of polls returned for one tracker_id (FIFO).
@@ -290,6 +308,40 @@ class FakeServiceNowClient:
         if not self._upgrade_responses:
             raise RuntimeError("no upgrade response queued in FakeServiceNowClient")
         return self._upgrade_responses.pop(0)
+
+    async def submit_deactivate(self, source_app_id: str) -> dict[str, Any]:
+        """Pop and return the next queued deactivate response.
+
+        Args:
+            source_app_id: App identifier (ignored by fake).
+
+        Returns:
+            Response dict from the queue.
+
+        Raises:
+            RuntimeError: If no deactivate response is queued.
+        """
+        del source_app_id
+        if not self._deactivate_responses:
+            raise RuntimeError("no deactivate response queued in FakeServiceNowClient")
+        return self._deactivate_responses.pop(0)
+
+    async def submit_uninstall(self, source_app_id: str) -> dict[str, Any]:
+        """Pop and return the next queued uninstall response.
+
+        Args:
+            source_app_id: App identifier (ignored by fake).
+
+        Returns:
+            Response dict from the queue.
+
+        Raises:
+            RuntimeError: If no uninstall response is queued.
+        """
+        del source_app_id
+        if not self._uninstall_responses:
+            raise RuntimeError("no uninstall response queued in FakeServiceNowClient")
+        return self._uninstall_responses.pop(0)
 
     async def fetch_progress(self, tracker_id: str) -> dict[str, Any]:
         """Pop and return the next progress poll for tracker_id.
