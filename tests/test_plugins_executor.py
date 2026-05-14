@@ -9,8 +9,10 @@ from datetime import UTC, datetime
 from typing import Any
 
 import pytest
+from rich.console import Console
 
 from nexus.plugins import progress as _progress_module
+from nexus.plugins.diff import PromoteAction, PromotionPlan
 from nexus.plugins.errors import PluginNotFoundError
 from nexus.plugins.executor import PluginExecutor
 from nexus.plugins.models import PluginInfo, PluginInventory
@@ -177,3 +179,127 @@ async def test_upgrade_unknown_plugin_returns_failure(client: FakeServiceNowClie
     result = await exe.upgrade("com.nope")
     assert not result.success
     assert result.action == "upgrade"
+
+
+@pytest.mark.asyncio
+async def test_apply_plan_executes_actions_in_stable_order(client: FakeServiceNowClient) -> None:
+    inv = _inventory(_info("com.b", state="inactive"))
+    plan = PromotionPlan(
+        source_profile="dev", target_profile="prod",
+        actions=(
+            PromoteAction(action="install", plugin_id="com.a", name="com.a",
+                          product_family="ITSM", target_version="1.0", current_version=None),
+            PromoteAction(action="activate", plugin_id="com.b", name="com.b",
+                          product_family="ITSM", target_version="1.0", current_version=None),
+            PromoteAction(action="upgrade", plugin_id="com.b", name="com.b",
+                          product_family="ITSM", target_version="2.0", current_version="1.0"),
+        ),
+    )
+    # Seed inventory for com.a so install can find sys_id via lookup
+    inv = _inventory(_info("com.a"), _info("com.b", state="inactive"))
+    client.queue_install_response(_install_response("t-i"))
+    client.queue_activate_response(_install_response("t-a"))
+    client.queue_upgrade_response(_install_response("t-u"))
+    client.set_progress_sequence("t-i", [_progress("2", 100, tracker="t-i")])
+    client.set_progress_sequence("t-a", [_progress("2", 100, tracker="t-a")])
+    client.set_progress_sequence("t-u", [_progress("2", 100, tracker="t-u")])
+    client._tables["v_plugin"] = [{"name": "com.a", "sys_id": "ai", "version": "1.0", "state": "active"}]
+
+    exe = PluginExecutor(client=client, inventory=inv)
+    log = await exe.apply_plan(plan, console=Console(quiet=True))
+    assert log.success_count == 3
+    assert log.failure_count == 0
+    actions = tuple(r.action for r in log.results)
+    assert actions == ("install", "activate", "upgrade")
+
+
+@pytest.mark.asyncio
+async def test_apply_plan_rejects_unknown_plugin_for_activate(client: FakeServiceNowClient) -> None:
+    inv = _inventory()  # empty
+    plan = PromotionPlan(
+        source_profile="dev", target_profile="prod",
+        actions=(
+            PromoteAction(action="activate", plugin_id="com.nope", name="com.nope",
+                          product_family="ITSM", target_version="1.0", current_version=None),
+        ),
+    )
+    exe = PluginExecutor(client=client, inventory=inv)
+    with pytest.raises(PluginNotFoundError):
+        await exe.apply_plan(plan, console=Console(quiet=True))
+
+
+@pytest.mark.asyncio
+async def test_apply_plan_rollback_on_install_failure(client: FakeServiceNowClient) -> None:
+    inv = _inventory(_info("com.a"), _info("com.b", state="inactive"))
+    plan = PromotionPlan(
+        source_profile="dev", target_profile="prod",
+        actions=(
+            PromoteAction(action="install", plugin_id="com.a", name="com.a",
+                          product_family="ITSM", target_version="1.0", current_version=None),
+            PromoteAction(action="activate", plugin_id="com.b", name="com.b",
+                          product_family="ITSM", target_version="1.0", current_version=None),
+        ),
+    )
+    # install com.a succeeds
+    client.queue_install_response(_install_response("t1"))
+    client.set_progress_sequence("t1", [_progress("2", 100, tracker="t1")])
+    client._tables["v_plugin"] = [{"name": "com.a", "sys_id": "ai", "version": "1.0", "state": "active"}]
+    # activate com.b fails
+    client.queue_activate_response(_install_response("t2"))
+    client.set_progress_sequence("t2", [_progress("3", 50, err="boom", tracker="t2")])
+    # rollback of "install com.a" -> submit_install (uninstall placeholder until sub-project N)
+    client.queue_install_response(_install_response("rb-1"))
+    client.set_progress_sequence("rb-1", [_progress("2", 100, tracker="rb-1")])
+
+    exe = PluginExecutor(client=client, inventory=inv)
+    log = await exe.apply_plan(plan, console=Console(quiet=True))
+    actions = tuple(r.action for r in log.results)
+    # install ok, activate failed, rollback_install for com.a
+    assert actions[0] == "install"
+    assert actions[1] == "activate"
+    assert actions[2] == "rollback_install"
+    assert log.failure_count >= 1  # at least the failed activate
+
+
+@pytest.mark.asyncio
+async def test_rollback_continues_through_secondary_failures(client: FakeServiceNowClient) -> None:
+    inv = _inventory(_info("com.a"), _info("com.c"), _info("com.b", state="inactive"))
+    plan = PromotionPlan(
+        source_profile="dev", target_profile="prod",
+        actions=(
+            PromoteAction(action="install", plugin_id="com.a", name="com.a",
+                          product_family="ITSM", target_version="1.0", current_version=None),
+            PromoteAction(action="install", plugin_id="com.c", name="com.c",
+                          product_family="ITSM", target_version="1.0", current_version=None),
+            PromoteAction(action="activate", plugin_id="com.b", name="com.b",
+                          product_family="ITSM", target_version="1.0", current_version=None),
+        ),
+    )
+    # Two installs succeed
+    client.queue_install_response(_install_response("ti1"))
+    client.queue_install_response(_install_response("ti2"))
+    client.set_progress_sequence("ti1", [_progress("2", 100, tracker="ti1")])
+    client.set_progress_sequence("ti2", [_progress("2", 100, tracker="ti2")])
+    client._tables["v_plugin"] = [
+        {"name": "com.a", "sys_id": "a", "version": "1.0", "state": "active"},
+        {"name": "com.c", "sys_id": "c", "version": "1.0", "state": "active"},
+    ]
+    # Activate fails
+    client.queue_activate_response(_install_response("ta"))
+    client.set_progress_sequence("ta", [_progress("3", 0, err="x", tracker="ta")])
+    # First rollback (for com.c -- LIFO) has NO response queued -> fails
+    # Second rollback (for com.a) has a response queued -> succeeds
+    client.queue_install_response(_install_response("rb-a"))
+    client.set_progress_sequence("rb-a", [_progress("2", 100, tracker="rb-a")])
+
+    exe = PluginExecutor(client=client, inventory=inv)
+    log = await exe.apply_plan(plan, console=Console(quiet=True))
+    # 3 forward results + 2 rollback entries
+    assert len(log.results) == 5
+    rb_results = [r for r in log.results if r.action.startswith("rollback_")]
+    assert len(rb_results) == 2
+    # One rollback succeeded, one failed (LIFO: com.c rollback first which fails)
+    successes = sum(1 for r in rb_results if r.success)
+    failures = sum(1 for r in rb_results if not r.success)
+    assert successes == 1
+    assert failures == 1
