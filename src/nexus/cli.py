@@ -2395,6 +2395,13 @@ def plugins_updates(
             help="Instance profile (default: configured default)",
         ),
     ] = "",
+    family: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--family",
+            help="Filter to one or more product families (case-insensitive). Repeatable.",
+        ),
+    ] = None,
     queue: Annotated[
         str,
         typer.Option(
@@ -2407,11 +2414,59 @@ def plugins_updates(
         str,
         typer.Option("--format", help="Output format: text | json (default: text)"),
     ] = "text",
+    apply_flag: Annotated[
+        bool,
+        typer.Option(
+            "--apply",
+            help="Upgrade every pending plugin (sequential, skip-on-fail). Destructive.",
+        ),
+    ] = False,
+    yes: Annotated[
+        bool,
+        typer.Option("--yes", help="Skip the confirmation prompt before --apply."),
+    ] = False,
+    out: Annotated[
+        str,
+        typer.Option(
+            "--out",
+            help="Write BatchUpgradeReport YAML to this path after --apply runs.",
+        ),
+    ] = "",
 ) -> None:
     """Show plugins with newer versions available; optionally write a YAML queue."""
     _validate_format(output_format)
     meta, inventory = _load_inventory_or_exit(instance)
     pending = plugins_with_updates(inventory)
+    if family:
+        from nexus.plugins.filters import (  # noqa: PLC0415
+            available_families,
+            filter_by_family,
+            unknown_families,
+        )
+
+        unknown = unknown_families(tuple(family))
+        if unknown:
+            console.print(
+                Notice.error(
+                    f"Unknown product family: {', '.join(unknown)}. "
+                    f"Available families on this instance:"
+                )
+            )
+            family_rows: list[list[RenderableType]] = [
+                [name, str(count)] for name, count in available_families(inventory.plugins)
+            ]
+            console.print(
+                DataTable(
+                    title="Available families",
+                    columns=[
+                        DataColumn(header="Family", width=20),
+                        DataColumn(header="Plugins", width=10),
+                    ],
+                    rows=family_rows,
+                )
+            )
+            raise typer.Exit(2)
+        pending = filter_by_family(pending, tuple(family))
     if queue:
         payload: dict[str, object] = {
             "instance": meta.profile,
@@ -2447,6 +2502,8 @@ def plugins_updates(
                     command="grant the OAuth user 'app_store_pa_user_role' on the SN instance",
                 )
             )
+        elif apply_flag:
+            console.print(Notice.info("Nothing to upgrade."))
         else:
             console.print(Notice.info("Up to date."))
         if queue:
@@ -2484,6 +2541,36 @@ def plugins_updates(
                 command=f"nexus instance refresh {meta.profile}",
             )
         )
+    if apply_flag:
+        if not yes and not typer.confirm(f"Upgrade {len(pending)} plugin(s) on {meta.profile}?"):
+            raise typer.Exit(0)
+
+        from nexus.plugins.executor import PluginExecutor  # noqa: PLC0415
+
+        _, _, token, _ = _acquire_token(meta.profile)
+        families_used: tuple[str, ...] = tuple(family) if family else ()
+
+        async def _run() -> None:
+            async with ServiceNowClient(instance_url=meta.url, token=token) as client:
+                executor = PluginExecutor(client=client, inventory=inventory)
+                report = await executor.batch_upgrade(
+                    pending, families=families_used, console=console
+                )
+                console.print(
+                    Notice.info(
+                        f"{report.succeeded} upgraded, {report.failed} failed "
+                        f"(of {report.target_count})."
+                    )
+                )
+                if out:
+                    Path(out).write_text(
+                        _yaml.safe_dump(report.model_dump(), sort_keys=False),
+                        encoding="utf-8",
+                    )
+                if report.exit_code != 0:
+                    raise typer.Exit(report.exit_code)
+
+        asyncio.run(_run())
 
 
 _SEVERITY_ORDER: tuple[Severity, ...] = (

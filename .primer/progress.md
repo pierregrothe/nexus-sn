@@ -106,6 +106,10 @@ Plugins layer (plugin management roadmap A-N, 15 sub-projects):
     counts + cross-scope FK references (cross_scope=True default)
   compute_advisories -- CVE / EOL / license findings with severity sort
   apply_overrides + AdvisoryOverride -- per-instance deferred findings
+  batch_upgrade -- BatchUpgradeReport + skip-on-fail loop; filter_by_family
+    + available_families helpers; `nexus plugins updates --apply --family X
+    --out report.yaml` extends the existing updates command without a new
+    subcommand.
   orphan_candidates -- zero-deps + zero-records detection
   diff_inventories -- cross-instance plugin diff
   detect_updates -- comparison against store catalog
@@ -171,7 +175,7 @@ Infrastructure:
     plugin + force-confirm-rejection paths; cross-instance diff +
     promote->apply round-trip)
 
-Tests: 887 passing. All real fakes, no mocks.
+Tests: 908 passing. All real fakes, no mocks.
 GitHub: https://github.com/pierregrothe/nexus-sn (public).
 
 ## Known Issues

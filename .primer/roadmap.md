@@ -29,6 +29,8 @@
       mandatory impact gate (block on non-zero reverse deps / cross-scope refs);
       --force escape with double confirmation; base plugin uninstall refused
       (live action paths blocked by SN platform -- see spec addendum 2026-05-14e)
+- [x] Batch upgrade -- `nexus plugins updates --apply [--family ...]` with
+      skip-on-fail; reuses sub-project M's PluginExecutor.upgrade primitive.
 
 ## 2026.05 -- Setup + Sync [active]
 - [ ] nexus setup command -- credential wizard, config write, initial sync

@@ -24,6 +24,7 @@ Next implementation target: `nexus setup` credential wizard, or
 
 ## Recent Changes
 
+- ffed9a5 feat(plugins): batch upgrade via `nexus plugins updates --apply [--family]`
 - f79b556 perf(plugins): cache impact-gate inventory snapshot (PR #47)
 - 4d22702 docs(plugins): exhaustive web research confirms uninstall is impossible by SN design (PR #46)
 - c154ecf docs(plugins): AppsAjaxProcessor is not public; uninstall is UI-only (PR #45)

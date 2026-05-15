@@ -9,9 +9,9 @@ from __future__ import annotations
 
 import time
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Literal, cast
+from typing import TYPE_CHECKING, Literal, Self, cast
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, model_validator
 
 if TYPE_CHECKING:
     from rich.console import Console
@@ -30,7 +30,7 @@ from nexus.plugins.impact import reverse_dependencies
 from nexus.plugins.models import PluginInfo, PluginInventory
 from nexus.plugins.progress import ProgressPoller
 
-__all__ = ["OperationLog", "OperationResult", "PluginExecutor"]
+__all__ = ["BatchUpgradeReport", "OperationLog", "OperationResult", "PluginExecutor"]
 
 _FROZEN = ConfigDict(frozen=True, strict=True, extra="forbid")
 
@@ -92,6 +92,53 @@ class OperationLog(BaseModel):
     def failure_count(self) -> int:
         """Number of results with success=False."""
         return sum(1 for r in self.results if not r.success)
+
+
+class BatchUpgradeReport(BaseModel):
+    """Aggregate result of PluginExecutor.batch_upgrade.
+
+    Attributes:
+        results: One OperationResult per attempted plugin, in execution order.
+        families: Family names used to filter targets, echoed back on the report.
+            Empty tuple when no filter was applied.
+        target_count: Number of plugins attempted (==len(results)).
+        succeeded: Number of results with success=True.
+        failed: Number of results with success=False.
+
+    Construction enforces ``target_count == len(results)`` and
+    ``succeeded + failed == target_count`` -- callers cannot build an
+    incoherent report.
+    """
+
+    model_config = _FROZEN
+
+    results: tuple[OperationResult, ...]
+    families: tuple[str, ...]
+    target_count: int
+    succeeded: int
+    failed: int
+
+    @model_validator(mode="after")
+    def _check_counts_coherent(self) -> Self:
+        """Reject reports whose counts do not match the ``results`` tuple."""
+        if self.target_count != len(self.results):
+            raise ValueError(
+                f"target_count ({self.target_count}) != len(results) ({len(self.results)})"
+            )
+        actual_succeeded = sum(1 for r in self.results if r.success)
+        if self.succeeded != actual_succeeded:
+            raise ValueError(f"succeeded ({self.succeeded}) != actual ({actual_succeeded})")
+        if self.succeeded + self.failed != self.target_count:
+            raise ValueError(
+                f"succeeded + failed ({self.succeeded + self.failed}) "
+                f"!= target_count ({self.target_count})"
+            )
+        return self
+
+    @property
+    def exit_code(self) -> int:
+        """0 when all succeeded (including empty target -- idempotent), 1 when any failed."""
+        return 0 if self.failed == 0 else 1
 
 
 class PluginExecutor:
@@ -619,6 +666,50 @@ class PluginExecutor:
                 rollback = await self._rollback(results[:-1], console)
                 return OperationLog(results=tuple(results) + tuple(rollback))
         return OperationLog(results=tuple(results))
+
+    async def batch_upgrade(
+        self,
+        targets: tuple[PluginInfo, ...],
+        *,
+        families: tuple[str, ...] = (),
+        console: Console,
+    ) -> BatchUpgradeReport:
+        """Upgrade each target plugin sequentially. Skip-on-fail; never rolls back.
+
+        Sequential by design -- ServiceNow allocates one progress tracker per
+        app-manager operation per instance, so concurrent ``submit_upgrade``
+        calls compete for the same tracker queue. Each plugin is upgraded to
+        its ``latest_version`` (passed straight to ``submit_upgrade`` --
+        ``None`` means "latest available"). Failures are recorded but the
+        loop continues.
+
+        Args:
+            targets: Plugins to upgrade, in execution order. Already filtered
+                upstream (by family, by needs-update).
+            families: Family filter names, echoed onto the report for audit.
+                Empty tuple when no filter was applied.
+            console: Rich console for per-plugin status output.
+
+        Returns:
+            BatchUpgradeReport with per-plugin OperationResult in execution order.
+        """
+        results: list[OperationResult] = []
+        for plugin in targets:
+            console.print(f"[label]upgrade {plugin.plugin_id}[/]")
+            result = await self.upgrade(plugin.plugin_id, plugin.latest_version)
+            results.append(result)
+            if result.success:
+                console.print(f"[ok]ok {plugin.plugin_id} -> {result.message}[/]")
+            else:
+                console.print(f"[error]fail {plugin.plugin_id}: {result.message}[/]")
+        succeeded = sum(1 for r in results if r.success)
+        return BatchUpgradeReport(
+            results=tuple(results),
+            families=families,
+            target_count=len(results),
+            succeeded=succeeded,
+            failed=len(results) - succeeded,
+        )
 
     async def _rollback(
         self,
