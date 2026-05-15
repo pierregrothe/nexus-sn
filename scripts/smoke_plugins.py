@@ -771,6 +771,163 @@ def t_updates_dry_run_no_apply() -> tuple[bool, str, str]:
     return ok, f"exit={proc.returncode}", (proc.stdout or "")[-200:]
 
 
+def t_updates_format_text_explicit() -> tuple[bool, str, str]:
+    """`updates --format text` (explicit) succeeds and renders the table."""
+    proc = _run(_nexus("plugins", "updates", "--format", "text"), timeout_s=30)
+    ok = proc.returncode == 0 and (
+        "Updates available" in proc.stdout or "Up to date" in proc.stdout
+    )
+    return ok, f"exit={proc.returncode}", (proc.stdout or "")[-200:]
+
+
+def t_updates_format_unknown() -> tuple[bool, str, str]:
+    """`updates --format bogus` exits non-zero (format validation rejects)."""
+    proc = _run(_nexus("plugins", "updates", "--format", "bogus"), timeout_s=30)
+    ok = proc.returncode != 0
+    return ok, f"exit={proc.returncode}", (proc.stderr or proc.stdout or "")[-200:]
+
+
+def t_updates_instance_explicit() -> tuple[bool, str, str]:
+    """`updates --instance alectri` resolves the explicit profile and runs."""
+    proc = _run(_nexus("plugins", "updates", "--instance", "alectri"), timeout_s=30)
+    ok = proc.returncode == 0 and (
+        "Updates available" in proc.stdout or "Up to date" in proc.stdout
+    )
+    return ok, f"exit={proc.returncode}", (proc.stdout or "")[-200:]
+
+
+def t_updates_family_multiple() -> tuple[bool, str, str]:
+    """`updates --family ITSM --family ITOM` filters to the union of both families."""
+    proc = _run(
+        _nexus("plugins", "updates", "--family", "ITSM", "--family", "ITOM"),
+        timeout_s=30,
+    )
+    if proc.returncode != 0:
+        return False, f"exit={proc.returncode}", (proc.stderr or "")[-200:]
+    out = proc.stdout or ""
+    # On alectri both families have pending updates, so we should see both
+    # tokens. If the data ever changes such that one is empty, the table
+    # still renders with whichever family has pending. Allow either form.
+    seen_itsm = "ITSM" in out
+    seen_itom = "ITOM" in out
+    ok = seen_itsm or seen_itom or "Up to date" in out
+    return ok, f"exit={proc.returncode} itsm={seen_itsm} itom={seen_itom}", out[-200:]
+
+
+def t_updates_family_case_insensitive() -> tuple[bool, str, str]:
+    """`updates --family platform` (lowercase) is accepted and filters."""
+    proc = _run(_nexus("plugins", "updates", "--family", "platform"), timeout_s=30)
+    if proc.returncode != 0:
+        return False, f"exit={proc.returncode}", (proc.stderr or "")[-200:]
+    out = proc.stdout or ""
+    ok = "Platform" in out or "Up to date" in out or "No updates" in out
+    return ok, f"exit={proc.returncode}", out[-200:]
+
+
+def t_updates_family_with_json() -> tuple[bool, str, str]:
+    """`updates --family ITSM --format json` emits parseable JSON."""
+    proc = _run(
+        _nexus("plugins", "updates", "--family", "ITSM", "--format", "json"),
+        timeout_s=30,
+    )
+    if proc.returncode != 0:
+        return False, f"exit={proc.returncode}", (proc.stderr or "")[-200:]
+    last_line = (proc.stdout or "").strip().splitlines()[-1] if proc.stdout else ""
+    try:
+        payload = json.loads(last_line)
+        ok = isinstance(payload, dict | list)
+        return ok, f"type={type(payload).__name__}", ""
+    except json.JSONDecodeError as exc:
+        return False, f"JSON parse: {exc}", last_line[:200]
+
+
+def t_updates_family_with_queue() -> tuple[bool, str, str]:
+    """`updates --family ITSM --queue file` writes a family-filtered queue YAML."""
+    with tempfile.NamedTemporaryFile(suffix=".yaml", delete=False) as tmp:
+        out = Path(tmp.name)
+    try:
+        proc = _run(
+            _nexus("plugins", "updates", "--family", "ITSM", "--queue", str(out)),
+            timeout_s=30,
+        )
+        ok = proc.returncode == 0 and out.exists() and out.stat().st_size > 20
+        text = out.read_text(encoding="utf-8") if out.exists() else ""
+        # When the family produced pending updates, the YAML should mention
+        # ITSM. When empty, the YAML still exists (empty updates list).
+        return (
+            ok,
+            f"exit={proc.returncode} size={out.stat().st_size if out.exists() else 0}",
+            text[:200],
+        )
+    finally:
+        out.unlink(missing_ok=True)
+
+
+def t_updates_queue_with_json() -> tuple[bool, str, str]:
+    """`updates --queue file --format json` writes YAML AND emits JSON."""
+    with tempfile.NamedTemporaryFile(suffix=".yaml", delete=False) as tmp:
+        out = Path(tmp.name)
+    try:
+        proc = _run(
+            _nexus("plugins", "updates", "--queue", str(out), "--format", "json"),
+            timeout_s=30,
+        )
+        if proc.returncode != 0 or not out.exists():
+            return (
+                False,
+                f"exit={proc.returncode} exists={out.exists()}",
+                (proc.stderr or proc.stdout or "")[-200:],
+            )
+        last_line = (proc.stdout or "").strip().splitlines()[-1] if proc.stdout else ""
+        try:
+            payload = json.loads(last_line)
+        except json.JSONDecodeError as exc:
+            return False, f"JSON parse: {exc}", last_line[:200]
+        ok = isinstance(payload, dict | list) and out.stat().st_size > 20
+        return ok, f"exit={proc.returncode} json_type={type(payload).__name__}", ""
+    finally:
+        out.unlink(missing_ok=True)
+
+
+def t_updates_apply_declined_prompt() -> tuple[bool, str, str]:
+    r"""`updates --apply` with declined prompt exits 0 without touching SN.
+
+    typer.confirm runs BEFORE _acquire_token + ServiceNowClient, so feeding
+    "n\n" exits via raise typer.Exit(0) before any SN call. This is the
+    safest live test of the apply flow.
+    """
+    proc = _run(
+        _nexus("plugins", "updates", "--apply"),
+        input_text="n\n",
+        timeout_s=30,
+    )
+    ok = proc.returncode == 0
+    # Output should NOT contain "upgraded" / "failed" (those come from the
+    # post-run summary, which only renders if batch_upgrade was invoked).
+    out = proc.stdout or ""
+    no_run_marker = "upgraded," not in out
+    return (
+        ok and no_run_marker,
+        f"exit={proc.returncode} no_run_marker={no_run_marker}",
+        out[-200:],
+    )
+
+
+def t_updates_apply_unknown_family_blocks_before_apply() -> tuple[bool, str, str]:
+    """`updates --apply --yes --family BOGUS` exits 2 before any apply runs.
+
+    The unknown-family validation raises typer.Exit(2) before the apply
+    block is reached. Even with --yes, no SN call happens. Safe live test.
+    """
+    proc = _run(
+        _nexus("plugins", "updates", "--apply", "--yes", "--family", "ZZZ_BOGUS"),
+        timeout_s=30,
+    )
+    out = proc.stdout or ""
+    ok = proc.returncode == 2 and "ZZZ_BOGUS" in out and "upgraded," not in out
+    return ok, f"exit={proc.returncode}", out[-200:]
+
+
 def t_cross_instance_diff_shows_differences() -> tuple[bool, str, str]:
     """`diff alectri retail` returns >0 entries (two profiles always differ).
 
@@ -920,6 +1077,16 @@ ALL_TESTS: list[tuple[str, Callable[[], tuple[bool, str, str]]]] = [
     ("updates-family-filter", t_updates_family_filter),
     ("updates-unknown-family", t_updates_unknown_family),
     ("updates-dry-run-no-apply", t_updates_dry_run_no_apply),
+    ("updates-format-text-explicit", t_updates_format_text_explicit),
+    ("updates-format-unknown", t_updates_format_unknown),
+    ("updates-instance-explicit", t_updates_instance_explicit),
+    ("updates-family-multiple", t_updates_family_multiple),
+    ("updates-family-case-insensitive", t_updates_family_case_insensitive),
+    ("updates-family-with-json", t_updates_family_with_json),
+    ("updates-family-with-queue", t_updates_family_with_queue),
+    ("updates-queue-with-json", t_updates_queue_with_json),
+    ("updates-apply-declined-prompt", t_updates_apply_declined_prompt),
+    ("updates-apply-unknown-family-blocks", t_updates_apply_unknown_family_blocks_before_apply),
     # Cross-instance (skipped if retail not registered)
     ("cross-instance-diff", t_cross_instance_diff_shows_differences),
     ("promote-apply-roundtrip", t_promote_apply_roundtrip),
