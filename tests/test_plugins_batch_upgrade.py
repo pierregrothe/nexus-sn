@@ -88,6 +88,9 @@ def test_batch_upgrade_report_exit_code_all_succeeded() -> None:
     report = BatchUpgradeReport(
         results=(),
         families=(),
+        target_count=0,
+        succeeded=0,
+        failed=0,
     )
     assert report.exit_code == 0
 
@@ -106,8 +109,23 @@ def test_batch_upgrade_report_exit_code_with_failures() -> None:
     report = BatchUpgradeReport(
         results=(fake_result,),
         families=("ITSM",),
+        target_count=1,
+        succeeded=0,
+        failed=1,
     )
     assert report.exit_code == 1
+
+
+def test_batch_upgrade_report_rejects_incoherent_counts() -> None:
+    """Constructor must reject reports whose counts disagree with results."""
+    with pytest.raises(ValueError, match="target_count"):
+        BatchUpgradeReport(
+            results=(),
+            families=(),
+            target_count=5,
+            succeeded=0,
+            failed=0,
+        )
 
 
 async def test_batch_upgrade_all_succeed_in_order(console: Console) -> None:

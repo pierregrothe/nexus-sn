@@ -9,9 +9,9 @@ from __future__ import annotations
 
 import time
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Literal, cast
+from typing import TYPE_CHECKING, Literal, Self, cast
 
-from pydantic import BaseModel, ConfigDict, computed_field
+from pydantic import BaseModel, ConfigDict, model_validator
 
 if TYPE_CHECKING:
     from rich.console import Console
@@ -101,35 +101,41 @@ class BatchUpgradeReport(BaseModel):
         results: One OperationResult per attempted plugin, in execution order.
         families: Family names used to filter targets, echoed back on the report.
             Empty tuple when no filter was applied.
-
-    Computed fields (included in model_dump):
         target_count: Number of plugins attempted (==len(results)).
         succeeded: Number of results with success=True.
         failed: Number of results with success=False.
+
+    Construction enforces ``target_count == len(results)`` and
+    ``succeeded + failed == target_count`` -- callers cannot build an
+    incoherent report.
     """
 
     model_config = _FROZEN
 
     results: tuple[OperationResult, ...]
     families: tuple[str, ...]
+    target_count: int
+    succeeded: int
+    failed: int
 
-    @computed_field
-    @property
-    def target_count(self) -> int:
-        """Number of plugins attempted (==len(results))."""
-        return len(self.results)
-
-    @computed_field
-    @property
-    def succeeded(self) -> int:
-        """Number of results with success=True."""
-        return sum(1 for r in self.results if r.success)
-
-    @computed_field
-    @property
-    def failed(self) -> int:
-        """Number of results with success=False."""
-        return len(self.results) - self.succeeded
+    @model_validator(mode="after")
+    def _check_counts_coherent(self) -> Self:
+        """Reject reports whose counts do not match the ``results`` tuple."""
+        if self.target_count != len(self.results):
+            raise ValueError(
+                f"target_count {self.target_count} != len(results) {len(self.results)}"
+            )
+        actual_succeeded = sum(1 for r in self.results if r.success)
+        if self.succeeded != actual_succeeded:
+            raise ValueError(
+                f"succeeded {self.succeeded} != actual {actual_succeeded}"
+            )
+        if self.succeeded + self.failed != self.target_count:
+            raise ValueError(
+                f"succeeded + failed ({self.succeeded + self.failed}) "
+                f"!= target_count ({self.target_count})"
+            )
+        return self
 
     @property
     def exit_code(self) -> int:
@@ -695,9 +701,13 @@ class PluginExecutor:
                 console.print(f"[ok]ok {plugin.plugin_id} -> {result.message}[/]")
             else:
                 console.print(f"[error]fail {plugin.plugin_id}: {result.message}[/]")
+        succeeded = sum(1 for r in results if r.success)
         return BatchUpgradeReport(
             results=tuple(results),
             families=families,
+            target_count=len(results),
+            succeeded=succeeded,
+            failed=len(results) - succeeded,
         )
 
     async def _rollback(
