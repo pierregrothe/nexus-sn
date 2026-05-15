@@ -10,13 +10,14 @@ from pathlib import Path
 from typing import cast
 
 import pytest
+import yaml as _yaml
 from typer.testing import CliRunner
 
 from nexus.cache import clear_cache
 from nexus.cli import app
 from nexus.config.paths import NexusPaths
 from nexus.instances.models import InstanceMeta
-from nexus.plugins.executor import BatchUpgradeReport
+from nexus.plugins.executor import BatchUpgradeReport, OperationResult
 from nexus.plugins.models import PluginInfo, PluginInventory
 
 __all__: list[str] = []
@@ -177,3 +178,78 @@ def test_plugins_updates_apply_executes_batch_upgrade(
     target_ids = cast(list[str], calls[0]["targets"])
     assert set(target_ids) == {"com.acme.incident", "com.acme.cmdb"}
     assert calls[0]["families"] == ()
+
+
+def test_plugins_updates_apply_writes_report_yaml(
+    runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _seed(tmp_path, "prod", (_info("com.acme.incident", family="ITSM"),))
+    runner.invoke(app, ["instance", "use", "prod"])
+
+    async def _fake_batch_upgrade(
+        _self: object,
+        targets: tuple[PluginInfo, ...],
+        *,
+        families: tuple[str, ...],
+        console: object,
+    ) -> BatchUpgradeReport:
+        del console, targets
+        return BatchUpgradeReport(
+            results=(
+                OperationResult(
+                    action="upgrade",
+                    plugin_id="com.acme.incident",
+                    success=True,
+                    message="Success",
+                    duration_s=1.23,
+                    tracker_id="t-a",
+                    update_set=None,
+                    rollback_version=None,
+                ),
+            ),
+            families=families,
+            target_count=1,
+            succeeded=1,
+            failed=0,
+        )
+
+    monkeypatch.setattr(
+        "nexus.plugins.executor.PluginExecutor.batch_upgrade", _fake_batch_upgrade
+    )
+
+    def _fake_acquire(profile: str) -> tuple[str, str, str, None]:
+        return (profile, "url", "token", None)
+
+    monkeypatch.setattr("nexus.cli._acquire_token", _fake_acquire)
+
+    class _FakeAsyncCtx:
+        async def __aenter__(self) -> _FakeAsyncCtx:
+            return self
+
+        async def __aexit__(self, *_args: object) -> bool:
+            return False
+
+    def _fake_client(**_kwargs: object) -> _FakeAsyncCtx:
+        return _FakeAsyncCtx()
+
+    monkeypatch.setattr("nexus.cli.ServiceNowClient", _fake_client)
+
+    out_path = tmp_path / "report.yaml"
+    result = runner.invoke(
+        app,
+        [
+            "plugins",
+            "updates",
+            "--apply",
+            "--yes",
+            "--out",
+            str(out_path),
+        ],
+    )
+    assert result.exit_code == 0
+    payload = _yaml.safe_load(out_path.read_text(encoding="utf-8"))
+    assert payload["target_count"] == 1
+    assert payload["succeeded"] == 1
+    assert payload["failed"] == 0
+    assert payload["results"][0]["plugin_id"] == "com.acme.incident"
+    assert payload["results"][0]["success"] is True

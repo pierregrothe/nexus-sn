@@ -2425,6 +2425,13 @@ def plugins_updates(
         bool,
         typer.Option("--yes", help="Skip the confirmation prompt before --apply."),
     ] = False,
+    out: Annotated[
+        str,
+        typer.Option(
+            "--out",
+            help="Write BatchUpgradeReport YAML to this path after --apply runs.",
+        ),
+    ] = "",
 ) -> None:
     """Show plugins with newer versions available; optionally write a YAML queue."""
     _validate_format(output_format)
@@ -2559,6 +2566,11 @@ def plugins_updates(
                         f"(of {report.target_count})."
                     )
                 )
+                if out:
+                    Path(out).write_text(
+                        _yaml.safe_dump(report.model_dump(), sort_keys=False),
+                        encoding="utf-8",
+                    )
                 if report.exit_code != 0:
                     raise typer.Exit(report.exit_code)
 
