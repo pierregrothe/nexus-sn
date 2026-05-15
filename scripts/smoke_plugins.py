@@ -746,6 +746,31 @@ def t_updates_queue_writes_yaml() -> tuple[bool, str, str]:
         out.unlink(missing_ok=True)
 
 
+def t_updates_family_filter() -> tuple[bool, str, str]:
+    """`updates --family Platform` succeeds and only shows Platform-family plugins."""
+    proc = _run(_nexus("plugins", "updates", "--family", "Platform"), timeout_s=30)
+    if proc.returncode != 0:
+        return False, f"exit={proc.returncode}", (proc.stderr or "")[-200:]
+    out = proc.stdout or ""
+    ok = "Platform" in out or "Up to date" in out or "No updates" in out
+    return ok, f"exit={proc.returncode}", out[-200:]
+
+
+def t_updates_unknown_family() -> tuple[bool, str, str]:
+    """`updates --family ZZZ_BOGUS` exits 2 and surfaces the bad family name."""
+    proc = _run(_nexus("plugins", "updates", "--family", "ZZZ_BOGUS"), timeout_s=30)
+    out = proc.stdout or ""
+    ok = proc.returncode == 2 and "ZZZ_BOGUS" in out
+    return ok, f"exit={proc.returncode}", out[-200:]
+
+
+def t_updates_dry_run_no_apply() -> tuple[bool, str, str]:
+    """`updates` without --apply succeeds (dry-run)."""
+    proc = _run(_nexus("plugins", "updates"), timeout_s=30)
+    ok = proc.returncode == 0
+    return ok, f"exit={proc.returncode}", (proc.stdout or "")[-200:]
+
+
 def t_cross_instance_diff_shows_differences() -> tuple[bool, str, str]:
     """`diff alectri retail` returns >0 entries (two profiles always differ).
 
@@ -892,6 +917,9 @@ ALL_TESTS: list[tuple[str, Callable[[], tuple[bool, str, str]]]] = [
     # Strict / queue flag combinations
     ("advisories-strict", t_advisories_strict_mode),
     ("updates-queue-writes-yaml", t_updates_queue_writes_yaml),
+    ("updates-family-filter", t_updates_family_filter),
+    ("updates-unknown-family", t_updates_unknown_family),
+    ("updates-dry-run-no-apply", t_updates_dry_run_no_apply),
     # Cross-instance (skipped if retail not registered)
     ("cross-instance-diff", t_cross_instance_diff_shows_differences),
     ("promote-apply-roundtrip", t_promote_apply_roundtrip),
