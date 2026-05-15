@@ -11,7 +11,7 @@ import time
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Literal, cast
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, computed_field
 
 if TYPE_CHECKING:
     from rich.console import Console
@@ -101,6 +101,8 @@ class BatchUpgradeReport(BaseModel):
         results: One OperationResult per attempted plugin, in execution order.
         families: Family names used to filter targets, echoed back on the report.
             Empty tuple when no filter was applied.
+
+    Computed fields (included in model_dump):
         target_count: Number of plugins attempted (==len(results)).
         succeeded: Number of results with success=True.
         failed: Number of results with success=False.
@@ -110,9 +112,24 @@ class BatchUpgradeReport(BaseModel):
 
     results: tuple[OperationResult, ...]
     families: tuple[str, ...]
-    target_count: int
-    succeeded: int
-    failed: int
+
+    @computed_field
+    @property
+    def target_count(self) -> int:
+        """Number of plugins attempted (==len(results))."""
+        return len(self.results)
+
+    @computed_field
+    @property
+    def succeeded(self) -> int:
+        """Number of results with success=True."""
+        return sum(1 for r in self.results if r.success)
+
+    @computed_field
+    @property
+    def failed(self) -> int:
+        """Number of results with success=False."""
+        return len(self.results) - self.succeeded
 
     @property
     def exit_code(self) -> int:
@@ -678,14 +695,9 @@ class PluginExecutor:
                 console.print(f"[ok]ok {plugin.plugin_id} -> {result.message}[/]")
             else:
                 console.print(f"[error]fail {plugin.plugin_id}: {result.message}[/]")
-        succeeded = sum(1 for r in results if r.success)
-        failed = len(results) - succeeded
         return BatchUpgradeReport(
             results=tuple(results),
             families=families,
-            target_count=len(results),
-            succeeded=succeeded,
-            failed=failed,
         )
 
     async def _rollback(
