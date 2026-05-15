@@ -216,9 +216,7 @@ async def test_batch_upgrade_echoes_families_on_report(console: Console) -> None
     client.set_progress_sequence("t-a", [_progress("2", 100, tracker="t-a")])
     inv = _inventory(_info("com.acme.a"))
     executor = PluginExecutor(client=client, inventory=inv)
-    report = await executor.batch_upgrade(
-        inv.plugins, families=("ITSM", "ITOM"), console=console
-    )
+    report = await executor.batch_upgrade(inv.plugins, families=("ITSM", "ITOM"), console=console)
     assert report.families == ("ITSM", "ITOM")
 
 

@@ -127,9 +127,7 @@ class BatchUpgradeReport(BaseModel):
             )
         actual_succeeded = sum(1 for r in self.results if r.success)
         if self.succeeded != actual_succeeded:
-            raise ValueError(
-                f"succeeded ({self.succeeded}) != actual ({actual_succeeded})"
-            )
+            raise ValueError(f"succeeded ({self.succeeded}) != actual ({actual_succeeded})")
         if self.succeeded + self.failed != self.target_count:
             raise ValueError(
                 f"succeeded + failed ({self.succeeded + self.failed}) "

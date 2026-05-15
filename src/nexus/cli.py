@@ -2542,9 +2542,7 @@ def plugins_updates(
             )
         )
     if apply_flag:
-        if not yes and not typer.confirm(
-            f"Upgrade {len(pending)} plugin(s) on {meta.profile}?"
-        ):
+        if not yes and not typer.confirm(f"Upgrade {len(pending)} plugin(s) on {meta.profile}?"):
             raise typer.Exit(0)
 
         from nexus.plugins.executor import PluginExecutor  # noqa: PLC0415

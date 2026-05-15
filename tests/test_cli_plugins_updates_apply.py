@@ -114,9 +114,7 @@ def _recording_unreachable_batch(
     ) -> BatchUpgradeReport:
         del families, console
         calls.append(1)
-        return BatchUpgradeReport(
-            results=(), families=(), target_count=0, succeeded=0, failed=0
-        )
+        return BatchUpgradeReport(results=(), families=(), target_count=0, succeeded=0, failed=0)
 
     return _fake
 
@@ -128,9 +126,7 @@ def runner(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> CliRunner:
     return CliRunner()
 
 
-def test_plugins_updates_family_filter_shrinks_pending(
-    runner: CliRunner, tmp_path: Path
-) -> None:
+def test_plugins_updates_family_filter_shrinks_pending(runner: CliRunner, tmp_path: Path) -> None:
     _seed(
         tmp_path,
         "prod",
@@ -246,9 +242,7 @@ def test_plugins_updates_apply_writes_report_yaml(
             failed=0,
         )
 
-    monkeypatch.setattr(
-        "nexus.plugins.executor.PluginExecutor.batch_upgrade", _fake_batch_upgrade
-    )
+    monkeypatch.setattr("nexus.plugins.executor.PluginExecutor.batch_upgrade", _fake_batch_upgrade)
     monkeypatch.setattr("nexus.cli._acquire_token", _fake_acquire)
     monkeypatch.setattr("nexus.cli.ServiceNowClient", _fake_client)
 
