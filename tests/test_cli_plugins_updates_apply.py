@@ -73,6 +73,26 @@ def _seed(tmp_path: Path, profile: str, plugins: tuple[PluginInfo, ...]) -> None
     (profile_dir / "plugins.json").write_text(inv.model_dump_json(indent=2), encoding="utf-8")
 
 
+class _FakeAsyncCtx:
+    """Stand-in for ServiceNowClient's async-context-manager API in CLI tests."""
+
+    async def __aenter__(self) -> _FakeAsyncCtx:
+        return self
+
+    async def __aexit__(self, *_a: object) -> bool:
+        return False
+
+
+def _fake_client(**_kw: object) -> _FakeAsyncCtx:
+    """Replacement for ServiceNowClient() construction in CLI tests."""
+    return _FakeAsyncCtx()
+
+
+def _fake_acquire(profile: str) -> tuple[object, object, str, object]:
+    """Replacement for _acquire_token in CLI tests; only the token (3rd) matters."""
+    return (profile, "url", "token", None)
+
+
 @pytest.fixture
 def runner(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> CliRunner:
     monkeypatch.setenv("NEXUS_CONFIG_PATH", str(tmp_path / "config.yaml"))
@@ -154,22 +174,7 @@ def test_plugins_updates_apply_executes_batch_upgrade(
         "nexus.plugins.executor.PluginExecutor.batch_upgrade",
         _fake_batch_upgrade,
     )
-
-    def _fake_acquire(profile: str) -> tuple[str, str, str, None]:
-        return (profile, "url", "token", None)
-
     monkeypatch.setattr("nexus.cli._acquire_token", _fake_acquire)
-
-    class _FakeAsyncCtx:
-        async def __aenter__(self) -> _FakeAsyncCtx:
-            return self
-
-        async def __aexit__(self, *_args: object) -> bool:
-            return False
-
-    def _fake_client(**_kwargs: object) -> _FakeAsyncCtx:
-        return _FakeAsyncCtx()
-
     monkeypatch.setattr("nexus.cli.ServiceNowClient", _fake_client)
 
     result = runner.invoke(app, ["plugins", "updates", "--apply", "--yes"])
@@ -216,22 +221,7 @@ def test_plugins_updates_apply_writes_report_yaml(
     monkeypatch.setattr(
         "nexus.plugins.executor.PluginExecutor.batch_upgrade", _fake_batch_upgrade
     )
-
-    def _fake_acquire(profile: str) -> tuple[str, str, str, None]:
-        return (profile, "url", "token", None)
-
     monkeypatch.setattr("nexus.cli._acquire_token", _fake_acquire)
-
-    class _FakeAsyncCtx:
-        async def __aenter__(self) -> _FakeAsyncCtx:
-            return self
-
-        async def __aexit__(self, *_args: object) -> bool:
-            return False
-
-    def _fake_client(**_kwargs: object) -> _FakeAsyncCtx:
-        return _FakeAsyncCtx()
-
     monkeypatch.setattr("nexus.cli.ServiceNowClient", _fake_client)
 
     out_path = tmp_path / "report.yaml"

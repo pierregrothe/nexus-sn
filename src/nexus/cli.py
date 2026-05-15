@@ -2543,9 +2543,6 @@ def plugins_updates(
             )
         )
     if apply_flag:
-        if not pending:
-            console.print(Notice.info("Nothing to upgrade."))
-            return
         if not yes and not typer.confirm(
             f"Upgrade {len(pending)} plugin(s) on {meta.profile}?"
         ):
