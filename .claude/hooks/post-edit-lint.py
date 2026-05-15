@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 # .claude/hooks/post-edit-lint.py
-# PostToolUse hook -- run ruff, mypy, pyright, and coverage ratchet after edits.
+# PostToolUse hook -- run black, ruff, mypy, pyright, and coverage ratchet after edits.
 # Author: Pierre Grothe
 # Date: 2026-05-07
-"""Run ruff, mypy, pyright, and per-module coverage ratchet after a Python file is written.
+"""Run black, ruff, mypy, pyright, and per-module coverage ratchet after a Python file is written.
 
 Exit codes:
   0 -- no issues (or non-Python file)
-  2 -- lint/type/coverage issues found (output on stderr so Claude Code displays it)
+  2 -- lint/format/type/coverage issues found (output on stderr so Claude Code displays it)
 """
 
 from __future__ import annotations
@@ -160,6 +160,13 @@ def main() -> int:
         return 0
 
     issues: list[str] = []
+
+    rc, out = run_tool(["black", "--check", "--quiet", str(path)])
+    if rc != 0:
+        issues.append(
+            f"black: {path.name} would be reformatted. "
+            f"Run '.venv/Scripts/black {path}' (or '.venv/bin/black {path}') to fix."
+        )
 
     rc, out = run_tool(["ruff", "check", str(path)])
     if rc != 0 and out:
