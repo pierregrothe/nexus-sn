@@ -2395,6 +2395,13 @@ def plugins_updates(
             help="Instance profile (default: configured default)",
         ),
     ] = "",
+    family: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--family",
+            help="Filter to one or more product families (case-insensitive). Repeatable.",
+        ),
+    ] = None,
     queue: Annotated[
         str,
         typer.Option(
@@ -2412,6 +2419,10 @@ def plugins_updates(
     _validate_format(output_format)
     meta, inventory = _load_inventory_or_exit(instance)
     pending = plugins_with_updates(inventory)
+    if family:
+        from nexus.plugins.filters import filter_by_family  # noqa: PLC0415
+
+        pending = filter_by_family(pending, tuple(family))
     if queue:
         payload: dict[str, object] = {
             "instance": meta.profile,
