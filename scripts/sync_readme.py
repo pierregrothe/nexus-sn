@@ -38,7 +38,7 @@ __all__ = [
 
 REPO_ROOT = Path(__file__).parent.parent
 
-_APP_CMD_RE = re.compile(r"@\w+(?:\.\w+)*\.command\(")
+_APP_CMD_RE = re.compile(r"@\w+(?:\.\w+)*\.command\((?:\s*[\"'](?P<name>[\w-]+)[\"'])?")
 _BADGES_RE = re.compile(r"<!-- badges -->.*?<!-- /badges -->", re.DOTALL)
 _GANTT_RE = re.compile(r"<!-- gantt -->.*?<!-- /gantt -->", re.DOTALL)
 _SECTION_RE = re.compile(r"^## (.+?)(?:\s*\[(done|active|planned)\])?\s*$")
@@ -350,8 +350,11 @@ def _find_cli_stubs(root: Path) -> tuple[set[str], bool]:
     pending_name: str | None = None
     decorator_line: int = -1
     for i, line in enumerate(lines):
-        if _APP_CMD_RE.search(line):
-            pending_name = None
+        decorator_match = _APP_CMD_RE.search(line)
+        if decorator_match:
+            # Prefer explicit @app.command("name"); fall back to def function name.
+            explicit = decorator_match.group("name")
+            pending_name = explicit
             decorator_line = i
         elif decorator_line >= 0 and pending_name is None:
             m = _DEF_RE.match(line)

@@ -157,6 +157,31 @@ def test_sync_readme_warns_on_stub_mismatch(tmp_path: Path) -> None:
     assert any("stub mismatch" in w for w in result.warnings)
 
 
+def test_sync_readme_uses_explicit_command_name_over_function_name(
+    tmp_path: Path,
+) -> None:
+    """@app.command("templates") + def templates_cmd() reports as 'templates'."""
+    readme = _README_BASE.replace(
+        "- `nexus sync` -- pull templates",
+        "- `nexus sync` -- pull templates\n- `nexus templates` -- browse templates",
+    ).replace(
+        "## What is implemented\n",
+        "## What is implemented\n\n<!-- tests -->824 tests passing, all real fakes, no mocks.<!-- /tests -->\n",
+    )
+    root = _make_project(tmp_path, readme)
+    (root / "src" / "nexus" / "cli.py").write_text(
+        '@app.command()\ndef setup() -> None:\n    print("not yet implemented")\n'
+        '@app.command()\ndef sync() -> None:\n    print("not yet implemented")\n'
+        '@app.command("templates")\n'
+        'def templates_cmd() -> None:\n    print("not yet implemented")\n',
+        encoding="utf-8",
+    )
+    result = sync_readme(root, pytest_runner=FakePytest(824))
+    # Should NOT warn -- the decorator name "templates" matches README,
+    # even though the function is named templates_cmd.
+    assert all("stub mismatch" not in w for w in result.warnings), result.warnings
+
+
 def test_sync_readme_warns_when_pytest_output_unparseable(tmp_path: Path) -> None:
     root = _make_project(tmp_path)
     # Override cli.py so stubs match README (setup + sync both stubbed)
