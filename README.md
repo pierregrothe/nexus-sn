@@ -9,7 +9,7 @@
 [![CI](https://github.com/pierregrothe/nexus-sn/actions/workflows/ci.yml/badge.svg)](https://github.com/pierregrothe/nexus-sn/actions/workflows/ci.yml)
 [![License: Source Available](https://img.shields.io/badge/license-Source%20Available-orange)](LICENSE)
 [![Python 3.14+](https://img.shields.io/badge/python-3.14%2B-blue)](https://www.python.org/downloads/)
-[![Tests](https://img.shields.io/badge/tests-911%20passing-brightgreen)](https://github.com/pierregrothe/nexus-sn/actions)
+[![Tests](https://img.shields.io/badge/tests-912%20passing-brightgreen)](https://github.com/pierregrothe/nexus-sn/actions)
 [![LOC](https://img.shields.io/badge/LOC-15%2C746-blue)](https://github.com/pierregrothe/nexus-sn/tree/main/src)
 <!-- /badges -->
 
@@ -112,7 +112,7 @@ gantt
 
 ## What is implemented
 
-<!-- tests -->911 tests passing, all real fakes, no mocks.<!-- /tests -->
+<!-- tests -->912 tests passing, all real fakes, no mocks.<!-- /tests -->
 
 The following commands are fully functional:
 
