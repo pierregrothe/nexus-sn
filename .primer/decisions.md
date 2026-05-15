@@ -493,3 +493,61 @@ Black violations caught at edit time rather than after CI rejects a
 push. Spec + plan at
 `docs/superpowers/specs/2026-05-14-plugin-batch-upgrade-design.md` and
 `docs/superpowers/plans/2026-05-14-plugin-batch-upgrade.md`.
+
+---
+
+### 2026-05-15 -- Exhaustive smoke coverage for `plugins updates` + tests/ type-check cleanup
+
+**Status:** accepted
+
+**Context:** Three pre-existing health gaps surfaced after PR #48
+shipped: (a) mypy on `tests/` reported 12 errors across 5 files and
+pyright reported 53 (mostly cascading from one unresolved
+`sync_readme` import), but CI scoped mypy to `src/nexus/` only so they
+stayed silent; (b) the new `plugins updates --family / --apply / --out`
+flags were unit-tested but had limited live smoke coverage -- 6 smokes
+total, missing multi-family, case-insensitive, combined flags,
+explicit --instance, --format text/unknown, and the destructive apply
+paths; (c) `sync_readme.py` compared cli.py Python function names
+against README user-facing names, which produced a false-positive
+"stub mismatch" warning for `templates_cmd` vs the `templates` CLI
+subcommand.
+
+**Decision:** Three coordinated PRs / commits:
+
+(1) PR #50 -- clear all mypy/pyright errors in `tests/`. Specific
+fixes: `dict` -> `dict[str, str | SnRefField]` in test_xml_builder;
+None-guard on `info.record_counts` before indexing; CaptureEngine now
+accepts `ServiceNowClientProtocol` (aligns with the 2026-05-09 ADR
+intent that other capture-layer types already followed); `_make_result`
+returns the FakeServiceNowClient so tests don't reach into
+`engine._usw._client`; removed an unused `# type: ignore[misc]` (an
+ADR-007 violation); explicit `dict[str, object]` annotations to defeat
+pyright's invariance on dict value types; `cast(str, ...)` to narrow
+the `in` operator on `dict[str, object]` values; added "scripts" to
+pyright's `extraPaths` so `from sync_readme import ...` resolves.
+
+(2) `sync_readme.py` regex now captures the explicit
+`@app.command("name")` argument and prefers it over the def function
+name. The cli.py function `templates_cmd()` with decorator
+`@app.command("templates")` no longer false-positives.
+
+(3) Smoke coverage on `nexus plugins updates` extended from 6 to 16
+tests. New variants: `--format text|unknown`, `--instance` explicit,
+`--family ITSM --family ITOM` (multi), `--family platform` (lowercase),
+combined `--family + --format json`, `--family + --queue`, `--queue +
+--format json`, `--apply` with declined prompt input, and `--apply
+--yes --family BOGUS` (exits 2 before any SN call). All 16 run live
+against alectri PDI. Destructive `--apply --yes` was validated against
+retail PDI in five progressive levels (declined -> empty target -> 1
+plugin -> 3 plugins -> 5 plugins + --out YAML), plus a partial Level 6
+(GRC family) that captured a real live skip-on-fail (`sn_grc_advanced`
+already-installed; loop continued onto the next plugin).
+
+**Consequences:** Type-check noise eliminated; 0 errors from mypy
+strict / pyright strict / ruff / black across src/ AND tests/.
+`# type: ignore` is now provably absent across the codebase.
+sync_readme false positive resolved with a regression test.
+Live smoke proves every option permutation of `plugins updates`,
+including the destructive paths bounded by retail PDI as the
+disposable target.

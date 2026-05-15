@@ -174,13 +174,22 @@ Infrastructure:
   scripts/dump_sn_api_catalog.py -- mines sys_ws_operation for the full SN
     scripted-REST catalog (120 services / 218 ops); used to discover the
     sn_appclient action endpoints
-  scripts/smoke_plugins.py -- 55-test live smoke suite for nexus plugins
+  scripts/smoke_plugins.py -- 68-test live smoke suite for nexus plugins
     (discovery, help, list/info/export filters, install/activate/upgrade/
     apply/deactivate/uninstall happy + cancellation + missing-arg + unknown-
     plugin + force-confirm-rejection paths; cross-instance diff +
-    promote->apply round-trip)
+    promote->apply round-trip). `plugins updates` alone has 16 dedicated
+    smokes covering every documented option combination -- bare, --format
+    text|json|invalid, --queue, --family single/multi/case-insensitive/
+    unknown, --instance explicit, combined flags, --apply declined,
+    --apply --yes --family BOGUS (exits 2 before SN call). Destructive
+    --apply --yes was validated against retail PDI in 5 progressive
+    levels (0/0/1/3/5 plugins upgraded across SecOps/Platform/CSM
+    families) plus a partial GRC run (9 succeeded, 1 captured live
+    skip-on-fail).
 
-Tests: 911 passing. All real fakes, no mocks.
+Tests: 912 passing. All real fakes, no mocks. mypy strict + pyright
+strict report 0 errors across src/ AND tests/. Black + ruff also 0.
 GitHub: https://github.com/pierregrothe/nexus-sn (public).
 
 ## Known Issues

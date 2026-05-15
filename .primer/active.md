@@ -1,36 +1,36 @@
 # NEXUS -- Active Work
 
-Last updated: 2026-05-14
-Session: plugin batch upgrade shipped (`updates --apply [--family]`);
-two governance ADRs codifying lessons from the work; black now in the
-post-edit hook. 911 tests.
+Last updated: 2026-05-15
+Session: cleared all pre-existing mypy/pyright errors in tests/ (PR
+#50); extended `nexus plugins updates` smoke coverage to every option
+permutation (16/16 green live); ran progressive destructive batch
+upgrade on retail PDI (Level 1-5 fully + Level 6 partial). 912 tests.
 
 ## Current Focus
 
-Clean rest-state on main at 9a08211. The plugin batch upgrade landed
-via PR #48 -- skip-on-fail batch over the existing
-`PluginExecutor.upgrade` primitive, family filter via the curated
-ProductFamily taxonomy, structured YAML report for CI. Three flags
-extend `nexus plugins updates` without a new top-level command.
+Clean rest-state on main at 8314fa9. The plugin batch upgrade feature
+is now exhaustively covered live: 16 smoke tests cover every documented
+combination of `nexus plugins updates` and run green against alectri;
+the destructive `--apply --yes` path was demonstrated end-to-end
+against the retail PDI in six progressive levels, including a real
+skip-on-fail capture (`sn_grc_advanced` failed with "Application
+version is currently installed" and the loop continued).
 
-PR #49 closed three governance gaps surfaced by that work:
-black is now in the post-edit hook (CI no longer the first place we
-discover formatting drift); ADR-021 codifies the @model_validator
-pattern for derived fields on frozen Pydantic models (over
-@computed_field, which trips mypy strict's prop-decorator check);
-ADR-022 codifies the # noqa: PLC0415 exception inside Typer command
-bodies.
+Type-checking gates are tight: mypy strict + pyright strict + ruff +
+black all 0 errors across src/ AND tests/ (was 12 mypy + 53 pyright
+errors before PR #50). `# type: ignore` is now provably absent across
+the codebase.
 
 Next implementation target: `nexus setup` credential wizard, or
 `nexus sync` to pull templates from the GitHub registry.
 
 ## Recent Changes
 
-- 9a08211 governance: black in post-edit hook + ADR-021/022 from batch-upgrade lessons (PR #49)
-- 9f5da5b feat(plugins): batch upgrade via `updates --apply [--family]` (PR #48)
-- f7057b7 chore: refresh coverage.json after 887-test pass
-- 0aafa0c docs(readme): extend plugin management diagram with execution lifecycle
-- 184cfcc primer: sync after sub-projects M + N shipped
+- 8314fa9 test(smoke): cover every documented `nexus plugins updates` combination (16/16 live)
+- 1e6aa8d chore: refresh README test badge to 912
+- 54b60a4 fix(scripts): sync_readme detects @app.command("name") explicit name
+- 0b1a844 fix: clear all pre-existing mypy/pyright errors in tests/ (PR #50)
+- 347fe38 primer: sync after batch upgrade + governance ADRs landed
 
 ## Open Blockers
 
@@ -50,4 +50,4 @@ Next implementation target: `nexus setup` credential wizard, or
 
 ## Branch / remote state
 
-main: 9a08211. No active feature branch.
+main: 8314fa9. No active feature branch.

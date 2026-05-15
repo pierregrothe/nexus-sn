@@ -10,7 +10,7 @@
 [![License: Source Available](https://img.shields.io/badge/license-Source%20Available-orange)](LICENSE)
 [![Python 3.14+](https://img.shields.io/badge/python-3.14%2B-blue)](https://www.python.org/downloads/)
 [![Tests](https://img.shields.io/badge/tests-912%20passing-brightgreen)](https://github.com/pierregrothe/nexus-sn/actions)
-[![LOC](https://img.shields.io/badge/LOC-15%2C746-blue)](https://github.com/pierregrothe/nexus-sn/tree/main/src)
+[![LOC](https://img.shields.io/badge/LOC-15%2C748-blue)](https://github.com/pierregrothe/nexus-sn/tree/main/src)
 <!-- /badges -->
 
 ServiceNow AI architect agent -- standalone CLI and optional web dashboard.
@@ -155,9 +155,12 @@ flowchart LR
     diff --> promote["promote\n(generate PromotionPlan YAML)"]
     promote --> apply["apply\n(execute against target instance)"]
     inv --> exec["install / activate /\nupgrade"]
+    upd --> batch["updates --apply\n(skip-on-fail batch;\n--family filter)"]
     exec --> poll["ProgressPoller\n(sn_appclient/progress)"]
     apply --> poll
+    batch --> poll
     poll --> result["OperationResult\n(rollback on partial failure)"]
+    batch --> report["BatchUpgradeReport\n(--out YAML)"]
 ```
 
 Read-side commands (analysis):
@@ -176,11 +179,14 @@ nexus plugins export --format csv         # export inventory to CSV
 Write-side commands (execution):
 
 ```bash
-nexus plugins install <plugin-id>         # install with dependency-cascade preview
-nexus plugins upgrade <plugin-id> --to X.Y.Z   # upgrade to a specific version
-nexus plugins activate <plugin-id>        # activate an installed plugin
+nexus plugins install <plugin-id>                # install with dependency-cascade preview
+nexus plugins upgrade <plugin-id> --to X.Y.Z     # upgrade to a specific version
+nexus plugins activate <plugin-id>               # activate an installed plugin
+nexus plugins updates --apply --yes              # batch-upgrade every pending plugin (skip-on-fail)
+nexus plugins updates --apply --yes --family ITSM --family ITOM  # filter the batch to one or more families
+nexus plugins updates --apply --yes --out report.yaml            # write a BatchUpgradeReport YAML
 nexus plugins promote dev --to prod --out plan.yaml  # generate PromotionPlan
-nexus plugins apply plan.yaml             # execute the plan; rolls back on partial failure
+nexus plugins apply plan.yaml                    # execute the plan; rolls back on partial failure
 ```
 
 Note: `nexus plugins deactivate` and `nexus plugins uninstall` exist as
