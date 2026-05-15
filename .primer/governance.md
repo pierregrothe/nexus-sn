@@ -99,5 +99,7 @@ File-aware checks the regex hook still owns:
 | 018 | Tier detection from Claude Code OAuth + org MCP config | none | accepted |
 | 019 | Lessons from /simplify reviews | semgrep + PR template + ADR | accepted |
 | 020 | NEXUS auto-update from GitHub Releases | none | accepted |
+| 021 | Coherent construction on frozen Pydantic models | agent (preferred pattern) | accepted |
+| 022 | Deferred imports inside Typer command bodies | soft (cli.py exception) | accepted |
 
 Full ADR files: .primer/adr/
