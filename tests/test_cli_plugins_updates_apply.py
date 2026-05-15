@@ -253,3 +253,33 @@ def test_plugins_updates_apply_writes_report_yaml(
     assert payload["failed"] == 0
     assert payload["results"][0]["plugin_id"] == "com.acme.incident"
     assert payload["results"][0]["success"] is True
+
+
+def test_plugins_updates_apply_prompts_when_yes_absent(
+    runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Without --yes, declining the prompt exits 0 without calling batch_upgrade."""
+    _seed(tmp_path, "prod", (_info("com.acme.incident", family="ITSM"),))
+    runner.invoke(app, ["instance", "use", "prod"])
+
+    calls: list[int] = []
+
+    async def _should_not_run(
+        _self: object,
+        _targets: tuple[PluginInfo, ...],
+        *,
+        families: tuple[str, ...],
+        console: object,
+    ) -> BatchUpgradeReport:
+        del families, console
+        calls.append(1)
+        return BatchUpgradeReport(
+            results=(), families=(), target_count=0, succeeded=0, failed=0
+        )
+
+    monkeypatch.setattr(
+        "nexus.plugins.executor.PluginExecutor.batch_upgrade", _should_not_run
+    )
+    result = runner.invoke(app, ["plugins", "updates", "--apply"], input="n\n")
+    assert result.exit_code == 0
+    assert calls == []
