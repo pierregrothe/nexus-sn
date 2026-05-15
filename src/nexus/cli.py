@@ -2420,8 +2420,35 @@ def plugins_updates(
     meta, inventory = _load_inventory_or_exit(instance)
     pending = plugins_with_updates(inventory)
     if family:
-        from nexus.plugins.filters import filter_by_family  # noqa: PLC0415
+        from nexus.plugins.filters import (  # noqa: PLC0415
+            available_families,
+            filter_by_family,
+        )
+        from nexus.plugins.models import ProductFamily  # noqa: PLC0415
 
+        valid = {f.value.lower() for f in ProductFamily}
+        unknown = [f for f in family if f.lower() not in valid]
+        if unknown:
+            console.print(
+                Notice.error(
+                    f"Unknown product family: {', '.join(unknown)}. "
+                    f"Available families on this instance:"
+                )
+            )
+            rows: list[list[RenderableType]] = [
+                [name, str(count)] for name, count in available_families(inventory.plugins)
+            ]
+            console.print(
+                DataTable(
+                    title="Available families",
+                    columns=[
+                        DataColumn(header="Family", width=20),
+                        DataColumn(header="Plugins", width=10),
+                    ],
+                    rows=rows,
+                )
+            )
+            raise typer.Exit(2)
         pending = filter_by_family(pending, tuple(family))
     if queue:
         payload: dict[str, object] = {

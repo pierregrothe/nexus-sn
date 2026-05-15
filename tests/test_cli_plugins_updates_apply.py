@@ -94,3 +94,22 @@ def test_plugins_updates_family_filter_shrinks_pending(
     assert result.exit_code == 0
     assert "com.acme.incident" in result.output
     assert "com.acme.cmdb" not in result.output
+
+
+def test_plugins_updates_unknown_family_exits_2_and_lists_available(
+    runner: CliRunner, tmp_path: Path
+) -> None:
+    _seed(
+        tmp_path,
+        "prod",
+        (
+            _info("com.acme.incident", family="ITSM"),
+            _info("com.acme.cmdb", family="ITOM"),
+        ),
+    )
+    runner.invoke(app, ["instance", "use", "prod"])
+    result = runner.invoke(app, ["plugins", "updates", "--family", "BOGUS"])
+    assert result.exit_code == 2
+    assert "ITSM" in result.output
+    assert "ITOM" in result.output
+    assert "BOGUS" in result.output
