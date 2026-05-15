@@ -194,7 +194,6 @@ GitHub: https://github.com/pierregrothe/nexus-sn (public).
 - setup, sync, templates, assess commands raise NotImplementedError.
 - Stub modules at 0% coverage (agents/specialists/*, connectors/servicenow/*,
   templates, assessment, execution, knowledge).
-- 8 grandfathered dict[str, Any] usages in src/nexus/connectors/servicenow/client.py.
 - nexus plugins deactivate / uninstall fail loudly against live SN -- platform
   does not expose these via Bearer REST, session AJAX, or any other
   programmatic API. CLI commands present as forward-compatible stubs; will

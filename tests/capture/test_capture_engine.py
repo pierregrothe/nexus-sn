@@ -32,7 +32,9 @@ _SKILL = {
 _NOW = datetime(2026, 5, 9, tzinfo=UTC)
 
 
-def _make_result(tmp_path: Path) -> tuple[CaptureEngine, CaptureResult]:
+def _make_result(
+    tmp_path: Path,
+) -> tuple[CaptureEngine, CaptureResult, FakeServiceNowClient]:
     record = ConfigRecord(
         sys_id="r1",
         table="ai_skill",
@@ -51,7 +53,7 @@ def _make_result(tmp_path: Path) -> tuple[CaptureEngine, CaptureResult]:
     )
     client = FakeServiceNowClient()
     engine = CaptureEngine(client=client, archive_root=tmp_path)
-    return engine, result
+    return engine, result, client
 
 
 @pytest.mark.asyncio
@@ -78,7 +80,7 @@ async def test_capture_engine_capture_returns_result(tmp_path: Path) -> None:
 
 
 def test_capture_engine_save_and_load_roundtrip(tmp_path: Path) -> None:
-    engine, result = _make_result(tmp_path)
+    engine, result, _client = _make_result(tmp_path)
 
     manifest = engine.save_archive(result)
     loaded = engine.load_archive(manifest.archive_dir / "manifest.yaml")
@@ -89,8 +91,8 @@ def test_capture_engine_save_and_load_roundtrip(tmp_path: Path) -> None:
 
 @pytest.mark.asyncio
 async def test_capture_engine_push_to_update_set_returns_ref(tmp_path: Path) -> None:
-    engine, result = _make_result(tmp_path)
-    async with engine._usw._client:
+    engine, result, client = _make_result(tmp_path)
+    async with client:
         ref = await engine.push_to_update_set(result, "dev", "NEXUS-test")
 
     assert ref.name == "NEXUS-test"
