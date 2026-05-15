@@ -22,7 +22,7 @@ from nexus.capture.scope import ScopeDiscoverer
 from nexus.capture.tables import AI_AUTOMATION, DEFAULT_TABLE_GROUPS, TableGroup
 from nexus.capture.update_set import UpdateSetWriter
 from nexus.capture.xml_builder import UpdateSetXmlBuilder
-from nexus.connectors.servicenow.client import ServiceNowClient
+from nexus.connectors.servicenow.protocol import ServiceNowClientProtocol
 
 log = logging.getLogger(__name__)
 
@@ -33,18 +33,20 @@ class CaptureEngine:
     """Bidirectional ServiceNow configuration transport.
 
     Implements CaptureProtocol. Wires ScopeDiscoverer, ConfigFetcher,
-    ArchiveWriter/Reader, and UpdateSetWriter. Callers inject a
-    ServiceNowClient; the engine never constructs one itself.
+    ArchiveWriter/Reader, and UpdateSetWriter. Callers inject any client
+    satisfying ServiceNowClientProtocol -- the concrete ServiceNowClient
+    in production, FakeServiceNowClient in tests. The engine never
+    constructs one itself.
 
     Args:
-        client: Open ServiceNowClient for the source/target instance.
+        client: Open client satisfying ServiceNowClientProtocol.
         archive_root: Root directory for local YAML archives.
         table_groups: Table group registry (defaults to DEFAULT_TABLE_GROUPS).
     """
 
     def __init__(
         self,
-        client: ServiceNowClient,
+        client: ServiceNowClientProtocol,
         archive_root: Path,
         table_groups: dict[str, TableGroup] | None = None,
     ) -> None:

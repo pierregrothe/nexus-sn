@@ -251,6 +251,7 @@ def test_plugin_info_record_counts_defaults_to_none() -> None:
 
 def test_plugin_info_accepts_record_counts_tuple() -> None:
     info = _info(record_counts=(ScopeRecordCount(table="sys_script", count=7),))
+    assert info.record_counts is not None
     assert len(info.record_counts) == 1
     assert info.record_counts[0].count == 7
 

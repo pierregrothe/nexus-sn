@@ -14,7 +14,7 @@ from nexus.capture.xml_builder import UpdateSetXmlBuilder
 _NOW = datetime(2026, 5, 9, tzinfo=UTC)
 
 
-def _record(fields: dict) -> ConfigRecord:
+def _record(fields: dict[str, str | SnRefField]) -> ConfigRecord:
     return ConfigRecord(
         sys_id="abc123",
         table="ai_skill",

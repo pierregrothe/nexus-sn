@@ -27,20 +27,24 @@ def test_operation_result_is_frozen() -> None:
         rollback_version=None,
     )
     with pytest.raises(ValidationError):
-        r.success = False  # type: ignore[misc]
+        r.success = False
 
 
 def test_operation_result_rejects_unknown_action() -> None:
+    # model_validate accepts the untyped dict so static type checkers
+    # cannot reject "reboot" -- Pydantic enforces the Literal at runtime.
     with pytest.raises(ValidationError):
-        OperationResult(
-            action="reboot",
-            plugin_id="com.x",
-            success=True,
-            message="",
-            duration_s=0.0,
-            tracker_id="t",
-            update_set=None,
-            rollback_version=None,
+        OperationResult.model_validate(
+            {
+                "action": "reboot",
+                "plugin_id": "com.x",
+                "success": True,
+                "message": "",
+                "duration_s": 0.0,
+                "tracker_id": "t",
+                "update_set": None,
+                "rollback_version": None,
+            }
         )
 
 
@@ -158,7 +162,7 @@ def test_dependency_entry_keeps_servicenow_field_names() -> None:
 
 def test_dependency_entry_from_sn_handles_id_casing() -> None:
     """SN sends 'Id' with capital I; from_sn normalises to 'id'."""
-    raw = {
+    raw: dict[str, object] = {
         "Id": "Security Incident Response",
         "orig_string": "sn_si:13.9.23",
         "type": "Application",

@@ -6,6 +6,7 @@
 
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import cast
 
 import httpx
 import pytest
@@ -132,7 +133,7 @@ def test_recommend_deactivate_calls_llm_and_prints_response(
     assert result.exit_code == 0
     assert "Top candidates" in result.output
     assert len(fake.calls) == 1
-    assert "com.orphan" in fake.calls[0]["prompt"]
+    assert "com.orphan" in cast(str, fake.calls[0]["prompt"])
 
 
 def test_recommend_deactivate_instance_flag_routes_profile(
@@ -284,7 +285,7 @@ def test_plugins_roadmap_deferred_count_passed_to_context(
     runner.invoke(app, ["plugins", "roadmap"])
     assert len(fake.calls) == 1
     # deferred_count is 0 (no overrides seeded), confirm it appears in prompt
-    assert "Deferred overrides" in fake.calls[0]["prompt"]
+    assert "Deferred overrides" in cast(str, fake.calls[0]["prompt"])
 
 
 def test_plugins_roadmap_short_circuits_when_nothing_to_remediate(
