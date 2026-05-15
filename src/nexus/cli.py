@@ -2414,6 +2414,17 @@ def plugins_updates(
         str,
         typer.Option("--format", help="Output format: text | json (default: text)"),
     ] = "text",
+    apply_flag: Annotated[
+        bool,
+        typer.Option(
+            "--apply",
+            help="Upgrade every pending plugin (sequential, skip-on-fail). Destructive.",
+        ),
+    ] = False,
+    yes: Annotated[
+        bool,
+        typer.Option("--yes", help="Skip the confirmation prompt before --apply."),
+    ] = False,
 ) -> None:
     """Show plugins with newer versions available; optionally write a YAML queue."""
     _validate_format(output_format)
@@ -2435,7 +2446,7 @@ def plugins_updates(
                     f"Available families on this instance:"
                 )
             )
-            rows: list[list[RenderableType]] = [
+            family_rows: list[list[RenderableType]] = [
                 [name, str(count)] for name, count in available_families(inventory.plugins)
             ]
             console.print(
@@ -2445,7 +2456,7 @@ def plugins_updates(
                         DataColumn(header="Family", width=20),
                         DataColumn(header="Plugins", width=10),
                     ],
-                    rows=rows,
+                    rows=family_rows,
                 )
             )
             raise typer.Exit(2)
@@ -2522,6 +2533,36 @@ def plugins_updates(
                 command=f"nexus instance refresh {meta.profile}",
             )
         )
+    if apply_flag:
+        if not pending:
+            console.print(Notice.info("Nothing to upgrade."))
+            return
+        if not yes and not typer.confirm(
+            f"Upgrade {len(pending)} plugin(s) on {meta.profile}?"
+        ):
+            raise typer.Exit(0)
+
+        from nexus.plugins.executor import PluginExecutor  # noqa: PLC0415
+
+        _, _, token, _ = _acquire_token(meta.profile)
+        families_used: tuple[str, ...] = tuple(family) if family else ()
+
+        async def _run() -> None:
+            async with ServiceNowClient(instance_url=meta.url, token=token) as client:
+                executor = PluginExecutor(client=client, inventory=inventory)
+                report = await executor.batch_upgrade(
+                    pending, families=families_used, console=console
+                )
+                console.print(
+                    Notice.info(
+                        f"{report.succeeded} upgraded, {report.failed} failed "
+                        f"(of {report.target_count})."
+                    )
+                )
+                if report.exit_code != 0:
+                    raise typer.Exit(report.exit_code)
+
+        asyncio.run(_run())
 
 
 _SEVERITY_ORDER: tuple[Severity, ...] = (

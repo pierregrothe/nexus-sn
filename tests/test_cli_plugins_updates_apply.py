@@ -7,15 +7,16 @@
 
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import cast
 
 import pytest
-import yaml as _yaml
 from typer.testing import CliRunner
 
 from nexus.cache import clear_cache
 from nexus.cli import app
 from nexus.config.paths import NexusPaths
 from nexus.instances.models import InstanceMeta
+from nexus.plugins.executor import BatchUpgradeReport
 from nexus.plugins.models import PluginInfo, PluginInventory
 
 __all__: list[str] = []
@@ -113,3 +114,66 @@ def test_plugins_updates_unknown_family_exits_2_and_lists_available(
     assert "ITSM" in result.output
     assert "ITOM" in result.output
     assert "BOGUS" in result.output
+
+
+def test_plugins_updates_apply_executes_batch_upgrade(
+    runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """--apply --yes calls executor.batch_upgrade once with the pending set."""
+    _seed(
+        tmp_path,
+        "prod",
+        (
+            _info("com.acme.incident", family="ITSM"),
+            _info("com.acme.cmdb", family="ITOM"),
+        ),
+    )
+    runner.invoke(app, ["instance", "use", "prod"])
+
+    calls: list[dict[str, object]] = []
+
+    async def _fake_batch_upgrade(
+        _self: object,
+        targets: tuple[PluginInfo, ...],
+        *,
+        families: tuple[str, ...],
+        console: object,
+    ) -> BatchUpgradeReport:
+        del console
+        calls.append({"targets": [p.plugin_id for p in targets], "families": families})
+        return BatchUpgradeReport(
+            results=(),
+            families=families,
+            target_count=0,
+            succeeded=0,
+            failed=0,
+        )
+
+    monkeypatch.setattr(
+        "nexus.plugins.executor.PluginExecutor.batch_upgrade",
+        _fake_batch_upgrade,
+    )
+
+    def _fake_acquire(profile: str) -> tuple[str, str, str, None]:
+        return (profile, "url", "token", None)
+
+    monkeypatch.setattr("nexus.cli._acquire_token", _fake_acquire)
+
+    class _FakeAsyncCtx:
+        async def __aenter__(self) -> _FakeAsyncCtx:
+            return self
+
+        async def __aexit__(self, *_args: object) -> bool:
+            return False
+
+    def _fake_client(**_kwargs: object) -> _FakeAsyncCtx:
+        return _FakeAsyncCtx()
+
+    monkeypatch.setattr("nexus.cli.ServiceNowClient", _fake_client)
+
+    result = runner.invoke(app, ["plugins", "updates", "--apply", "--yes"])
+    assert result.exit_code == 0
+    assert len(calls) == 1
+    target_ids = cast(list[str], calls[0]["targets"])
+    assert set(target_ids) == {"com.acme.incident", "com.acme.cmdb"}
+    assert calls[0]["families"] == ()
