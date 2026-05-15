@@ -2503,6 +2503,8 @@ def plugins_updates(
                     command="grant the OAuth user 'app_store_pa_user_role' on the SN instance",
                 )
             )
+        elif apply_flag:
+            console.print(Notice.info("Nothing to upgrade."))
         else:
             console.print(Notice.info("Up to date."))
         if queue:

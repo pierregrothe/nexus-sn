@@ -314,3 +314,45 @@ def test_plugins_updates_without_apply_remains_dry_run(
     assert result.exit_code == 0
     assert "com.acme.incident" in result.output
     assert calls == []
+
+
+def test_plugins_updates_apply_empty_target_exits_zero(
+    runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """No pending updates + --apply: exit 0, never invoke batch_upgrade."""
+    _seed(
+        tmp_path,
+        "prod",
+        (
+            _info(
+                "com.acme.incident",
+                version="2.0.0",
+                latest_version="2.0.0",
+                family="ITSM",
+            ),
+        ),
+    )
+    runner.invoke(app, ["instance", "use", "prod"])
+
+    calls: list[int] = []
+
+    async def _should_not_run(
+        _self: object,
+        _targets: tuple[PluginInfo, ...],
+        *,
+        families: tuple[str, ...],
+        console: object,
+    ) -> BatchUpgradeReport:
+        del families, console
+        calls.append(1)
+        return BatchUpgradeReport(
+            results=(), families=(), target_count=0, succeeded=0, failed=0
+        )
+
+    monkeypatch.setattr(
+        "nexus.plugins.executor.PluginExecutor.batch_upgrade", _should_not_run
+    )
+    result = runner.invoke(app, ["plugins", "updates", "--apply", "--yes"])
+    assert result.exit_code == 0
+    assert calls == []
+    assert "Nothing to upgrade" in result.output
