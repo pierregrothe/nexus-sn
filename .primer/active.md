@@ -1,35 +1,36 @@
 # NEXUS -- Active Work
 
 Last updated: 2026-05-14
-Session: plugin execution sub-projects M + N shipped end-to-end; smoke
-suite expanded to 55 tests; deactivate/uninstall investigation closed.
-887 tests.
+Session: plugin batch upgrade shipped (`updates --apply [--family]`);
+two governance ADRs codifying lessons from the work; black now in the
+post-edit hook. 911 tests.
 
 ## Current Focus
 
-Codebase is at a clean rest-state on main (f79b556). Plugin execution
-core (sub-project M) and destructive ops (sub-project N) merged this
-session via PRs #38, #39. Smoke suite live-tested against the alectri
-PDI is at 55/55 passing.
+Clean rest-state on main at 9a08211. The plugin batch upgrade landed
+via PR #48 -- skip-on-fail batch over the existing
+`PluginExecutor.upgrade` primitive, family filter via the curated
+ProductFamily taxonomy, structured YAML report for CI. Three flags
+extend `nexus plugins updates` without a new top-level command.
 
-The deactivate/uninstall investigation is closed with a definitive
-finding: ServiceNow does not expose these operations via any
-programmatic API on Yokohama (Bearer REST, session-cookie xmlhttp.do,
-table API, GraphQL, SDK -- all confirmed unavailable). The CLI commands
-remain in the tree as forward-compatible stubs; see spec addendum
-2026-05-14e for the full source trail.
+PR #49 closed three governance gaps surfaced by that work:
+black is now in the post-edit hook (CI no longer the first place we
+discover formatting drift); ADR-021 codifies the @model_validator
+pattern for derived fields on frozen Pydantic models (over
+@computed_field, which trips mypy strict's prop-decorator check);
+ADR-022 codifies the # noqa: PLC0415 exception inside Typer command
+bodies.
 
 Next implementation target: `nexus setup` credential wizard, or
 `nexus sync` to pull templates from the GitHub registry.
 
 ## Recent Changes
 
-- ffed9a5 feat(plugins): batch upgrade via `nexus plugins updates --apply [--family]`
-- f79b556 perf(plugins): cache impact-gate inventory snapshot (PR #47)
-- 4d22702 docs(plugins): exhaustive web research confirms uninstall is impossible by SN design (PR #46)
-- c154ecf docs(plugins): AppsAjaxProcessor is not public; uninstall is UI-only (PR #45)
-- b8c2b6a docs(plugins): definitive findings on deactivate/uninstall via SN metadata mining (PR #44)
-- 7f68cc0 docs(plugins): document live capture of App Manager Uninstall flow (PR #43)
+- 9a08211 governance: black in post-edit hook + ADR-021/022 from batch-upgrade lessons (PR #49)
+- 9f5da5b feat(plugins): batch upgrade via `updates --apply [--family]` (PR #48)
+- f7057b7 chore: refresh coverage.json after 887-test pass
+- 0aafa0c docs(readme): extend plugin management diagram with execution lifecycle
+- 184cfcc primer: sync after sub-projects M + N shipped
 
 ## Open Blockers
 
@@ -49,4 +50,4 @@ Next implementation target: `nexus setup` credential wizard, or
 
 ## Branch / remote state
 
-main: f79b556. No active feature branch.
+main: 9a08211. No active feature branch.

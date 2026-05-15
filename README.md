@@ -9,8 +9,8 @@
 [![CI](https://github.com/pierregrothe/nexus-sn/actions/workflows/ci.yml/badge.svg)](https://github.com/pierregrothe/nexus-sn/actions/workflows/ci.yml)
 [![License: Source Available](https://img.shields.io/badge/license-Source%20Available-orange)](LICENSE)
 [![Python 3.14+](https://img.shields.io/badge/python-3.14%2B-blue)](https://www.python.org/downloads/)
-[![Tests](https://img.shields.io/badge/tests-887%20passing-brightgreen)](https://github.com/pierregrothe/nexus-sn/actions)
-[![LOC](https://img.shields.io/badge/LOC-15%2C496-blue)](https://github.com/pierregrothe/nexus-sn/tree/main/src)
+[![Tests](https://img.shields.io/badge/tests-911%20passing-brightgreen)](https://github.com/pierregrothe/nexus-sn/actions)
+[![LOC](https://img.shields.io/badge/LOC-15%2C746-blue)](https://github.com/pierregrothe/nexus-sn/tree/main/src)
 <!-- /badges -->
 
 ServiceNow AI architect agent -- standalone CLI and optional web dashboard.
@@ -112,7 +112,7 @@ gantt
 
 ## What is implemented
 
-<!-- tests -->887 tests passing, all real fakes, no mocks.<!-- /tests -->
+<!-- tests -->911 tests passing, all real fakes, no mocks.<!-- /tests -->
 
 The following commands are fully functional:
 

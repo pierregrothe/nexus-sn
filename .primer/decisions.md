@@ -435,3 +435,61 @@ documented as out-of-scope due to platform limitations. Users perform
 those operations via the SN App Manager UI. Spec addendum
 `docs/superpowers/specs/2026-05-13-plugin-execution-design.md` documents
 the eight independent confirmation sources.
+
+---
+
+### 2026-05-14 -- Batch plugin upgrade + governance ADRs from the work
+
+**Status:** accepted (ADR-021, ADR-022)
+
+**Context:** Plugin management was assess + write-individually only --
+no ergonomic way to upgrade every pending plugin (or every pending
+plugin in one or more product families) without scripting a loop. The
+work also surfaced three governance gaps: mypy strict's prop-decorator
+check fires on @computed_field + @property even with pydantic.mypy
+enabled; the project has 15+ deferred-import suppressions in cli.py
+that reviewers re-discover on every PR; black was in the pre-commit
+config but not the post-edit hook, so the first place we caught
+formatting drift was CI.
+
+**Decision:** Three-part landing.
+
+(1) `nexus plugins updates` extended with `--family NAME` (repeatable,
+case-insensitive), `--apply`, `--yes`, `--out PATH` flags. New pure
+helpers `filter_by_family`, `available_families`, `unknown_families`
+in `nexus.plugins.filters`. New `PluginExecutor.batch_upgrade` runs
+sequentially (SN serializes progress trackers per instance) with
+skip-on-fail semantics -- deliberately different from `apply_plan`,
+which aborts and rolls back for cross-instance promotion. New
+`BatchUpgradeReport` model with stored counts and `@model_validator
+(mode="after")` enforcing coherence; rejects construction where
+`target_count != len(results)` or `succeeded + failed != target_count`.
+
+(2) ADR-021 codifies the @model_validator pattern as the canonical
+approach for derived fields on frozen Pydantic models. @computed_field
++ @property is correct in vacuum but trips mypy strict's
+prop-decorator check that the pydantic.mypy plugin does NOT suppress.
+Stored fields + after-validator gives clean `model_dump()`
+serialization, mypy passes without `# type: ignore`, callers cannot
+build an incoherent report.
+
+(3) ADR-022 codifies `# noqa: PLC0415` inside Typer command bodies in
+`cli.py` as an accepted exception to the Tier 1 no-deferred-import
+rule. Library modules and test code remain blocked. Stops reviewers
+from relitigating the suppression.
+
+(4) `.claude/hooks/post-edit-lint.py` now runs `black --check` ahead
+of ruff/mypy/pyright. Black was always required (CLAUDE.md, pre-commit
+config), but pre-commit hooks only fire when `pre-commit install` has
+been run on the checkout -- subagents and fresh worktrees often
+haven't. The post-edit hook fires on every Edit/Write tool call.
+
+**Consequences:** +21 tests (911 total). `nexus plugins updates
+--apply` brings the "pending updates" count to 0 in one command,
+optionally scoped to one or more families. Future frozen Pydantic
+aggregate models follow ADR-021 (no more @computed_field churn).
+Reviewers consult ADR-022 instead of relitigating CLI suppressions.
+Black violations caught at edit time rather than after CI rejects a
+push. Spec + plan at
+`docs/superpowers/specs/2026-05-14-plugin-batch-upgrade-design.md` and
+`docs/superpowers/plans/2026-05-14-plugin-batch-upgrade.md`.

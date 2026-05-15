@@ -106,10 +106,11 @@ Plugins layer (plugin management roadmap A-N, 15 sub-projects):
     counts + cross-scope FK references (cross_scope=True default)
   compute_advisories -- CVE / EOL / license findings with severity sort
   apply_overrides + AdvisoryOverride -- per-instance deferred findings
-  batch_upgrade -- BatchUpgradeReport + skip-on-fail loop; filter_by_family
-    + available_families helpers; `nexus plugins updates --apply --family X
-    --out report.yaml` extends the existing updates command without a new
-    subcommand.
+  batch_upgrade -- BatchUpgradeReport (frozen + model_validator
+    coherence check per ADR-021) + skip-on-fail loop; filter_by_family
+    + available_families + unknown_families helpers; `nexus plugins
+    updates --apply --family X --out report.yaml` extends the existing
+    updates command without a new subcommand.
   orphan_candidates -- zero-deps + zero-records detection
   diff_inventories -- cross-instance plugin diff
   detect_updates -- comparison against store catalog
@@ -156,8 +157,12 @@ Governance enforcement:
   Pre-edit hook (.claude/hooks/pre-edit-validate.py) -- 10 blocking rules
   Coverage ratchet (.ratchet.json) -- per-module covered_lines can only increase
   Semgrep rules (.semgrep/rules.yml) -- semantic rules with ADR tracing
-  Post-edit checks: ruff + mypy + pyright (all strict, all blocking)
+  Post-edit checks: black + ruff + mypy + pyright (all strict, all blocking)
   Pre-commit hook: black + ruff + mypy + pyright + semgrep + pytest
+  ADR catalog: 22 ADRs in .primer/adr/. Latest: ADR-021 (coherent
+    construction on frozen Pydantic models via @model_validator vs
+    @computed_field), ADR-022 (deferred imports allowed in Typer
+    command bodies inside cli.py only).
 
 Infrastructure:
   pyproject.toml -- Python 3.14, Poetry in-project venv, ruff/black/mypy/pyright
@@ -175,7 +180,7 @@ Infrastructure:
     plugin + force-confirm-rejection paths; cross-instance diff +
     promote->apply round-trip)
 
-Tests: 908 passing. All real fakes, no mocks.
+Tests: 911 passing. All real fakes, no mocks.
 GitHub: https://github.com/pierregrothe/nexus-sn (public).
 
 ## Known Issues
