@@ -5,7 +5,7 @@
 
 """Tests for filter_by_family and available_families."""
 
-from nexus.plugins.filters import available_families, filter_by_family
+from nexus.plugins.filters import available_families, filter_by_family, unknown_families
 from nexus.plugins.models import PluginInfo
 
 __all__: list[str] = []
@@ -75,3 +75,15 @@ def test_available_families_counts_sorted_alphabetically() -> None:
     )
     result = available_families(plugins)
     assert result == (("HRSD", 1), ("ITOM", 1), ("ITSM", 2))
+
+
+def test_unknown_families_returns_only_invalid_names() -> None:
+    assert unknown_families(("ITSM", "BOGUS", "ITOM", "ALSO_BAD")) == ("BOGUS", "ALSO_BAD")
+
+
+def test_unknown_families_is_case_insensitive() -> None:
+    assert unknown_families(("itsm", "ITOM", "platform")) == ()
+
+
+def test_unknown_families_empty_input_returns_empty() -> None:
+    assert unknown_families(()) == ()

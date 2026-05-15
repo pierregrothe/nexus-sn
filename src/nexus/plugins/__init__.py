@@ -43,7 +43,7 @@ from nexus.plugins.errors import (
     PluginUnsupportedError,
 )
 from nexus.plugins.executor import BatchUpgradeReport, OperationLog, OperationResult, PluginExecutor
-from nexus.plugins.filters import available_families, filter_by_family
+from nexus.plugins.filters import available_families, filter_by_family, unknown_families
 from nexus.plugins.impact import compute_impact, reverse_dependencies
 from nexus.plugins.models import (
     AdvisoryFinding,
@@ -137,5 +137,6 @@ __all__ = [
     "product_family_for",
     "project_to_promote_plan",
     "reverse_dependencies",
+    "unknown_families",
     "validate_baseline_name",
 ]

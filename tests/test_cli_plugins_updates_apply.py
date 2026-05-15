@@ -5,6 +5,7 @@
 
 """Tests for the batch-upgrade extensions on `nexus plugins updates`."""
 
+from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import cast
@@ -91,6 +92,33 @@ def _fake_client(**_kw: object) -> _FakeAsyncCtx:
 def _fake_acquire(profile: str) -> tuple[object, object, str, object]:
     """Replacement for _acquire_token in CLI tests; only the token (3rd) matters."""
     return (profile, "url", "token", None)
+
+
+def _recording_unreachable_batch(
+    calls: list[int],
+) -> Callable[..., Awaitable[BatchUpgradeReport]]:
+    """Build an async fake of PluginExecutor.batch_upgrade that records each call.
+
+    The returned coroutine appends to ``calls`` and returns an empty
+    BatchUpgradeReport. Tests that monkeypatch batch_upgrade with this
+    factory can assert ``calls == []`` to prove the method was never invoked
+    (e.g. when the user declines confirmation or the target set is empty).
+    """
+
+    async def _fake(
+        _self: object,
+        _targets: tuple[PluginInfo, ...],
+        *,
+        families: tuple[str, ...],
+        console: object,
+    ) -> BatchUpgradeReport:
+        del families, console
+        calls.append(1)
+        return BatchUpgradeReport(
+            results=(), families=(), target_count=0, succeeded=0, failed=0
+        )
+
+    return _fake
 
 
 @pytest.fixture
@@ -253,22 +281,9 @@ def test_plugins_updates_apply_prompts_when_yes_absent(
     runner.invoke(app, ["instance", "use", "prod"])
 
     calls: list[int] = []
-
-    async def _should_not_run(
-        _self: object,
-        _targets: tuple[PluginInfo, ...],
-        *,
-        families: tuple[str, ...],
-        console: object,
-    ) -> BatchUpgradeReport:
-        del families, console
-        calls.append(1)
-        return BatchUpgradeReport(
-            results=(), families=(), target_count=0, succeeded=0, failed=0
-        )
-
     monkeypatch.setattr(
-        "nexus.plugins.executor.PluginExecutor.batch_upgrade", _should_not_run
+        "nexus.plugins.executor.PluginExecutor.batch_upgrade",
+        _recording_unreachable_batch(calls),
     )
     result = runner.invoke(app, ["plugins", "updates", "--apply"], input="n\n")
     assert result.exit_code == 0
@@ -283,22 +298,9 @@ def test_plugins_updates_without_apply_remains_dry_run(
     runner.invoke(app, ["instance", "use", "prod"])
 
     calls: list[int] = []
-
-    async def _should_not_run(
-        _self: object,
-        _targets: tuple[PluginInfo, ...],
-        *,
-        families: tuple[str, ...],
-        console: object,
-    ) -> BatchUpgradeReport:
-        del families, console
-        calls.append(1)
-        return BatchUpgradeReport(
-            results=(), families=(), target_count=0, succeeded=0, failed=0
-        )
-
     monkeypatch.setattr(
-        "nexus.plugins.executor.PluginExecutor.batch_upgrade", _should_not_run
+        "nexus.plugins.executor.PluginExecutor.batch_upgrade",
+        _recording_unreachable_batch(calls),
     )
     result = runner.invoke(app, ["plugins", "updates"])
     assert result.exit_code == 0
@@ -325,22 +327,9 @@ def test_plugins_updates_apply_empty_target_exits_zero(
     runner.invoke(app, ["instance", "use", "prod"])
 
     calls: list[int] = []
-
-    async def _should_not_run(
-        _self: object,
-        _targets: tuple[PluginInfo, ...],
-        *,
-        families: tuple[str, ...],
-        console: object,
-    ) -> BatchUpgradeReport:
-        del families, console
-        calls.append(1)
-        return BatchUpgradeReport(
-            results=(), families=(), target_count=0, succeeded=0, failed=0
-        )
-
     monkeypatch.setattr(
-        "nexus.plugins.executor.PluginExecutor.batch_upgrade", _should_not_run
+        "nexus.plugins.executor.PluginExecutor.batch_upgrade",
+        _recording_unreachable_batch(calls),
     )
     result = runner.invoke(app, ["plugins", "updates", "--apply", "--yes"])
     assert result.exit_code == 0

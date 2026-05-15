@@ -7,9 +7,9 @@
 
 from collections import Counter
 
-from nexus.plugins.models import PluginInfo
+from nexus.plugins.models import PluginInfo, ProductFamily
 
-__all__ = ["available_families", "filter_by_family"]
+__all__ = ["available_families", "filter_by_family", "unknown_families"]
 
 
 def filter_by_family(
@@ -31,8 +31,25 @@ def filter_by_family(
     """
     if not families:
         return plugins
-    wanted = {f.lower() for f in families}
-    return tuple(p for p in plugins if p.product_family.lower() in wanted)
+    wanted = {f.casefold() for f in families}
+    return tuple(p for p in plugins if p.product_family.casefold() in wanted)
+
+
+def unknown_families(requested: tuple[str, ...]) -> tuple[str, ...]:
+    """Return names from ``requested`` that are not valid ProductFamily values.
+
+    Matching is case-insensitive (casefold). Used by the CLI to validate
+    ``--family`` arguments against the curated taxonomy before filtering.
+
+    Args:
+        requested: Family names provided on the command line.
+
+    Returns:
+        Tuple of unrecognised names, preserving input order. Empty when
+        every requested name is valid.
+    """
+    valid = {f.value.casefold() for f in ProductFamily}
+    return tuple(r for r in requested if r.casefold() not in valid)
 
 
 def available_families(

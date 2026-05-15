@@ -2441,11 +2441,10 @@ def plugins_updates(
         from nexus.plugins.filters import (  # noqa: PLC0415
             available_families,
             filter_by_family,
+            unknown_families,
         )
-        from nexus.plugins.models import ProductFamily  # noqa: PLC0415
 
-        valid = {f.value.lower() for f in ProductFamily}
-        unknown = [f for f in family if f.lower() not in valid]
+        unknown = unknown_families(tuple(family))
         if unknown:
             console.print(
                 Notice.error(

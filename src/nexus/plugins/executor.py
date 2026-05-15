@@ -123,12 +123,12 @@ class BatchUpgradeReport(BaseModel):
         """Reject reports whose counts do not match the ``results`` tuple."""
         if self.target_count != len(self.results):
             raise ValueError(
-                f"target_count {self.target_count} != len(results) {len(self.results)}"
+                f"target_count ({self.target_count}) != len(results) ({len(self.results)})"
             )
         actual_succeeded = sum(1 for r in self.results if r.success)
         if self.succeeded != actual_succeeded:
             raise ValueError(
-                f"succeeded {self.succeeded} != actual {actual_succeeded}"
+                f"succeeded ({self.succeeded}) != actual ({actual_succeeded})"
             )
         if self.succeeded + self.failed != self.target_count:
             raise ValueError(
@@ -678,9 +678,12 @@ class PluginExecutor:
     ) -> BatchUpgradeReport:
         """Upgrade each target plugin sequentially. Skip-on-fail; never rolls back.
 
-        Each plugin is upgraded to its ``latest_version`` (passed straight to
-        ``submit_upgrade`` -- ``None`` means "latest available"). Failures are
-        recorded but the loop continues.
+        Sequential by design -- ServiceNow allocates one progress tracker per
+        app-manager operation per instance, so concurrent ``submit_upgrade``
+        calls compete for the same tracker queue. Each plugin is upgraded to
+        its ``latest_version`` (passed straight to ``submit_upgrade`` --
+        ``None`` means "latest available"). Failures are recorded but the
+        loop continues.
 
         Args:
             targets: Plugins to upgrade, in execution order. Already filtered
