@@ -283,3 +283,34 @@ def test_plugins_updates_apply_prompts_when_yes_absent(
     result = runner.invoke(app, ["plugins", "updates", "--apply"], input="n\n")
     assert result.exit_code == 0
     assert calls == []
+
+
+def test_plugins_updates_without_apply_remains_dry_run(
+    runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """No --apply flag: lists the candidate set, never invokes batch_upgrade."""
+    _seed(tmp_path, "prod", (_info("com.acme.incident", family="ITSM"),))
+    runner.invoke(app, ["instance", "use", "prod"])
+
+    calls: list[int] = []
+
+    async def _should_not_run(
+        _self: object,
+        _targets: tuple[PluginInfo, ...],
+        *,
+        families: tuple[str, ...],
+        console: object,
+    ) -> BatchUpgradeReport:
+        del families, console
+        calls.append(1)
+        return BatchUpgradeReport(
+            results=(), families=(), target_count=0, succeeded=0, failed=0
+        )
+
+    monkeypatch.setattr(
+        "nexus.plugins.executor.PluginExecutor.batch_upgrade", _should_not_run
+    )
+    result = runner.invoke(app, ["plugins", "updates"])
+    assert result.exit_code == 0
+    assert "com.acme.incident" in result.output
+    assert calls == []
