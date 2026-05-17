@@ -10,7 +10,7 @@ Requires:
 - An OAuth token that can be refreshed (script will refresh if expired)
 - Network access to the PDI
 
-Tests cover: discovery, list/info/export, inventory, diff, promote, updates,
+Tests cover: discovery, list/info/export, inventory, diff, promote, outdated,
 advisories, impact, orphans, drift, baselines, recommend, install, activate,
 upgrade, apply -- both happy paths and error paths.
 
@@ -152,7 +152,7 @@ def t_bare_discovery() -> tuple[bool, str, str]:
         "apply",
         "deactivate",
         "uninstall",
-        "updates",
+        "outdated",
         "advisories",
         "list-deferred",
         "impact",
@@ -176,7 +176,7 @@ def t_help_for_each_leaf() -> tuple[bool, str, str]:
         "export",
         "diff",
         "promote",
-        "updates",
+        "outdated",
         "advisories",
         "defer",
         "undo-defer",
@@ -334,11 +334,13 @@ def t_diff_same_profile() -> tuple[bool, str, str]:
     return ok, f"exit={proc.returncode}", out[-200:]
 
 
-def t_updates_lists_available() -> tuple[bool, str, str]:
-    """`updates` shows available updates from cached inventory."""
-    proc = _run(_nexus("plugins", "updates"), timeout_s=30)
+def t_outdated_lists_available() -> tuple[bool, str, str]:
+    """`outdated` shows available outdated plugins from cached inventory."""
+    proc = _run(_nexus("plugins", "outdated"), timeout_s=30)
     ok = proc.returncode == 0 and (
-        "Updates available" in proc.stdout or "No updates" in proc.stdout
+        "Outdated plugins" in proc.stdout
+        or "Up to date" in proc.stdout
+        or "No latest_version" in proc.stdout
     )
     return ok, f"exit={proc.returncode}", proc.stdout[-200:]
 
@@ -648,9 +650,9 @@ def t_advisories_json() -> tuple[bool, str, str]:
         return False, f"JSON parse: {exc}", last_line[:200]
 
 
-def t_updates_json() -> tuple[bool, str, str]:
-    """`updates --format json` emits parseable JSON."""
-    proc = _run(_nexus("plugins", "updates", "--format", "json"), timeout_s=30)
+def t_outdated_json() -> tuple[bool, str, str]:
+    """`outdated --format json` emits parseable JSON."""
+    proc = _run(_nexus("plugins", "outdated", "--format", "json"), timeout_s=30)
     if proc.returncode != 0:
         return False, f"exit={proc.returncode}", (proc.stderr or "")[-200:]
     last_line = (proc.stdout or "").strip().splitlines()[-1] if proc.stdout else ""
@@ -729,12 +731,12 @@ def t_advisories_strict_mode() -> tuple[bool, str, str]:
     return ok, f"exit={proc.returncode}", (proc.stdout or "")[-150:]
 
 
-def t_updates_queue_writes_yaml() -> tuple[bool, str, str]:
-    """`updates --queue <file>` writes a YAML queue file."""
+def t_outdated_queue_writes_yaml() -> tuple[bool, str, str]:
+    """`outdated --queue <file>` writes a YAML queue file."""
     with tempfile.NamedTemporaryFile(suffix=".yaml", delete=False) as tmp:
         out = Path(tmp.name)
     try:
-        proc = _run(_nexus("plugins", "updates", "--queue", str(out)), timeout_s=30)
+        proc = _run(_nexus("plugins", "outdated", "--queue", str(out)), timeout_s=30)
         ok = proc.returncode == 0 and out.exists() and out.stat().st_size > 20
         text = out.read_text(encoding="utf-8") if out.exists() else ""
         return (
@@ -746,66 +748,66 @@ def t_updates_queue_writes_yaml() -> tuple[bool, str, str]:
         out.unlink(missing_ok=True)
 
 
-def t_updates_family_filter() -> tuple[bool, str, str]:
-    """`updates --family Platform` succeeds and only shows Platform-family plugins."""
-    proc = _run(_nexus("plugins", "updates", "--family", "Platform"), timeout_s=30)
+def t_outdated_family_filter() -> tuple[bool, str, str]:
+    """`outdated --family Platform` succeeds and only shows Platform-family plugins."""
+    proc = _run(_nexus("plugins", "outdated", "--family", "Platform"), timeout_s=30)
     if proc.returncode != 0:
         return False, f"exit={proc.returncode}", (proc.stderr or "")[-200:]
     out = proc.stdout or ""
-    ok = "Platform" in out or "Up to date" in out or "No updates" in out
+    ok = "Platform" in out or "Up to date" in out or "Up to date" in out
     return ok, f"exit={proc.returncode}", out[-200:]
 
 
-def t_updates_unknown_family() -> tuple[bool, str, str]:
-    """`updates --family ZZZ_BOGUS` exits 2 and surfaces the bad family name."""
-    proc = _run(_nexus("plugins", "updates", "--family", "ZZZ_BOGUS"), timeout_s=30)
+def t_outdated_unknown_family() -> tuple[bool, str, str]:
+    """`outdated --family ZZZ_BOGUS` exits 2 and surfaces the bad family name."""
+    proc = _run(_nexus("plugins", "outdated", "--family", "ZZZ_BOGUS"), timeout_s=30)
     out = proc.stdout or ""
     ok = proc.returncode == 2 and "ZZZ_BOGUS" in out
     return ok, f"exit={proc.returncode}", out[-200:]
 
 
-def t_updates_dry_run_no_apply() -> tuple[bool, str, str]:
-    """`updates` without --apply succeeds (dry-run)."""
-    proc = _run(_nexus("plugins", "updates"), timeout_s=30)
+def t_outdated_dry_run() -> tuple[bool, str, str]:
+    """`outdated` is always read-only (dry-run)."""
+    proc = _run(_nexus("plugins", "outdated"), timeout_s=30)
     ok = proc.returncode == 0
     return ok, f"exit={proc.returncode}", (proc.stdout or "")[-200:]
 
 
-def t_updates_format_text_explicit() -> tuple[bool, str, str]:
-    """`updates --format text` (explicit) succeeds and renders the table."""
-    proc = _run(_nexus("plugins", "updates", "--format", "text"), timeout_s=30)
+def t_outdated_format_text_explicit() -> tuple[bool, str, str]:
+    """`outdated --format text` (explicit) succeeds and renders the table."""
+    proc = _run(_nexus("plugins", "outdated", "--format", "text"), timeout_s=30)
     ok = proc.returncode == 0 and (
         "Updates available" in proc.stdout or "Up to date" in proc.stdout
     )
     return ok, f"exit={proc.returncode}", (proc.stdout or "")[-200:]
 
 
-def t_updates_format_unknown() -> tuple[bool, str, str]:
-    """`updates --format bogus` exits non-zero (format validation rejects)."""
-    proc = _run(_nexus("plugins", "updates", "--format", "bogus"), timeout_s=30)
+def t_outdated_format_unknown() -> tuple[bool, str, str]:
+    """`outdated --format bogus` exits non-zero (format validation rejects)."""
+    proc = _run(_nexus("plugins", "outdated", "--format", "bogus"), timeout_s=30)
     ok = proc.returncode != 0
     return ok, f"exit={proc.returncode}", (proc.stderr or proc.stdout or "")[-200:]
 
 
-def t_updates_instance_explicit() -> tuple[bool, str, str]:
-    """`updates --instance alectri` resolves the explicit profile and runs."""
-    proc = _run(_nexus("plugins", "updates", "--instance", "alectri"), timeout_s=30)
+def t_outdated_instance_explicit() -> tuple[bool, str, str]:
+    """`outdated --instance alectri` resolves the explicit profile and runs."""
+    proc = _run(_nexus("plugins", "outdated", "--instance", "alectri"), timeout_s=30)
     ok = proc.returncode == 0 and (
         "Updates available" in proc.stdout or "Up to date" in proc.stdout
     )
     return ok, f"exit={proc.returncode}", (proc.stdout or "")[-200:]
 
 
-def t_updates_family_multiple() -> tuple[bool, str, str]:
-    """`updates --family ITSM --family ITOM` filters to the union of both families."""
+def t_outdated_family_multiple() -> tuple[bool, str, str]:
+    """`outdated --family ITSM --family ITOM` filters to the union of both families."""
     proc = _run(
-        _nexus("plugins", "updates", "--family", "ITSM", "--family", "ITOM"),
+        _nexus("plugins", "outdated", "--family", "ITSM", "--family", "ITOM"),
         timeout_s=30,
     )
     if proc.returncode != 0:
         return False, f"exit={proc.returncode}", (proc.stderr or "")[-200:]
     out = proc.stdout or ""
-    # On alectri both families have pending updates, so we should see both
+    # On alectri both families have pending outdated, so we should see both
     # tokens. If the data ever changes such that one is empty, the table
     # still renders with whichever family has pending. Allow either form.
     seen_itsm = "ITSM" in out
@@ -814,20 +816,20 @@ def t_updates_family_multiple() -> tuple[bool, str, str]:
     return ok, f"exit={proc.returncode} itsm={seen_itsm} itom={seen_itom}", out[-200:]
 
 
-def t_updates_family_case_insensitive() -> tuple[bool, str, str]:
-    """`updates --family platform` (lowercase) is accepted and filters."""
-    proc = _run(_nexus("plugins", "updates", "--family", "platform"), timeout_s=30)
+def t_outdated_family_case_insensitive() -> tuple[bool, str, str]:
+    """`outdated --family platform` (lowercase) is accepted and filters."""
+    proc = _run(_nexus("plugins", "outdated", "--family", "platform"), timeout_s=30)
     if proc.returncode != 0:
         return False, f"exit={proc.returncode}", (proc.stderr or "")[-200:]
     out = proc.stdout or ""
-    ok = "Platform" in out or "Up to date" in out or "No updates" in out
+    ok = "Platform" in out or "Up to date" in out or "Up to date" in out
     return ok, f"exit={proc.returncode}", out[-200:]
 
 
-def t_updates_family_with_json() -> tuple[bool, str, str]:
-    """`updates --family ITSM --format json` emits parseable JSON."""
+def t_outdated_family_with_json() -> tuple[bool, str, str]:
+    """`outdated --family ITSM --format json` emits parseable JSON."""
     proc = _run(
-        _nexus("plugins", "updates", "--family", "ITSM", "--format", "json"),
+        _nexus("plugins", "outdated", "--family", "ITSM", "--format", "json"),
         timeout_s=30,
     )
     if proc.returncode != 0:
@@ -841,19 +843,19 @@ def t_updates_family_with_json() -> tuple[bool, str, str]:
         return False, f"JSON parse: {exc}", last_line[:200]
 
 
-def t_updates_family_with_queue() -> tuple[bool, str, str]:
-    """`updates --family ITSM --queue file` writes a family-filtered queue YAML."""
+def t_outdated_family_with_queue() -> tuple[bool, str, str]:
+    """`outdated --family ITSM --queue file` writes a family-filtered queue YAML."""
     with tempfile.NamedTemporaryFile(suffix=".yaml", delete=False) as tmp:
         out = Path(tmp.name)
     try:
         proc = _run(
-            _nexus("plugins", "updates", "--family", "ITSM", "--queue", str(out)),
+            _nexus("plugins", "outdated", "--family", "ITSM", "--queue", str(out)),
             timeout_s=30,
         )
         ok = proc.returncode == 0 and out.exists() and out.stat().st_size > 20
         text = out.read_text(encoding="utf-8") if out.exists() else ""
-        # When the family produced pending updates, the YAML should mention
-        # ITSM. When empty, the YAML still exists (empty updates list).
+        # When the family produced pending outdated, the YAML should mention
+        # ITSM. When empty, the YAML still exists (empty outdated list).
         return (
             ok,
             f"exit={proc.returncode} size={out.stat().st_size if out.exists() else 0}",
@@ -863,13 +865,13 @@ def t_updates_family_with_queue() -> tuple[bool, str, str]:
         out.unlink(missing_ok=True)
 
 
-def t_updates_queue_with_json() -> tuple[bool, str, str]:
-    """`updates --queue file --format json` writes YAML AND emits JSON."""
+def t_outdated_queue_with_json() -> tuple[bool, str, str]:
+    """`outdated --queue file --format json` writes YAML AND emits JSON."""
     with tempfile.NamedTemporaryFile(suffix=".yaml", delete=False) as tmp:
         out = Path(tmp.name)
     try:
         proc = _run(
-            _nexus("plugins", "updates", "--queue", str(out), "--format", "json"),
+            _nexus("plugins", "outdated", "--queue", str(out), "--format", "json"),
             timeout_s=30,
         )
         if proc.returncode != 0 or not out.exists():
@@ -889,15 +891,15 @@ def t_updates_queue_with_json() -> tuple[bool, str, str]:
         out.unlink(missing_ok=True)
 
 
-def t_updates_apply_declined_prompt() -> tuple[bool, str, str]:
-    r"""`updates --apply` with declined prompt exits 0 without touching SN.
+def t_upgrade_batch_declined_prompt() -> tuple[bool, str, str]:
+    r"""`upgrade` (batch) with declined prompt exits 0 without touching SN.
 
     typer.confirm runs BEFORE _acquire_token + ServiceNowClient, so feeding
     "n\n" exits via raise typer.Exit(0) before any SN call. This is the
-    safest live test of the apply flow.
+    safest live test of the batch-upgrade flow.
     """
     proc = _run(
-        _nexus("plugins", "updates", "--apply"),
+        _nexus("plugins", "upgrade"),
         input_text="n\n",
         timeout_s=30,
     )
@@ -913,14 +915,14 @@ def t_updates_apply_declined_prompt() -> tuple[bool, str, str]:
     )
 
 
-def t_updates_apply_unknown_family_blocks_before_apply() -> tuple[bool, str, str]:
-    """`updates --apply --yes --family BOGUS` exits 2 before any apply runs.
+def t_upgrade_unknown_family_blocks() -> tuple[bool, str, str]:
+    """`upgrade --yes --family BOGUS` exits 2 before any upgrade runs.
 
-    The unknown-family validation raises typer.Exit(2) before the apply
+    The unknown-family validation raises typer.Exit(2) before the batch
     block is reached. Even with --yes, no SN call happens. Safe live test.
     """
     proc = _run(
-        _nexus("plugins", "updates", "--apply", "--yes", "--family", "ZZZ_BOGUS"),
+        _nexus("plugins", "upgrade", "--yes", "--family", "ZZZ_BOGUS"),
         timeout_s=30,
     )
     out = proc.stdout or ""
@@ -1030,9 +1032,9 @@ ALL_TESTS: list[tuple[str, Callable[[], tuple[bool, str, str]]]] = [
     # Cross-instance ops
     ("diff-same-profile", t_diff_same_profile),
     ("promote-same-profile-refused", t_promote_same_profile_refused),
-    # Updates / advisories / list-deferred (green + JSON variants)
-    ("updates-lists", t_updates_lists_available),
-    ("updates-json", t_updates_json),
+    # Outdated / advisories / list-deferred (green + JSON variants)
+    ("outdated-lists", t_outdated_lists_available),
+    ("outdated-json", t_outdated_json),
     ("advisories-lists", t_advisories_lists),
     ("advisories-json", t_advisories_json),
     ("list-deferred", t_list_deferred_works),
@@ -1073,20 +1075,20 @@ ALL_TESTS: list[tuple[str, Callable[[], tuple[bool, str, str]]]] = [
     ("drift-json", t_drift_json),
     # Strict / queue flag combinations
     ("advisories-strict", t_advisories_strict_mode),
-    ("updates-queue-writes-yaml", t_updates_queue_writes_yaml),
-    ("updates-family-filter", t_updates_family_filter),
-    ("updates-unknown-family", t_updates_unknown_family),
-    ("updates-dry-run-no-apply", t_updates_dry_run_no_apply),
-    ("updates-format-text-explicit", t_updates_format_text_explicit),
-    ("updates-format-unknown", t_updates_format_unknown),
-    ("updates-instance-explicit", t_updates_instance_explicit),
-    ("updates-family-multiple", t_updates_family_multiple),
-    ("updates-family-case-insensitive", t_updates_family_case_insensitive),
-    ("updates-family-with-json", t_updates_family_with_json),
-    ("updates-family-with-queue", t_updates_family_with_queue),
-    ("updates-queue-with-json", t_updates_queue_with_json),
-    ("updates-apply-declined-prompt", t_updates_apply_declined_prompt),
-    ("updates-apply-unknown-family-blocks", t_updates_apply_unknown_family_blocks_before_apply),
+    ("outdated-queue-writes-yaml", t_outdated_queue_writes_yaml),
+    ("outdated-family-filter", t_outdated_family_filter),
+    ("outdated-unknown-family", t_outdated_unknown_family),
+    ("outdated-dry-run", t_outdated_dry_run),
+    ("outdated-format-text-explicit", t_outdated_format_text_explicit),
+    ("outdated-format-unknown", t_outdated_format_unknown),
+    ("outdated-instance-explicit", t_outdated_instance_explicit),
+    ("outdated-family-multiple", t_outdated_family_multiple),
+    ("outdated-family-case-insensitive", t_outdated_family_case_insensitive),
+    ("outdated-family-with-json", t_outdated_family_with_json),
+    ("outdated-family-with-queue", t_outdated_family_with_queue),
+    ("outdated-queue-with-json", t_outdated_queue_with_json),
+    ("upgrade-batch-declined-prompt", t_upgrade_batch_declined_prompt),
+    ("upgrade-unknown-family-blocks", t_upgrade_unknown_family_blocks),
     # Cross-instance (skipped if retail not registered)
     ("cross-instance-diff", t_cross_instance_diff_shows_differences),
     ("promote-apply-roundtrip", t_promote_apply_roundtrip),

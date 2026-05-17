@@ -8,10 +8,11 @@
 from __future__ import annotations
 
 import time
+from collections.abc import Callable
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Literal, Self, cast
+from typing import TYPE_CHECKING, Literal, cast
 
-from pydantic import BaseModel, ConfigDict, model_validator
+from pydantic import ConfigDict
 
 if TYPE_CHECKING:
     from rich.console import Console
@@ -26,119 +27,44 @@ from nexus.plugins.errors import (
     PluginProgressError,
     PluginTimeoutError,
 )
+from nexus.plugins.executor_models import (
+    BatchUpgradeReport,
+    OperationLog,
+    OperationResult,
+)
 from nexus.plugins.impact import reverse_dependencies
 from nexus.plugins.models import PluginInfo, PluginInventory
-from nexus.plugins.progress import ProgressPoller
+from nexus.plugins.progress import ProgressCallback, ProgressPoller
+
+BatchPluginStartCallback = Callable[[int, PluginInfo], None]
+BatchPluginCompleteCallback = Callable[[int, OperationResult], None]
 
 __all__ = ["BatchUpgradeReport", "OperationLog", "OperationResult", "PluginExecutor"]
 
 _FROZEN = ConfigDict(frozen=True, strict=True, extra="forbid")
 
+# SN returns HTTP 400 with this exact wording in the body when the requested
+# version is already live on the target instance. Trying to "install" or
+# "upgrade" to that same version is a true no-op, not a failure -- treat it
+# as a successful idempotent outcome, matching brew/apt semantics.
+_ALREADY_INSTALLED_MARKERS = ("application version is currently installed",)
 
-class OperationResult(BaseModel):
-    """Result of one plugin operation.
 
-    Attributes:
-        action: install, activate, upgrade, uninstall, deactivate, or
-            rollback_<action>.
-        plugin_id: Canonical plugin identifier.
-        success: True if SN reported success.
-        message: SN's status_label or our error description.
-        duration_s: Wall-clock seconds.
-        tracker_id: The progress tracker sys_id, "" for synthetic results.
-        update_set: SN-provided update set sys_id, if any.
-        rollback_version: Version SN would roll back to, if reported.
+def _is_already_installed_error(exc: Exception) -> bool:
+    """Return True when the SN error indicates the target is already live.
+
+    Lowercase substring match so future SN releases that tweak the wording
+    do not silently regress the behaviour. The marker list lives at module
+    scope so tests can extend it without touching executor internals.
+
+    Args:
+        exc: Exception raised by ``submit_install`` / ``submit_upgrade``.
+
+    Returns:
+        True when the wrapped error body contains an already-installed marker.
     """
-
-    model_config = _FROZEN
-
-    action: Literal[
-        "install",
-        "activate",
-        "upgrade",
-        "uninstall",
-        "deactivate",
-        "rollback_install",
-        "rollback_activate",
-        "rollback_upgrade",
-    ]
-    plugin_id: str
-    success: bool
-    message: str
-    duration_s: float
-    tracker_id: str
-    update_set: str | None
-    rollback_version: str | None
-
-
-class OperationLog(BaseModel):
-    """Ordered sequence of OperationResults from an apply_plan call.
-
-    Attributes:
-        results: Operations in execution order. Rollback entries appear
-            after the failing forward-step in reverse order.
-    """
-
-    model_config = _FROZEN
-
-    results: tuple[OperationResult, ...]
-
-    @property
-    def success_count(self) -> int:
-        """Number of results with success=True."""
-        return sum(1 for r in self.results if r.success)
-
-    @property
-    def failure_count(self) -> int:
-        """Number of results with success=False."""
-        return sum(1 for r in self.results if not r.success)
-
-
-class BatchUpgradeReport(BaseModel):
-    """Aggregate result of PluginExecutor.batch_upgrade.
-
-    Attributes:
-        results: One OperationResult per attempted plugin, in execution order.
-        families: Family names used to filter targets, echoed back on the report.
-            Empty tuple when no filter was applied.
-        target_count: Number of plugins attempted (==len(results)).
-        succeeded: Number of results with success=True.
-        failed: Number of results with success=False.
-
-    Construction enforces ``target_count == len(results)`` and
-    ``succeeded + failed == target_count`` -- callers cannot build an
-    incoherent report.
-    """
-
-    model_config = _FROZEN
-
-    results: tuple[OperationResult, ...]
-    families: tuple[str, ...]
-    target_count: int
-    succeeded: int
-    failed: int
-
-    @model_validator(mode="after")
-    def _check_counts_coherent(self) -> Self:
-        """Reject reports whose counts do not match the ``results`` tuple."""
-        if self.target_count != len(self.results):
-            raise ValueError(
-                f"target_count ({self.target_count}) != len(results) ({len(self.results)})"
-            )
-        actual_succeeded = sum(1 for r in self.results if r.success)
-        if self.succeeded != actual_succeeded:
-            raise ValueError(f"succeeded ({self.succeeded}) != actual ({actual_succeeded})")
-        if self.succeeded + self.failed != self.target_count:
-            raise ValueError(
-                f"succeeded + failed ({self.succeeded + self.failed}) "
-                f"!= target_count ({self.target_count})"
-            )
-        return self
-
-    @property
-    def exit_code(self) -> int:
-        """0 when all succeeded (including empty target -- idempotent), 1 when any failed."""
-        return 0 if self.failed == 0 else 1
+    message = str(exc).lower()
+    return any(marker in message for marker in _ALREADY_INSTALLED_MARKERS)
 
 
 class PluginExecutor:
@@ -223,6 +149,47 @@ class PluginExecutor:
             action=action,
             plugin_id=plugin_id,
             success=False,
+            message=message,
+            duration_s=time.monotonic() - started,
+            tracker_id=tracker_id,
+            update_set=None,
+            rollback_version=None,
+        )
+
+    @staticmethod
+    def _already_installed_result(
+        action: Literal["install", "upgrade"],
+        plugin_id: str,
+        started: float,
+        *,
+        tracker_id: str = "",
+    ) -> OperationResult:
+        """Build a no-op success OperationResult for the already-installed path.
+
+        SN refusing an install/upgrade with "Application version is currently
+        installed" is treated as success (brew/apt idempotency). The message
+        is chosen per-action so summary output stays readable.
+
+        Args:
+            action: Either "install" or "upgrade" (the only verbs that can
+                receive this SN response).
+            plugin_id: Canonical plugin identifier.
+            started: time.monotonic() value at the start of the operation.
+            tracker_id: Progress tracker sys_id, empty when SN refused at
+                submit time before allocating one.
+
+        Returns:
+            OperationResult with success=True and an action-appropriate message.
+        """
+        message = (
+            "Already installed at target version"
+            if action == "install"
+            else "Already at target version"
+        )
+        return OperationResult(
+            action=action,
+            plugin_id=plugin_id,
+            success=True,
             message=message,
             duration_s=time.monotonic() - started,
             tracker_id=tracker_id,
@@ -344,31 +311,21 @@ class PluginExecutor:
         try:
             raw = await self._client.submit_install(info.sys_id, version)
         except Exception as exc:
-            return OperationResult(
-                action="install",
-                plugin_id=plugin_id,
-                success=False,
-                message=str(exc),
-                duration_s=time.monotonic() - started,
-                tracker_id="",
-                update_set=None,
-                rollback_version=None,
-            )
+            if _is_already_installed_error(exc):
+                return self._already_installed_result("install", plugin_id, started)
+            return self._failure_result("install", plugin_id, str(exc), started)
         tracker_id = str(raw.get("trackerId", ""))
         poller = ProgressPoller(self._client)
         try:
             final = await poller.poll(tracker_id)
         except (PluginProgressError, PluginTimeoutError) as exc:
+            if _is_already_installed_error(exc):
+                return self._already_installed_result(
+                    "install", plugin_id, started, tracker_id=tracker_id
+                )
             err_msg = getattr(exc, "error_message", "") or str(exc)
-            return OperationResult(
-                action="install",
-                plugin_id=plugin_id,
-                success=False,
-                message=err_msg,
-                duration_s=time.monotonic() - started,
-                tracker_id=tracker_id,
-                update_set=None,
-                rollback_version=None,
+            return self._failure_result(
+                "install", plugin_id, err_msg, started, tracker_id=tracker_id
             )
         await self._refresh_one(plugin_id)
         return OperationResult(
@@ -449,12 +406,17 @@ class PluginExecutor:
         self,
         plugin_id: str,
         target_version: str | None = None,
+        *,
+        on_progress: ProgressCallback | None = None,
     ) -> OperationResult:
         """Upgrade plugin_id (optionally to a specific target_version).
 
         Args:
             plugin_id: Canonical plugin identifier (must be in snapshot).
             target_version: Target version, or None to upgrade to latest.
+            on_progress: Optional callback invoked with each progress snapshot
+                during SN's poll loop. CLI commands use this to drive a Rich
+                progress bar; library callers can ignore it.
 
         Returns:
             OperationResult preserving rollback_version from SN.
@@ -476,31 +438,21 @@ class PluginExecutor:
         try:
             raw = await self._client.submit_upgrade(info.sys_id, target_version)
         except Exception as exc:
-            return OperationResult(
-                action="upgrade",
-                plugin_id=plugin_id,
-                success=False,
-                message=str(exc),
-                duration_s=time.monotonic() - started,
-                tracker_id="",
-                update_set=None,
-                rollback_version=None,
-            )
+            if _is_already_installed_error(exc):
+                return self._already_installed_result("upgrade", plugin_id, started)
+            return self._failure_result("upgrade", plugin_id, str(exc), started)
         tracker_id = str(raw.get("trackerId", ""))
         poller = ProgressPoller(self._client)
         try:
-            final = await poller.poll(tracker_id)
-        except (PluginProgressError, PluginTimeoutError) as exc:
+            final = await poller.poll(tracker_id, on_progress=on_progress)
+        except Exception as exc:
+            if _is_already_installed_error(exc):
+                return self._already_installed_result(
+                    "upgrade", plugin_id, started, tracker_id=tracker_id
+                )
             err_msg = getattr(exc, "error_message", "") or str(exc)
-            return OperationResult(
-                action="upgrade",
-                plugin_id=plugin_id,
-                success=False,
-                message=err_msg,
-                duration_s=time.monotonic() - started,
-                tracker_id=tracker_id,
-                update_set=None,
-                rollback_version=None,
+            return self._failure_result(
+                "upgrade", plugin_id, err_msg, started, tracker_id=tracker_id
             )
         return OperationResult(
             action="upgrade",
@@ -673,6 +625,9 @@ class PluginExecutor:
         *,
         families: tuple[str, ...] = (),
         console: Console,
+        on_plugin_start: BatchPluginStartCallback | None = None,
+        on_plugin_progress: ProgressCallback | None = None,
+        on_plugin_complete: BatchPluginCompleteCallback | None = None,
     ) -> BatchUpgradeReport:
         """Upgrade each target plugin sequentially. Skip-on-fail; never rolls back.
 
@@ -689,19 +644,37 @@ class PluginExecutor:
             families: Family filter names, echoed onto the report for audit.
                 Empty tuple when no filter was applied.
             console: Rich console for per-plugin status output.
+            on_plugin_start: Optional callback invoked with ``(index, plugin)``
+                immediately before each per-plugin upgrade kicks off. Used by
+                the CLI to reset the inner per-plugin progress bar.
+            on_plugin_progress: Optional callback forwarded into each
+                per-plugin :meth:`upgrade`. Receives every SN tracker
+                snapshot for the current plugin. The CLI uses it to drive
+                the inner progress bar in real time.
+            on_plugin_complete: Optional callback invoked with
+                ``(index, result)`` after each plugin completes. Used by the
+                CLI to advance the outer batch progress bar.
 
         Returns:
             BatchUpgradeReport with per-plugin OperationResult in execution order.
         """
         results: list[OperationResult] = []
-        for plugin in targets:
+        for index, plugin in enumerate(targets):
+            if on_plugin_start is not None:
+                on_plugin_start(index, plugin)
             console.print(f"[label]upgrade {plugin.plugin_id}[/]")
-            result = await self.upgrade(plugin.plugin_id, plugin.latest_version)
+            result = await self.upgrade(
+                plugin.plugin_id,
+                plugin.latest_version,
+                on_progress=on_plugin_progress,
+            )
             results.append(result)
             if result.success:
                 console.print(f"[ok]ok {plugin.plugin_id} -> {result.message}[/]")
             else:
                 console.print(f"[error]fail {plugin.plugin_id}: {result.message}[/]")
+            if on_plugin_complete is not None:
+                on_plugin_complete(index, result)
         succeeded = sum(1 for r in results if r.success)
         return BatchUpgradeReport(
             results=tuple(results),

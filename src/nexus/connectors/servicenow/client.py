@@ -11,7 +11,8 @@ typed SNClientError subclasses.
 """
 
 import logging
-from collections.abc import Mapping
+from collections.abc import Awaitable, Callable, Mapping
+from datetime import UTC, datetime
 from typing import Any, cast
 
 import httpx
@@ -25,12 +26,26 @@ from nexus.connectors.servicenow.errors import (
 
 log = logging.getLogger(__name__)
 
-__all__ = ["ServiceNowClient"]
+__all__ = ["RefreshTokenCallback", "ServiceNowClient"]
 
 _MAX_RETRIES = 3
 _TIMEOUT_SECONDS = 30.0
 _TABLE_API_BASE = "/api/now/table"
 _STATS_API_BASE = "/api/now/stats"
+
+# Proactive refresh window: if the access token expires within this many seconds
+# of the next request, refresh first instead of waiting for a 401. 60s is enough
+# to ride out clock skew and the request round-trip itself.
+_PROACTIVE_REFRESH_LEAD_SECONDS = 60
+
+RefreshTokenCallback = Callable[[], Awaitable[tuple[str, datetime]]]
+"""Async callable returning a fresh ``(token, expires_at)`` pair.
+
+Invoked by :class:`ServiceNowClient` when its current token is about to
+expire (proactive) or after a 401/403 response (reactive). The CLI builds
+one of these by wrapping ``nexus.cli.auth.acquire_token`` so a long-running
+batch upgrade can outlive its initial OAuth grant.
+"""
 
 
 class ServiceNowClient:
@@ -46,6 +61,14 @@ class ServiceNowClient:
         password: ServiceNow login password. Never logged (Basic auth).
         token: OAuth bearer token. When provided, uses Authorization: Bearer
                instead of Basic auth.
+        refresh_token_callback: Optional async callable returning a fresh
+            ``(token, expires_at)`` pair. When provided, the client refreshes
+            its bearer header proactively (before expiry) and reactively (on
+            401/403 with one retry). Required for long-running batch
+            operations that may outlive the initial OAuth grant.
+        token_expires_at: UTC datetime when ``token`` expires. Only consulted
+            when ``refresh_token_callback`` is also set. Powers proactive
+            refresh; if omitted, only reactive (post-401) refresh fires.
     """
 
     def __init__(
@@ -55,6 +78,8 @@ class ServiceNowClient:
         password: str = "",
         *,
         token: str | None = None,
+        refresh_token_callback: RefreshTokenCallback | None = None,
+        token_expires_at: datetime | None = None,
     ) -> None:
         """Initialize HTTP client with instance URL and credentials."""
         base = instance_url.rstrip("/")
@@ -63,8 +88,50 @@ class ServiceNowClient:
         self._base_url = base
         self._token = token
         self._auth = (username, password)
+        self._refresh_token_callback = refresh_token_callback
+        self._token_expires_at = token_expires_at
         self._client: httpx.AsyncClient | None = None
         log.debug("ServiceNowClient initialised for %s", base)
+
+    def _swap_bearer_token(self, new_token: str) -> None:
+        """Swap the Authorization header on the underlying httpx client.
+
+        Mutates the live ``httpx.AsyncClient`` instance in place so the next
+        request uses the fresh token. No-op when the client uses basic auth
+        instead of bearer.
+
+        Args:
+            new_token: Fresh OAuth bearer token.
+        """
+        self._token = new_token
+        if self._client is not None:
+            self._client.headers["Authorization"] = f"Bearer {new_token}"
+
+    async def _force_refresh_token(self) -> None:
+        """Invoke the refresh callback and update token + expiry in place.
+
+        Internal helper shared by the proactive (pre-request) and reactive
+        (post-401) refresh paths so the callback wiring lives in one place.
+        """
+        if self._refresh_token_callback is None:
+            return
+        new_token, new_expiry = await self._refresh_token_callback()
+        self._swap_bearer_token(new_token)
+        self._token_expires_at = new_expiry
+
+    async def _maybe_refresh_token(self) -> None:
+        """Refresh the bearer token proactively if it is about to expire.
+
+        Only fires when both ``refresh_token_callback`` and
+        ``token_expires_at`` were provided at construction.
+        """
+        if self._refresh_token_callback is None or self._token_expires_at is None:
+            return
+        seconds_left = (self._token_expires_at - datetime.now(UTC)).total_seconds()
+        if seconds_left > _PROACTIVE_REFRESH_LEAD_SECONDS:
+            return
+        log.debug("SN token within %ss of expiry; refreshing proactively", seconds_left)
+        await self._force_refresh_token()
 
     async def __aenter__(self) -> ServiceNowClient:
         """Enter async context and open the HTTP connection pool."""
@@ -395,8 +462,16 @@ class ServiceNowClient:
         if self._client is None:
             raise SNClientError("Client not initialised. Use 'async with ServiceNowClient()'.")
 
+        await self._maybe_refresh_token()
         log.debug("SN %s %s params=%s", method, path, params)
         response = await self._client.request(method, path, params=params, json=json)
+        # Only retry on 401 (token rejected). 403 means ACL/role denial that
+        # no token refresh can fix; surfacing it immediately avoids a wasted
+        # OAuth round-trip plus a misleading "auth retry" log line.
+        if response.status_code == 401 and self._refresh_token_callback is not None:
+            log.debug("SN %s returned 401; refreshing token and retrying once", path)
+            await self._force_refresh_token()
+            response = await self._client.request(method, path, params=params, json=json)
         self._raise_for_status(response)
         return response.json() if response.content else {}
 

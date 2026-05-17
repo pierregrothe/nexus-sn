@@ -4,11 +4,12 @@
 # Date: 2026-05-11
 """StatusReporter: render the condensed ``nexus status`` dashboard.
 
-Layout (3 rows, all gradient-bordered KeyValuePanels):
+Layout (4 rows, all gradient-bordered KeyValuePanels):
 
 - Row 1: Identity | System          (two equal columns)
 - Row 2: Integrations               (full width DataTable or empty panel)
 - Row 3: Diagnostics | Auto-update  (two equal columns)
+- Row 4: Terminal                   (render profile + detection inputs)
 
 Labels render in the brand gradient; values render in the terminal default
 foreground style. Status words go through ``StatusBadge``.
@@ -29,6 +30,7 @@ from nexus.ui import (
     StatusBadge,
     two_col,
 )
+from nexus.ui.render_context import RenderContext
 
 __all__ = ["StatusReporter"]
 
@@ -48,13 +50,21 @@ class StatusReporter:
         """See class docstring."""
         self._console = console
 
-    def print(self, detection: TierDetection, capabilities: CapabilitySet) -> None:
-        """Print Identity + System + Integrations + Diagnostics + Auto-update.
+    def print(
+        self,
+        detection: TierDetection,
+        capabilities: CapabilitySet,
+        render_context: RenderContext | None = None,
+    ) -> None:
+        """Print Identity + System + Integrations + Diagnostics + Auto-update + Terminal.
 
         Args:
             detection: Tier detection result with config + detected servers.
             capabilities: Resolved capability set (unused; the view uses
                 ``detection.detected_servers`` directly).
+            render_context: Optional render context used to populate the
+                Terminal panel. When ``None``, the panel is omitted (preserved
+                behaviour for callers that have not yet adopted the context).
         """
         del capabilities
         runtime = collect_runtime_info()
@@ -64,6 +74,8 @@ class StatusReporter:
         )
         self._console.print(self._integrations_panel(detection))
         self._console.print(two_col(self._diagnostics_panel(runtime), self._update_panel(runtime)))
+        if render_context is not None:
+            self._console.print(self._terminal_panel(render_context))
         if detection.needs_reauth_servers:
             servers = sorted(s.value for s in detection.needs_reauth_servers)
             if len(servers) == 1:
@@ -71,6 +83,28 @@ class StatusReporter:
             else:
                 msg = f"Run `nexus reauth --server <name>` for: {', '.join(servers)}"
             self._console.print(Notice.warn(msg))
+
+    def _terminal_panel(self, render_context: RenderContext) -> KeyValuePanel:
+        """Build the Terminal panel reporting the detected render profile.
+
+        Args:
+            render_context: The render context built at process startup.
+
+        Returns:
+            ``KeyValuePanel`` titled ``Terminal``.
+        """
+        caps = render_context.caps
+        pager = "pypager" if render_context.profile.value in {"rich", "basic"} else "inline"
+        terminal = caps.term_program or ("Windows" if caps.legacy_windows else "default")
+        rows: list[KvRow] = [
+            KvRow(label="Profile", value=render_context.profile.value.upper()),
+            KvRow(label="TTY", value="yes" if caps.is_tty else "no"),
+            KvRow(label="Color", value=caps.color_depth.value.upper()),
+            KvRow(label="Size", value=f"{caps.cols}x{caps.rows}"),
+            KvRow(label="Terminal", value=terminal),
+            KvRow(label="Pager", value=pager),
+        ]
+        return KeyValuePanel(title="Terminal", rows=rows)
 
     def _identity_panel(self, detection: TierDetection, runtime: RuntimeInfo) -> KeyValuePanel:
         """Build the Identity panel.

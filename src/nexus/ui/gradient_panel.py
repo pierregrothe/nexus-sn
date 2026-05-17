@@ -110,22 +110,30 @@ class GradientPanel:
         width = options.max_width
         inner_width = max(width - 2, 1)
 
-        # Top border with title
+        # Top border: gradient runs across the corners + horizontal fills, while
+        # the title (when present) gets its own independent SN_BLUE -> SN_LIME
+        # sweep across just the title characters so it reads as visibly
+        # gradient regardless of where it sits in the line.
         title_str = f" {self._title} " if self._title else ""
         title_len = len(title_str)
         if title_str and title_len < inner_width:
             left_fill = 2
             right_fill = max(inner_width - left_fill - title_len, 0)
-            top_chars = (
-                [box.top_left]
-                + [box.top] * left_fill
-                + list(title_str)
-                + [box.top] * right_fill
-                + [box.top_right]
+            top_text = Text(end="")
+            top_text.append_text(
+                _gradient_rule([box.top_left] + [box.top] * left_fill, self._start, self._end)
             )
+            for i, ch in enumerate(title_str):
+                top_text.append(
+                    ch, style=_lerp(i, title_len, self._start, self._end) + Style(bold=True)
+                )
+            top_text.append_text(
+                _gradient_rule([box.top] * right_fill + [box.top_right], self._start, self._end)
+            )
+            yield top_text
         else:
             top_chars = [box.top_left] + [box.top] * inner_width + [box.top_right]
-        yield _gradient_rule(top_chars, self._start, self._end)
+            yield _gradient_rule(top_chars, self._start, self._end)
         yield Segment.line()
 
         # Content lines with gradient side bars; padded to min_height

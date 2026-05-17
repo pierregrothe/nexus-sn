@@ -37,6 +37,8 @@ phases:
       nexus-setup-command: ready
       githubsync: backlog
       templateregistry: backlog
+      cli-paged-list-widget: ready
+      cli-batch-progress-eta: backlog
 
   2026.06-assessment:
     status: planned

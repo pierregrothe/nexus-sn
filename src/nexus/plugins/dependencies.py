@@ -62,7 +62,20 @@ class DependencyEntry(BaseModel):
 
     @classmethod
     def from_sn(cls, raw: dict[str, object]) -> DependencyEntry:
-        """Build from the raw SN dict (handles 'Id' -> 'id' and 'minVersion' -> 'min_version')."""
+        """Build from the raw SN dict (handles 'Id' -> 'id' and 'minVersion' -> 'min_version').
+
+        ServiceNow occasionally returns ``null`` for string fields it has not
+        populated. Naive ``str(raw.get(k, ""))`` turns that into the literal
+        word ``"None"``, which leaked into the dependency cascade panel as
+        ``"Plugin: None"``. ``_safe_str`` collapses ``None`` to ``""`` so
+        empty cells render as truly empty (and the panel can filter them).
+        """
+
+        def _safe_str(value: object) -> str:
+            if value is None:
+                return ""
+            return str(value)
+
         type_raw = raw.get("type", "Plugin")
         type_value: Literal["Application", "Plugin"]
         if type_raw == "Application":
@@ -70,18 +83,18 @@ class DependencyEntry(BaseModel):
         else:
             type_value = "Plugin"
         return cls(
-            id=str(raw.get("Id", "")),
-            orig_string=str(raw.get("orig_string", "")),
+            id=_safe_str(raw.get("Id")),
+            orig_string=_safe_str(raw.get("orig_string")),
             type=type_value,
-            min_version=str(raw.get("minVersion", "")),
-            source_app_id=str(raw.get("source_app_id", "")),
+            min_version=_safe_str(raw.get("minVersion")),
+            source_app_id=_safe_str(raw.get("source_app_id")),
             installed=bool(raw.get("installed", False)),
             active=bool(raw.get("active", False)),
             hide_on_ui=bool(raw.get("hide_on_ui", False)),
-            status=str(raw.get("status", "")),
-            status_value=str(raw.get("status_value", "")),
+            status=_safe_str(raw.get("status")),
+            status_value=_safe_str(raw.get("status_value")),
             order=int(cast(int, raw.get("order", 0)) or 0),
-            link=str(raw.get("link", "")),
+            link=_safe_str(raw.get("link")),
             has_license=bool(raw.get("has_license", False)),
             is_allowed_install=bool(raw.get("is_allowed_install", False)),
         )

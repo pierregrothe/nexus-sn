@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import asyncio
 import time
+from collections.abc import Callable
 from typing import TYPE_CHECKING, cast
 
 from pydantic import BaseModel, ConfigDict
@@ -27,7 +28,15 @@ if TYPE_CHECKING:
 
 from nexus.plugins.errors import PluginProgressError, PluginTimeoutError
 
-__all__ = ["DEFAULT_POLL_INTERVAL_S", "DEFAULT_TIMEOUT_S", "ProgressPoller", "ProgressState"]
+__all__ = [
+    "DEFAULT_POLL_INTERVAL_S",
+    "DEFAULT_TIMEOUT_S",
+    "ProgressCallback",
+    "ProgressPoller",
+    "ProgressState",
+]
+
+ProgressCallback = Callable[["ProgressState"], None]
 
 _FROZEN = ConfigDict(frozen=True, strict=True, extra="forbid")
 
@@ -143,11 +152,21 @@ class ProgressPoller:
         self._poll_interval_s = poll_interval_s
         self._timeout_s = timeout_s
 
-    async def poll(self, tracker_id: str) -> ProgressState:
+    async def poll(
+        self,
+        tracker_id: str,
+        *,
+        on_progress: ProgressCallback | None = None,
+    ) -> ProgressState:
         """Poll until terminal. Returns the final ProgressState on success.
 
         Args:
             tracker_id: The sn_appclient progress tracker GUID.
+            on_progress: Optional callback invoked with each non-terminal
+                :class:`ProgressState` snapshot and with the terminal-success
+                snapshot. Lets a Rich Progress bar (or equivalent UI) reflect
+                ``percent_complete`` and ``status_label`` in real time without
+                coupling the poller to any rendering layer.
 
         Returns:
             Final ProgressState when SN reports success.
@@ -163,6 +182,8 @@ class ProgressPoller:
                 raise PluginTimeoutError(tracker_id=tracker_id, elapsed_s=elapsed)
             raw = await self._client.fetch_progress(tracker_id)
             state = ProgressState.from_sn(raw)
+            if on_progress is not None:
+                on_progress(state)
             if state.is_terminal:
                 if not state.is_success:
                     raise PluginProgressError(

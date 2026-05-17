@@ -112,7 +112,15 @@ gantt
 
 ## What is implemented
 
-<!-- tests -->912 tests passing, all real fakes, no mocks.<!-- /tests -->
+<!-- tests -->1000 tests passing, all real fakes, no mocks.<!-- /tests -->
+
+NEXUS picks one of four render profiles at startup -- **RICH**, **BASIC**,
+**LEGACY**, **PLAIN** -- by inspecting the terminal once (TTY status, color
+depth, terminal size, CI env vars, `$TERM`, `$WT_SESSION`, etc.). On a
+modern terminal you get gradient panels and a scrollable pager for long
+lists; in CI or under `--plain` you get tab-separated plain text. Run
+`nexus status` to see the detected profile. Override with `--plain` or
+`NEXUS_PLAIN=1`.
 
 The following commands are fully functional:
 

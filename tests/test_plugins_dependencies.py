@@ -49,3 +49,63 @@ async def test_fetch_dependencies_empty_when_no_canned() -> None:
     client = FakeServiceNowClient()
     deps = await fetch_dependencies(client, "com.notseed", None)
     assert deps == ()
+
+
+def test_dependencyentry_from_sn_null_id_does_not_render_as_string_none() -> None:
+    """Regression: SN returning ``"Id": null`` must not surface as ``"None"``.
+
+    The cascade panel was rendering ``Plugin: None`` when SN replied with a
+    null Id; safe-string coercion now maps null to ``""`` so the panel can
+    filter the row out instead of displaying a literal.
+    """
+    entry = DependencyEntry.from_sn(
+        {
+            "Id": None,
+            "orig_string": None,
+            "type": "Plugin",
+            "minVersion": None,
+            "source_app_id": None,
+            "installed": True,
+            "active": True,
+            "hide_on_ui": False,
+            "status": None,
+            "status_value": None,
+            "order": 0,
+            "link": None,
+            "has_license": False,
+            "is_allowed_install": True,
+        }
+    )
+    assert entry.id == ""
+    assert entry.orig_string == ""
+    assert entry.min_version == ""
+    assert entry.status == ""
+    assert entry.status_value == ""
+    assert entry.link == ""
+    assert entry.source_app_id == ""
+
+
+def test_dependencyentry_from_sn_preserves_real_strings() -> None:
+    """Real (non-null) string fields survive the safe-string coercion."""
+    entry = DependencyEntry.from_sn(
+        {
+            "Id": "Performance Analytics",
+            "orig_string": "com.snc.pa:8.0.0",
+            "type": "Application",
+            "minVersion": "8.0.0",
+            "source_app_id": "abc123",
+            "installed": True,
+            "active": True,
+            "hide_on_ui": False,
+            "status": "Will be Updated",
+            "status_value": "will_be_updated",
+            "order": 3,
+            "link": "/nav/foo",
+            "has_license": True,
+            "is_allowed_install": True,
+        }
+    )
+    assert entry.id == "Performance Analytics"
+    assert entry.min_version == "8.0.0"
+    assert entry.status == "Will be Updated"
+    assert entry.link == "/nav/foo"

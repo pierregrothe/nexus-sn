@@ -102,10 +102,16 @@ def test_scan_resolves_curated_product_family_for_known_plugin() -> None:
     assert incident.product_family == "ITSM"
 
 
-def test_scan_resolves_uncategorized_for_unknown_plugin() -> None:
+def test_scan_resolves_platform_for_unknown_com_prefix_plugin() -> None:
+    """SN-shipped com.* plugins without a domain keyword default to Platform.
+
+    com.acme.helper is a fictional ID that doesn't match any keyword rule.
+    With the SN-shipped prefix fallback it resolves to Platform rather than
+    Uncategorized -- real third-party scoped apps use ``x_<vendor>_<name>``.
+    """
     inv = asyncio.run(_scan(_transport_for()))
     helper = next(p for p in inv.plugins if p.plugin_id == "com.acme.helper")
-    assert helper.product_family == "Uncategorized"
+    assert helper.product_family == "Platform"
 
 
 def test_scan_parses_comma_separated_dependencies() -> None:

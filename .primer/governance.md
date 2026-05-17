@@ -32,6 +32,10 @@ File-aware checks the regex hook still owns:
 
 - coverage-ratchet -- per-module covered lines can only increase (ADR-009)
   Baseline: .ratchet.json (updated when coverage improves)
+- file-size-ratchet -- src/ files capped at 800 lines, tests/ at 1000;
+  grandfathered overages may shrink but never grow (ADR-023)
+  Baseline: .file-size-baseline.json (updated when oversize files shrink)
+  Enforcement: scripts/check_file_sizes.py, wired into pre-commit
 
 ### Tier 3 -- Soft (post-edit warning, never blocks)
 

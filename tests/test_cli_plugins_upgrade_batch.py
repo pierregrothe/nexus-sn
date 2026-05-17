@@ -1,9 +1,14 @@
-# tests/test_cli_plugins_updates_apply.py
-# Tests for `nexus plugins updates` --family / --apply / --out flags.
+# tests/test_cli_plugins_upgrade_batch.py
+# Tests for `nexus plugins upgrade` batch mode (no PLUGIN_ID + optional --family / --out).
 # Author: Pierre Grothe
-# Date: 2026-05-14
+# Date: 2026-05-16
+"""Tests for the brew-style batch-upgrade path on `nexus plugins upgrade`.
 
-"""Tests for the batch-upgrade extensions on `nexus plugins updates`."""
+`nexus plugins upgrade` with no PLUGIN_ID upgrades every pending plugin;
+``--family X`` filters the batch to one or more families. Single-plugin
+mode (`nexus plugins upgrade <id>`) is exercised separately in
+``test_cli_plugins_execute.py``.
+"""
 
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
@@ -111,8 +116,11 @@ def _recording_unreachable_batch(
         *,
         families: tuple[str, ...],
         console: object,
+        on_plugin_start: object = None,
+        on_plugin_progress: object = None,
+        on_plugin_complete: object = None,
     ) -> BatchUpgradeReport:
-        del families, console
+        del families, console, on_plugin_start, on_plugin_progress, on_plugin_complete
         calls.append(1)
         return BatchUpgradeReport(results=(), families=(), target_count=0, succeeded=0, failed=0)
 
@@ -126,23 +134,7 @@ def runner(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> CliRunner:
     return CliRunner()
 
 
-def test_plugins_updates_family_filter_shrinks_pending(runner: CliRunner, tmp_path: Path) -> None:
-    _seed(
-        tmp_path,
-        "prod",
-        (
-            _info("com.acme.incident", family="ITSM"),
-            _info("com.acme.cmdb", family="ITOM"),
-        ),
-    )
-    runner.invoke(app, ["instance", "use", "prod"])
-    result = runner.invoke(app, ["plugins", "updates", "--family", "ITSM"])
-    assert result.exit_code == 0
-    assert "com.acme.incident" in result.output
-    assert "com.acme.cmdb" not in result.output
-
-
-def test_plugins_updates_unknown_family_exits_2_and_lists_available(
+def test_plugins_upgrade_with_unknown_family_exits_2_and_lists_available(
     runner: CliRunner, tmp_path: Path
 ) -> None:
     _seed(
@@ -154,17 +146,17 @@ def test_plugins_updates_unknown_family_exits_2_and_lists_available(
         ),
     )
     runner.invoke(app, ["instance", "use", "prod"])
-    result = runner.invoke(app, ["plugins", "updates", "--family", "BOGUS"])
+    result = runner.invoke(app, ["plugins", "upgrade", "--family", "BOGUS"])
     assert result.exit_code == 2
     assert "ITSM" in result.output
     assert "ITOM" in result.output
     assert "BOGUS" in result.output
 
 
-def test_plugins_updates_apply_executes_batch_upgrade(
+def test_plugins_upgrade_batch_executes_batch_upgrade(
     runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """--apply --yes calls executor.batch_upgrade once with the pending set."""
+    """Bare `upgrade --yes` calls executor.batch_upgrade with the pending set."""
     _seed(
         tmp_path,
         "prod",
@@ -183,8 +175,11 @@ def test_plugins_updates_apply_executes_batch_upgrade(
         *,
         families: tuple[str, ...],
         console: object,
+        on_plugin_start: object = None,
+        on_plugin_progress: object = None,
+        on_plugin_complete: object = None,
     ) -> BatchUpgradeReport:
-        del console
+        del console, on_plugin_start, on_plugin_progress, on_plugin_complete
         calls.append({"targets": [p.plugin_id for p in targets], "families": families})
         return BatchUpgradeReport(
             results=(),
@@ -198,10 +193,10 @@ def test_plugins_updates_apply_executes_batch_upgrade(
         "nexus.plugins.executor.PluginExecutor.batch_upgrade",
         _fake_batch_upgrade,
     )
-    monkeypatch.setattr("nexus.cli._acquire_token", _fake_acquire)
-    monkeypatch.setattr("nexus.cli.ServiceNowClient", _fake_client)
+    monkeypatch.setattr("nexus.cli.commands_plugins_exec._acquire_token", _fake_acquire)
+    monkeypatch.setattr("nexus.cli.commands_plugins_exec.ServiceNowClient", _fake_client)
 
-    result = runner.invoke(app, ["plugins", "updates", "--apply", "--yes"])
+    result = runner.invoke(app, ["plugins", "upgrade", "--yes"])
     assert result.exit_code == 0
     assert len(calls) == 1
     target_ids = cast(list[str], calls[0]["targets"])
@@ -209,7 +204,7 @@ def test_plugins_updates_apply_executes_batch_upgrade(
     assert calls[0]["families"] == ()
 
 
-def test_plugins_updates_apply_writes_report_yaml(
+def test_plugins_upgrade_batch_writes_report_yaml(
     runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     _seed(tmp_path, "prod", (_info("com.acme.incident", family="ITSM"),))
@@ -221,8 +216,11 @@ def test_plugins_updates_apply_writes_report_yaml(
         *,
         families: tuple[str, ...],
         console: object,
+        on_plugin_start: object = None,
+        on_plugin_progress: object = None,
+        on_plugin_complete: object = None,
     ) -> BatchUpgradeReport:
-        del console, targets
+        del console, on_plugin_start, on_plugin_progress, on_plugin_complete, targets
         return BatchUpgradeReport(
             results=(
                 OperationResult(
@@ -243,16 +241,15 @@ def test_plugins_updates_apply_writes_report_yaml(
         )
 
     monkeypatch.setattr("nexus.plugins.executor.PluginExecutor.batch_upgrade", _fake_batch_upgrade)
-    monkeypatch.setattr("nexus.cli._acquire_token", _fake_acquire)
-    monkeypatch.setattr("nexus.cli.ServiceNowClient", _fake_client)
+    monkeypatch.setattr("nexus.cli.commands_plugins_exec._acquire_token", _fake_acquire)
+    monkeypatch.setattr("nexus.cli.commands_plugins_exec.ServiceNowClient", _fake_client)
 
     out_path = tmp_path / "report.yaml"
     result = runner.invoke(
         app,
         [
             "plugins",
-            "updates",
-            "--apply",
+            "upgrade",
             "--yes",
             "--out",
             str(out_path),
@@ -267,7 +264,7 @@ def test_plugins_updates_apply_writes_report_yaml(
     assert payload["results"][0]["success"] is True
 
 
-def test_plugins_updates_apply_prompts_when_yes_absent(
+def test_plugins_upgrade_batch_prompts_when_yes_absent(
     runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Without --yes, declining the prompt exits 0 without calling batch_upgrade."""
@@ -279,33 +276,15 @@ def test_plugins_updates_apply_prompts_when_yes_absent(
         "nexus.plugins.executor.PluginExecutor.batch_upgrade",
         _recording_unreachable_batch(calls),
     )
-    result = runner.invoke(app, ["plugins", "updates", "--apply"], input="n\n")
+    result = runner.invoke(app, ["plugins", "upgrade"], input="n\n")
     assert result.exit_code == 0
     assert calls == []
 
 
-def test_plugins_updates_without_apply_remains_dry_run(
+def test_plugins_upgrade_batch_with_empty_pending_exits_zero(
     runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """No --apply flag: lists the candidate set, never invokes batch_upgrade."""
-    _seed(tmp_path, "prod", (_info("com.acme.incident", family="ITSM"),))
-    runner.invoke(app, ["instance", "use", "prod"])
-
-    calls: list[int] = []
-    monkeypatch.setattr(
-        "nexus.plugins.executor.PluginExecutor.batch_upgrade",
-        _recording_unreachable_batch(calls),
-    )
-    result = runner.invoke(app, ["plugins", "updates"])
-    assert result.exit_code == 0
-    assert "com.acme.incident" in result.output
-    assert calls == []
-
-
-def test_plugins_updates_apply_empty_target_exits_zero(
-    runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """No pending updates + --apply: exit 0, never invoke batch_upgrade."""
+    """No pending updates + bare upgrade: exit 0, never invoke batch_upgrade."""
     _seed(
         tmp_path,
         "prod",
@@ -325,7 +304,105 @@ def test_plugins_updates_apply_empty_target_exits_zero(
         "nexus.plugins.executor.PluginExecutor.batch_upgrade",
         _recording_unreachable_batch(calls),
     )
-    result = runner.invoke(app, ["plugins", "updates", "--apply", "--yes"])
+    result = runner.invoke(app, ["plugins", "upgrade", "--yes"])
     assert result.exit_code == 0
     assert calls == []
     assert "Nothing to upgrade" in result.output
+
+
+def test_plugins_upgrade_all_flag_executes_batch_upgrade(
+    runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`upgrade --all --yes` behaves like bare `upgrade --yes` (everything pending)."""
+    _seed(
+        tmp_path,
+        "prod",
+        (
+            _info("com.acme.incident", family="ITSM"),
+            _info("com.acme.cmdb", family="ITOM"),
+        ),
+    )
+    runner.invoke(app, ["instance", "use", "prod"])
+
+    calls: list[dict[str, object]] = []
+
+    async def _fake_batch_upgrade(
+        _self: object,
+        targets: tuple[PluginInfo, ...],
+        *,
+        families: tuple[str, ...],
+        console: object,
+        on_plugin_start: object = None,
+        on_plugin_progress: object = None,
+        on_plugin_complete: object = None,
+    ) -> BatchUpgradeReport:
+        del console, on_plugin_start, on_plugin_progress, on_plugin_complete
+        calls.append({"targets": [p.plugin_id for p in targets], "families": families})
+        return BatchUpgradeReport(
+            results=(),
+            families=families,
+            target_count=0,
+            succeeded=0,
+            failed=0,
+        )
+
+    monkeypatch.setattr(
+        "nexus.plugins.executor.PluginExecutor.batch_upgrade",
+        _fake_batch_upgrade,
+    )
+    monkeypatch.setattr("nexus.cli.commands_plugins_exec._acquire_token", _fake_acquire)
+    monkeypatch.setattr("nexus.cli.commands_plugins_exec.ServiceNowClient", _fake_client)
+
+    result = runner.invoke(app, ["plugins", "upgrade", "--all", "--yes"])
+    assert result.exit_code == 0
+    assert len(calls) == 1
+    target_ids = cast(list[str], calls[0]["targets"])
+    assert set(target_ids) == {"com.acme.incident", "com.acme.cmdb"}
+
+
+def test_plugins_upgrade_with_all_and_id_rejects(runner: CliRunner, tmp_path: Path) -> None:
+    """--all with PLUGIN_ID is a usage error and exits 2."""
+    _seed(tmp_path, "prod", (_info("com.acme.incident", family="ITSM"),))
+    runner.invoke(app, ["instance", "use", "prod"])
+    result = runner.invoke(app, ["plugins", "upgrade", "com.acme.incident", "--all"])
+    assert result.exit_code == 2
+    assert "--all" in result.output
+
+
+def test_plugins_upgrade_with_all_and_family_rejects(runner: CliRunner, tmp_path: Path) -> None:
+    """--all with --family is a usage error and exits 2."""
+    _seed(tmp_path, "prod", (_info("com.acme.incident", family="ITSM"),))
+    runner.invoke(app, ["instance", "use", "prod"])
+    result = runner.invoke(app, ["plugins", "upgrade", "--all", "--family", "ITSM"])
+    assert result.exit_code == 2
+    assert "--all" in result.output
+
+
+def test_plugins_upgrade_with_id_and_family_rejects(runner: CliRunner, tmp_path: Path) -> None:
+    """PLUGIN_ID + --family is a usage error and exits 2."""
+    _seed(tmp_path, "prod", (_info("com.acme.incident", family="ITSM"),))
+    runner.invoke(app, ["instance", "use", "prod"])
+    result = runner.invoke(app, ["plugins", "upgrade", "com.acme.incident", "--family", "ITSM"])
+    assert result.exit_code == 2
+    assert "--family" in result.output
+
+
+def test_plugins_upgrade_with_to_but_no_id_rejects(runner: CliRunner, tmp_path: Path) -> None:
+    """--to without PLUGIN_ID is a usage error and exits 2."""
+    _seed(tmp_path, "prod", (_info("com.acme.incident", family="ITSM"),))
+    runner.invoke(app, ["instance", "use", "prod"])
+    result = runner.invoke(app, ["plugins", "upgrade", "--to", "9.9.9"])
+    assert result.exit_code == 2
+    assert "--to" in result.output
+
+
+def test_plugins_upgrade_with_out_and_id_rejects(runner: CliRunner, tmp_path: Path) -> None:
+    """--out with PLUGIN_ID is a usage error and exits 2."""
+    _seed(tmp_path, "prod", (_info("com.acme.incident", family="ITSM"),))
+    runner.invoke(app, ["instance", "use", "prod"])
+    result = runner.invoke(
+        app,
+        ["plugins", "upgrade", "com.acme.incident", "--out", str(tmp_path / "r.yaml")],
+    )
+    assert result.exit_code == 2
+    assert "--out" in result.output

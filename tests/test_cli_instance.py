@@ -12,11 +12,15 @@ import typer
 from typer.testing import CliRunner
 
 from nexus.cache import clear_cache
-from nexus.cli import (
-    _pick_existing_oauth_app,
-    _print_generated_secret,
-    _print_secret_recovery_steps,
-    app,
+from nexus.cli import app
+from nexus.cli.oauth import (
+    pick_existing_oauth_app as _pick_existing_oauth_app,
+)
+from nexus.cli.oauth import (
+    print_generated_secret as _print_generated_secret,
+)
+from nexus.cli.oauth import (
+    print_secret_recovery_steps as _print_secret_recovery_steps,
 )
 from nexus.config.paths import NexusPaths
 from nexus.instances.models import InstanceMeta, InstanceSnapshot
@@ -311,9 +315,9 @@ def _setup_refresh_stubs(
         async def scan(self, url: str, token: str, sn_version: str) -> InstanceSnapshot:
             return _empty_snapshot()
 
-    monkeypatch.setattr("nexus.cli._acquire_token", fake_acquire)
-    monkeypatch.setattr("nexus.cli.PluginScanner", _FakePluginScanner)
-    monkeypatch.setattr("nexus.cli.InstanceScanner", _FakeInstanceScanner)
+    monkeypatch.setattr("nexus.cli.commands_instance._acquire_token", fake_acquire)
+    monkeypatch.setattr("nexus.cli.commands_instance.PluginScanner", _FakePluginScanner)
+    monkeypatch.setattr("nexus.cli.commands_instance.InstanceScanner", _FakeInstanceScanner)
 
 
 def test_instance_refresh_no_counts_flag_skips_count_capture(

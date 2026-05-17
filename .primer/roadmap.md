@@ -36,6 +36,21 @@
 - [ ] nexus setup command -- credential wizard, config write, initial sync
 - [ ] GitHubSync -- manifest fetch + template download
 - [ ] TemplateRegistry -- list and get from local cache
+- [ ] CLI adaptive list rendering -- TerminalCapabilities +
+      RenderContext + four-tier RenderProfile (RICH / BASIC /
+      LEGACY / PLAIN); single `--plain` flag; PagedTable +
+      pypager backend (RICH/BASIC only); nexus status Terminal
+      panel for discoverability
+      PRD: prd/PRD-001-cli-ux-wow-factor.md
+      Story: stories/2026.05.01-cli-paged-list-widget.md
+- [ ] CLI adaptive batch progress with weighted ETA --
+      BatchProgressProtocol with RichBatchProgress (RICH/BASIC)
+      and PlainBatchProgress (LEGACY/PLAIN); WeightedETAColumn +
+      EmaPriorStore (JSONL); single-item + batch bars driven by
+      ServiceNow's reported percent blended with EMA of
+      completed-item durations
+      PRD: prd/PRD-001-cli-ux-wow-factor.md
+      Story: stories/2026.05.02-cli-batch-progress-eta.md
 
 ## 2026.06 -- Assessment [planned]
 - [ ] RuleEngine + AssessmentReporter (consuming CaptureResult)

@@ -1,8 +1,8 @@
 # tests/test_cli_plugins_updates.py
-# Tests for the nexus plugins updates command.
+# Tests for the nexus plugins outdated command.
 # Author: Pierre Grothe
 # Date: 2026-05-11
-"""Tests for nexus plugins updates."""
+"""Tests for nexus plugins outdated."""
 
 import json
 from datetime import UTC, datetime
@@ -83,7 +83,7 @@ def runner(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> CliRunner:
     return CliRunner()
 
 
-def test_plugins_updates_renders_datatable_with_pending_updates(
+def test_plugins_outdated_renders_datatable_with_pending_updates(
     runner: CliRunner, tmp_path: Path
 ) -> None:
     _seed(
@@ -95,7 +95,7 @@ def test_plugins_updates_renders_datatable_with_pending_updates(
         ),
     )
     runner.invoke(app, ["instance", "use", "prod"])
-    result = runner.invoke(app, ["plugins", "updates"])
+    result = runner.invoke(app, ["plugins", "outdated"])
     assert result.exit_code == 0
     assert "com.acme.helper" in result.output
     assert "3.0.0" in result.output
@@ -103,7 +103,7 @@ def test_plugins_updates_renders_datatable_with_pending_updates(
     assert "com.acme.other" not in result.output
 
 
-def test_plugins_updates_prints_up_to_date_when_all_current(
+def test_plugins_outdated_prints_up_to_date_when_all_current(
     runner: CliRunner, tmp_path: Path
 ) -> None:
     _seed(
@@ -112,12 +112,12 @@ def test_plugins_updates_prints_up_to_date_when_all_current(
         (_info("com.acme.helper", version="3.1.0", latest_version="3.1.0"),),
     )
     runner.invoke(app, ["instance", "use", "prod"])
-    result = runner.invoke(app, ["plugins", "updates"])
+    result = runner.invoke(app, ["plugins", "outdated"])
     assert result.exit_code == 0
     assert "Up to date" in result.output
 
 
-def test_plugins_updates_writes_yaml_when_queue_flag_provided(
+def test_plugins_outdated_writes_yaml_when_queue_flag_provided(
     runner: CliRunner, tmp_path: Path
 ) -> None:
     _seed(
@@ -127,7 +127,7 @@ def test_plugins_updates_writes_yaml_when_queue_flag_provided(
     )
     runner.invoke(app, ["instance", "use", "prod"])
     out_file = tmp_path / "queue.yaml"
-    result = runner.invoke(app, ["plugins", "updates", "--queue", str(out_file)])
+    result = runner.invoke(app, ["plugins", "outdated", "--queue", str(out_file)])
     assert result.exit_code == 0
     payload = _yaml.safe_load(out_file.read_text(encoding="utf-8"))
     assert payload["instance"] == "prod"
@@ -139,7 +139,7 @@ def test_plugins_updates_writes_yaml_when_queue_flag_provided(
     assert update["latest_version"] == "3.1.0"
 
 
-def test_plugins_updates_does_not_write_yaml_when_queue_flag_omitted(
+def test_plugins_outdated_does_not_write_yaml_when_queue_flag_omitted(
     runner: CliRunner, tmp_path: Path
 ) -> None:
     _seed(
@@ -149,20 +149,20 @@ def test_plugins_updates_does_not_write_yaml_when_queue_flag_omitted(
     )
     runner.invoke(app, ["instance", "use", "prod"])
     cwd_before = list(tmp_path.iterdir())
-    runner.invoke(app, ["plugins", "updates"])
+    runner.invoke(app, ["plugins", "outdated"])
     cwd_after = list(tmp_path.iterdir())
     assert cwd_before == cwd_after
 
 
-def test_plugins_updates_warns_when_inventory_missing(runner: CliRunner, tmp_path: Path) -> None:
+def test_plugins_outdated_warns_when_inventory_missing(runner: CliRunner, tmp_path: Path) -> None:
     _seed(tmp_path, "prod", None)
     runner.invoke(app, ["instance", "use", "prod"])
-    result = runner.invoke(app, ["plugins", "updates"])
+    result = runner.invoke(app, ["plugins", "outdated"])
     assert result.exit_code != 0
     assert "nexus instance refresh" in result.output
 
 
-def test_plugins_updates_prints_pre_update_refresh_hint_when_queue_written(
+def test_plugins_outdated_prints_pre_update_refresh_hint_when_queue_written(
     runner: CliRunner, tmp_path: Path
 ) -> None:
     _seed(
@@ -172,38 +172,40 @@ def test_plugins_updates_prints_pre_update_refresh_hint_when_queue_written(
     )
     runner.invoke(app, ["instance", "use", "prod"])
     out_file = tmp_path / "queue.yaml"
-    result = runner.invoke(app, ["plugins", "updates", "--queue", str(out_file)])
+    result = runner.invoke(app, ["plugins", "outdated", "--queue", str(out_file)])
     assert "Before applying" in result.output
     assert "nexus instance refresh" in result.output
 
 
-def test_updates_emits_json_when_format_flag_provided(runner: CliRunner, tmp_path: Path) -> None:
+def test_outdated_emits_json_when_format_flag_provided(runner: CliRunner, tmp_path: Path) -> None:
     _seed(
         tmp_path,
         "prod",
         (_info("com.acme.helper", version="3.0.0", latest_version="3.1.0"),),
     )
     runner.invoke(app, ["instance", "use", "prod"])
-    result = runner.invoke(app, ["plugins", "updates", "--format", "json"])
+    result = runner.invoke(app, ["plugins", "outdated", "--format", "json"])
     assert result.exit_code == 0
     payload = json.loads(result.output.strip().split("\n")[-1])
     assert "updates" in payload
     assert payload["updates"][0]["plugin_id"] == "com.acme.helper"
 
 
-def test_updates_errors_on_unknown_format_value(runner: CliRunner, tmp_path: Path) -> None:
+def test_outdated_errors_on_unknown_format_value(runner: CliRunner, tmp_path: Path) -> None:
     _seed(
         tmp_path,
         "prod",
         (_info("com.acme.helper", version="3.0.0", latest_version="3.1.0"),),
     )
     runner.invoke(app, ["instance", "use", "prod"])
-    result = runner.invoke(app, ["plugins", "updates", "--format", "yaml"])
+    result = runner.invoke(app, ["plugins", "outdated", "--format", "yaml"])
     assert result.exit_code == 1
     assert "Unknown --format" in result.output
 
 
-def test_updates_queue_writes_empty_file_when_up_to_date(runner: CliRunner, tmp_path: Path) -> None:
+def test_outdated_queue_writes_empty_file_when_up_to_date(
+    runner: CliRunner, tmp_path: Path
+) -> None:
     """--queue must always produce a file -- empty updates list when up-to-date."""
     _seed(
         tmp_path,
@@ -212,7 +214,7 @@ def test_updates_queue_writes_empty_file_when_up_to_date(runner: CliRunner, tmp_
     )
     runner.invoke(app, ["instance", "use", "prod"])
     out_file = tmp_path / "empty-queue.yaml"
-    result = runner.invoke(app, ["plugins", "updates", "--queue", str(out_file)])
+    result = runner.invoke(app, ["plugins", "outdated", "--queue", str(out_file)])
     assert result.exit_code == 0
     assert out_file.exists()
     payload = _yaml.safe_load(out_file.read_text(encoding="utf-8"))
@@ -221,13 +223,13 @@ def test_updates_queue_writes_empty_file_when_up_to_date(runner: CliRunner, tmp_
     assert "empty-queue.yaml" in result.output
 
 
-def test_updates_warns_when_no_latest_version_data_captured(
+def test_outdated_warns_when_no_latest_version_data_captured(
     runner: CliRunner, tmp_path: Path
 ) -> None:
     """When every plugin lacks latest_version, surface the diagnostic Hint."""
     _seed(tmp_path, "prod", (_info("com.acme.helper", version="1.0.0"),))
     runner.invoke(app, ["instance", "use", "prod"])
-    result = runner.invoke(app, ["plugins", "updates"])
+    result = runner.invoke(app, ["plugins", "outdated"])
     assert result.exit_code == 0
     assert "No latest_version data captured" in result.output
     assert "app_store_pa_user_role" in result.output

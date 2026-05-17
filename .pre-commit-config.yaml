@@ -36,6 +36,12 @@ repos:
         types: [python]
         pass_filenames: false
         always_run: true
+      - id: file-size
+        name: File size limits (ADR-023)
+        entry: python scripts/check_file_sizes.py
+        language: system
+        pass_filenames: false
+        always_run: true
       - id: semgrep
         name: Semantic governance (semgrep)
         entry: semgrep --config .semgrep/rules.yml --error --quiet src/ tests/

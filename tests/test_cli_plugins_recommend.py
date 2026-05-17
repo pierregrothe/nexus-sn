@@ -89,7 +89,7 @@ def runner(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> CliRunner:
 
 def _patch_agent(monkeypatch: pytest.MonkeyPatch, fake: FakeAgentClient) -> None:
     """Replace _agent_client_factory with one returning fake."""
-    monkeypatch.setattr("nexus.cli._agent_client_factory", lambda: fake)
+    monkeypatch.setattr("nexus.cli.commands_plugins_analysis._agent_client_factory", lambda: fake)
 
 
 def _patch_token(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -103,7 +103,7 @@ def _patch_token(monkeypatch: pytest.MonkeyPatch) -> None:
         meta = registry.load(profile if profile else "prod")
         return registry, meta, "fake-token", datetime.now(UTC)
 
-    monkeypatch.setattr("nexus.cli._acquire_token", fake_acquire)
+    monkeypatch.setattr("nexus.cli.commands_plugins_analysis._acquire_token", fake_acquire)
 
 
 def _patch_token_and_transport(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -113,7 +113,10 @@ def _patch_token_and_transport(monkeypatch: pytest.MonkeyPatch) -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, json={"result": []})
 
-    monkeypatch.setattr("nexus.cli._impact_transport", lambda: httpx.MockTransport(handler))
+    monkeypatch.setattr(
+        "nexus.cli.commands_plugins_analysis._impact_transport",
+        lambda: httpx.MockTransport(handler),
+    )
 
 
 # ---------------------------------------------------------------------------

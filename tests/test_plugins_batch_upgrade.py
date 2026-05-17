@@ -228,3 +228,45 @@ async def test_batch_upgrade_empty_targets_returns_empty_report(console: Console
     assert report.target_count == 0
     assert report.results == ()
     assert report.exit_code == 0
+
+
+async def test_batch_upgrade_fires_start_progress_complete_callbacks(
+    console: Console,
+) -> None:
+    """The three optional callbacks fire in order for every plugin in the batch."""
+    client = FakeServiceNowClient()
+    for tracker in ("t-a", "t-b"):
+        client.queue_upgrade_response(_upgrade_kickoff(tracker))
+        client.set_progress_sequence(
+            tracker, [_progress("1", 50, tracker=tracker), _progress("2", 100, tracker=tracker)]
+        )
+    inv = _inventory(_info("com.acme.a"), _info("com.acme.b"))
+    executor = PluginExecutor(client=client, inventory=inv)
+
+    starts: list[tuple[int, str]] = []
+    progress_pcts: list[int] = []
+    completes: list[tuple[int, bool]] = []
+
+    def _start(idx: int, p: PluginInfo) -> None:
+        starts.append((idx, p.plugin_id))
+
+    def _on_progress(state: object) -> None:
+        from nexus.plugins.progress import ProgressState  # noqa: PLC0415
+
+        assert isinstance(state, ProgressState)
+        progress_pcts.append(state.percent_complete)
+
+    def _complete(idx: int, result: OperationResult) -> None:
+        completes.append((idx, result.success))
+
+    await executor.batch_upgrade(
+        inv.plugins,
+        families=(),
+        console=console,
+        on_plugin_start=_start,
+        on_plugin_progress=_on_progress,
+        on_plugin_complete=_complete,
+    )
+    assert starts == [(0, "com.acme.a"), (1, "com.acme.b")]
+    assert progress_pcts == [50, 100, 50, 100]
+    assert completes == [(0, True), (1, True)]

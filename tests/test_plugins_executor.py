@@ -210,6 +210,156 @@ async def test_upgrade_unknown_plugin_returns_failure(client: FakeServiceNowClie
 
 
 @pytest.mark.asyncio
+async def test_upgrade_returns_success_when_submit_raises_already_installed(
+    client: FakeServiceNowClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """SN can refuse at the submit phase with HTTP 400 'already installed'.
+
+    brew/apt convention: ``upgrade`` against an already-up-to-date package is
+    a silent no-op, not a failure.
+    """
+    inv = _inventory(_info("com.x"))
+
+    async def _raise_already_installed(
+        _self: object, _sys_id: str, _ver: str | None
+    ) -> dict[str, Any]:
+        raise RuntimeError("Application version is currently installed (Http Response: 400)")
+
+    monkeypatch.setattr(FakeServiceNowClient, "submit_upgrade", _raise_already_installed)
+
+    exe = PluginExecutor(client=client, inventory=inv)
+    result = await exe.upgrade("com.x", target_version="2.0")
+    assert result.success
+    assert result.action == "upgrade"
+    assert "Already at target version" in result.message
+    assert result.tracker_id == ""
+
+
+@pytest.mark.asyncio
+async def test_upgrade_returns_success_when_progress_reports_already_installed(
+    client: FakeServiceNowClient,
+) -> None:
+    """SN 'already installed' usually surfaces from the progress poll, not submit.
+
+    Real PDI behaviour: SN accepts the upgrade submission with HTTP 200 and a
+    tracker id, then the progress tracker terminates with status=3 and
+    error='Application version is currently installed (Http Response: 400)'.
+    Regression for the path the user actually hit during a family batch.
+    """
+    inv = _inventory(_info("com.x"))
+    client.queue_upgrade_response(_install_response("up-x"))
+    client.set_progress_sequence(
+        "up-x",
+        [
+            _progress(
+                "3",
+                100,
+                err="Application version is currently installed (Http Response: 400)",
+                tracker="up-x",
+            )
+        ],
+    )
+    exe = PluginExecutor(client=client, inventory=inv)
+    result = await exe.upgrade("com.x", target_version="2.0")
+    assert result.success
+    assert result.action == "upgrade"
+    assert "Already at target version" in result.message
+    assert result.tracker_id == "up-x"
+
+
+@pytest.mark.asyncio
+async def test_install_returns_success_when_progress_reports_already_installed(
+    client: FakeServiceNowClient,
+) -> None:
+    """Same 'already installed' coverage for install via the progress poll."""
+    inv = _inventory(_info("com.x"))
+    client.queue_install_response(_install_response("in-x"))
+    client.set_progress_sequence(
+        "in-x",
+        [
+            _progress(
+                "3",
+                100,
+                err="Application version is currently installed (Http Response: 400)",
+                tracker="in-x",
+            )
+        ],
+    )
+    exe = PluginExecutor(client=client, inventory=inv)
+    result = await exe.install("com.x", version="1.0")
+    assert result.success
+    assert result.action == "install"
+    assert "Already installed at target version" in result.message
+    assert result.tracker_id == "in-x"
+
+
+@pytest.mark.asyncio
+async def test_install_returns_success_when_sn_reports_already_installed(
+    client: FakeServiceNowClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Same idempotent semantics for install: re-installing the live version is a no-op."""
+    inv = _inventory(_info("com.x"))
+
+    async def _raise_already_installed(
+        _self: object, _sys_id: str, _ver: str | None
+    ) -> dict[str, Any]:
+        raise RuntimeError("Application version is currently installed (Http Response: 400)")
+
+    monkeypatch.setattr(FakeServiceNowClient, "submit_install", _raise_already_installed)
+
+    exe = PluginExecutor(client=client, inventory=inv)
+    result = await exe.install("com.x", version="1.0")
+    assert result.success
+    assert result.action == "install"
+    assert "Already installed" in result.message
+    assert result.tracker_id == ""
+
+
+@pytest.mark.asyncio
+async def test_upgrade_returns_failure_for_unrelated_400_error(
+    client: FakeServiceNowClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Other 400-class errors stay failures -- the already-installed match must be exact."""
+    inv = _inventory(_info("com.x"))
+
+    async def _raise_other(_self: object, _sys_id: str, _ver: str | None) -> dict[str, Any]:
+        raise RuntimeError("Unexpected HTTP 400: missing required parameter")
+
+    monkeypatch.setattr(FakeServiceNowClient, "submit_upgrade", _raise_other)
+
+    exe = PluginExecutor(client=client, inventory=inv)
+    result = await exe.upgrade("com.x", target_version="2.0")
+    assert not result.success
+    assert "missing required parameter" in result.message
+
+
+@pytest.mark.asyncio
+async def test_upgrade_returns_failure_when_progress_poll_raises_auth_error(
+    client: FakeServiceNowClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """SN 401 during progress poll becomes a per-plugin OperationResult, not a crash.
+
+    Regression: a long-running upgrade can outlive the OAuth token. When that
+    happens mid-poll, batch_upgrade must continue with the next plugin instead
+    of bubbling SNAuthError up and aborting the whole batch.
+    """
+    inv = _inventory(_info("com.x"))
+    client.queue_upgrade_response(_install_response("up-auth"))
+
+    async def _raise_auth(_self: object, _tracker_id: str) -> dict[str, Any]:
+        raise RuntimeError("Authentication failed: HTTP 401")
+
+    monkeypatch.setattr(FakeServiceNowClient, "fetch_progress", _raise_auth)
+
+    exe = PluginExecutor(client=client, inventory=inv)
+    result = await exe.upgrade("com.x", target_version="2.0")
+    assert not result.success
+    assert result.action == "upgrade"
+    assert result.tracker_id == "up-auth"
+    assert "401" in result.message
+
+
+@pytest.mark.asyncio
 async def test_apply_plan_executes_actions_in_stable_order(client: FakeServiceNowClient) -> None:
     inv = _inventory(_info("com.b", state="inactive"))
     plan = PromotionPlan(

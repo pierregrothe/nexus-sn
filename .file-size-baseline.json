@@ -1,0 +1,5 @@
+{
+  "version": "1",
+  "note": "Files grandfathered over the ADR-023 limit. Ratchet: each entry may shrink (auto-managed by maintainers) but never grow. Entries are removed when the file drops below its category limit.",
+  "files": {}
+}

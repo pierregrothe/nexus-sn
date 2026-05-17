@@ -18,7 +18,7 @@ from rich.console import Console, ConsoleOptions, RenderableType, RenderResult
 from rich.table import Table
 from rich.text import Text
 
-from nexus.ui.gradient_panel import GradientPanel, gradient_text
+from nexus.ui.gradient_panel import GradientPanel
 from nexus.ui.theme import SN_BLUE, SN_LIME
 
 __all__ = ["KeyValuePanel", "KvRow", "two_col"]
@@ -99,7 +99,7 @@ class KeyValuePanel(BaseModel):
         out = Text()
         for i, row in enumerate(self.rows):
             label_str = f"{row.label}:"
-            out.append_text(gradient_text(label_str, start=SN_BLUE, end=SN_LIME))
+            out.append(label_str, style="bold bright_white")
             out.append(" " * (pad - len(label_str)))
             if isinstance(row.value, str):
                 out.append(row.value, style="value")

@@ -15,7 +15,7 @@ from rich.console import Console, ConsoleOptions, RenderResult
 from rich.table import Table
 from rich.text import Text
 
-from nexus.ui.gradient_panel import GradientPanel, gradient_text
+from nexus.ui.gradient_panel import GradientPanel
 from nexus.ui.theme import SN_BLUE, SN_LIME
 
 __all__ = ["CommandHelp", "CommandHelpEntry"]
@@ -69,11 +69,11 @@ class CommandHelp(BaseModel):
         body.add_column(width=10, no_wrap=True)
         body.add_column(overflow="fold")
         body.add_row(
-            gradient_text("Purpose:  ", start=SN_BLUE, end=SN_LIME),
+            Text("Purpose:  ", style="bold bright_white"),
             Text(self.entry.purpose, style="value"),
         )
         body.add_row(
-            gradient_text("Example:  ", start=SN_BLUE, end=SN_LIME),
+            Text("Example:  ", style="bold bright_white"),
             Text(self.entry.example, style="value"),
         )
         yield GradientPanel(

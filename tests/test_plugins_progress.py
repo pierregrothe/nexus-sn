@@ -51,6 +51,53 @@ async def test_poller_raises_on_failed_status() -> None:
 
 
 @pytest.mark.asyncio
+async def test_poll_invokes_on_progress_for_every_snapshot() -> None:
+    """The on_progress callback fires once per poll (intermediate and terminal)."""
+    client = FakeServiceNowClient()
+    client.set_progress_sequence("t1", [_raw("1", 25), _raw("1", 60), _raw("2", 100)])
+    poller = ProgressPoller(client, poll_interval_s=0.01, timeout_s=2.0)
+    snapshots: list[tuple[int, str]] = []
+
+    def _cb(state: object) -> None:
+        from nexus.plugins.progress import ProgressState  # noqa: PLC0415
+
+        assert isinstance(state, ProgressState)
+        snapshots.append((state.percent_complete, state.status))
+
+    await poller.poll("t1", on_progress=_cb)
+    assert snapshots == [(25, "1"), (60, "1"), (100, "2")]
+
+
+@pytest.mark.asyncio
+async def test_poll_without_on_progress_still_succeeds() -> None:
+    """Omitting the callback is a no-op -- poller behaves as before."""
+    client = FakeServiceNowClient()
+    client.set_progress_sequence("t1", [_raw("1", 50), _raw("2", 100)])
+    poller = ProgressPoller(client, poll_interval_s=0.01, timeout_s=2.0)
+    final = await poller.poll("t1")
+    assert final.is_success
+
+
+@pytest.mark.asyncio
+async def test_poll_invokes_on_progress_before_raising_on_failure() -> None:
+    """on_progress sees the failed snapshot before PluginProgressError is raised."""
+    client = FakeServiceNowClient()
+    client.set_progress_sequence("t1", [_raw("1", 30), _raw("3", 30, err="boom")])
+    poller = ProgressPoller(client, poll_interval_s=0.01, timeout_s=2.0)
+    seen: list[str] = []
+
+    def _cb(state: object) -> None:
+        from nexus.plugins.progress import ProgressState  # noqa: PLC0415
+
+        assert isinstance(state, ProgressState)
+        seen.append(state.status)
+
+    with pytest.raises(PluginProgressError):
+        await poller.poll("t1", on_progress=_cb)
+    assert seen == ["1", "3"]
+
+
+@pytest.mark.asyncio
 async def test_poller_raises_on_timeout() -> None:
     client = FakeServiceNowClient()
     # Many "still in progress" responses -- exceeds timeout

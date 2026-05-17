@@ -60,6 +60,18 @@
 "com.sn_grc":                          GRC
 "com.snc.audit":                       GRC
 "com.snc.policy_compliance":           GRC
+"sn_bcm":                              GRC
+"sn_bcm_business_continuity":          GRC
+"sn_bcm_business_impact_analysis":     GRC
+"sn_bcm_crisis_management":            GRC
+"sn_compliance":                       GRC
+"sn_vrm":                              GRC
+"sn_vendor_risk_management":           GRC
+"sn_tprm":                             GRC
+"sn_third_party_risk_management":      GRC
+"sn_privacy_management":               GRC
+"sn_esg":                              GRC
+"sn_continual_improvement":            GRC
 
 # IRM
 "sn_irm_core":                         IRM
@@ -68,8 +80,12 @@
 
 # SecOps
 "sn_si":                               SecOps
+"sn_si_core":                          SecOps
+"sn_sec_cmn":                          SecOps
 "sn_vul":                              SecOps
+"sn_vul_core":                         SecOps
 "sn_ti":                               SecOps
+"sn_ti_core":                          SecOps
 "com.snc.threat_intelligence":         SecOps
 
 # Platform
@@ -80,3 +96,10 @@
 "com.snc.virtualagent":                Platform
 "com.snc.ai_search":                   Platform
 "com.snc.now_assist":                  Platform
+"sn_app_engine":                       Platform
+"sn_now_mobile":                       Platform
+"sn_predictive_intelligence":          Platform
+"sn_ms_teams":                         Platform
+"sn_employee_center":                  Platform
+"sn_process_mining":                   Platform
+"sn_platform_analytics":               Platform

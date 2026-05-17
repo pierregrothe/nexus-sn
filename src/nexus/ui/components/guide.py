@@ -15,7 +15,7 @@ from rich.console import Console, ConsoleOptions, Group, RenderResult
 from rich.table import Table
 from rich.text import Text
 
-from nexus.ui.gradient_panel import GradientPanel, gradient_text
+from nexus.ui.gradient_panel import GradientPanel
 from nexus.ui.theme import SN_BLUE, SN_LIME
 
 __all__ = ["CommandGuide"]
@@ -26,13 +26,18 @@ class CommandGuide(BaseModel):
 
     Attributes:
         app_name: The fully-qualified Typer app path (e.g. ``"nexus instance"``).
+            Used as the command prefix in each row.
         items: ``(subcommand, description)`` pairs in render order.
+        title: Optional override for the panel title. Defaults to ``app_name``.
+            Pass a different string (e.g. ``"available commands"``) to keep
+            two adjacent panels visually distinct.
     """
 
     model_config = ConfigDict(frozen=True, strict=True, extra="forbid")
 
     app_name: str
     items: list[tuple[str, str]]
+    title: str | None = None
 
     def __rich_console__(self, console: Console, options: ConsoleOptions) -> RenderResult:
         """Yield the GradientPanel-wrapped guide and its dim footer.
@@ -56,16 +61,12 @@ class CommandGuide(BaseModel):
         table.add_column("cmd", no_wrap=True, ratio=2, overflow="fold")
         table.add_column("desc", style="value", ratio=3, overflow="fold")
         for cmd, desc in self.items:
-            cmd_text = gradient_text(
-                f"{self.app_name} {cmd}",
-                start=SN_BLUE,
-                end=SN_LIME,
-            )
-            cmd_text.stylize("bold")
+            cmd_text = Text(f"{self.app_name} {cmd}", style="bold bright_white")
             table.add_row(cmd_text, desc)
+        panel_title = self.title if self.title is not None else self.app_name
         panel = GradientPanel(
             table,
-            title=self.app_name,
+            title=panel_title,
             start=SN_BLUE,
             end=SN_LIME,
         )

@@ -104,9 +104,9 @@ def test_advisories_renders_three_sections_when_findings_in_each(
     runner.invoke(app, ["instance", "use", "prod"])
     result = runner.invoke(app, ["plugins", "advisories"])
     assert result.exit_code == 0
-    assert "EOL" in result.output
-    assert "CVE" in result.output
-    assert "License" in result.output
+    assert "eol" in result.output
+    assert "cve" in result.output
+    assert "license" in result.output
     assert "advisory finding" in result.output
 
 
@@ -197,7 +197,9 @@ def test_advisories_errors_when_data_files_corrupted(
     def _raise_load() -> object:
         raise PluginAdvisoryDataError("simulated corruption")
 
-    monkeypatch.setattr("nexus.cli.AdvisoryDatabase.load", staticmethod(_raise_load))
+    monkeypatch.setattr(
+        "nexus.cli.commands_plugins_advisories.AdvisoryDatabase.load", staticmethod(_raise_load)
+    )
     runner.invoke(app, ["instance", "use", "prod"])
     result = runner.invoke(app, ["plugins", "advisories"])
     assert result.exit_code == 1

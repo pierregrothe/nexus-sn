@@ -270,10 +270,10 @@ def test_info_errors_on_unknown_format_value(runner: CliRunner, tmp_path: Path) 
 def test_bare_leaf_invocation_runs_against_default_instance(
     runner: CliRunner, tmp_path: Path
 ) -> None:
-    """`nexus plugins updates` (no args) runs the command against the default instance."""
+    """`nexus plugins outdated` (no args) runs the command against the default instance."""
     _seed(tmp_path, "prod", (_info("com.x"),))
     runner.invoke(app, ["instance", "use", "prod"])
-    result = runner.invoke(app, ["plugins", "updates"])
+    result = runner.invoke(app, ["plugins", "outdated"])
     assert result.exit_code == 0
     # Body ran (seeded inventory has no latest_version data -> diagnostic Hint):
     assert "No latest_version data captured" in result.output

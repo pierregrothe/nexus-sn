@@ -20,6 +20,7 @@ from nexus.plugins.baselines import validate_baseline_name
 from nexus.plugins.errors import BaselineNotFoundError
 from nexus.plugins.models import PluginInventory
 from nexus.plugins.overrides import AdvisoryOverrideSet
+from nexus.plugins.product_families import refresh_product_families
 
 log = logging.getLogger(__name__)
 
@@ -244,10 +245,11 @@ class InstanceRegistry:
         if not file_path.exists():
             return None
         try:
-            return PluginInventory.model_validate_json(file_path.read_text(encoding="utf-8"))
+            inventory = PluginInventory.model_validate_json(file_path.read_text(encoding="utf-8"))
         except ValidationError:
             log.warning("%s schema outdated for profile=%s -- %s", filename, profile, refresh_hint)
             return None
+        return refresh_product_families(inventory)
 
     def save_plugin_baseline(self, profile: str, name: str, inventory: PluginInventory) -> None:
         """Atomically write a named baseline file under baselines/.

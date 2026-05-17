@@ -15,6 +15,8 @@ from nexus.capabilities.status_reporter import (
     _humanize_bytes,
 )
 from nexus.capabilities.tier import Tier, TierDetection
+from nexus.ui.capabilities import ColorDepth, RenderProfile, TerminalCapabilities
+from nexus.ui.render_context import RenderContext
 from nexus.ui.theme import NEXUS_THEME
 
 
@@ -171,3 +173,61 @@ def test_humanize_age_covers_all_buckets() -> None:
     assert _humanize_age(120) == "2 minutes ago"
     assert _humanize_age(7200).endswith("hours ago")
     assert _humanize_age(2 * 86400).endswith("days ago")
+
+
+def _render_with_context(profile: RenderProfile, *, term_program: str = "WindowsTerminal") -> str:
+    detection = _detection(tier=Tier.PRO, detected=frozenset(), reauth=frozenset())
+    capabilities = CapabilitySet.from_detection(detection)
+    caps = TerminalCapabilities(
+        is_tty=True,
+        is_ci=False,
+        color_depth=ColorDepth.TRUECOLOR,
+        cols=120,
+        rows=40,
+        legacy_windows=False,
+        term_program=term_program,
+        is_dumb_terminal=False,
+        is_multiplexer=False,
+        no_color_env=False,
+        forced_plain=False,
+        supports_hyperlinks=True,
+    )
+    console = Console(record=True, width=120, force_terminal=False, theme=NEXUS_THEME)
+    render_ctx = RenderContext(console=console, caps=caps, profile=profile)
+    StatusReporter(console=console).print(detection, capabilities, render_context=render_ctx)
+    return console.export_text()
+
+
+def test_status_reporter_terminal_panel_renders_profile_name() -> None:
+    out = _render_with_context(RenderProfile.RICH)
+    assert "Terminal" in out
+    assert "RICH" in out
+
+
+def test_status_reporter_terminal_panel_shows_pypager_for_rich() -> None:
+    out = _render_with_context(RenderProfile.RICH)
+    assert "pypager" in out
+
+
+def test_status_reporter_terminal_panel_shows_inline_for_plain() -> None:
+    out = _render_with_context(RenderProfile.PLAIN)
+    assert "inline" in out
+
+
+def test_status_reporter_terminal_panel_shows_color_and_size() -> None:
+    out = _render_with_context(RenderProfile.RICH)
+    assert "TRUECOLOR" in out
+    assert "120x40" in out
+
+
+def test_status_reporter_terminal_panel_falls_back_when_term_program_empty() -> None:
+    out = _render_with_context(RenderProfile.RICH, term_program="")
+    assert "default" in out
+
+
+def test_status_reporter_without_render_context_omits_terminal_panel() -> None:
+    detection = _detection(tier=Tier.PRO, detected=frozenset(), reauth=frozenset())
+    capabilities = CapabilitySet.from_detection(detection)
+    console = Console(record=True, width=120, force_terminal=False, theme=NEXUS_THEME)
+    StatusReporter(console=console).print(detection, capabilities)
+    assert "Terminal" not in console.export_text()

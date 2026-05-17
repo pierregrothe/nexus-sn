@@ -107,14 +107,17 @@ def _patch_token_and_stats(
         meta = registry.load(profile if profile else "prod")
         return registry, meta, "fake-token", datetime.now(UTC)
 
-    monkeypatch.setattr("nexus.cli._acquire_token", fake_acquire)
+    monkeypatch.setattr("nexus.cli.commands_plugins_analysis._acquire_token", fake_acquire)
 
     payload = stats_payload if stats_payload is not None else _ok_stats_payload()
 
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(stats_status, json=payload)
 
-    monkeypatch.setattr("nexus.cli._impact_transport", lambda: httpx.MockTransport(handler))
+    monkeypatch.setattr(
+        "nexus.cli.commands_plugins_analysis._impact_transport",
+        lambda: httpx.MockTransport(handler),
+    )
 
 
 def test_impact_renders_reverse_deps_and_counts_tables(
@@ -235,7 +238,7 @@ def test_plugins_impact_default_uses_cache(
         return httpx.Response(200, json={"result": []})
 
     transport = httpx.MockTransport(handler)
-    monkeypatch.setattr("nexus.cli._impact_transport", lambda: transport)
+    monkeypatch.setattr("nexus.cli.commands_plugins_analysis._impact_transport", lambda: transport)
 
     cached_info = _info("com.target").model_copy(
         update={"record_counts": (ScopeRecordCount(table="sys_script", count=42),)}
@@ -248,7 +251,7 @@ def test_plugins_impact_default_uses_cache(
         meta = registry.load(profile if profile else "dev")
         return registry, meta, "t", datetime.now(UTC)
 
-    monkeypatch.setattr("nexus.cli._acquire_token", fake_acquire)
+    monkeypatch.setattr("nexus.cli.commands_plugins_analysis._acquire_token", fake_acquire)
 
     result = runner.invoke(app, ["plugins", "impact", "com.target", "--instance", "dev"])
     assert result.exit_code == 0
@@ -280,7 +283,7 @@ def test_plugins_impact_live_flag_passes_through(
         return httpx.Response(200, json={"result": []})
 
     transport = httpx.MockTransport(handler)
-    monkeypatch.setattr("nexus.cli._impact_transport", lambda: transport)
+    monkeypatch.setattr("nexus.cli.commands_plugins_analysis._impact_transport", lambda: transport)
 
     cached_info = _info("com.target").model_copy(
         update={"record_counts": (ScopeRecordCount(table="sys_script", count=1),)}
@@ -293,7 +296,7 @@ def test_plugins_impact_live_flag_passes_through(
         meta = registry.load(profile if profile else "dev")
         return registry, meta, "t", datetime.now(UTC)
 
-    monkeypatch.setattr("nexus.cli._acquire_token", fake_acquire)
+    monkeypatch.setattr("nexus.cli.commands_plugins_analysis._acquire_token", fake_acquire)
 
     result = runner.invoke(app, ["plugins", "impact", "com.target", "--instance", "dev", "--live"])
     assert result.exit_code == 0
@@ -325,7 +328,10 @@ def _cross_scope_transport(monkeypatch: pytest.MonkeyPatch) -> None:
             return httpx.Response(200, json={"result": []})
         return httpx.Response(200, json={"result": []})
 
-    monkeypatch.setattr("nexus.cli._impact_transport", lambda: httpx.MockTransport(handler))
+    monkeypatch.setattr(
+        "nexus.cli.commands_plugins_analysis._impact_transport",
+        lambda: httpx.MockTransport(handler),
+    )
 
 
 def _fake_acquire(profile: str) -> tuple[InstanceRegistry, InstanceMeta, str, datetime]:
@@ -341,7 +347,7 @@ def test_impact_renders_cross_scope_refs_table_when_refs_exist(
     _seed(tmp_path, "prod", (_info("com.target"),))
     runner.invoke(app, ["instance", "use", "prod"])
     _cross_scope_transport(monkeypatch)
-    monkeypatch.setattr("nexus.cli._acquire_token", _fake_acquire)
+    monkeypatch.setattr("nexus.cli.commands_plugins_analysis._acquire_token", _fake_acquire)
     result = runner.invoke(app, ["plugins", "impact", "com.target"])
     assert result.exit_code == 0
     assert "Cross-scope references" in result.output
@@ -355,7 +361,7 @@ def test_impact_no_cross_scope_flag_omits_refs_table(
     _seed(tmp_path, "prod", (_info("com.target"),))
     runner.invoke(app, ["instance", "use", "prod"])
     _cross_scope_transport(monkeypatch)
-    monkeypatch.setattr("nexus.cli._acquire_token", _fake_acquire)
+    monkeypatch.setattr("nexus.cli.commands_plugins_analysis._acquire_token", _fake_acquire)
     result = runner.invoke(app, ["plugins", "impact", "com.target", "--no-cross-scope"])
     assert result.exit_code == 0
     assert "Cross-scope references" not in result.output
@@ -367,7 +373,7 @@ def test_impact_summary_includes_cross_scope_count_when_refs_exist(
     _seed(tmp_path, "prod", (_info("com.target"),))
     runner.invoke(app, ["instance", "use", "prod"])
     _cross_scope_transport(monkeypatch)
-    monkeypatch.setattr("nexus.cli._acquire_token", _fake_acquire)
+    monkeypatch.setattr("nexus.cli.commands_plugins_analysis._acquire_token", _fake_acquire)
     result = runner.invoke(app, ["plugins", "impact", "com.target"])
     assert result.exit_code == 0
     assert "cross-scope refs" in result.output
@@ -385,8 +391,11 @@ def test_impact_warns_when_cross_scope_unavailable_and_not_opted_out(
             return httpx.Response(200, json={"result": []})
         return httpx.Response(200, json={"result": []})
 
-    monkeypatch.setattr("nexus.cli._impact_transport", lambda: httpx.MockTransport(handler))
-    monkeypatch.setattr("nexus.cli._acquire_token", _fake_acquire)
+    monkeypatch.setattr(
+        "nexus.cli.commands_plugins_analysis._impact_transport",
+        lambda: httpx.MockTransport(handler),
+    )
+    monkeypatch.setattr("nexus.cli.commands_plugins_analysis._acquire_token", _fake_acquire)
     _seed(tmp_path, "prod", (_info("com.target"),))
     runner.invoke(app, ["instance", "use", "prod"])
     result = runner.invoke(app, ["plugins", "impact", "com.target"])
@@ -401,7 +410,7 @@ def test_impact_announces_skip_when_no_cross_scope_flag_used(
     _seed(tmp_path, "prod", (_info("com.target"),))
     runner.invoke(app, ["instance", "use", "prod"])
     _cross_scope_transport(monkeypatch)
-    monkeypatch.setattr("nexus.cli._acquire_token", _fake_acquire)
+    monkeypatch.setattr("nexus.cli.commands_plugins_analysis._acquire_token", _fake_acquire)
     result = runner.invoke(app, ["plugins", "impact", "com.target", "--no-cross-scope"])
     assert result.exit_code == 0
     assert "Cross-scope scan skipped" in result.output
@@ -415,8 +424,11 @@ def test_impact_reports_no_inbound_refs_when_scan_succeeds_with_empty_result(
     def handler(req: httpx.Request) -> httpx.Response:
         return httpx.Response(200, json={"result": []})
 
-    monkeypatch.setattr("nexus.cli._impact_transport", lambda: httpx.MockTransport(handler))
-    monkeypatch.setattr("nexus.cli._acquire_token", _fake_acquire)
+    monkeypatch.setattr(
+        "nexus.cli.commands_plugins_analysis._impact_transport",
+        lambda: httpx.MockTransport(handler),
+    )
+    monkeypatch.setattr("nexus.cli.commands_plugins_analysis._acquire_token", _fake_acquire)
     _seed(tmp_path, "prod", (_info("com.target"),))
     runner.invoke(app, ["instance", "use", "prod"])
     result = runner.invoke(app, ["plugins", "impact", "com.target"])

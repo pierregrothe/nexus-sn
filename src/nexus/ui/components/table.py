@@ -18,7 +18,7 @@ from rich.console import Console, ConsoleOptions, RenderableType, RenderResult
 from rich.table import Table
 from rich.text import Text
 
-from nexus.ui.gradient_panel import GradientPanel, gradient_text
+from nexus.ui.gradient_panel import GradientPanel
 from nexus.ui.theme import SN_BLUE, SN_LIME
 
 __all__ = ["DataColumn", "DataTable"]
@@ -108,7 +108,7 @@ class DataTable(BaseModel):
             expand=True,
         )
         for col in self.columns:
-            header = gradient_text(col.header, start=SN_BLUE, end=SN_LIME)
+            header = Text(col.header, style="bold bright_white")
             table.add_column(
                 header=header,
                 width=col.width,

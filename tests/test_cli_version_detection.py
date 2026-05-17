@@ -5,7 +5,7 @@
 
 """Tests for parsing SN /stats.do as a buildtag fallback."""
 
-from nexus.cli import _parse_stats_do
+from nexus.cli.auth import parse_stats_do as _parse_stats_do
 
 __all__: list[str] = []
 
