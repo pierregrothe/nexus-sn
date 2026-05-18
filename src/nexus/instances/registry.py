@@ -8,6 +8,7 @@ import json
 import logging
 import shutil
 import tempfile
+from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
 
@@ -24,7 +25,41 @@ from nexus.plugins.product_families import refresh_product_families
 
 log = logging.getLogger(__name__)
 
-__all__ = ["InstanceRegistry"]
+__all__ = ["CorruptedProfile", "InstanceRegistry", "ScanResult"]
+
+
+@dataclass(frozen=True, slots=True)
+class CorruptedProfile:
+    """A profile directory whose ``meta.json`` is missing or unreadable.
+
+    Attributes:
+        path: Filesystem path. Points at the offending ``meta.json``
+            when the file exists but cannot be parsed; points at the
+            profile directory when ``meta.json`` is missing entirely.
+        reason: One-line description of why the entry could not be
+            loaded. Never contains file contents -- only the exception
+            class name plus the offending field locator.
+    """
+
+    path: Path
+    reason: str
+
+
+@dataclass(frozen=True, slots=True)
+class ScanResult:
+    """Output of ``InstanceRegistry.scan_profile_dirs``.
+
+    Attributes:
+        valid: All profiles that loaded as ``InstanceMeta``, sorted
+            ascending by profile name.
+        corrupted: Profile dirs that could not be loaded, with their
+            offending paths and reasons. Empty when the registry is
+            healthy.
+    """
+
+    valid: tuple[InstanceMeta, ...]
+    corrupted: tuple[CorruptedProfile, ...]
+
 
 _META = "meta.json"
 _SNAPSHOT = "snapshot.json"
@@ -119,6 +154,51 @@ class InstanceRegistry:
             except OSError, ValueError, ValidationError:
                 log.warning("skipping malformed meta.json: %s", meta_file)
         return profiles
+
+    def scan_profile_dirs(self) -> ScanResult:
+        """Return a ``ScanResult`` partitioning profile dirs into valid + corrupted.
+
+        Unlike ``list_all`` (which silently drops unreadable entries),
+        ``scan_profile_dirs`` surfaces malformed profile dirs in
+        ``ScanResult.corrupted`` so callers like ``nexus setup`` can show
+        an actionable error instead of mistaking corruption for an empty
+        registry.
+
+        Returns:
+            ScanResult with ``valid`` sorted by profile name and
+            ``corrupted`` carrying ``CorruptedProfile`` entries for every
+            directory whose ``meta.json`` is missing, unreadable, or
+            fails schema validation. Returns an empty ScanResult when
+            the root directory does not exist.
+        """
+        if not self._root.exists():
+            return ScanResult(valid=(), corrupted=())
+        valid: list[InstanceMeta] = []
+        corrupted: list[CorruptedProfile] = []
+        for entry in sorted(self._root.iterdir()):
+            if not entry.is_dir():
+                continue
+            meta_file = entry / _META
+            if not meta_file.exists():
+                corrupted.append(CorruptedProfile(path=entry, reason="missing meta.json"))
+                continue
+            try:
+                text = meta_file.read_text(encoding="utf-8")
+            except OSError as exc:
+                corrupted.append(
+                    CorruptedProfile(path=meta_file, reason=f"read error: {type(exc).__name__}")
+                )
+                continue
+            try:
+                meta = InstanceMeta.model_validate_json(text)
+            except ValidationError as exc:
+                corrupted.append(
+                    CorruptedProfile(path=meta_file, reason=_summarize_validation_error(exc))
+                )
+                continue
+            valid.append(meta)
+        valid.sort(key=lambda m: m.profile)
+        return ScanResult(valid=tuple(valid), corrupted=tuple(corrupted))
 
     def load_snapshot(self, profile: str) -> InstanceSnapshot | None:
         """Read snapshot.json for a profile if it exists.
@@ -448,3 +528,31 @@ class InstanceRegistry:
 
     def _dir(self, profile: str) -> Path:
         return self._root / profile
+
+
+def _summarize_validation_error(exc: ValidationError) -> str:
+    """Return a one-line, file-content-free summary of a Pydantic error.
+
+    Pulls the first error from ``exc.errors()`` and renders it as
+    ``"schema: <loc> (<type>)"`` or ``"invalid JSON"`` when the
+    underlying error is a JSON parse failure.
+
+    Args:
+        exc: ValidationError raised by ``InstanceMeta.model_validate_json``.
+
+    Returns:
+        Short reason string suitable for ``CorruptedProfile.reason``.
+        Never contains the validated payload.
+    """
+    errors = exc.errors()
+    if (
+        not errors
+    ):  # pragma: no cover -- defensive; ValidationError always carries at least one entry
+        return "schema: unknown"
+    first = errors[0]
+    err_type = str(first.get("type", "unknown"))
+    if err_type == "json_invalid":
+        return "invalid JSON"
+    loc_parts = first.get("loc", ()) or ()
+    loc = ".".join(str(p) for p in loc_parts) or "(root)"
+    return f"schema: {loc} ({err_type})"

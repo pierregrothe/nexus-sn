@@ -10,10 +10,11 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
+from pydantic import ValidationError
 
 from nexus.instances.errors import InstanceNotFoundError
 from nexus.instances.models import ArtifactRecord, InstanceMeta, InstanceSnapshot
-from nexus.instances.registry import InstanceRegistry
+from nexus.instances.registry import InstanceRegistry, _summarize_validation_error
 from nexus.plugins.errors import BaselineNotFoundError
 from nexus.plugins.models import PluginInfo, PluginInventory
 
@@ -459,3 +460,139 @@ def test_load_advisory_overrides_raises_when_profile_missing(tmp_path: Path) -> 
     registry = InstanceRegistry(tmp_path)
     with pytest.raises(InstanceNotFoundError):
         registry.load_advisory_overrides("nonexistent")
+
+
+def test_scan_profile_dirs_returns_empty_when_root_missing(tmp_path: Path) -> None:
+    missing = tmp_path / "does-not-exist"
+    registry = InstanceRegistry(missing)
+    result = registry.scan_profile_dirs()
+    assert result.valid == ()
+    assert result.corrupted == ()
+
+
+def test_scan_profile_dirs_returns_empty_when_root_has_no_profiles(
+    tmp_path: Path,
+) -> None:
+    registry = InstanceRegistry(tmp_path)
+    result = registry.scan_profile_dirs()
+    assert result.valid == ()
+    assert result.corrupted == ()
+
+
+def test_scan_profile_dirs_returns_valid_profiles_sorted_by_name(tmp_path: Path) -> None:
+    registry = InstanceRegistry(tmp_path)
+    registry.register(_meta("zeta"))
+    registry.register(_meta("alpha"))
+    registry.register(_meta("middle"))
+    result = registry.scan_profile_dirs()
+    assert [m.profile for m in result.valid] == ["alpha", "middle", "zeta"]
+    assert result.corrupted == ()
+
+
+def test_scan_profile_dirs_reports_missing_meta_json(tmp_path: Path) -> None:
+    (tmp_path / "orphan").mkdir()
+    registry = InstanceRegistry(tmp_path)
+    result = registry.scan_profile_dirs()
+    assert result.valid == ()
+    assert len(result.corrupted) == 1
+    entry = result.corrupted[0]
+    assert entry.path == tmp_path / "orphan"
+    assert entry.reason == "missing meta.json"
+
+
+def test_scan_profile_dirs_reports_invalid_json(tmp_path: Path) -> None:
+    profile_dir = tmp_path / "broken"
+    profile_dir.mkdir()
+    (profile_dir / "meta.json").write_text("{ not valid json", encoding="utf-8")
+    registry = InstanceRegistry(tmp_path)
+    result = registry.scan_profile_dirs()
+    assert result.valid == ()
+    assert len(result.corrupted) == 1
+    entry = result.corrupted[0]
+    assert entry.path == profile_dir / "meta.json"
+    assert entry.reason == "invalid JSON"
+
+
+def test_scan_profile_dirs_reports_schema_violation_with_field_locator(
+    tmp_path: Path,
+) -> None:
+    profile_dir = tmp_path / "schema-bad"
+    profile_dir.mkdir()
+    (profile_dir / "meta.json").write_text(
+        '{"profile": "schema-bad", "url": "https://x"}', encoding="utf-8"
+    )
+    registry = InstanceRegistry(tmp_path)
+    result = registry.scan_profile_dirs()
+    assert result.valid == ()
+    assert len(result.corrupted) == 1
+    reason = result.corrupted[0].reason
+    assert reason.startswith("schema: ")
+    assert "username" in reason or "client_id" in reason or "missing" in reason
+
+
+def test_scan_profile_dirs_partitions_valid_and_corrupted_together(
+    tmp_path: Path,
+) -> None:
+    registry = InstanceRegistry(tmp_path)
+    registry.register(_meta("prod"))
+    registry.register(_meta("dev"))
+    bad = tmp_path / "broken"
+    bad.mkdir()
+    (bad / "meta.json").write_text("{ malformed", encoding="utf-8")
+    result = registry.scan_profile_dirs()
+    assert [m.profile for m in result.valid] == ["dev", "prod"]
+    assert len(result.corrupted) == 1
+    assert result.corrupted[0].path == bad / "meta.json"
+
+
+def test_scan_profile_dirs_skips_non_directory_entries(tmp_path: Path) -> None:
+    registry = InstanceRegistry(tmp_path)
+    registry.register(_meta("prod"))
+    (tmp_path / "stray-file.txt").write_text("ignored", encoding="utf-8")
+    result = registry.scan_profile_dirs()
+    assert [m.profile for m in result.valid] == ["prod"]
+    assert result.corrupted == ()
+
+
+def test_list_all_unchanged_when_corrupted_profile_present(tmp_path: Path) -> None:
+    """AC5: list_all must keep its silent-skip behavior."""
+    registry = InstanceRegistry(tmp_path)
+    registry.register(_meta("prod"))
+    bad = tmp_path / "broken"
+    bad.mkdir()
+    (bad / "meta.json").write_text("{ bad", encoding="utf-8")
+    profiles = registry.list_all()
+    assert [m.profile for m in profiles] == ["prod"]
+
+
+def test_scan_profile_dirs_reports_read_error_when_meta_is_a_directory(
+    tmp_path: Path,
+) -> None:
+    """meta.json existing as a directory triggers read_text -> OSError."""
+    profile_dir = tmp_path / "weird"
+    profile_dir.mkdir()
+    (profile_dir / "meta.json").mkdir()
+    registry = InstanceRegistry(tmp_path)
+    result = registry.scan_profile_dirs()
+    assert result.valid == ()
+    assert len(result.corrupted) == 1
+    entry = result.corrupted[0]
+    assert entry.path == profile_dir / "meta.json"
+    assert entry.reason.startswith("read error: ")
+
+
+def test_summarize_validation_error_returns_invalid_json_for_parse_failure() -> None:
+    """Parse failures route through the json_invalid branch."""
+    with pytest.raises(ValidationError) as excinfo:
+        InstanceMeta.model_validate_json("{ not json")
+    assert _summarize_validation_error(excinfo.value) == "invalid JSON"
+
+
+def test_summarize_validation_error_renders_loc_for_schema_violation() -> None:
+    """Missing-field errors emit a 'schema: <loc> (<type>)' summary."""
+    with pytest.raises(ValidationError) as excinfo:
+        InstanceMeta.model_validate_json('{"profile": "p"}')
+    reason = _summarize_validation_error(excinfo.value)
+    assert reason.startswith("schema: ")
+    assert reason.endswith(")")
+    assert "(" in reason

@@ -34,7 +34,14 @@ phases:
   2026.05-setup-sync:
     status: active
     items:
-      nexus-setup-command: ready
+      nexus-setup-command: in-progress  # epic 2026.05-nexus-setup-wizard
+      nexus-setup-wizard-01-prompt-source: ready
+      nexus-setup-wizard-02-keychain-availability-probe: ready
+      nexus-setup-wizard-03-validate-profile-name: ready
+      nexus-setup-wizard-04-scan-profile-dirs: ready
+      nexus-setup-wizard-05-idempotent-provision-oauth: backlog
+      nexus-setup-wizard-06-run-instance-setup-helper: backlog
+      nexus-setup-wizard-07-nexus-setup-command: backlog
       githubsync: backlog
       templateregistry: backlog
       cli-paged-list-widget: ready

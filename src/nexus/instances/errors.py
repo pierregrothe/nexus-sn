@@ -7,6 +7,7 @@
 __all__ = [
     "InstanceError",
     "InstanceNotFoundError",
+    "InvalidProfileNameError",
     "OAuthError",
     "SnapshotError",
     "TokenExpiredError",
@@ -15,6 +16,28 @@ __all__ = [
 
 class InstanceError(Exception):
     """Base class for all instance management errors."""
+
+
+class InvalidProfileNameError(InstanceError):
+    """Raised when a candidate profile name fails validation.
+
+    Attributes:
+        name: The rejected profile name.
+        reason: A short slug describing which rule was violated. One of
+            "empty", "whitespace", "too long", "traversal", "separator",
+            "leading dot", "non-ascii", "control", "disallowed".
+    """
+
+    def __init__(self, name: str, reason: str) -> None:
+        """Initialize with the rejected name and the violated rule.
+
+        Args:
+            name: The candidate profile name.
+            reason: One of the documented reason slugs.
+        """
+        super().__init__(f"Invalid profile name {name!r}: {reason}")
+        self.name = name
+        self.reason = reason
 
 
 class InstanceNotFoundError(InstanceError):

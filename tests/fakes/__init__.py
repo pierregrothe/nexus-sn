@@ -13,6 +13,7 @@ from tests.fakes.fake_http_transport import FakeOAuthTransport
 from tests.fakes.fake_instance_registry import FakeInstanceRegistry
 from tests.fakes.fake_keychain import FakeKeychainClient
 from tests.fakes.fake_sn_client import FakeServiceNowClient
+from tests.fakes.scripted_prompt import ScriptedPromptSource
 
 __all__ = [
     "FakeAgentClient",
@@ -24,4 +25,5 @@ __all__ = [
     "FakeKeychainClient",
     "FakeOAuthTransport",
     "FakeServiceNowClient",
+    "ScriptedPromptSource",
 ]
