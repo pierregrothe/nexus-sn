@@ -24,6 +24,7 @@ from nexus.cli import commands_plugins_basic as commands_plugins_basic
 from nexus.cli import commands_plugins_exec as commands_plugins_exec
 from nexus.cli import commands_plugins_outdated as commands_plugins_outdated
 from nexus.cli import commands_setup as commands_setup
+from nexus.cli import commands_sync as commands_sync
 from nexus.cli import commands_top as commands_top
 from nexus.cli.apps import app
 from nexus.cli.auth import acquire_token as _acquire_token
@@ -48,6 +49,7 @@ __all__ = [
     "commands_plugins_exec",
     "commands_plugins_outdated",
     "commands_setup",
+    "commands_sync",
     "commands_top",
 ]
 

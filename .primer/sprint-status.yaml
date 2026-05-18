@@ -34,16 +34,23 @@ phases:
   2026.05-setup-sync:
     status: active
     items:
-      nexus-setup-command: in-progress  # epic 2026.05-nexus-setup-wizard
-      nexus-setup-wizard-01-prompt-source: ready
-      nexus-setup-wizard-02-keychain-availability-probe: ready
-      nexus-setup-wizard-03-validate-profile-name: ready
-      nexus-setup-wizard-04-scan-profile-dirs: ready
-      nexus-setup-wizard-05-idempotent-provision-oauth: backlog
-      nexus-setup-wizard-06-run-instance-setup-helper: backlog
-      nexus-setup-wizard-07-nexus-setup-command: backlog
-      githubsync: backlog
-      templateregistry: backlog
+      nexus-setup-command: done  # epic 2026.05-nexus-setup-wizard shipped (fd0f0df)
+      nexus-setup-wizard-01-prompt-source: done
+      nexus-setup-wizard-02-keychain-availability-probe: done
+      nexus-setup-wizard-03-validate-profile-name: done
+      nexus-setup-wizard-04-scan-profile-dirs: done
+      nexus-setup-wizard-05-idempotent-provision-oauth: done
+      nexus-setup-wizard-06-run-instance-setup-helper: done
+      nexus-setup-wizard-07-nexus-setup-command: done
+      githubsync: in-progress  # epic 2026.05-nexus-sync-catalog
+      templateregistry: in-progress  # epic 2026.05-nexus-sync-catalog
+      nexus-sync-catalog-01-template-models: ready
+      nexus-sync-catalog-02-validate-github-repo: ready
+      nexus-sync-catalog-03-github-template-client: backlog
+      nexus-sync-catalog-04-template-registry: backlog
+      nexus-sync-catalog-05-github-sync-orchestrator: backlog
+      nexus-sync-catalog-06-nexus-sync-command: backlog
+      nexus-sync-catalog-07-nexus-templates-command: backlog
       cli-paged-list-widget: ready
       cli-batch-progress-eta: backlog
 

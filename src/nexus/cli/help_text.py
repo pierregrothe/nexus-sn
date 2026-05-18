@@ -418,12 +418,15 @@ TOP_LEVEL_HELP: list[CommandHelpEntry] = [
     ),
     help_entry(
         "sync",
-        "Pull the latest templates from the GitHub registry (stub).",
+        "Pull the template catalog from the configured GitHub registry "
+        "(reads preferences.github_repo / github_branch from "
+        "~/.nexus/config.yaml). Fail-fast on missing or malformed config.",
         "nexus sync",
     ),
     help_entry(
         "templates",
-        "Browse and inspect available templates (stub).",
+        "Show the cached template catalog as a table (read-only). Run "
+        "'nexus sync' first to populate the cache.",
         "nexus templates",
     ),
     help_entry(

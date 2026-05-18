@@ -129,19 +129,6 @@ def update(
 
 
 @app.command()
-def sync() -> None:
-    """Pull the latest templates from the GitHub registry."""
-    console.print(Notice.info("Syncing templates -- not yet implemented."))
-    console.print(Notice.info("Configure github_repo in ~/.nexus/config.yaml first."))
-
-
-@app.command("templates")
-def templates_cmd() -> None:
-    """Browse and inspect available templates."""
-    console.print(Notice.info("Template browser -- not yet implemented. Run 'nexus sync' first."))
-
-
-@app.command()
 def assess(
     for_template: Annotated[
         str, typer.Option("--for", help="Check readiness for a specific template")
