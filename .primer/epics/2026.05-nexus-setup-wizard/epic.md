@@ -1,7 +1,7 @@
 # Epic: nexus setup credential wizard (v1)
 
 Phase: 2026.05-setup-sync
-Status: planned
+Status: done
 
 ## Goal
 
@@ -64,13 +64,13 @@ behind a testable prompt abstraction.
 
 | #  | Title                                                | Clarity | Depends-On | Status  |
 |----|------------------------------------------------------|---------|------------|---------|
-| 01 | PromptSource protocol + impls                        | high    | none       | backlog |
-| 02 | KeychainClient.check_available() fail-fast probe     | high    | none       | backlog |
-| 03 | validate_profile_name() input validator              | high    | none       | backlog |
-| 04 | InstanceRegistry.scan_profile_dirs() corrupted-aware | high    | none       | backlog |
-| 05 | Idempotent provision_oauth + PromptSource injection  | high    | 01         | backlog |
-| 06 | run_instance_setup helper (shared by register+setup) | high    | 01, 03, 05 | backlog |
-| 07 | nexus setup command (gate + reauth + clean-slate)    | high    | 02, 04, 06 | backlog |
+| 01 | PromptSource protocol + impls                        | high    | none       | done    |
+| 02 | KeychainClient.check_available() fail-fast probe     | high    | none       | done    |
+| 03 | validate_profile_name() input validator              | high    | none       | done    |
+| 04 | InstanceRegistry.scan_profile_dirs() corrupted-aware | high    | none       | done    |
+| 05 | Idempotent provision_oauth + PromptSource injection  | high    | 01         | done    |
+| 06 | run_instance_setup helper (shared by register+setup) | high    | 01, 03, 05 | done    |
+| 07 | nexus setup command (gate + reauth + clean-slate)    | high    | 02, 04, 06 | done    |
 
 ## Coverage Map
 
@@ -98,4 +98,4 @@ behind a testable prompt abstraction.
 
 ## Progress
 
-- Stories: 0/7 done, 0 in-progress, 7 backlog
+- Stories: 7/7 done -- COMPLETE (commits 1eca36f + fd0f0df)

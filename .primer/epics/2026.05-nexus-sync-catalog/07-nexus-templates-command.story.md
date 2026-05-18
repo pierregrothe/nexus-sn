@@ -1,6 +1,6 @@
 # Story 07: nexus templates command (DataTable + no-cache Hint)
 
-Status: backlog
+Status: done
 Spec-Clarity: high
 Depends-On: 04
 

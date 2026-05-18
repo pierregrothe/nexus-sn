@@ -1,6 +1,6 @@
 # Story 02: _validate_github_repo helper + InvalidGitHubRepoError
 
-Status: backlog
+Status: done
 Spec-Clarity: high
 Depends-On: none
 

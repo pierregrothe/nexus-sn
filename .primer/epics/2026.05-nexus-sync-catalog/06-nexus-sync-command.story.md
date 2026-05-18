@@ -1,6 +1,6 @@
 # Story 06: nexus sync command (commands_sync.py)
 
-Status: backlog
+Status: done
 Spec-Clarity: high
 Depends-On: 05
 

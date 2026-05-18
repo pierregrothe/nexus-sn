@@ -1,6 +1,6 @@
 # Story 01: PromptSource protocol + Typer and scripted impls
 
-Status: backlog
+Status: done
 Spec-Clarity: high
 Depends-On: none
 

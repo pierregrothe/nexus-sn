@@ -1,6 +1,6 @@
 # Story 05: GitHubSync orchestrator + SyncReport
 
-Status: backlog
+Status: done
 Spec-Clarity: high
 Depends-On: 01, 02, 03, 04
 

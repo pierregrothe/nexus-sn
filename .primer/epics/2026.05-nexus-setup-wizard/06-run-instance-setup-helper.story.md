@@ -1,6 +1,6 @@
 # Story 06: run_instance_setup helper (shared by instance register + setup)
 
-Status: backlog
+Status: done
 Spec-Clarity: high
 Depends-On: 01, 03, 05
 

@@ -3,7 +3,7 @@
 # backlog | ready | in-progress | review | done.
 # Derived from roadmap.md checkboxes; "next implementation target" entries
 # from active.md Next Steps are promoted to `ready`.
-generated: 2026-05-18
+generated: 2026-05-18  # synced after sync epic shipped
 project: nexus-sn
 
 phases:
@@ -42,15 +42,15 @@ phases:
       nexus-setup-wizard-05-idempotent-provision-oauth: done
       nexus-setup-wizard-06-run-instance-setup-helper: done
       nexus-setup-wizard-07-nexus-setup-command: done
-      githubsync: in-progress  # epic 2026.05-nexus-sync-catalog
-      templateregistry: in-progress  # epic 2026.05-nexus-sync-catalog
-      nexus-sync-catalog-01-template-models: ready
-      nexus-sync-catalog-02-validate-github-repo: ready
-      nexus-sync-catalog-03-github-template-client: backlog
-      nexus-sync-catalog-04-template-registry: backlog
-      nexus-sync-catalog-05-github-sync-orchestrator: backlog
-      nexus-sync-catalog-06-nexus-sync-command: backlog
-      nexus-sync-catalog-07-nexus-templates-command: backlog
+      githubsync: done  # epic 2026.05-nexus-sync-catalog shipped (1021038)
+      templateregistry: done  # epic 2026.05-nexus-sync-catalog shipped (1021038)
+      nexus-sync-catalog-01-template-models: done
+      nexus-sync-catalog-02-validate-github-repo: done
+      nexus-sync-catalog-03-github-template-client: done
+      nexus-sync-catalog-04-template-registry: done
+      nexus-sync-catalog-05-github-sync-orchestrator: done
+      nexus-sync-catalog-06-nexus-sync-command: done
+      nexus-sync-catalog-07-nexus-templates-command: done
       cli-paged-list-widget: ready
       cli-batch-progress-eta: backlog
 

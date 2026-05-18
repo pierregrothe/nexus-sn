@@ -1,6 +1,6 @@
 # Story 04: InstanceRegistry.scan_profile_dirs() exposes corrupted entries
 
-Status: backlog
+Status: done
 Spec-Clarity: high
 Depends-On: none
 

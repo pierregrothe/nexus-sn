@@ -1,6 +1,6 @@
 # Story 05: Idempotent provision_oauth + PromptSource injection
 
-Status: backlog
+Status: done
 Spec-Clarity: high
 Depends-On: 01
 

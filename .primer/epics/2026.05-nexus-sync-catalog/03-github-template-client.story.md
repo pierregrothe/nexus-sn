@@ -1,6 +1,6 @@
 # Story 03: GitHubTemplateClient (raw.githubusercontent.com fetch)
 
-Status: backlog
+Status: done
 Spec-Clarity: high
 Depends-On: 01
 

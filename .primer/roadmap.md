@@ -33,9 +33,16 @@
       skip-on-fail; reuses sub-project M's PluginExecutor.upgrade primitive.
 
 ## 2026.05 -- Setup + Sync [active]
-- [ ] nexus setup command -- credential wizard, config write, initial sync
-- [ ] GitHubSync -- manifest fetch + template download
-- [ ] TemplateRegistry -- list and get from local cache
+- [x] nexus setup command -- credential wizard, config write, initial sync
+      Epic: epics/2026.05-nexus-setup-wizard/
+      Brainstorm: brainstorming/2026-05-18-nexus-setup-credential-wizard.md
+      Start: epics/2026.05-nexus-setup-wizard/01-prompt-source.story.md
+- [x] GitHubSync -- manifest fetch + template download
+      Epic: epics/2026.05-nexus-sync-catalog/
+      Brainstorm: brainstorming/2026-05-18-nexus-sync-catalog.md
+      Start: epics/2026.05-nexus-sync-catalog/01-template-models.story.md
+- [x] TemplateRegistry -- list and get from local cache
+      Epic: epics/2026.05-nexus-sync-catalog/
 - [ ] CLI adaptive list rendering -- TerminalCapabilities +
       RenderContext + four-tier RenderProfile (RICH / BASIC /
       LEGACY / PLAIN); single `--plain` flag; PagedTable +

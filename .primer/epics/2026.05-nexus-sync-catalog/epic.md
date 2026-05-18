@@ -1,7 +1,7 @@
 # Epic: nexus sync v1 (catalog index)
 
 Phase: 2026.05-setup-sync
-Status: planned
+Status: done
 
 ## Goal
 
@@ -75,13 +75,13 @@ future epic.
 
 | #  | Title                                                     | Clarity | Depends-On | Status  |
 |----|-----------------------------------------------------------|---------|------------|---------|
-| 01 | TemplateEntry + TemplateManifest + CachedManifest models  | high    | none       | backlog |
-| 02 | _validate_github_repo + InvalidGitHubRepoError            | high    | none       | backlog |
-| 03 | GitHubTemplateClient (raw.githubusercontent.com fetch)    | high    | 01         | backlog |
-| 04 | TemplateRegistry (atomic save_manifest + load_manifest)   | high    | 01         | backlog |
-| 05 | GitHubSync orchestrator + SyncReport                      | high    | 01, 02, 03, 04 | backlog |
-| 06 | nexus sync command (commands_sync.py)                     | high    | 05         | backlog |
-| 07 | nexus templates command (DataTable + no-cache Hint)       | high    | 04         | backlog |
+| 01 | TemplateEntry + TemplateManifest + CachedManifest models  | high    | none       | done    |
+| 02 | _validate_github_repo + InvalidGitHubRepoError            | high    | none       | done    |
+| 03 | GitHubTemplateClient (raw.githubusercontent.com fetch)    | high    | 01         | done    |
+| 04 | TemplateRegistry (atomic save_manifest + load_manifest)   | high    | 01         | done    |
+| 05 | GitHubSync orchestrator + SyncReport                      | high    | 01, 02, 03, 04 | done    |
+| 06 | nexus sync command (commands_sync.py)                     | high    | 05         | done    |
+| 07 | nexus templates command (DataTable + no-cache Hint)       | high    | 04         | done    |
 
 ## Coverage Map
 
@@ -112,4 +112,4 @@ future epic.
 
 ## Progress
 
-- Stories: 0/7 done, 0 in-progress, 7 backlog
+- Stories: 7/7 done -- COMPLETE (commit 1021038)

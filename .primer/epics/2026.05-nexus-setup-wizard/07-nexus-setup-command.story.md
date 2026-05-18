@@ -1,6 +1,6 @@
 # Story 07: nexus setup command (gate + reauth + clean-slate + closing Notice)
 
-Status: backlog
+Status: done
 Spec-Clarity: high
 Depends-On: 02, 04, 06
 

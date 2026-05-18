@@ -1,6 +1,6 @@
 # Story 04: TemplateRegistry (atomic save_manifest + load_manifest)
 
-Status: backlog
+Status: done
 Spec-Clarity: high
 Depends-On: 01
 

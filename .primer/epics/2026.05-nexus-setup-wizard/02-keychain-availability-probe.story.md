@@ -1,6 +1,6 @@
 # Story 02: KeychainClient.check_available() fail-fast probe
 
-Status: backlog
+Status: done
 Spec-Clarity: high
 Depends-On: none
 

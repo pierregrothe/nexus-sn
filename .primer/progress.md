@@ -174,7 +174,16 @@ CLI:
   nexus update / --refresh -- manual update check + cache clear
   Every leaf command shows themed help panel (badge + options + examples) on bare
     invocation (no arguments), replacing generic Typer default help
-  setup, sync, templates, assess -- stubs (raise NotImplementedError)
+  nexus setup -- idempotent first-run wizard: probes OS keychain,
+    scans profile dirs, dispatches to clean-slate / inline-reauth /
+    already-configured / corrupted-profile branches. All prompts via
+    typed PromptSource Protocol (no `unittest.mock` in tests).
+  nexus sync -- pulls a manifest from raw.githubusercontent.com to
+    ~/.nexus/templates/manifest.json. Fail-fast on missing/malformed
+    github_repo. Wire vs cached models split for round-trip safety.
+  nexus templates -- DataTable of cached catalog with synced-age
+    footer; Hint pointing at `nexus sync` when no prior sync has run.
+  assess -- stub (raises NotImplementedError)
 
 Governance enforcement:
   Pre-edit hook (.claude/hooks/pre-edit-validate.py) -- 10 blocking rules
@@ -209,10 +218,56 @@ Infrastructure:
     progressive levels plus live SPM family run (6 fresh + 3 already-
     installed treated as success, 1 timeout).
 
-Tests: 1105 passing. All real fakes, no mocks. mypy strict + pyright
-strict report 0 errors across src/. One pre-existing UP043 ruff error
-in src/stubs/pypager/source.pyi:8 (unrelated to feature work).
+Tests: 1303 passing. All real fakes (incl. httpx.MockTransport, no
+unittest.mock). mypy strict + pyright strict report 0 errors across
+src/. ruff + black clean.
 GitHub: https://github.com/pierregrothe/nexus-sn (public).
+
+Setup wizard layer (credential management):
+  PromptSource Protocol + TyperPromptSource + ScriptedPromptSource
+    (tests/fakes/) -- typed prompt abstraction, no-mocks compliant.
+  KeychainClient.check_available() -- distinguishes fail / null /
+    locked / no-backend keyring backends; emits platform-specific
+    distro hints (Darwin / Windows / Linux) for `nexus setup` to
+    show as actionable errors. KeychainUnavailableError carries
+    a reason slug + hint for opinionated rendering.
+  validate_profile_name -- rejects path traversal, separators,
+    leading dot, length >64, whitespace, control bytes, non-ASCII,
+    ASCII punctuation. Raises InvalidProfileNameError mirroring
+    validate_baseline_name.
+  InstanceRegistry.scan_profile_dirs() -- returns ScanResult
+    (frozen dataclass) splitting profile dirs into valid +
+    CorruptedProfile entries so the wizard can surface malformed
+    meta.json paths instead of mistaking corruption for an empty
+    registry. list_all() stays unchanged (silent-skip).
+  Idempotent provision_oauth -- deterministic `nexus-<profile>`
+    entity name + PATCH-rotate on retry. A Ctrl-C between OAuth
+    entity creation and local token write no longer accumulates
+    duplicate oauth_entity records on the SN instance.
+  run_instance_setup helper (cli/wizard.py) -- shared by `instance
+    register` + `setup`. Synchronous; loops on profile-name
+    validation when called without a CLI-supplied profile.
+
+Templates layer (catalog sync + cache):
+  TemplateEntry / TemplateManifest -- wire-shape Pydantic models
+    (frozen, strict, extra=forbid). TemplateEntry has
+    template_type to avoid the `type` keyword.
+  SyncSource + CachedManifest -- on-disk wrapper models. Round-trip
+    safe (separate models = no extra=forbid break). cached_at is
+    UtcDatetime.
+  validate_github_repo + InvalidGitHubRepoError -- rejects URLs
+    (https://, http://, git@), normalizes trailing slashes, requires
+    canonical <owner>/<name> shape.
+  GitHubTemplateClient -- anonymous GET to raw.githubusercontent.com,
+    never raises, returns None on every failure path with `info` or
+    `warning` log. Optional httpx.Client injection for tests with
+    MockTransport. 429 logged distinguishably as rate-limit.
+  TemplateRegistry -- atomic tempfile + Path.replace save; load
+    returns None on missing / unreadable / malformed-JSON / schema-
+    mismatch (corrupted file left in place for inspection).
+  GitHubSync orchestrator + SyncReport -- typed frozen dataclass with
+    outcome in {"ok", "no-config", "invalid-repo", "fetch-failed"},
+    manifest, reason. Command layer renders the report.
 
 ## Known Issues
 
@@ -228,10 +283,14 @@ GitHub: https://github.com/pierregrothe/nexus-sn (public).
   also re-invoked by `_acquire_token` on the next CLI invocation, but worth
   cleaning up.
 - knowledge/mastery/ empty. Decision pending: copy from JARVIS or rebuild.
-- Template schemas (templates/schemas/*.py) are stubs.
-- setup, sync, templates, assess commands raise NotImplementedError.
+- Template schemas (templates/schemas/*.py) are stubs. Deliberate
+  for v1 sync (which only validates the catalog manifest, not
+  individual template YAMLs); schemas land with template-apply-engine
+  in 2026.06-template-library.
+- `nexus assess`, `apply`, `run`, `rollback` still raise
+  NotImplementedError.
 - Stub modules at 0% coverage (agents/specialists/*, connectors/servicenow/*,
-  templates, assessment, execution, knowledge).
+  assessment, execution, knowledge).
 - nexus plugins deactivate / uninstall fail loudly against live SN -- platform
   does not expose these via Bearer REST, session AJAX, or any other
   programmatic API. CLI commands present as forward-compatible stubs; will
@@ -249,7 +308,3 @@ GitHub: https://github.com/pierregrothe/nexus-sn (public).
   and surfaces the install-via-SN-UI message rather than the raw glide stack
   trace. Architectural finding documented on OFFERING_PLUGIN_FAILURE_MESSAGE
   in nexus.plugins.error_classification.
-- One pre-existing UP043 ruff error in src/stubs/pypager/source.pyi:8
-  ("Unnecessary default type arguments") -- third-party stub file, unrelated
-  to feature work, fixable with `ruff check --fix`.
-

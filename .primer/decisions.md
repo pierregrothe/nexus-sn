@@ -658,3 +658,96 @@ mid-session as the diagnostic plumbing went away). No spec doc --
 the finding is captured here and on the constant docstring; the
 empirical receipts (script_include sys_ids, line numbers, scope
 names) are in git history at commit 26a0e9e.
+
+### 2026-05-18 -- PromptSource Protocol for testable wizard flows
+
+**Status:** accepted
+
+**Context:** `nexus setup` and `nexus instance register` need
+interactive prompts (host, username, password, profile-name retry,
+OAuth manual fallback). The project's no-mocks rule prohibits
+patching `typer.prompt`; previous tests used a conftest helper
+that monkeypatched the module which is mocking under a different
+name and would not scale to story 06's six-prompt-deep wizard
+flow.
+
+**Decision:** Introduce a runtime-checkable `PromptSource` Protocol
+in `src/nexus/cli/prompts.py` with two methods (`ask` and
+`confirm`). Ship two impls: `TyperPromptSource` (forwards to
+`typer.prompt` / `typer.confirm` with optional `prompt_fn` /
+`confirm_fn` callable injection for the rare in-process test) and
+`ScriptedPromptSource` (`tests/fakes/scripted_prompt.py`, pops
+pre-queued answers from a `deque`; raises `PromptExhaustedError`
+on empty so under-specified tests fail loudly rather than hanging
+on stdin). All wizard collaborators take the Protocol as a
+parameter (`provision_oauth`, `pick_existing_oauth_app`,
+`run_instance_setup`, `_setup_main`).
+
+**Consequences:** Zero `unittest.mock` introduced for the setup
+epic's nine test files. Tests can drive arbitrary-depth wizard
+conversations by listing the answers in order. The five legacy
+`pick_existing_oauth_app` tests in `test_cli_instance.py` were
+migrated from `monkeypatch.setattr(typer, "prompt", ...)` to
+`ScriptedPromptSource`; the conftest `scripted_prompt` helper
+stays for any other callers but is no longer used by the new
+code. Story 01 of the setup epic; commits 1eca36f + fd0f0df.
+
+### 2026-05-18 -- Wire vs cached manifest model split (sync v1)
+
+**Status:** accepted
+
+**Context:** `nexus sync` fetches a manifest from GitHub and
+caches it with a `cached_at` UTC stamp. The initial single-model
+design carried `cached_at` on a `TemplateManifest` with
+`extra="forbid"` config. The adversarial reviewer caught that
+this breaks round-trip in both directions: the wire payload
+lacks `cached_at` (Pydantic rejects on extra=forbid via the
+inverse path -- write to cache adds it, read from wire fails;
+write to cache as cached, read as wire fails).
+
+**Decision:** Split into two models. `TemplateManifest` is the
+pure wire shape (`version`, `generated`, `templates`).
+`CachedManifest` composes it: `wire: TemplateManifest`, `source:
+SyncSource` (records the repo/branch/path used to fetch), and
+`cached_at: UtcDatetime`. The registry reads/writes
+`CachedManifest`; the GitHub client returns `TemplateManifest`;
+the orchestrator stamps `cached_at` at save time.
+
+**Consequences:** Two classes instead of one (~20 LOC extra) in
+exchange for genuine round-trip safety. The wire payload stays
+forward-compatible with any future Pydantic schema growth without
+touching the cache shape; the cached file can evolve independently
+of the manifest format SN serves. The pattern generalizes to any
+future "fetched + stamped" cache (e.g. plugins inventory if
+that ever moves to a wire/cache split). Story 01 of the sync
+epic; commit 1021038.
+
+### 2026-05-18 -- Idempotent provision_oauth on deterministic name
+
+**Status:** accepted
+
+**Context:** A Ctrl-C between `provision_oauth` POSTing a new SN
+`oauth_entity` record and `SNOAuthClient.exchange` writing tokens
+to keychain left an orphan on the SN side -- next run created
+another one, accumulating duplicates without bound. SN's Table
+API masks `client_secret` (password2 field) so the user could
+not recover the secret of the orphan to reuse it.
+
+**Decision:** Make `provision_oauth` idempotent on a deterministic
+entity name (`nexus-<profile>`). Before any create, GET
+`oauth_entity?sysparm_query=name=<deterministic>`. On exactly one
+match, PATCH the record with a freshly-generated `client_secret`
+UUID (which becomes the new secret -- SN echoes it masked but we
+keep the value we sent). On no match, fall through to the
+existing POST-create flow.
+
+**Consequences:** Re-running `nexus setup` after an interrupted
+prior run reuses the SN entity, returning the same `client_id`
+with a rotated secret. The SN instance never accumulates more
+than one `nexus-<profile>` record per profile. The old
+`fetch_existing_nexus_oauth_apps` listing flow stays in place
+for cross-install reuse (a user pasting their secret from another
+machine) but is no longer the primary orphan-recovery path.
+Tested via `test_provision_oauth_rotates_secret_when_orphan_found`
+and `test_setup_resumes_after_oauth_entity_orphan` (story 05 +
+story 07 of the setup epic). Commit fd0f0df.

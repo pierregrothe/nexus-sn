@@ -1,6 +1,6 @@
 # Story 03: validate_profile_name() input validator
 
-Status: backlog
+Status: done
 Spec-Clarity: high
 Depends-On: none
 
