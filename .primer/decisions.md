@@ -595,3 +595,66 @@ tests passing (up from 912 after the volume of new test files
 landed across the broader session); all five gates green;
 file-size ratchet baseline now empty after cli.py was split into
 a 17-module cli/ package (ADR-023 grandfather entry removed).
+
+---
+
+### 2026-05-18 -- Offering-plugin install is structurally unreachable via OAuth/REST
+
+**Status:** accepted
+
+**Context:** Real PDI upgrades against alectri for sn_hs_csc and
+sn_hs_env (Healthcare Solutions family) returned a glide-exception
+500 wrapping `Offering plugin id must be specified for application`.
+Multiple iterations attempted to discover the right parameter name
+on the existing `/api/sn_appclient/appmanager/app/install` endpoint:
+seven snake_case/camelCase variants tested via a `--probe-params`
+diagnostic mode, then six `sysparm_*` variants tested per SN's
+reserved-namespace convention. All thirteen returned `param NOT
+recognised`. A subsequent `--mine-endpoints` mode queried
+`sys_ws_operation` for offering-related Scripted REST APIs and
+found 29 hits, all of which were TMF Open API product-catalog
+endpoints unrelated to plugin install -- zero entries in
+`sn_appclient` or `sn_cicd` scope. Direct script_include reads
+against alectri then traced the actual control flow.
+
+The conclusive finding: SN's offering install path lives in
+`AppUpgradeAjaxProcessor.install` (scope `sn_appclient`), invoked
+via `/xmlhttp.do?sysparm_processor=AppUpgradeAjaxProcessor&...`
+with parameter `appV2Params` (a JSON string carrying
+`{isJumboAppInstall, offering, optional_dependencies}`). The REST
+endpoint NEXUS calls dispatches into `AppUpgrader.installAndUpdateApps`
+which hardcodes `jumboAppArgs=undefined` on line 1042 -- the offering
+id has nowhere to land on that code path regardless of the URL shape.
+SN's AJAX endpoints (`/xmlhttp.do`, `/ajax.do`) reject OAuth Bearer
+tokens with `401 invalid token` and require session-cookie auth via
+`/login.do`. No `sys_ws_operation` row wraps the AJAX processor.
+
+**Decision:** Document offering plugins as unsupported through
+NEXUS's OAuth/REST architecture rather than implement session-cookie
+auth. Update `OFFERING_PLUGIN_FAILURE_MESSAGE` to
+`"Offering plugin (install via SN UI -- AJAX-only path, OAuth/REST
+cannot dispatch)"` and capture the full architectural reason on the
+constant's docstring so the next contributor does not re-walk the
+search. Strip the diagnostic plumbing that proved the conclusion:
+the `nexus plugins offerings` command (default mode + --probe-params
++ --mine-endpoints), the `--offering` flag on `nexus plugins upgrade`,
+the `offering_id` keyword on `ServiceNowClient.submit_install` /
+`submit_upgrade` / the protocol / the fake, the
+`submit_install_with_raw_params` diagnostic entry point, and the
+`extract_script_reference` / `parse_offering_ids_from_error` helpers
+in `error_classification.py`. Keep `is_offering_plugin_error` +
+`OFFERING_PLUGIN_FAILURE_MESSAGE` so the executor still surfaces a
+clean failure rather than the raw glide stack trace.
+
+**Consequences:** Users running `nexus plugins upgrade sn_hs_csc`
+now see a one-line actionable failure pointing at the SN UI rather
+than `Cannot find function hasOwnProperty in object
+com.glide.cicd.exception.CICDProcessException...`. Offering plugins
+are confirmed in the same out-of-OAuth-reach category as plugin
+deactivate / uninstall (2026-05-14 decision): forward-compatibility
+requires no new code, only an endpoint constant flip if SN ever
+publishes a REST wrapper. 1105 tests passing (down 23 from 1128
+mid-session as the diagnostic plumbing went away). No spec doc --
+the finding is captured here and on the constant docstring; the
+empirical receipts (script_include sys_ids, line numbers, scope
+names) are in git history at commit 26a0e9e.

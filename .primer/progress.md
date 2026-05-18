@@ -82,7 +82,11 @@ Instances layer (fully functional end-to-end):
   InstanceScanner -- parallel REST scan of 4 SN tables (ai_skill, sys_hub_flow,
     sys_script, sys_script_include); 400/404 treated as table-not-available
   Instance CLI commands: register (auto-provision OAuth), connect, refresh,
-    status, list, delete, use
+    status, list, delete, use, diagnose-roles
+  diagnose-roles -- probes a fixed set of admin-only tables (sys_store_app,
+    sys_plugin, sys_app, sys_scope, etc.) and reports 200/403/404 per table
+    so users can self-diagnose ACL denials. Backed by TableProbe /
+    TableProbeResult frozen Pydantic models in nexus.instances.role_probe.
   _provision_oauth() -- auto-creates OAuth app via Basic auth, falls back to
     manual instructions if SN returns non-201
   _detect_sn_version() -- probes glide.buildtag, glide.buildtag.last, LIKE
@@ -139,6 +143,14 @@ Plugins layer (plugin management roadmap A-N, 15 sub-projects):
   PluginExecutionError hierarchy -- PluginProgressError, PluginTimeoutError,
     PluginNotFoundError, PluginBatchError, PluginImpactBlockError,
     PluginUnsupportedError
+  nexus.plugins.error_classification -- pattern matchers that convert SN
+    response bodies into typed outcomes: is_already_installed_error
+    (HTTP 400 idempotent no-op), is_offering_plugin_error (offering plugin
+    refusal), OFFERING_PLUGIN_FAILURE_MESSAGE (user-facing message
+    documenting why the offering install path is unreachable via
+    OAuth/REST -- AppUpgrader.installAndUpdateApps hardcodes
+    jumboAppArgs=undefined; the real path is AppUpgradeAjaxProcessor
+    reachable only via /xmlhttp.do with session cookies).
 
 CLI:
   nexus status -- fully implemented (banner + tier detection + StatusReporter)
@@ -148,13 +160,16 @@ CLI:
   nexus plugins -- scan, list, info, inventory, impact (incl. --no-cross-scope,
     --live, --format json), advisories (incl. defer/undo-defer/list-deferred,
     --strict), orphans, diff, outdated (--queue file output, --family filter,
-    --format json), drift (--ack, --strict, --baseline, --format json),
-    baselines list/delete, recommend deactivate/explain/roadmap, export
-    (yaml/csv), promote, install, activate, upgrade (single <id>, --family X,
-    or --all for batch), apply (PromotionPlan YAML; defaults target to
-    plan.target_profile), deactivate / uninstall (forward-compatible stubs --
-    SN does not expose these via any programmatic API; see spec addendum
-    2026-05-14e); bare invocation shows two-box discovery view
+    --format json, --refresh; auto-refreshes inventory > 15 min stale and
+    footers a humanised captured-at via humanize_age in nexus.cli.utils),
+    drift (--ack, --strict, --baseline, --format json), baselines list/delete,
+    recommend deactivate/explain/roadmap, export (yaml/csv), promote, install,
+    activate, upgrade (single <id>, --family X, or --all for batch), apply
+    (PromotionPlan YAML; defaults target to plan.target_profile), deactivate /
+    uninstall (forward-compatible stubs -- SN does not expose these via any
+    programmatic API; see spec addendum 2026-05-14e); bare invocation shows
+    two-box discovery view. Offering plugins (sn_hs_*, sn_fs_*) fail cleanly
+    with the install-via-SN-UI message rather than the raw glide stack trace.
   nexus reauth -- prints one-shot command for servers needing re-auth
   nexus update / --refresh -- manual update check + cache clear
   Every leaf command shows themed help panel (badge + options + examples) on bare
@@ -194,8 +209,9 @@ Infrastructure:
     progressive levels plus live SPM family run (6 fresh + 3 already-
     installed treated as success, 1 timeout).
 
-Tests: 1072 passing. All real fakes, no mocks. mypy strict + pyright
-strict report 0 errors across src/ AND tests/. Black + ruff also 0.
+Tests: 1105 passing. All real fakes, no mocks. mypy strict + pyright
+strict report 0 errors across src/. One pre-existing UP043 ruff error
+in src/stubs/pypager/source.pyi:8 (unrelated to feature work).
 GitHub: https://github.com/pierregrothe/nexus-sn (public).
 
 ## Known Issues
@@ -222,4 +238,18 @@ GitHub: https://github.com/pierregrothe/nexus-sn (public).
   start working without code changes if SN ever exposes them. See spec
   addendum docs/superpowers/specs/2026-05-13-plugin-execution-design.md
   (Update 2026-05-14e) for the full 8-source confirmation.
+- nexus plugins install / upgrade for offering plugins (sn_hs_* Healthcare
+  Solutions family, sn_fs_* Financial Services family) is SN-platform-blocked
+  at the OAuth/REST boundary. AppUpgrader.installAndUpdateApps (the function
+  the REST endpoint dispatches to) hardcodes jumboAppArgs=undefined on
+  line 1042; the real path is AppUpgradeAjaxProcessor.install in sn_appclient
+  scope reachable only via /xmlhttp.do with session-cookie auth, which OAuth
+  Bearer cannot obtain (401 invalid token). Zero sys_ws_operation entries
+  wrap the AJAX processor with a REST bridge. NEXUS detects the SN refusal
+  and surfaces the install-via-SN-UI message rather than the raw glide stack
+  trace. Architectural finding documented on OFFERING_PLUGIN_FAILURE_MESSAGE
+  in nexus.plugins.error_classification.
+- One pre-existing UP043 ruff error in src/stubs/pypager/source.pyi:8
+  ("Unnecessary default type arguments") -- third-party stub file, unrelated
+  to feature work, fixable with `ruff check --fix`.
 

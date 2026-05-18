@@ -3,7 +3,7 @@
 # backlog | ready | in-progress | review | done.
 # Derived from roadmap.md checkboxes; "next implementation target" entries
 # from active.md Next Steps are promoted to `ready`.
-generated: 2026-05-16
+generated: 2026-05-18
 project: nexus-sn
 
 phases:
