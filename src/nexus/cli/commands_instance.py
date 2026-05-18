@@ -50,16 +50,15 @@ from nexus.cli.help_text import (
     INSTANCE_PARENT,
     guide_items,
 )
-from nexus.cli.oauth import provision_oauth
+from nexus.cli.prompts import TyperPromptSource
 from nexus.cli.utils import trunc as _trunc
+from nexus.cli.wizard import run_instance_setup
 from nexus.config.manager import ConfigManager
 from nexus.config.paths import NexusPaths
 from nexus.config.settings import InstancesConfig
 from nexus.instances.badges import token_badge
 from nexus.instances.errors import OAuthError, SnapshotError
-from nexus.instances.models import InstanceMeta, InstanceSnapshot
-from nexus.instances.oauth import SNOAuthClient
-from nexus.instances.registry import InstanceRegistry
+from nexus.instances.models import InstanceSnapshot
 from nexus.instances.role_probe import TableProbeResult, probe_all
 from nexus.instances.scanner import InstanceScanner
 from nexus.plugins import PluginInventory, PluginScanError, PluginScanner
@@ -387,53 +386,11 @@ def instance_register(
             )
         )
         raise typer.Exit(1)
-
-    console.print(f"Registering instance '{profile}'")
-    console.print(f"  '{profile}' is your local alias -- use it in all nexus instance commands.")
-    console.print("")
-    raw_url: str = typer.prompt("  Instance (subdomain, FQDN, or https:// URL -- e.g. dev12345)")
-    host = raw_url.removeprefix("https://").removeprefix("http://").rstrip("/")
-    if "." not in host:
-        host = f"{host}.service-now.com"
-    url = f"https://{host}"
-    username: str = typer.prompt("  Username")
-    password: str = typer.prompt("  Password", hide_input=True)
-
-    client_id, client_secret = provision_oauth(url, profile, username, password)
-
-    console.print("  Exchanging credentials for OAuth token...")
-    oauth = SNOAuthClient(profile=profile, url=url, client_id=client_id, username=username)
     try:
-        token_response = oauth.exchange(client_secret, password)
+        run_instance_setup(paths, TyperPromptSource(), console, profile=profile)
     except OAuthError as exc:
         err_console.print(Notice.error(str(exc)))
         raise typer.Exit(1) from exc
-
-    sn_version, sn_build, instance_name = _detect_sn_version(
-        url, token_response.access_token, profile
-    )
-    if sn_version == "unknown":
-        console.print(
-            Notice.warn(
-                "Version: unknown (glide.buildtag not in sys_properties -- "
-                "run with --log-level DEBUG to diagnose)"
-            )
-        )
-
-    registry = InstanceRegistry(paths.instances_dir)
-    meta = InstanceMeta.create(
-        profile=profile,
-        url=url,
-        username=username,
-        client_id=client_id,
-        sn_version=sn_version,
-        sn_build=sn_build,
-        instance_name=instance_name,
-        token_expires_in=token_response.expires_in,
-    )
-    registry.register(meta)
-    console.print(Notice.info(f"Registered {profile} ({sn_version})."))
-
     if not ConfigManager(paths).load().instances.default:
         _set_default_profile(paths, profile)
         console.print(Notice.info("Set as default instance."))

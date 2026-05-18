@@ -410,8 +410,10 @@ TOP_LEVEL_HELP: list[CommandHelpEntry] = [
     ),
     help_entry(
         "setup",
-        "First-run wizard: walks through credentials, registers your first "
-        "instance, pulls the initial template catalog. Stub today.",
+        "First-run wizard: probes the OS keychain, then either registers your "
+        "first instance or shows a summary of what is already configured. "
+        "Idempotent -- safe to re-run; surfaces corrupted profiles and runs "
+        "inline re-auth when a profile is missing its tokens.",
         "nexus setup",
     ),
     help_entry(

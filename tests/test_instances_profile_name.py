@@ -54,9 +54,7 @@ def test_validate_profile_name_accepts_valid_names(name: str) -> None:
         ("prod.east", "disallowed"),
     ],
 )
-def test_validate_profile_name_rejects_invalid_names(
-    name: str, expected_reason: str
-) -> None:
+def test_validate_profile_name_rejects_invalid_names(name: str, expected_reason: str) -> None:
     with pytest.raises(InvalidProfileNameError) as excinfo:
         validate_profile_name(name)
     assert excinfo.value.reason == expected_reason

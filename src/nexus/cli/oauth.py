@@ -19,13 +19,14 @@ from __future__ import annotations
 import uuid
 
 import httpx
-import typer
 
 from nexus.cli.console import console
+from nexus.cli.prompts import PromptSource
 from nexus.ui import Notice
 
 __all__ = [
     "fetch_existing_nexus_oauth_apps",
+    "find_oauth_entity_by_name",
     "pick_existing_oauth_app",
     "print_generated_secret",
     "print_oauth_setup",
@@ -61,6 +62,22 @@ def print_oauth_setup(url: str, profile: str) -> None:
     console.print("       Click the lock icon next to Client Secret to reveal it")
     console.print("     Paste both values below.")
     console.print("")
+
+
+def _httpx_client(url: str, transport: httpx.BaseTransport | None) -> httpx.Client:
+    """Build an httpx.Client honoring an optional injected transport.
+
+    Args:
+        url: Base URL for the client.
+        transport: Override transport. Tests pass ``httpx.MockTransport``;
+            production callers pass ``None`` to use the default.
+
+    Returns:
+        A configured ``httpx.Client`` ready for ``with`` use.
+    """
+    if transport is None:
+        return httpx.Client(base_url=url, timeout=10.0)
+    return httpx.Client(base_url=url, timeout=10.0, transport=transport)
 
 
 def warn_token_cap(sn: httpx.Client, username: str, password: str) -> None:
@@ -102,7 +119,13 @@ def warn_token_cap(sn: httpx.Client, username: str, password: str) -> None:
         pass
 
 
-def fetch_existing_nexus_oauth_apps(url: str, username: str, password: str) -> list[dict[str, str]]:
+def fetch_existing_nexus_oauth_apps(
+    url: str,
+    username: str,
+    password: str,
+    *,
+    transport: httpx.BaseTransport | None = None,
+) -> list[dict[str, str]]:
     """Return oauth_entity records whose name starts with ``nexus-``.
 
     Lists OAuth applications already provisioned on the SN instance (e.g. by
@@ -113,13 +136,15 @@ def fetch_existing_nexus_oauth_apps(url: str, username: str, password: str) -> l
         url: Full instance URL.
         username: SN login for Basic auth.
         password: SN password for Basic auth.
+        transport: Optional injected httpx transport; tests pass a
+            MockTransport to drive the response.
 
     Returns:
         Each entry has keys ``name``, ``client_id``, ``sys_id``, ``sys_created_on``.
         Entries without a ``client_id`` are dropped.
     """
     try:
-        with httpx.Client(base_url=url, timeout=10.0) as sn:
+        with _httpx_client(url, transport) as sn:
             resp = sn.get(
                 "/api/now/table/oauth_entity",
                 params={
@@ -144,6 +169,60 @@ def fetch_existing_nexus_oauth_apps(url: str, username: str, password: str) -> l
         ]
     except httpx.RequestError, ValueError:
         return []
+
+
+def find_oauth_entity_by_name(
+    url: str,
+    name: str,
+    username: str,
+    password: str,
+    *,
+    transport: httpx.BaseTransport | None = None,
+) -> dict[str, str] | None:
+    """Return the oauth_entity record with exact ``name``, or None.
+
+    Used by ``provision_oauth`` to detect an orphan from a prior run that
+    was interrupted between OAuth-entity creation and local token
+    storage. When found, ``provision_oauth`` PATCHes the entity with a
+    fresh secret instead of POSTing a duplicate.
+
+    Args:
+        url: Full instance URL.
+        name: Exact ``oauth_entity.name`` value to look up (e.g.
+            ``"nexus-prod"``).
+        username: SN login for Basic auth.
+        password: SN password for Basic auth.
+        transport: Optional injected httpx transport for tests.
+
+    Returns:
+        Dict with keys ``name``, ``client_id``, ``sys_id`` when one
+        match exists; ``None`` on no match, ambiguous matches, network
+        error, or any non-200 response.
+    """
+    try:
+        with _httpx_client(url, transport) as sn:
+            resp = sn.get(
+                "/api/now/table/oauth_entity",
+                params={
+                    "sysparm_query": f"name={name}",
+                    "sysparm_fields": "name,client_id,sys_id",
+                    "sysparm_limit": "2",
+                },
+                auth=(username, password),
+            )
+        if resp.status_code != 200:
+            return None
+        rows = resp.json().get("result", [])
+        if len(rows) != 1:
+            return None
+        row = rows[0]
+        client_id = str(row.get("client_id", ""))
+        sys_id = str(row.get("sys_id", ""))
+        if not client_id or not sys_id:
+            return None
+        return {"name": str(row.get("name", name)), "client_id": client_id, "sys_id": sys_id}
+    except httpx.RequestError, ValueError:
+        return None
 
 
 def print_generated_secret(secret: str) -> None:
@@ -199,7 +278,10 @@ def print_secret_recovery_steps(url: str, sys_id: str, name: str) -> None:
 
 
 def pick_existing_oauth_app(
-    entries: list[dict[str, str]], profile: str, url: str
+    entries: list[dict[str, str]],
+    profile: str,
+    url: str,
+    prompts: PromptSource,
 ) -> tuple[str, str] | None:
     """Prompt the user to reuse an existing Nexus OAuth app or create a new one.
 
@@ -211,6 +293,7 @@ def pick_existing_oauth_app(
         entries: Output of ``fetch_existing_nexus_oauth_apps``. Must be non-empty.
         profile: Profile being registered -- shown in the "create new" option.
         url: Full instance URL, used to build the Scripts - Background link.
+        prompts: ``PromptSource`` used for the choice prompt and secret entry.
 
     Returns:
         ``(client_id, client_secret)`` if the user picks an existing entry and
@@ -225,7 +308,7 @@ def pick_existing_oauth_app(
         )
     console.print(f"    n. Create a new app named 'nexus-{profile}'")
     console.print("")
-    raw: str = typer.prompt(f"  Pick one (1-{len(entries)}) or 'n' for new")
+    raw = prompts.ask(f"  Pick one (1-{len(entries)}) or 'n' for new")
     choice = raw.strip().lower()
     if choice == "n":
         return None
@@ -240,43 +323,69 @@ def pick_existing_oauth_app(
     picked = entries[idx - 1]
     console.print(f"  Reusing OAuth app '{picked['name']}' (client_id={picked['client_id']}).")
     print_secret_recovery_steps(url=url, sys_id=picked["sys_id"], name=picked["name"])
-    secret: str = typer.prompt("  OAuth Client Secret", hide_input=True)
+    secret = prompts.ask("  OAuth Client Secret", hide=True)
     return picked["client_id"], secret
 
 
-def provision_oauth(url: str, profile: str, username: str, password: str) -> tuple[str, str]:
+def provision_oauth(
+    url: str,
+    profile: str,
+    username: str,
+    password: str,
+    prompts: PromptSource,
+    *,
+    transport: httpx.BaseTransport | None = None,
+) -> tuple[str, str]:
     """Reuse or auto-create an OAuth app in SN; fall back to manual prompts on failure.
 
-    First queries the instance for any existing ``nexus-*`` OAuth apps and, if
-    found, offers to reuse one (prompting the user for its client_secret since
-    SN won't return it). If the user declines or no entry is found, POSTs a new
-    record to the oauth_entity Table API using HTTP Basic auth. On any failure
-    the user is shown setup instructions and prompted to enter the credentials
-    manually.
+    Resilience to interrupted prior runs (story 05 AC1/AC2): before
+    attempting to create, looks up the deterministic entity name
+    ``nexus-<profile>``. When found (orphan from a Ctrl-C'd run), rotates
+    the secret via PATCH and returns the existing ``client_id`` with the
+    new secret -- so the SN instance never accumulates duplicate
+    ``oauth_entity`` records on retry.
+
+    When no deterministic match exists, queries for any ``nexus-*`` apps
+    the user might want to reuse, then falls back to POSTing a new
+    record. On any HTTP error the user is shown manual setup
+    instructions and prompted to enter the credentials by hand via
+    ``prompts``.
 
     Args:
         url: Full instance URL.
         profile: Profile alias used as the OAuth app name suffix.
         username: SN login for Basic auth.
         password: SN password for Basic auth.
+        prompts: ``PromptSource`` for all interactive input (no direct
+            ``typer.prompt`` calls remain in this module).
+        transport: Optional injected httpx transport; tests pass a
+            MockTransport to drive responses.
 
     Returns:
         Tuple of (client_id, client_secret).
     """
-    existing = fetch_existing_nexus_oauth_apps(url, username, password)
+    name = f"nexus-{profile}"
+    orphan = find_oauth_entity_by_name(url, name, username, password, transport=transport)
+    if orphan is not None:
+        rotated = _rotate_oauth_secret(url, orphan["sys_id"], username, password, transport)
+        if rotated is not None:
+            console.print(f"  Reused OAuth app {name!r} from a prior run (rotated secret).")
+            return orphan["client_id"], rotated
+
+    existing = fetch_existing_nexus_oauth_apps(url, username, password, transport=transport)
     if existing:
-        picked = pick_existing_oauth_app(existing, profile, url)
+        picked = pick_existing_oauth_app(existing, profile, url, prompts)
         if picked is not None:
             return picked
 
     generated_secret = str(uuid.uuid4())
     fail_reason = ""
     try:
-        with httpx.Client(base_url=url, timeout=10.0) as sn:
+        with _httpx_client(url, transport) as sn:
             resp = sn.post(
                 "/api/now/table/oauth_entity",
                 json={
-                    "name": f"nexus-{profile}",
+                    "name": name,
                     "type": "oauth2",
                     "client_secret": generated_secret,
                     "redirect_url": "https://localhost",
@@ -289,7 +398,7 @@ def provision_oauth(url: str, profile: str, username: str, password: str) -> tup
                 result = resp.json().get("result", {})
                 client_id = str(result.get("client_id", ""))
                 if client_id:
-                    console.print(f"  Created OAuth application 'nexus-{profile}' automatically.")
+                    console.print(f"  Created OAuth application {name!r} automatically.")
                     print_generated_secret(generated_secret)
                     warn_token_cap(sn, username, password)
                     return client_id, generated_secret
@@ -301,6 +410,47 @@ def provision_oauth(url: str, profile: str, username: str, password: str) -> tup
 
     console.print(f"  Could not auto-create OAuth credentials ({fail_reason}).")
     print_oauth_setup(url, profile)
-    client_id = typer.prompt("  OAuth Client ID")
-    client_secret: str = typer.prompt("  OAuth Client Secret", hide_input=True)
+    client_id = prompts.ask("  OAuth Client ID")
+    client_secret = prompts.ask("  OAuth Client Secret", hide=True)
     return client_id, client_secret
+
+
+def _rotate_oauth_secret(
+    url: str,
+    sys_id: str,
+    username: str,
+    password: str,
+    transport: httpx.BaseTransport | None,
+) -> str | None:
+    """PATCH the named oauth_entity with a fresh secret; return the new value or None.
+
+    The PATCH request sends a freshly generated UUID as ``client_secret``.
+    On success the value we sent is the value we keep -- SN masks the
+    field in its echoed response, so the locally generated UUID is the
+    new secret.
+
+    Args:
+        url: Full instance URL.
+        sys_id: ``oauth_entity.sys_id`` of the record to rotate.
+        username: SN login for Basic auth.
+        password: SN password for Basic auth.
+        transport: Optional injected httpx transport for tests.
+
+    Returns:
+        The newly assigned ``client_secret`` on PATCH success (HTTP
+        200), or ``None`` on any failure (caller treats as 'rotation
+        failed; fall back to listing existing apps').
+    """
+    new_secret = str(uuid.uuid4())
+    try:
+        with _httpx_client(url, transport) as sn:
+            resp = sn.patch(
+                f"/api/now/table/oauth_entity/{sys_id}",
+                json={"client_secret": new_secret},
+                auth=(username, password),
+            )
+    except httpx.RequestError:
+        return None
+    if resp.status_code != 200:
+        return None
+    return new_secret

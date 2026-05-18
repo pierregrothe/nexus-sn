@@ -35,14 +35,6 @@ __all__: list[str] = []
 
 
 @app.command()
-def setup() -> None:
-    """First-run wizard: configure credentials, instances, and sync templates."""
-    console.print("[bold]NEXUS Setup[/bold]")
-    console.print("Interactive setup wizard -- not yet implemented.")
-    console.print("Configure manually by editing ~/.nexus/config.yaml")
-
-
-@app.command()
 def status(
     refresh: Annotated[
         bool, typer.Option("--refresh", help="Clear cached tier detection and re-detect")

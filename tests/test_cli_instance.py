@@ -27,6 +27,7 @@ from nexus.instances.models import InstanceMeta, InstanceSnapshot
 from nexus.instances.registry import InstanceRegistry
 from nexus.plugins.models import PluginInventory
 from tests.conftest import scripted_prompt
+from tests.fakes.scripted_prompt import ScriptedPromptSource
 
 
 def _meta(profile: str = "dev12345") -> InstanceMeta:
@@ -188,58 +189,58 @@ _OAUTH_ENTRY: dict[str, str] = {
 }
 
 
-def test_pick_existing_oauth_app_returns_picked_entry_with_prompted_secret(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(typer, "prompt", scripted_prompt(["1", "user-pasted-secret"]))
+def test_pick_existing_oauth_app_returns_picked_entry_with_prompted_secret() -> None:
     result = _pick_existing_oauth_app(
-        [_OAUTH_ENTRY], profile="dev", url="https://dev.service-now.com"
+        [_OAUTH_ENTRY],
+        profile="dev",
+        url="https://dev.service-now.com",
+        prompts=ScriptedPromptSource(["1", "user-pasted-secret"]),
     )
     assert result == ("existing-client-id", "user-pasted-secret")
 
 
-def test_pick_existing_oauth_app_returns_none_when_user_picks_new(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(typer, "prompt", scripted_prompt(["n"]))
+def test_pick_existing_oauth_app_returns_none_when_user_picks_new() -> None:
     result = _pick_existing_oauth_app(
-        [_OAUTH_ENTRY], profile="dev", url="https://dev.service-now.com"
+        [_OAUTH_ENTRY],
+        profile="dev",
+        url="https://dev.service-now.com",
+        prompts=ScriptedPromptSource(["n"]),
     )
     assert result is None
 
 
-def test_pick_existing_oauth_app_returns_none_on_invalid_choice(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(typer, "prompt", scripted_prompt(["abc"]))
+def test_pick_existing_oauth_app_returns_none_on_invalid_choice() -> None:
     result = _pick_existing_oauth_app(
-        [_OAUTH_ENTRY], profile="dev", url="https://dev.service-now.com"
+        [_OAUTH_ENTRY],
+        profile="dev",
+        url="https://dev.service-now.com",
+        prompts=ScriptedPromptSource(["abc"]),
     )
     assert result is None
 
 
-def test_pick_existing_oauth_app_returns_none_on_out_of_range_choice(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(typer, "prompt", scripted_prompt(["5"]))
+def test_pick_existing_oauth_app_returns_none_on_out_of_range_choice() -> None:
     result = _pick_existing_oauth_app(
-        [_OAUTH_ENTRY], profile="dev", url="https://dev.service-now.com"
+        [_OAUTH_ENTRY],
+        profile="dev",
+        url="https://dev.service-now.com",
+        prompts=ScriptedPromptSource(["5"]),
     )
     assert result is None
 
 
-def test_pick_existing_oauth_app_uses_picked_index_among_multiple(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+def test_pick_existing_oauth_app_uses_picked_index_among_multiple() -> None:
     second = {
         "name": "nexus-dev",
         "client_id": "second-client",
         "sys_id": "sys456",
         "sys_created_on": "2026-05-02",
     }
-    monkeypatch.setattr(typer, "prompt", scripted_prompt(["2", "second-secret"]))
     result = _pick_existing_oauth_app(
-        [_OAUTH_ENTRY, second], profile="dev", url="https://dev.service-now.com"
+        [_OAUTH_ENTRY, second],
+        profile="dev",
+        url="https://dev.service-now.com",
+        prompts=ScriptedPromptSource(["2", "second-secret"]),
     )
     assert result == ("second-client", "second-secret")
 
