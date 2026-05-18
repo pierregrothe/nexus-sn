@@ -28,6 +28,10 @@ Connectors layer:
   ServiceNowClient + FakeServiceNowClient -- REST API
   ServiceNowConnector -- protocol implementation
   Full error hierarchy (SNAuthError, SNNotFoundError, SNRateLimitError, SNClientError)
+  RefreshTokenCallback wiring -- proactive refresh within 60s of expiry +
+    reactive single retry on 401 (403 left alone since ACL denial cannot
+    be fixed by token refresh). Long-running batch upgrades survive PDI's
+    30-min access-token cap transparently.
 
 API layer:
   AgentClient -- async wrapper around claude_agent_sdk.query(). Auth handled
@@ -108,9 +112,12 @@ Plugins layer (plugin management roadmap A-N, 15 sub-projects):
   apply_overrides + AdvisoryOverride -- per-instance deferred findings
   batch_upgrade -- BatchUpgradeReport (frozen + model_validator
     coherence check per ADR-021) + skip-on-fail loop; filter_by_family
-    + available_families + unknown_families helpers; `nexus plugins
-    updates --apply --family X --out report.yaml` extends the existing
-    updates command without a new subcommand.
+    + available_families + unknown_families helpers; surfaced via
+    `nexus plugins upgrade [--family X] [--all] --yes --out report.yaml`.
+    Bare `upgrade` upgrades every pending plugin (brew/apt style).
+    SN's "Application version is currently installed" HTTP 400 is
+    treated as an idempotent no-op success at both submit and
+    progress-poll phases.
   orphan_candidates -- zero-deps + zero-records detection
   diff_inventories -- cross-instance plugin diff
   detect_updates -- comparison against store catalog
@@ -140,13 +147,14 @@ CLI:
   nexus capture -- discover, pull, list, push; bare invocation shows discovery view
   nexus plugins -- scan, list, info, inventory, impact (incl. --no-cross-scope,
     --live, --format json), advisories (incl. defer/undo-defer/list-deferred,
-    --strict), orphans, diff, updates (--queue file output), drift (--ack,
-    --strict, --baseline, --format json), baselines list/delete, recommend
-    deactivate/explain/roadmap, export (yaml/csv), promote, install, activate,
-    upgrade, apply (PromotionPlan YAML; defaults target to plan.target_profile),
-    deactivate / uninstall (forward-compatible stubs -- SN does not expose
-    these via any programmatic API; see spec addendum 2026-05-14e);
-    bare invocation shows two-box discovery view
+    --strict), orphans, diff, outdated (--queue file output, --family filter,
+    --format json), drift (--ack, --strict, --baseline, --format json),
+    baselines list/delete, recommend deactivate/explain/roadmap, export
+    (yaml/csv), promote, install, activate, upgrade (single <id>, --family X,
+    or --all for batch), apply (PromotionPlan YAML; defaults target to
+    plan.target_profile), deactivate / uninstall (forward-compatible stubs --
+    SN does not expose these via any programmatic API; see spec addendum
+    2026-05-14e); bare invocation shows two-box discovery view
   nexus reauth -- prints one-shot command for servers needing re-auth
   nexus update / --refresh -- manual update check + cache clear
   Every leaf command shows themed help panel (badge + options + examples) on bare
@@ -159,10 +167,10 @@ Governance enforcement:
   Semgrep rules (.semgrep/rules.yml) -- semantic rules with ADR tracing
   Post-edit checks: black + ruff + mypy + pyright (all strict, all blocking)
   Pre-commit hook: black + ruff + mypy + pyright + semgrep + pytest
-  ADR catalog: 22 ADRs in .primer/adr/. Latest: ADR-021 (coherent
-    construction on frozen Pydantic models via @model_validator vs
-    @computed_field), ADR-022 (deferred imports allowed in Typer
-    command bodies inside cli.py only).
+  ADR catalog: 23 ADRs in .primer/adr/. Latest: ADR-023 (file-size
+    cap: 800 src / 1000 tests with ratchet enforcement). cli.py
+    (4478 lines) was split into a 17-module cli/ package as the
+    first beneficiary; ratchet baseline is now empty.
 
 Infrastructure:
   pyproject.toml -- Python 3.14, Poetry in-project venv, ruff/black/mypy/pyright
@@ -174,21 +182,19 @@ Infrastructure:
   scripts/dump_sn_api_catalog.py -- mines sys_ws_operation for the full SN
     scripted-REST catalog (120 services / 218 ops); used to discover the
     sn_appclient action endpoints
-  scripts/smoke_plugins.py -- 68-test live smoke suite for nexus plugins
+  scripts/smoke_plugins.py -- live smoke suite for nexus plugins
     (discovery, help, list/info/export filters, install/activate/upgrade/
     apply/deactivate/uninstall happy + cancellation + missing-arg + unknown-
     plugin + force-confirm-rejection paths; cross-instance diff +
-    promote->apply round-trip). `plugins updates` alone has 16 dedicated
-    smokes covering every documented option combination -- bare, --format
-    text|json|invalid, --queue, --family single/multi/case-insensitive/
-    unknown, --instance explicit, combined flags, --apply declined,
-    --apply --yes --family BOGUS (exits 2 before SN call). Destructive
-    --apply --yes was validated against retail PDI in 5 progressive
-    levels (0/0/1/3/5 plugins upgraded across SecOps/Platform/CSM
-    families) plus a partial GRC run (9 succeeded, 1 captured live
-    skip-on-fail).
+    promote->apply round-trip). `plugins outdated` has 16 dedicated
+    smokes covering every documented option combination; the
+    destructive `upgrade --yes [--family BOGUS]` paths have 2
+    smokes that exercise prompt-decline and family-validation exits.
+    Destructive batch upgrade was validated against retail PDI in 5
+    progressive levels plus live SPM family run (6 fresh + 3 already-
+    installed treated as success, 1 timeout).
 
-Tests: 912 passing. All real fakes, no mocks. mypy strict + pyright
+Tests: 1072 passing. All real fakes, no mocks. mypy strict + pyright
 strict report 0 errors across src/ AND tests/. Black + ruff also 0.
 GitHub: https://github.com/pierregrothe/nexus-sn (public).
 
@@ -198,6 +204,13 @@ GitHub: https://github.com/pierregrothe/nexus-sn (public).
   unknown. Probing strategy will revisit when Agent SDK MCP wiring is designed.
 - PDI token lifetime cap: glide.oauth.access_token.expire_in.system_max_seconds
   overrides token_lifetime on OAuth app records; tokens stay at 30 min on PDIs.
+  Mitigated for plugin batch operations via ServiceNowClient's
+  RefreshTokenCallback (transparent proactive + reactive refresh).
+- _rescan_plugin_inventory uses the original `token` variable captured at the
+  top of `_upgrade_batch`; if the live client refreshed mid-batch the rescan
+  uses a stale token. Not user-visible today because the OAuth refresh is
+  also re-invoked by `_acquire_token` on the next CLI invocation, but worth
+  cleaning up.
 - knowledge/mastery/ empty. Decision pending: copy from JARVIS or rebuild.
 - Template schemas (templates/schemas/*.py) are stubs.
 - setup, sync, templates, assess commands raise NotImplementedError.

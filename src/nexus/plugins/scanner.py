@@ -176,14 +176,20 @@ class PluginScanner:
         for _ in range(_MAX_PAGES):
             resp = await client.get(url, params=params)
             if resp.status_code != 200:
-                hint = ""
+                # 403 is a routine graceful-degradation case (most PDIs lock
+                # sys_store_app behind a Store-specific role; we fall back to
+                # v_plugin + appmanager). Demoted to debug so steady-state
+                # runs stay quiet -- users diagnose via `nexus instance
+                # diagnose-roles`, which surfaces the actual SN-side ACL
+                # detail rather than guessing a role name.
                 if resp.status_code == 403:
-                    hint = (
-                        " -- REST access denied; grant the OAuth user the appropriate"
-                        " role (e.g. app_store_pa_user_role for sys_store_app) to"
-                        " expose latest-version data"
+                    log.debug(
+                        "plugin scan: %s returned HTTP 403 (run "
+                        "`nexus instance diagnose-roles` for SN detail)",
+                        table,
                     )
-                log.warning("plugin scan: %s returned HTTP %d%s", table, resp.status_code, hint)
+                else:
+                    log.warning("plugin scan: %s returned HTTP %d", table, resp.status_code)
                 return [], (table, resp.status_code)
             rows.extend(resp.json().get("result", []))
             next_url = _parse_next_link(resp.headers.get("Link", ""))

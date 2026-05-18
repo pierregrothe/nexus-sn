@@ -233,27 +233,37 @@ def _emit_framed_view(
 
 
 async def _rescan_plugin_inventory(
-    meta: InstanceMeta, token: str, registry: InstanceRegistry
-) -> None:
-    """Refresh the cached plugin inventory after a destructive operation.
+    meta: InstanceMeta,
+    token: str,
+    registry: InstanceRegistry,
+    *,
+    quiet: bool = False,
+) -> PluginInventory | None:
+    """Refresh the cached plugin inventory; persist + return the fresh result.
 
-    Called from upgrade / batch-upgrade / apply-plan code paths once the
-    SN-side operation has succeeded, so subsequent ``nexus plugins`` reads
-    reflect the new state without forcing the user to run
-    ``nexus instance refresh`` manually.
+    Called from upgrade / batch-upgrade / apply-plan / outdated code paths
+    when the cached inventory is stale or after a destructive operation.
 
     Best-effort: any scan error degrades to a warning + manual-refresh hint
-    so a successful upgrade is never reported as failed because the post-op
-    rescan stumbled. ``capture_counts=False`` skips the per-plugin record
-    fan-out for speed; users who need fresh orphan-detection counts can run
-    a full ``nexus instance refresh``.
+    and returns ``None`` so callers can fall back to whatever they already
+    had. ``capture_counts=False`` skips the per-plugin record fan-out for
+    speed; users who need fresh orphan-detection counts can run a full
+    ``nexus instance refresh``.
 
     Args:
         meta: Resolved instance metadata.
         token: Active bearer token for the instance.
         registry: Registry used to persist the fresh inventory.
+        quiet: When True, suppress the leading "Refreshing plugin inventory..."
+            notice so callers that already announced the refresh (with
+            their own reason text) do not produce duplicate output.
+
+    Returns:
+        The freshly scanned ``PluginInventory`` on success, or ``None`` when
+        the scan raises (the disk cache is untouched in that case).
     """
-    console.print(Notice.info("Refreshing plugin inventory..."))
+    if not quiet:
+        console.print(Notice.info("Refreshing plugin inventory..."))
     scanner = PluginScanner()
     try:
         inventory = await scanner.scan(meta.url, token, meta.sn_version, capture_counts=False)
@@ -265,9 +275,10 @@ async def _rescan_plugin_inventory(
                 command=f"nexus instance refresh {meta.profile}",
             )
         )
-        return
+        return None
     registry.save_plugin_inventory(meta.profile, inventory)
     console.print(Notice.info(f"Plugin inventory refreshed -- {len(inventory.plugins)} plugins."))
+    return inventory
 
 
 def _load_inventory_or_exit(profile: str) -> tuple[InstanceMeta, PluginInventory]:

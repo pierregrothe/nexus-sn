@@ -551,3 +551,47 @@ sync_readme false positive resolved with a regression test.
 Live smoke proves every option permutation of `plugins updates`,
 including the destructive paths bounded by retail PDI as the
 disposable target.
+
+### 2026-05-16 -- Brew/apt-style plugin CLI redesign + transparent OAuth refresh
+
+**Status:** accepted
+
+**Context:** User feedback: "I want an experience close to brew, chocolatey,
+adp [apt] and others". The pre-existing `plugins updates` command did
+double duty -- a read-only listing AND, with `--apply`, the destructive
+batch upgrade. The destructive verb (`upgrade`) could only handle one
+plugin at a time. brew/apt convention is the opposite: `upgrade` is the
+destructive verb (bare = everything, with arg = just that), `outdated`
+is the pure read-only listing. Further, real PDI batches (47 plugins)
+ran past the 30-min OAuth token cap mid-loop, killing the whole batch
+with SNAuthError; and SN's HTTP 400 "Application version is currently
+installed" response was being reported as a failure even though it
+is the canonical idempotent no-op.
+
+**Decision:**
+1. Rename `plugins updates` -> `plugins outdated` (read-only). Drop the
+   `--apply` / `--yes` / `--out` flags from it.
+2. Make `plugins upgrade` accept a positional id, or `--family X`, or
+   `--all`; bare form upgrades every pending plugin. `--to` is single-
+   plugin only; `--out` is batch-only. Five mutual-exclusion guards
+   exit 2 with a clear message when combinations clash.
+3. Add `RefreshTokenCallback` to ServiceNowClient. Proactive refresh
+   fires when expiry is within 60s; reactive refresh retries once on
+   401. 403 is deliberately not retried (ACL denial cannot be fixed
+   by a fresh token).
+4. Detect SN's "Application version is currently installed" in both
+   the submit and progress-poll exception handlers; return success=True
+   with an idempotent message rather than failure.
+
+No backward-compat shim per `~/.claude/rules/no-backward-compat.md`.
+Scripts that ran `nexus plugins updates --apply --yes [--family X]`
+must update to `nexus plugins upgrade --yes [--family X]`.
+
+**Consequences:** Long-running family batches survive PDI's 30-min
+token cap transparently and report already-installed plugins as
+green successes. The CLI now has one clear destructive verb and
+one clear read-only verb that match brew/apt muscle memory. 1072
+tests passing (up from 912 after the volume of new test files
+landed across the broader session); all five gates green;
+file-size ratchet baseline now empty after cli.py was split into
+a 17-module cli/ package (ADR-023 grandfather entry removed).

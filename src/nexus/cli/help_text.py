@@ -234,10 +234,11 @@ PLUGINS_HELP: list[CommandHelpEntry] = [
         "nexus plugins uninstall com.acme.app",
     ),
     help_entry(
-        "upgrade <plugin-id> [--to X.Y.Z]",
-        "Upgrade a plugin to the latest available version, or to a specific "
-        "version with --to. Shows the dependency cascade.",
-        "nexus plugins upgrade com.snc.discovery --to 21.0",
+        "upgrade [<plugin-id>|--family X|--all] [--to V]",
+        "Upgrade plugins on the resolved instance. Bare = every pending "
+        "(brew/apt-style). --family filters. --all upgrades everything pending. "
+        "Offering plugins (sn_hs_*, sn_fs_*) install via the SN UI only.",
+        "nexus plugins upgrade --family irm --yes",
     ),
     help_entry(
         "baselines list",
@@ -354,6 +355,14 @@ INSTANCE_HELP: list[CommandHelpEntry] = [
         "SN version, token state (valid / EXPIRED / N min left), and last "
         "successful connection time. Default instance marked with '*'.",
         "nexus instance list",
+    ),
+    help_entry(
+        "diagnose-roles [profile]",
+        "Probe the SN Table API endpoints NEXUS reads (sys_user, v_plugin, "
+        "sys_store_app, ...) and report HTTP status + SN-side error detail "
+        "per table. Use this when plugin scans warn about 403s -- the "
+        "detail column names the exact role/scope SN expects.",
+        "nexus instance diagnose-roles prod",
     ),
 ]
 

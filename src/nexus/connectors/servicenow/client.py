@@ -501,7 +501,11 @@ class ServiceNowClient:
                     suggestion="Reduce concurrent requests or wait before retrying.",
                 )
             case _:
+                # 800 chars is enough for SN's nested glide exception bodies
+                # (typical "Cannot find function hasOwnProperty in object
+                # com.glide.cicd.exception.CICDProcessException: ..." messages
+                # run 300-600 chars). 200 was truncating the actionable hint.
                 raise SNClientError(
-                    f"Unexpected HTTP {response.status_code}: {response.text[:200]}",
+                    f"Unexpected HTTP {response.status_code}: {response.text[:800]}",
                     status_code=response.status_code,
                 )

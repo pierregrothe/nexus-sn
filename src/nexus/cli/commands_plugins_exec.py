@@ -223,7 +223,12 @@ def plugins_upgrade(
         _upgrade_batch(instance, tuple(family) if family else (), yes, out)
 
 
-def _upgrade_single(plugin_id: str, instance: str, to: str | None, yes: bool) -> None:
+def _upgrade_single(
+    plugin_id: str,
+    instance: str,
+    to: str | None,
+    yes: bool,
+) -> None:
     """Single-plugin upgrade with cascade preview and Stage K/N progress."""
     from nexus.plugins.dependencies import fetch_dependencies  # noqa: PLC0415
     from nexus.plugins.executor import PluginExecutor  # noqa: PLC0415
@@ -272,11 +277,19 @@ def _upgrade_single(plugin_id: str, instance: str, to: str | None, yes: bool) ->
                         label = f"Stage {k}/{total_stages}: {label}"
                     progress.update(task, completed=state.percent_complete, description=label)
 
-                result = await executor.upgrade(plugin_id, to, on_progress=on_progress)
+                result = await executor.upgrade(
+                    plugin_id,
+                    to,
+                    on_progress=on_progress,
+                )
             console.print(result_panel(result))
             if not result.success:
                 raise typer.Exit(1)
-        await _rescan_plugin_inventory(meta, token, registry)
+        # Re-acquire so the rescan uses a fresh token: the live client may
+        # have refreshed mid-upgrade, leaving the captured `token` variable
+        # stale. _acquire_token caches when valid so this is cheap.
+        _, _, rescan_token, _ = _acquire_token(meta.profile)
+        await _rescan_plugin_inventory(meta, rescan_token, registry)
 
     asyncio.run(_run())
 
@@ -362,7 +375,11 @@ def _upgrade_batch(
                     encoding="utf-8",
                 )
             if report.succeeded > 0:
-                await _rescan_plugin_inventory(meta, token, registry)
+                # Re-acquire: long batches can outlive the original token
+                # (the client refreshes silently mid-batch); reusing the
+                # captured `token` here would 401 the rescan.
+                _, _, rescan_token, _ = _acquire_token(meta.profile)
+                await _rescan_plugin_inventory(meta, rescan_token, registry)
             if report.exit_code != 0:
                 raise typer.Exit(report.exit_code)
 
@@ -430,7 +447,9 @@ def plugins_apply(
             console.print(f"Done: {log.success_count} ok, {log.failure_count} failed")
             if log.failure_count:
                 raise typer.Exit(1)
-        await _rescan_plugin_inventory(meta, token, registry)
+        # Re-acquire: a multi-action plan can outlive the original token.
+        _, _, rescan_token, _ = _acquire_token(meta.profile)
+        await _rescan_plugin_inventory(meta, rescan_token, registry)
 
     asyncio.run(_run())
 

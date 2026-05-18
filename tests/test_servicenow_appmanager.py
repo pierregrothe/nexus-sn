@@ -327,3 +327,45 @@ async def test_submit_uninstall_uses_get_with_app_id() -> None:
     assert captured["path"] == "/api/sn_appclient/appmanager/app/uninstall"
     assert captured["query"] == {"app_id": "sys-uninst"}
     assert result["trackerId"] == "t-uninst"
+
+
+@pytest.mark.asyncio
+async def test_raise_for_status_widens_500_body_to_800_chars() -> None:
+    """A 500 body is surfaced up to 800 chars so SN's full error is visible.
+
+    Earlier truncation at 200 chars cut off the actionable portion of
+    SN's nested glide-exception bodies (e.g. the offering-plugin hint).
+    Regression: keep the body long enough that the user can see the
+    real complaint.
+    """
+    from nexus.connectors.servicenow.errors import SNClientError  # noqa: PLC0415
+
+    long_body = (
+        "Cannot find function hasOwnProperty in object "
+        "com.glide.cicd.exception.CICDProcessException: Offering plugin id must "
+        "be specified for application. Found the following offering plugins: "
+        + ", ".join(f"sn_hs_offering_{i}" for i in range(40))
+    )
+    assert len(long_body) > 400
+
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(500, text=long_body)
+
+    transport = httpx.MockTransport(handler)
+    async with ServiceNowClient("test.service-now.com", token="t") as c:
+        c._client = httpx.AsyncClient(  # pyright: ignore[reportPrivateUsage]
+            base_url=c._base_url,
+            headers={
+                "Authorization": "Bearer t",
+                "Accept": "application/json",
+                "Content-Type": "application/json",
+            },
+            transport=transport,
+        )
+        with pytest.raises(SNClientError) as excinfo:
+            await c.fetch_progress("tracker-xyz")
+
+    message = str(excinfo.value)
+    assert "Offering plugin id must be specified" in message
+    # The new 800-char cap exposes at least 400 chars of body beyond the prefix.
+    assert len(message) > 400

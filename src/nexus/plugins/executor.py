@@ -21,6 +21,15 @@ if TYPE_CHECKING:
     from nexus.plugins.diff import PromotionPlan
 
 from nexus.plugins.dependencies import fetch_dependencies
+from nexus.plugins.error_classification import (
+    OFFERING_PLUGIN_FAILURE_MESSAGE as _OFFERING_PLUGIN_FAILURE_MESSAGE,
+)
+from nexus.plugins.error_classification import (
+    is_already_installed_error as _is_already_installed_error,
+)
+from nexus.plugins.error_classification import (
+    is_offering_plugin_error as _is_offering_plugin_error,
+)
 from nexus.plugins.errors import (
     PluginImpactBlockError,
     PluginNotFoundError,
@@ -43,28 +52,16 @@ __all__ = ["BatchUpgradeReport", "OperationLog", "OperationResult", "PluginExecu
 
 _FROZEN = ConfigDict(frozen=True, strict=True, extra="forbid")
 
-# SN returns HTTP 400 with this exact wording in the body when the requested
-# version is already live on the target instance. Trying to "install" or
-# "upgrade" to that same version is a true no-op, not a failure -- treat it
-# as a successful idempotent outcome, matching brew/apt semantics.
-_ALREADY_INSTALLED_MARKERS = ("application version is currently installed",)
-
-
-def _is_already_installed_error(exc: Exception) -> bool:
-    """Return True when the SN error indicates the target is already live.
-
-    Lowercase substring match so future SN releases that tweak the wording
-    do not silently regress the behaviour. The marker list lives at module
-    scope so tests can extend it without touching executor internals.
-
-    Args:
-        exc: Exception raised by ``submit_install`` / ``submit_upgrade``.
-
-    Returns:
-        True when the wrapped error body contains an already-installed marker.
-    """
-    message = str(exc).lower()
-    return any(marker in message for marker in _ALREADY_INSTALLED_MARKERS)
+_Action = Literal[
+    "install",
+    "activate",
+    "upgrade",
+    "deactivate",
+    "uninstall",
+    "rollback_install",
+    "rollback_activate",
+    "rollback_upgrade",
+]
 
 
 class PluginExecutor:
@@ -117,16 +114,7 @@ class PluginExecutor:
 
     @staticmethod
     def _failure_result(
-        action: Literal[
-            "install",
-            "activate",
-            "upgrade",
-            "deactivate",
-            "uninstall",
-            "rollback_install",
-            "rollback_activate",
-            "rollback_upgrade",
-        ],
+        action: _Action,
         plugin_id: str,
         message: str,
         started: float,
@@ -156,6 +144,24 @@ class PluginExecutor:
             rollback_version=None,
         )
 
+    def _classify_known_sn_error(
+        self,
+        action: Literal["install", "upgrade"],
+        plugin_id: str,
+        started: float,
+        exc: Exception,
+        *,
+        tracker_id: str = "",
+    ) -> OperationResult | None:
+        """Return a typed OperationResult for known SN error patterns, else None."""
+        if _is_already_installed_error(exc):
+            return self._already_installed_result(action, plugin_id, started, tracker_id=tracker_id)
+        if _is_offering_plugin_error(exc):
+            return self._failure_result(
+                action, plugin_id, _OFFERING_PLUGIN_FAILURE_MESSAGE, started, tracker_id=tracker_id
+            )
+        return None
+
     @staticmethod
     def _already_installed_result(
         action: Literal["install", "upgrade"],
@@ -166,26 +172,12 @@ class PluginExecutor:
     ) -> OperationResult:
         """Build a no-op success OperationResult for the already-installed path.
 
-        SN refusing an install/upgrade with "Application version is currently
-        installed" is treated as success (brew/apt idempotency). The message
-        is chosen per-action so summary output stays readable.
-
-        Args:
-            action: Either "install" or "upgrade" (the only verbs that can
-                receive this SN response).
-            plugin_id: Canonical plugin identifier.
-            started: time.monotonic() value at the start of the operation.
-            tracker_id: Progress tracker sys_id, empty when SN refused at
-                submit time before allocating one.
-
-        Returns:
-            OperationResult with success=True and an action-appropriate message.
+        SN's "Application version is currently installed" is treated as
+        success (brew/apt idempotency). Message wording varies by ``action``
+        so batch summaries stay readable.
         """
-        message = (
-            "Already installed at target version"
-            if action == "install"
-            else "Already at target version"
-        )
+        suffix = " installed" if action == "install" else ""
+        message = f"Already{suffix} at target version"
         return OperationResult(
             action=action,
             plugin_id=plugin_id,
@@ -311,18 +303,20 @@ class PluginExecutor:
         try:
             raw = await self._client.submit_install(info.sys_id, version)
         except Exception as exc:
-            if _is_already_installed_error(exc):
-                return self._already_installed_result("install", plugin_id, started)
+            classified = self._classify_known_sn_error("install", plugin_id, started, exc)
+            if classified is not None:
+                return classified
             return self._failure_result("install", plugin_id, str(exc), started)
         tracker_id = str(raw.get("trackerId", ""))
         poller = ProgressPoller(self._client)
         try:
             final = await poller.poll(tracker_id)
         except (PluginProgressError, PluginTimeoutError) as exc:
-            if _is_already_installed_error(exc):
-                return self._already_installed_result(
-                    "install", plugin_id, started, tracker_id=tracker_id
-                )
+            classified = self._classify_known_sn_error(
+                "install", plugin_id, started, exc, tracker_id=tracker_id
+            )
+            if classified is not None:
+                return classified
             err_msg = getattr(exc, "error_message", "") or str(exc)
             return self._failure_result(
                 "install", plugin_id, err_msg, started, tracker_id=tracker_id
@@ -438,18 +432,20 @@ class PluginExecutor:
         try:
             raw = await self._client.submit_upgrade(info.sys_id, target_version)
         except Exception as exc:
-            if _is_already_installed_error(exc):
-                return self._already_installed_result("upgrade", plugin_id, started)
+            classified = self._classify_known_sn_error("upgrade", plugin_id, started, exc)
+            if classified is not None:
+                return classified
             return self._failure_result("upgrade", plugin_id, str(exc), started)
         tracker_id = str(raw.get("trackerId", ""))
         poller = ProgressPoller(self._client)
         try:
             final = await poller.poll(tracker_id, on_progress=on_progress)
         except Exception as exc:
-            if _is_already_installed_error(exc):
-                return self._already_installed_result(
-                    "upgrade", plugin_id, started, tracker_id=tracker_id
-                )
+            classified = self._classify_known_sn_error(
+                "upgrade", plugin_id, started, exc, tracker_id=tracker_id
+            )
+            if classified is not None:
+                return classified
             err_msg = getattr(exc, "error_message", "") or str(exc)
             return self._failure_result(
                 "upgrade", plugin_id, err_msg, started, tracker_id=tracker_id

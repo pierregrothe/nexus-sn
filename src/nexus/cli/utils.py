@@ -11,9 +11,48 @@ free, and used by more than one command goes here.
 
 from __future__ import annotations
 
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 
-__all__ = ["today", "trunc"]
+__all__ = ["humanize_age", "today", "trunc"]
+
+
+_SECONDS_PER_MINUTE = 60
+_SECONDS_PER_HOUR = 60 * _SECONDS_PER_MINUTE
+_SECONDS_PER_DAY = 24 * _SECONDS_PER_HOUR
+
+
+def humanize_age(delta: timedelta) -> str:
+    """Render a ``timedelta`` as a short human-readable age string.
+
+    Output forms (largest non-zero unit plus the next finer one when it
+    adds detail):
+
+    * ``< 60s``       -> ``"just now"``
+    * ``< 1h``        -> ``"5m ago"``
+    * ``< 1d``        -> ``"2h 14m ago"`` (omits minutes when zero)
+    * otherwise       -> ``"3d 4h ago"`` (omits hours when zero)
+
+    Negative deltas are clamped to ``"just now"`` so a system-clock skew
+    between SN and the host never prints something nonsensical.
+
+    Args:
+        delta: Age relative to a captured timestamp (``now - captured_at``).
+
+    Returns:
+        Display-only string ending in ``" ago"`` (or the literal ``"just now"``).
+    """
+    seconds = int(delta.total_seconds())
+    if seconds < _SECONDS_PER_MINUTE:
+        return "just now"
+    if seconds < _SECONDS_PER_HOUR:
+        return f"{seconds // _SECONDS_PER_MINUTE}m ago"
+    if seconds < _SECONDS_PER_DAY:
+        hours, rem = divmod(seconds, _SECONDS_PER_HOUR)
+        minutes = rem // _SECONDS_PER_MINUTE
+        return f"{hours}h {minutes}m ago" if minutes else f"{hours}h ago"
+    days, rem = divmod(seconds, _SECONDS_PER_DAY)
+    hours = rem // _SECONDS_PER_HOUR
+    return f"{days}d {hours}h ago" if hours else f"{days}d ago"
 
 
 def today() -> date:

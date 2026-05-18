@@ -1,11 +1,11 @@
-# tests/test_cli_plugins_updates.py
+# tests/test_cli_plugins_outdated.py
 # Tests for the nexus plugins outdated command.
 # Author: Pierre Grothe
 # Date: 2026-05-11
 """Tests for nexus plugins outdated."""
 
 import json
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -226,10 +226,137 @@ def test_outdated_queue_writes_empty_file_when_up_to_date(
 def test_outdated_warns_when_no_latest_version_data_captured(
     runner: CliRunner, tmp_path: Path
 ) -> None:
-    """When every plugin lacks latest_version, surface the diagnostic Hint."""
+    """When every plugin lacks latest_version, surface the diagnose-roles hint."""
     _seed(tmp_path, "prod", (_info("com.acme.helper", version="1.0.0"),))
     runner.invoke(app, ["instance", "use", "prod"])
     result = runner.invoke(app, ["plugins", "outdated"])
     assert result.exit_code == 0
     assert "No latest_version data captured" in result.output
-    assert "app_store_pa_user_role" in result.output
+    assert "diagnose-roles" in result.output
+
+
+def _seed_with_age(
+    tmp_path: Path,
+    profile: str,
+    plugins: tuple[PluginInfo, ...],
+    captured_at: datetime,
+) -> None:
+    """Seed an instance with an inventory whose captured_at is explicit.
+
+    Used to exercise the auto-refresh threshold without waiting in real time.
+    """
+    profile_dir = tmp_path / "instances" / profile
+    profile_dir.mkdir(parents=True, exist_ok=True)
+    (profile_dir / "meta.json").write_text(
+        _meta(profile).model_dump_json(indent=2), encoding="utf-8"
+    )
+    inv = PluginInventory(captured_at=captured_at, sn_version="Xanadu", plugins=plugins)
+    (profile_dir / "plugins.json").write_text(inv.model_dump_json(indent=2), encoding="utf-8")
+
+
+def test_plugins_outdated_shows_captured_age_in_footer(runner: CliRunner, tmp_path: Path) -> None:
+    """Footer line names how old the cached inventory is so freshness is visible."""
+    _seed(tmp_path, "prod", (_info("com.acme.helper", version="3.0.0", latest_version="3.1.0"),))
+    runner.invoke(app, ["instance", "use", "prod"])
+    result = runner.invoke(app, ["plugins", "outdated"])
+    assert result.exit_code == 0
+    assert "Inventory captured" in result.output
+
+
+def test_plugins_outdated_with_refresh_flag_triggers_rescan(
+    runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`--refresh` calls _rescan_plugin_inventory even when the cache is fresh."""
+    _seed(tmp_path, "prod", (_info("com.acme.helper", version="3.0.0", latest_version="3.1.0"),))
+    runner.invoke(app, ["instance", "use", "prod"])
+
+    rescan_calls: list[int] = []
+
+    async def _fake_rescan(
+        _meta: object, _token: str, _registry: object, *, quiet: bool = False
+    ) -> None:
+        del quiet
+        rescan_calls.append(1)
+        return None
+
+    monkeypatch.setattr(
+        "nexus.cli.commands_plugins_outdated._rescan_plugin_inventory", _fake_rescan
+    )
+    monkeypatch.setattr(
+        "nexus.cli.commands_plugins_outdated._acquire_token",
+        lambda profile: (object(), _meta("prod"), "tok", datetime.now(UTC)),
+    )
+
+    result = runner.invoke(app, ["plugins", "outdated", "--refresh"])
+    assert result.exit_code == 0
+    assert len(rescan_calls) == 1
+    assert "--refresh" in result.output
+
+
+def test_plugins_outdated_auto_refreshes_when_cache_older_than_threshold(
+    runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An inventory captured 2h ago exceeds the 15-min threshold and auto-refreshes."""
+    stale = datetime.now(UTC) - timedelta(hours=2)
+    _seed_with_age(
+        tmp_path,
+        "prod",
+        (_info("com.acme.helper", version="3.0.0", latest_version="3.1.0"),),
+        stale,
+    )
+    runner.invoke(app, ["instance", "use", "prod"])
+
+    rescan_calls: list[int] = []
+
+    async def _fake_rescan(
+        _meta: object, _token: str, _registry: object, *, quiet: bool = False
+    ) -> None:
+        del quiet
+        rescan_calls.append(1)
+        return None
+
+    monkeypatch.setattr(
+        "nexus.cli.commands_plugins_outdated._rescan_plugin_inventory", _fake_rescan
+    )
+    monkeypatch.setattr(
+        "nexus.cli.commands_plugins_outdated._acquire_token",
+        lambda profile: (object(), _meta("prod"), "tok", datetime.now(UTC)),
+    )
+
+    result = runner.invoke(app, ["plugins", "outdated"])
+    assert result.exit_code == 0
+    assert len(rescan_calls) == 1
+    # Notice explains WHY the refresh happened so the user isn't surprised.
+    assert "cache was" in result.output
+    assert "ago" in result.output
+
+
+def test_plugins_outdated_does_not_auto_refresh_when_cache_is_fresh(
+    runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An inventory captured 1 minute ago is well under the 15-min threshold."""
+    fresh = datetime.now(UTC) - timedelta(minutes=1)
+    _seed_with_age(
+        tmp_path,
+        "prod",
+        (_info("com.acme.helper", version="3.0.0", latest_version="3.1.0"),),
+        fresh,
+    )
+    runner.invoke(app, ["instance", "use", "prod"])
+
+    rescan_calls: list[int] = []
+
+    async def _fake_rescan(
+        _meta: object, _token: str, _registry: object, *, quiet: bool = False
+    ) -> None:
+        del quiet
+        rescan_calls.append(1)
+        return None
+
+    monkeypatch.setattr(
+        "nexus.cli.commands_plugins_outdated._rescan_plugin_inventory", _fake_rescan
+    )
+
+    result = runner.invoke(app, ["plugins", "outdated"])
+    assert result.exit_code == 0
+    assert rescan_calls == []

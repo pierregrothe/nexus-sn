@@ -56,6 +56,14 @@ class DataColumn(BaseModel):
     Attributes:
         header: Column header text rendered with the brand gradient.
         width: Optional fixed width in characters; ``None`` lets Rich auto-size.
+            Mutually exclusive with ``min_width`` -- use one or the other,
+            not both. Fixed widths truncate longer content with an ellipsis
+            even when the terminal has plenty of room.
+        min_width: Lower bound for Rich's auto-sized column. Lets the column
+            expand to fit content when the terminal is wide enough, while
+            still reserving the requested minimum on narrow terminals.
+            Prefer this over ``width`` for plugin-id / name columns so the
+            full value is visible whenever screen space allows.
         justify: Cell alignment.
         no_wrap: When ``True``, cells truncate rather than wrap.
     """
@@ -64,6 +72,7 @@ class DataColumn(BaseModel):
 
     header: str
     width: int | None = None
+    min_width: int | None = None
     justify: Literal["left", "right", "center"] = "left"
     no_wrap: bool = True
 
@@ -112,6 +121,7 @@ class DataTable(BaseModel):
             table.add_column(
                 header=header,
                 width=col.width,
+                min_width=col.min_width,
                 justify=col.justify,
                 no_wrap=col.no_wrap,
             )

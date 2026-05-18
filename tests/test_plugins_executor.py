@@ -221,7 +221,7 @@ async def test_upgrade_returns_success_when_submit_raises_already_installed(
     inv = _inventory(_info("com.x"))
 
     async def _raise_already_installed(
-        _self: object, _sys_id: str, _ver: str | None
+        _self: object, _sys_id: str, _ver: str | None = None, **_kw: object
     ) -> dict[str, Any]:
         raise RuntimeError("Application version is currently installed (Http Response: 400)")
 
@@ -268,6 +268,90 @@ async def test_upgrade_returns_success_when_progress_reports_already_installed(
 
 
 @pytest.mark.asyncio
+async def test_upgrade_returns_offering_failure_when_submit_raises_offering_required(
+    client: FakeServiceNowClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """SN's 'Offering plugin id must be specified' wrapped 500 -> clean fail row.
+
+    Healthcare Solutions / Financial Services offering plugins need an
+    offering-aware endpoint NEXUS doesn't yet implement. SN's response
+    is an HTTP 500 with the real complaint buried inside a glide
+    exception. Convert it to a typed failure with an actionable message
+    so batch output stops dumping raw stack traces.
+    """
+    inv = _inventory(_info("com.x"))
+
+    async def _raise_offering(
+        _self: object, _sys_id: str, _ver: str | None = None, **_kw: object
+    ) -> dict[str, Any]:
+        raise RuntimeError(
+            "Unexpected HTTP 500: Cannot find function hasOwnProperty in object "
+            "com.glide.cicd.exception.CICDProcessException: Offering plugin id must "
+            "be specified for application"
+        )
+
+    monkeypatch.setattr(FakeServiceNowClient, "submit_upgrade", _raise_offering)
+
+    exe = PluginExecutor(client=client, inventory=inv)
+    result = await exe.upgrade("com.x", target_version="2.0")
+    assert not result.success
+    assert result.action == "upgrade"
+    assert "Offering plugin" in result.message
+    assert "install via SN UI" in result.message
+    # The raw glide stack trace must NOT leak into the user-facing message.
+    assert "hasOwnProperty" not in result.message
+
+
+@pytest.mark.asyncio
+async def test_upgrade_returns_offering_failure_when_progress_reports_offering_required(
+    client: FakeServiceNowClient,
+) -> None:
+    """Same offering-plugin detection in the progress-poll branch."""
+    inv = _inventory(_info("com.x"))
+    client.queue_upgrade_response(_install_response("offering-x"))
+    client.set_progress_sequence(
+        "offering-x",
+        [
+            _progress(
+                "3",
+                100,
+                err="Offering plugin id must be specified for application",
+                tracker="offering-x",
+            )
+        ],
+    )
+    exe = PluginExecutor(client=client, inventory=inv)
+    result = await exe.upgrade("com.x", target_version="2.0")
+    assert not result.success
+    assert result.action == "upgrade"
+    assert "Offering plugin" in result.message
+    assert result.tracker_id == "offering-x"
+
+
+@pytest.mark.asyncio
+async def test_install_returns_offering_failure_when_submit_raises_offering_required(
+    client: FakeServiceNowClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Same offering-plugin detection on the install path."""
+    inv = _inventory(_info("com.x"))
+
+    async def _raise_offering(
+        _self: object, _sys_id: str, _ver: str | None = None, **_kw: object
+    ) -> dict[str, Any]:
+        raise RuntimeError(
+            "Unexpected HTTP 500: ... Offering plugin id must be specified for application"
+        )
+
+    monkeypatch.setattr(FakeServiceNowClient, "submit_install", _raise_offering)
+
+    exe = PluginExecutor(client=client, inventory=inv)
+    result = await exe.install("com.x", version="1.0")
+    assert not result.success
+    assert result.action == "install"
+    assert "Offering plugin" in result.message
+
+
+@pytest.mark.asyncio
 async def test_install_returns_success_when_progress_reports_already_installed(
     client: FakeServiceNowClient,
 ) -> None:
@@ -301,7 +385,7 @@ async def test_install_returns_success_when_sn_reports_already_installed(
     inv = _inventory(_info("com.x"))
 
     async def _raise_already_installed(
-        _self: object, _sys_id: str, _ver: str | None
+        _self: object, _sys_id: str, _ver: str | None = None, **_kw: object
     ) -> dict[str, Any]:
         raise RuntimeError("Application version is currently installed (Http Response: 400)")
 
@@ -322,7 +406,9 @@ async def test_upgrade_returns_failure_for_unrelated_400_error(
     """Other 400-class errors stay failures -- the already-installed match must be exact."""
     inv = _inventory(_info("com.x"))
 
-    async def _raise_other(_self: object, _sys_id: str, _ver: str | None) -> dict[str, Any]:
+    async def _raise_other(
+        _self: object, _sys_id: str, _ver: str | None = None, **_kw: object
+    ) -> dict[str, Any]:
         raise RuntimeError("Unexpected HTTP 400: missing required parameter")
 
     monkeypatch.setattr(FakeServiceNowClient, "submit_upgrade", _raise_other)

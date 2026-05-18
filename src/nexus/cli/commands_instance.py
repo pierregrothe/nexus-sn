@@ -60,6 +60,7 @@ from nexus.instances.errors import OAuthError, SnapshotError
 from nexus.instances.models import InstanceMeta, InstanceSnapshot
 from nexus.instances.oauth import SNOAuthClient
 from nexus.instances.registry import InstanceRegistry
+from nexus.instances.role_probe import TableProbeResult, probe_all
 from nexus.instances.scanner import InstanceScanner
 from nexus.plugins import PluginInventory, PluginScanError, PluginScanner
 from nexus.ui import (
@@ -436,3 +437,73 @@ def instance_register(
     if not ConfigManager(paths).load().instances.default:
         _set_default_profile(paths, profile)
         console.print(Notice.info("Set as default instance."))
+
+
+@instance_app.command("diagnose-roles")
+def instance_diagnose_roles(profile: str = typer.Argument("")) -> None:
+    """Probe SN Table API access for the OAuth user.
+
+    Issues a one-row read against each table NEXUS depends on and
+    reports the HTTP status plus any SN-side error message + detail.
+    Use this to debug 403 warnings ("plugin scan: <table> returned
+    HTTP 403") without leaving the CLI.
+
+    Exits 1 when any probe returns non-200; 0 when every probe is
+    green.
+    """
+    registry, meta, token, _ = _acquire_token(profile)
+    del registry  # registry is for token persistence, not probing
+
+    async def _run() -> tuple[TableProbeResult, ...]:
+        async with httpx.AsyncClient(
+            base_url=meta.url,
+            headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
+            timeout=30.0,
+        ) as client:
+            return await probe_all(client)
+
+    results = asyncio.run(_run())
+
+    rows: list[list[RenderableType]] = []
+    for r in results:
+        status_cell: RenderableType
+        if r.ok:
+            status_cell = Text(f"{r.status_code} ok", style="ok")
+        else:
+            status_cell = Text(f"{r.status_code} fail", style="error")
+        rows.append(
+            [
+                r.probe.table,
+                status_cell,
+                r.probe.purpose,
+                r.probe.suggested_role or "-",
+                _trunc(r.detail or r.message, 60),
+            ]
+        )
+    console.print(
+        DataTable(
+            title=f"Role probe -- {meta.profile}",
+            columns=[
+                DataColumn(header="Table", width=22),
+                DataColumn(header="Status", width=10),
+                DataColumn(header="Purpose", width=40),
+                DataColumn(header="Suggested role", width=22),
+                DataColumn(header="SN detail", width=60),
+            ],
+            rows=rows,
+        )
+    )
+
+    failed = [r for r in results if not r.ok]
+    if not failed:
+        console.print(Notice.info("All probes returned 200."))
+        return
+
+    console.print(
+        Notice.warn(
+            f"{len(failed)} of {len(results)} probes denied. "
+            f"Read the 'SN detail' column for the exact role/scope SN expects -- "
+            f"role names vary by SN release and which Store plugins are installed."
+        )
+    )
+    raise typer.Exit(1)
