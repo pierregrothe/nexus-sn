@@ -1,0 +1,24 @@
+id: post-deploy-checks
+version: "1.0.0"
+description: |
+  Post-deploy validation -- confirm the apply produced the expected
+  minimum number of records. Demonstrates count_gte against a
+  TableScope.
+applies_to:
+  - "*"
+rules:
+  - id: ai-skill-count-meets-minimum
+    description: Expect at least one ai_skill record after deploy
+    severity: ERROR
+    phase: POST_APPLY
+    scope:
+      kind: table
+      table: ai_skill
+    required_tables:
+      - ai_skill
+    logic: AND_ALL
+    constraints:
+      - operator: count_gte
+        table: ai_skill
+        threshold: 1
+        filter: []

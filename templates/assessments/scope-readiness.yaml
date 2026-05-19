@@ -1,0 +1,40 @@
+id: scope-readiness
+version: "1.0.0"
+description: |
+  Verify the target ServiceNow scope exists and is active before any
+  template applies. Authored to demonstrate the record_exists +
+  field_equals operators on a TableScope under AND_ALL composition.
+applies_to:
+  - "*"
+rules:
+  - id: scope-must-exist
+    description: Target scope is recorded in sys_scope
+    severity: ERROR
+    phase: PRE_APPLY
+    scope:
+      kind: table
+      table: sys_scope
+    required_tables:
+      - sys_scope
+    logic: AND_ALL
+    constraints:
+      - operator: record_exists
+        table: sys_scope
+        filter: []
+
+  - id: scope-must-be-active
+    description: Target scope is flagged active
+    severity: ERROR
+    phase: PRE_APPLY
+    scope:
+      kind: table
+      table: sys_scope
+    required_tables:
+      - sys_scope
+    logic: AND_ALL
+    constraints:
+      - operator: field_equals
+        table: sys_scope
+        field: active
+        expected: "true"
+        filter: []

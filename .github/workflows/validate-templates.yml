@@ -28,3 +28,7 @@ jobs:
           git diff --name-only origin/main...HEAD -- templates/ | \
             grep "\.yaml$" | \
             xargs -I{} poetry run python -m nexus.templates.validator {}
+
+      - name: Validate assessment rulesets
+        run: |
+          poetry run python scripts/validate_assessment_rulesets.py

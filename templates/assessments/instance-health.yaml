@@ -1,0 +1,48 @@
+id: instance-health
+version: "1.0.0"
+description: |
+  Standalone health checks for `nexus assess` (no flags). Demonstrates
+  count_lte on a cross-table scope and field_in on a TableScope.
+applies_to:
+  - "*"
+rules:
+  - id: orphan-record-budget
+    description: Total record count across captured tables stays under budget
+    severity: WARNING
+    phase: STANDALONE
+    scope:
+      kind: cross-table
+    required_tables:
+      - sys_scope
+      - ai_skill
+    logic: AND_ALL
+    constraints:
+      - operator: count_lte
+        table: sys_scope
+        threshold: 1000
+        filter: []
+      - operator: count_lte
+        table: ai_skill
+        threshold: 10000
+        filter: []
+
+  - id: ai-skill-status-known
+    description: Every ai_skill record has a recognized status value
+    severity: WARNING
+    phase: STANDALONE
+    scope:
+      kind: table
+      table: ai_skill
+    required_tables:
+      - ai_skill
+    logic: AND_ALL
+    constraints:
+      - operator: field_in
+        table: ai_skill
+        field: status
+        expected:
+          - ready
+          - draft
+          - in_progress
+          - retired
+        filter: []
