@@ -18,6 +18,7 @@ from nexus.assessment.verdict import GateVerdict
 from tests.fakes.captures import make_capture_result, make_config_record
 from tests.fakes.gates import FakeGate
 from tests.fakes.rulesets import make_assessment_rule, make_ruleset
+from tests.fakes.templates import make_apply_result
 
 
 def _ctx(*, phase: Phase, apply_result: ApplyResult | None = None) -> GateContext:
@@ -70,7 +71,7 @@ def test_gate2_validation_evaluates_post_apply_rules_with_apply_result() -> None
     rule = make_assessment_rule(phase=Phase.POST_APPLY)
     ruleset = make_ruleset(rules=(rule,))
     gate = Gate2Validation(ruleset=ruleset, template_id="acme")
-    report = gate.evaluate(_ctx(phase=Phase.POST_APPLY, apply_result=ApplyResult()))
+    report = gate.evaluate(_ctx(phase=Phase.POST_APPLY, apply_result=make_apply_result()))
     assert report.verdict is GateVerdict.PASS
 
 

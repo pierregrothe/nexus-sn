@@ -36,6 +36,7 @@ from nexus.ui.render_context import RenderContext
 from nexus.ui.theme import NEXUS_THEME
 from tests.fakes.captures import make_capture_result, make_config_record
 from tests.fakes.rulesets import make_assessment_rule
+from tests.fakes.templates import make_apply_result
 
 
 def _render_context() -> RenderContext:
@@ -256,7 +257,7 @@ def test_run_assess_job_passes_when_apply_loader_returns_template_id(tmp_path: P
         paths=paths,
         collaborators=_collaborators(
             rulesets=(_post_apply_ruleset(),),
-            apply_result_template_id=(ApplyResult(), "acme"),
+            apply_result_template_id=(make_apply_result(template_id="acme"), "acme"),
         ),
     )
     assert code == 0

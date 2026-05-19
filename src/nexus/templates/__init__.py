@@ -12,6 +12,7 @@ engine live in the 2026.06-template-library epic.
 from nexus.templates.document import TemplateDocument, load_template_document
 from nexus.templates.errors import (
     InvalidGitHubRepoError,
+    ScopeNotFoundError,
     TemplateLoadError,
     TemplatesError,
 )
@@ -34,6 +35,7 @@ __all__ = [
     "GitHubTemplateClient",
     "InvalidGitHubRepoError",
     "NowAssistSkill",
+    "ScopeNotFoundError",
     "SyncReport",
     "SyncSource",
     "TemplateDocument",

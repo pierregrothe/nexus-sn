@@ -10,6 +10,7 @@ from pathlib import Path
 
 __all__ = [
     "InvalidGitHubRepoError",
+    "ScopeNotFoundError",
     "TemplateLoadError",
     "TemplatesError",
 ]
@@ -59,3 +60,20 @@ class TemplateLoadError(TemplatesError):
         self.path = path
         self.cause = cause
         super().__init__(f"failed to load template at {path}: {cause}")
+
+
+class ScopeNotFoundError(TemplatesError):
+    """ApplyEngine failed to resolve a target_scope slug to a sys_scope sys_id.
+
+    Attributes:
+        slug: The unresolved slug ApplyEngine tried to look up.
+    """
+
+    def __init__(self, slug: str) -> None:
+        """Initialize with the unresolved slug.
+
+        Args:
+            slug: The target_scope value that no sys_scope record matched.
+        """
+        self.slug = slug
+        super().__init__(f"no sys_scope record matches target_scope slug {slug!r}")

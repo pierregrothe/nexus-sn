@@ -12,15 +12,43 @@ run the env validator at construction time.
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
+from nexus.assessment.context import ApplyResult
 from nexus.templates.schemas.now_assist_skill import NowAssistSkill
 from nexus.templates.schemas.workflow import Workflow, WorkflowInput, WorkflowLogic
 
 __all__ = [
+    "make_apply_result",
     "make_now_assist_skill",
     "make_workflow",
     "make_workflow_input",
     "make_workflow_logic",
 ]
+
+
+def make_apply_result(
+    *,
+    update_set_sys_id: str = "us-1",
+    update_set_name: str = "NEXUS-apply-sample-20260519T120000Z",
+    template_id: str = "sample-skill",
+    template_version: str = "1.0.0",
+    target_scope_sys_id: str = "global",
+    instance_id: str = "dev",
+) -> ApplyResult:
+    """Build a populated ApplyResult for tests."""
+    now = datetime(2026, 5, 19, 12, 0, tzinfo=UTC)
+    return ApplyResult(
+        update_set_sys_id=update_set_sys_id,
+        update_set_name=update_set_name,
+        template_id=template_id,
+        template_version=template_version,
+        target_scope_sys_id=target_scope_sys_id,
+        applied_records=(),
+        instance_id=instance_id,
+        started_at=now,
+        completed_at=now,
+    )
 
 
 def make_now_assist_skill(
