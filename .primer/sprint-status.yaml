@@ -80,6 +80,13 @@ phases:
       nowassistskill-workflow-schemas: backlog
       first-3-community-templates: backlog
       template-apply-engine: backlog
+      nexus-template-library-01-now-assist-skill-schema: backlog
+      nexus-template-library-02-workflow-schema: backlog
+      nexus-template-library-03-template-document-and-loader: backlog
+      nexus-template-library-04-render-to-records: backlog
+      nexus-template-library-05-apply-engine: backlog
+      nexus-template-library-06-nexus-apply-cli: backlog
+      nexus-template-library-07-example-templates-and-ci: backlog
 
   2026.07-agent-specialists:
     status: planned
