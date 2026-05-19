@@ -18,6 +18,7 @@ from nexus.templates.models import (
 )
 from nexus.templates.registry import TemplateRegistry
 from nexus.templates.repo_name import validate_github_repo
+from nexus.templates.schemas.now_assist_skill import NowAssistSkill
 from nexus.templates.sync import GitHubSync, GitHubTemplateClient, SyncReport
 
 __all__ = [
@@ -25,6 +26,7 @@ __all__ = [
     "GitHubSync",
     "GitHubTemplateClient",
     "InvalidGitHubRepoError",
+    "NowAssistSkill",
     "SyncReport",
     "SyncSource",
     "TemplateEntry",
