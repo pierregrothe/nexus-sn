@@ -1,6 +1,6 @@
 # Story 02: Workflow Pydantic schema with nested input/logic models
 
-Status: backlog
+Status: done
 Spec-Clarity: high
 Depends-On: none
 

@@ -1,6 +1,6 @@
 # Story 05: ApplyEngine + ApplyResult + AppliedRecord + scope resolution
 
-Status: backlog
+Status: done
 Spec-Clarity: high
 Depends-On: 04
 

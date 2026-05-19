@@ -1,6 +1,6 @@
 # Story 06: `nexus assess` CLI -- --for, --job, no-flag + --live/--archive
 
-Status: backlog
+Status: done
 Spec-Clarity: high
 Depends-On: 04
 

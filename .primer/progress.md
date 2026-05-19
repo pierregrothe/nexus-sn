@@ -183,7 +183,15 @@ CLI:
     github_repo. Wire vs cached models split for round-trip safety.
   nexus templates -- DataTable of cached catalog with synced-age
     footer; Hint pointing at `nexus sync` when no prior sync has run.
-  assess -- stub (raises NotImplementedError)
+  nexus assess -- --for <template> (Gate 1 readiness), --job <id>
+    (Gate 2 validation), no-flag (standalone health scan),
+    --live / --archive source switch, --skip-gate2 ack-skip.
+    Verdict-to-exit PASS=0 / BLOCK=2 / ERROR=1.
+  nexus apply -- Gate 1 -> ApplyEngine -> Gate 2 orchestrator.
+    Flags: --scope X (target scope override), --force (skip Gate 1
+    BLOCK only), --skip-gate2 (omit post-apply Gate 2),
+    --dry-run (reserved -- exit 1 not-implemented in v1).
+    Verdict-to-exit identical to nexus assess.
 
 Infrastructure:
   pyproject.toml -- Python 3.14, Poetry in-project venv, ruff/black/mypy/pyright
@@ -207,10 +215,10 @@ Infrastructure:
     progressive levels plus live SPM family run (6 fresh + 3 already-
     installed treated as success, 1 timeout).
 
-Tests: 1367 passing. All real fakes (incl. httpx.MockTransport,
-FakeBatchProgress, no unittest.mock). mypy strict + pyright strict
-report 0 errors across src/. ruff + black clean.
-GitHub: https://github.com/pierregrothe/nexus-sn (public).
+Tests: 1624 passing. All real fakes (incl. httpx.MockTransport,
+FakeBatchProgress, FakeServiceNowClient, no unittest.mock). mypy
+strict + pyright strict report 0 errors across src/. ruff + black
+clean. GitHub: https://github.com/pierregrothe/nexus-sn (public).
 
 CLI UX batch-progress layer (adaptive plugin upgrade display):
   EmaPriorStore -- append-only JSONL at ~/.nexus/cache/eta_prior.jsonl
@@ -249,17 +257,103 @@ CLI UX batch-progress layer (adaptive plugin upgrade display):
 
 Governance enforcement:
   Pre-edit hook (.claude/hooks/pre-edit-validate.py) -- 10 blocking rules
-  Coverage ratchet (.ratchet.json) -- per-module covered_lines can only increase
+  Coverage ratchet (.ratchet.json) -- 115 per-module entries; per-module
+    covered_lines can only increase, never decrease
   Semgrep rules (.semgrep/rules.yml) -- semantic rules with ADR tracing
   Post-edit checks: black + ruff + mypy + pyright (all strict, all blocking)
-  Pre-commit hook: black + ruff + mypy + pyright + semgrep + pytest
+  Pre-commit hook: 7 hooks via .pre-commit-config.yaml -- black, ruff,
+    mypy, pyright, semgrep, pytest, file-size guard
   ADR catalog: 24 ADRs in .primer/adr/. Latest: ADR-024
     (FramedViewer supersedes pypager). ADR-023 (file-size cap:
     800 src / 1000 tests with ratchet enforcement) drove the cli.py
     split into a 22-module cli/ package.
-  PRD catalog: 1 PRD in .primer/prd/ -- PRD-001 (CLI UX wow
-    factor) at status=draft, revised v2 2026-05-18 to reconcile
-    with FramedViewer reality.
+  PRD catalog: 3 PRDs in .primer/prd/ -- PRD-001 (CLI UX wow
+    factor), PRD-002 (NEXUS Assessment), PRD-003 (NEXUS Template
+    Library). All three at status=draft.
+
+Assessment layer (2026.06-assessment epic shipped 2026-05-19):
+  AssessmentRule + Ruleset Pydantic schemas (frozen+strict+extra=forbid)
+    with discriminated-union RuleConstraint variants per operator:
+    record_exists, field_equals, field_in, count_gte, count_lte.
+    Author-declared required_tables + phase + logic + applies_to.
+  ConstraintResult + filter_records + record_field_value helpers in
+    nexus.assessment.dsl. Missing record fields treated as failure,
+    not raised.
+  RuleEngine.evaluate(rules, ctx) -- pure function with capture-
+    completeness pre-check (no silent false-PASS), phase filter,
+    scope dispatch (TableScope / CrossTableScope), AND_ALL / OR_ANY
+    composition. Returns tuple[Finding, ...].
+  GateContext(capture, apply_result | None, phase) +
+    GateReport(verdict: PASS|BLOCK|ERROR, findings, summary).
+    .from_findings() classmethod derives verdict (ERROR on any
+    error finding; BLOCK on warning in PRE_APPLY; PASS otherwise).
+  GateProtocol + 3 frozen @dataclass implementations:
+    Gate1Readiness, Gate2Validation (requires apply_result),
+    HealthScan. Each filters rules by phase and delegates to engine.
+  AssessmentReporter.render_report(report, ctx) -- reuses existing
+    ui/components/ (DataTable, KeyValuePanel, StatusBadge, Notice,
+    Hint). Severity-sorted finding rows, template_id conditional
+    summary, message truncation, PLAIN-profile line-per-event mode.
+  nexus assess CLI -- --for <template> (Gate 1), --job <id>
+    (Gate 2), no flags (HealthScan), --live / --archive PATH source
+    switch, --skip-gate2 acknowledged-skip. Verdict-to-exit mapping
+    PASS=0 / BLOCK=2 / ERROR=1.
+  3 example rulesets in templates/assessments/ + per-template
+    readiness rulesets (one per shipped template) + CI validator
+    via scripts/validate_assessment_rulesets.py.
+
+Template Library layer (2026.06-template-library epic shipped 2026-05-19):
+  NowAssistSkill + Workflow Pydantic schemas (frozen+strict+
+    extra=forbid). NowAssistSkill maps to ai_skill (one record).
+    Workflow maps to sys_hub_flow + N WorkflowInput children
+    (sys_hub_flow_input) + M WorkflowLogic children
+    (sys_hub_flow_logic).
+  `{{ env.X }}` field-validator in
+    nexus.templates.schemas._env -- resolves env-var references in
+    every string field at parse time. Unset variables raise
+    ValueError with the literal var name; Pydantic wraps to
+    ValidationError. resolve_env_in_dict_values helper for
+    WorkflowLogic.inputs dict-typed fields.
+  TemplateDocument = NowAssistSkill | Workflow discriminated union
+    (kind field). load_template_document(path) loader with
+    TemplateLoadError wrapping OSError / yaml.YAMLError /
+    ValidationError + path.
+  render_to_records(document, scope_sys_id, captured_at) -- pure
+    function producing tuple[ConfigRecord, ...]. NowAssistSkill ->
+    1 record. Workflow -> parent + children. Deterministic
+    SHA-256 sys_ids from (template_id, version, role[, child_name])
+    -- INSERT_OR_UPDATE noop on re-apply.
+  ApplyEngine (frozen @dataclass(slots=True)) -- async orchestrator:
+    load -> resolve target_scope slug to sys_id (or "global"
+    sentinel) -> render -> pre-create sys_update_set with
+    NEXUS-apply-<id>-<ts> name + structured JSON description
+    (template_id, template_version, nexus_version, git_sha,
+    applied_at) -> UpdateSetWriter.push -> append local apply.jsonl
+    under paths.jobs_dir/<update_set_sys_id>/ -> return ApplyResult.
+  ApplyResult (populates Assessment's placeholder) -- frozen
+    Pydantic with update_set_sys_id, update_set_name, template_id,
+    template_version, target_scope_sys_id, applied_records,
+    instance_id, started_at, completed_at. AppliedAction enum =
+    REQUESTED | FAILED (WARNED deferred). AppliedRecord per
+    ConfigRecord; UpdateSetError marks the offending record FAILED
+    with the SN error text; siblings retain REQUESTED.
+  ScopeNotFoundError raised when target_scope slug has no
+    matching sys_scope record (per-template scope-readiness ruleset
+    catches this in Gate 1).
+  nexus apply <template> [--scope X] [--force] [--skip-gate2]
+    [--dry-run] CLI orchestrator -- wires Gate 1 -> ApplyEngine ->
+    Gate 2 with verdict-to-exit mapping. --force skips BLOCK only
+    (ERROR aborts). --skip-gate2 ack-and-skip. --dry-run reserved
+    (exit 1 with not-implemented Notice in v1).
+  3 example templates under templates/ -- nowassist-incident-
+    triage, nowassist-tier1-rephrase (NowAssistSkill);
+    simple-approval-flow (Workflow with 2 inputs + 2 logic steps).
+    Each ships with per-template manifest.yaml and
+    templates/assessments/<id>-readiness.yaml ruleset.
+  templates/manifest.json refreshed listing the 3 new templates;
+    GitHubSync consumes unchanged.
+  scripts/validate_template_documents.py CI validator + workflow
+    step in validate-templates.yml.
 
 Setup wizard layer (credential management):
   PromptSource Protocol + TyperPromptSource + ScriptedPromptSource
@@ -321,12 +415,16 @@ Templates layer (catalog sync + cache):
   also re-invoked by `_acquire_token` on the next CLI invocation, but worth
   cleaning up.
 - knowledge/mastery/ empty. Decision pending: copy from JARVIS or rebuild.
-- Template schemas (templates/schemas/*.py) are stubs. Deliberate
-  for v1 sync (which only validates the catalog manifest, not
-  individual template YAMLs); schemas land with template-apply-engine
-  in 2026.06-template-library.
-- `nexus assess`, `apply`, `run`, `rollback` still raise
-  NotImplementedError.
+- Template schemas now_assist_skill + workflow shipped (Story 01-02
+  of 2026.06-template-library); remaining stubs (ai_agent,
+  catalog_item, recipe, project) deliberately deferred to later
+  epics.
+- `nexus run`, `nexus rollback` still raise NotImplementedError.
+- `nexus apply` and `nexus assess --live` capture-runner and
+  ApplyEngine factory in default_*_collaborators() raise
+  NotImplementedError until a configured ServiceNowClient +
+  CaptureEngine pairing is wired at process boot. Test fakes
+  cover the contracts end-to-end.
 - Stub modules at 0% coverage (agents/specialists/*, connectors/servicenow/*,
   assessment, execution, knowledge).
 - nexus plugins deactivate / uninstall fail loudly against live SN -- platform

@@ -605,3 +605,37 @@ baselines are set high when modules ship). Existing modules below
 100% are grandfathered at their current baseline and may only
 increase. Commit 363c1cb.
 
+
+## 2026-05-19 -- 2026.06 phase closed: Assessment + Template Library shipped end-to-end
+
+Both 2026.06 phases delivered the same session. Assessment (commits
+5bb9081..b733de2, 7 stories, +130 tests) introduced the
+declarative-YAML RuleEngine with capture-completeness pre-check + flat
+AND_ALL/OR_ANY composition + per-table / cross-table scope dispatch.
+GateProtocol unifies Gate1Readiness / Gate2Validation / HealthScan
+behind one structural interface. `nexus assess` ships with three
+modes (--for, --job, no-flag) and a 3-valued verdict (PASS/BLOCK/
+ERROR -> exit 0/2/1) distinguishing "we evaluated and found failures"
+from "we could not evaluate" -- closes the silent-false-PASS hole
+identified in the brainstorm's adversarial round.
+
+Template Library (commits 471cbbf..87a73c4, 7 stories + planning,
++127 tests) ships NowAssistSkill + Workflow schemas with Pydantic-
+native `{{ env.X }}` substitution at parse time (no Jinja2). Render
+pipeline produces deterministic SHA-256 sys_ids -- INSERT_OR_UPDATE
+becomes a noop in target state on re-apply. ApplyEngine bundles
+records via UpdateSetWriter into sys_update_set with structured JSON
+description metadata (template_id + version + nexus_version + git_sha
++ applied_at). `nexus apply` wires Gate 1 -> ApplyEngine -> Gate 2
+with verdict-to-exit mapping; --force skips BLOCK only (ERROR always
+aborts), --skip-gate2 ack-and-skip, --dry-run reserved.
+
+ApplyResult populated (replaces Assessment's empty placeholder).
+AppliedAction = REQUESTED | FAILED in v1 (WARNED deferred).
+ScopeNotFoundError raised when target_scope slug has no matching
+sys_scope record. 3 example templates + 3 per-template readiness
+rulesets in templates/, with CI validator (validate_template_documents.py).
+
+**Consequences:** Test count 1367 -> 1624. PRD count 1 -> 3 (PRD-002,
+PRD-003 added). All five quality gates remain green. Next:
+2026.07-agent-specialists OR 2026.08-distribution.

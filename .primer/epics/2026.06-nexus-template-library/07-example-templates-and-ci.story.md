@@ -1,6 +1,6 @@
 # Story 07: 3 example templates + per-template readiness rulesets + CI validator
 
-Status: backlog
+Status: done
 Spec-Clarity: medium
 Depends-On: 03
 

@@ -1,6 +1,6 @@
 # Story 06: `nexus apply <template>` CLI orchestrator -- wires Gate 1 + ApplyEngine + Gate 2
 
-Status: backlog
+Status: done
 Spec-Clarity: high
 Depends-On: 05
 

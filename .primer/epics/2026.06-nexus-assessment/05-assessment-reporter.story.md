@@ -1,6 +1,6 @@
 # Story 05: AssessmentReporter renders GateReport via existing ui/components/
 
-Status: backlog
+Status: done
 Spec-Clarity: high
 Depends-On: 04
 

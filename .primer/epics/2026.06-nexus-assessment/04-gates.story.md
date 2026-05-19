@@ -1,6 +1,6 @@
 # Story 04: GateContext + GateReport + GateProtocol + 3 implementations
 
-Status: backlog
+Status: done
 Spec-Clarity: high
 Depends-On: 03
 

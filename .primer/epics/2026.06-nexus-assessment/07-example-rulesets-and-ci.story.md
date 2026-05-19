@@ -1,6 +1,6 @@
 # Story 07: Example rulesets in templates/assessments/ + CI validator integration
 
-Status: backlog
+Status: done
 Spec-Clarity: medium
 Depends-On: 01
 

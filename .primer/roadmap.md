@@ -60,15 +60,23 @@
       Brainstorm: brainstorming/2026-05-18-cli-ux-implementation-plan.md
       Start: epics/2026.05-cli-ux-batch-progress/01-ema-prior-store.story.md
 
-## 2026.06 -- Assessment [planned]
-- [ ] RuleEngine + AssessmentReporter (consuming CaptureResult)
-- [ ] nexus assess command
-- [ ] Gate 1 readiness check + Gate 2 validation check
+## 2026.06 -- Assessment [done]
+- [x] RuleEngine + AssessmentReporter (consuming CaptureResult)
+      PRD: prd/PRD-002-nexus-assessment.md
+      Epic: epics/2026.06-nexus-assessment/
+      Brainstorm: brainstorming/2026-05-19-nexus-assessment-rule-engine.md
+      Start: epics/2026.06-nexus-assessment/01-rule-schemas-and-yaml-loader.story.md
+- [x] nexus assess command
+- [x] Gate 1 readiness check + Gate 2 validation check
 
-## 2026.06 -- Template Library [planned]
-- [ ] NowAssistSkill + Workflow Pydantic schemas
-- [ ] First 3+ community templates in templates/
-- [ ] Template apply engine (ApplyEngine)
+## 2026.06 -- Template Library [done]
+- [x] NowAssistSkill + Workflow Pydantic schemas
+      PRD: prd/PRD-003-nexus-template-library.md
+      Epic: epics/2026.06-nexus-template-library/
+      Brainstorm: brainstorming/2026-05-19-nexus-template-library.md
+      Start: epics/2026.06-nexus-template-library/01-now-assist-skill-schema.story.md
+- [x] First 3+ community templates in templates/
+- [x] Template apply engine (ApplyEngine)
 
 ## 2026.07 -- Agent Specialists [planned]
 - [ ] 8 domain specialist agents implemented

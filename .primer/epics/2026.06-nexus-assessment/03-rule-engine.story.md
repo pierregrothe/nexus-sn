@@ -1,6 +1,6 @@
 # Story 03: RuleEngine.evaluate -- pure function with capture-completeness + phase + dispatch
 
-Status: backlog
+Status: done
 Spec-Clarity: high
 Depends-On: 02
 

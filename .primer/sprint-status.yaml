@@ -3,7 +3,7 @@
 # backlog | ready | in-progress | review | done.
 # Derived from roadmap.md checkboxes; "next implementation target" entries
 # from active.md Next Steps are promoted to `ready`.
-generated: 2026-05-19  # synced after batch-progress epic shipped
+generated: 2026-05-19  # synced after both 2026.06 epics shipped
 project: nexus-sn
 
 phases:
@@ -61,32 +61,32 @@ phases:
       cli-ux-batch-progress-05-cli-wiring-and-interactive-required: done
 
   2026.06-assessment:
-    status: planned
+    status: done
     items:
-      ruleengine-assessmentreporter: backlog
-      nexus-assess-command: backlog
-      gate-1-readiness-gate-2-validation: backlog
-      nexus-assessment-01-rule-schemas-and-yaml-loader: backlog
-      nexus-assessment-02-constraint-dsl-operators: backlog
-      nexus-assessment-03-rule-engine: backlog
-      nexus-assessment-04-gates: backlog
-      nexus-assessment-05-assessment-reporter: backlog
-      nexus-assessment-06-nexus-assess-cli: backlog
-      nexus-assessment-07-example-rulesets-and-ci: backlog
+      ruleengine-assessmentreporter: done  # epic 2026.06-nexus-assessment shipped (b733de2)
+      nexus-assess-command: done
+      gate-1-readiness-gate-2-validation: done
+      nexus-assessment-01-rule-schemas-and-yaml-loader: done
+      nexus-assessment-02-constraint-dsl-operators: done
+      nexus-assessment-03-rule-engine: done
+      nexus-assessment-04-gates: done
+      nexus-assessment-05-assessment-reporter: done
+      nexus-assessment-06-nexus-assess-cli: done
+      nexus-assessment-07-example-rulesets-and-ci: done
 
   2026.06-template-library:
-    status: planned
+    status: done
     items:
-      nowassistskill-workflow-schemas: backlog
-      first-3-community-templates: backlog
-      template-apply-engine: backlog
-      nexus-template-library-01-now-assist-skill-schema: backlog
-      nexus-template-library-02-workflow-schema: backlog
-      nexus-template-library-03-template-document-and-loader: backlog
-      nexus-template-library-04-render-to-records: backlog
-      nexus-template-library-05-apply-engine: backlog
-      nexus-template-library-06-nexus-apply-cli: backlog
-      nexus-template-library-07-example-templates-and-ci: backlog
+      nowassistskill-workflow-schemas: done  # epic 2026.06-nexus-template-library shipped (87a73c4)
+      first-3-community-templates: done
+      template-apply-engine: done
+      nexus-template-library-01-now-assist-skill-schema: done
+      nexus-template-library-02-workflow-schema: done
+      nexus-template-library-03-template-document-and-loader: done
+      nexus-template-library-04-render-to-records: done
+      nexus-template-library-05-apply-engine: done
+      nexus-template-library-06-nexus-apply-cli: done
+      nexus-template-library-07-example-templates-and-ci: done
 
   2026.07-agent-specialists:
     status: planned

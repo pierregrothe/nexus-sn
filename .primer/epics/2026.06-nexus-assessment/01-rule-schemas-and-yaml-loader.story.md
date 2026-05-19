@@ -1,6 +1,6 @@
 # Story 01: Pydantic rule schemas + YAML loader
 
-Status: backlog
+Status: done
 Spec-Clarity: high
 Depends-On: none
 

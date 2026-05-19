@@ -1,6 +1,6 @@
 # Story 04: render_to_records pure function -- TemplateDocument -> ConfigRecord tuple
 
-Status: backlog
+Status: done
 Spec-Clarity: high
 Depends-On: 03
 

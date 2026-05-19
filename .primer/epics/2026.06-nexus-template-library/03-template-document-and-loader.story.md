@@ -1,6 +1,6 @@
 # Story 03: TemplateDocument discriminated union + YAML load helper
 
-Status: backlog
+Status: done
 Spec-Clarity: high
 Depends-On: 01, 02
 

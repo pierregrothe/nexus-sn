@@ -1,6 +1,6 @@
 # Story 01: NowAssistSkill Pydantic schema + env-var field validator
 
-Status: backlog
+Status: done
 Spec-Clarity: high
 Depends-On: none
 

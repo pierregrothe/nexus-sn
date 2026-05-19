@@ -1,6 +1,6 @@
 # Story 02: Constraint DSL operators (record_exists, field_equals, field_in, count_gte, count_lte)
 
-Status: backlog
+Status: done
 Spec-Clarity: high
 Depends-On: 01
 
