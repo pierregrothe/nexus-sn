@@ -3,10 +3,11 @@
   "note": "Modules at 0% excluded -- stubs awaiting implementation. Only modules with tests are tracked.",
   "modules": {
     "nexus.api.agent_client": {"covered_lines": 9, "total_lines": 23},
-    "nexus.assessment": {"covered_lines": 9, "total_lines": 9},
+    "nexus.assessment": {"covered_lines": 10, "total_lines": 10},
+    "nexus.assessment.dsl": {"covered_lines": 25, "total_lines": 27},
     "nexus.assessment.errors": {"covered_lines": 9, "total_lines": 9},
     "nexus.assessment.loader": {"covered_lines": 20, "total_lines": 20},
-    "nexus.assessment.schemas.constraints": {"covered_lines": 38, "total_lines": 38},
+    "nexus.assessment.schemas.constraints": {"covered_lines": 76, "total_lines": 77},
     "nexus.assessment.schemas.enums": {"covered_lines": 14, "total_lines": 14},
     "nexus.assessment.schemas.rule": {"covered_lines": 31, "total_lines": 31},
     "nexus.assessment.schemas.ruleset": {"covered_lines": 11, "total_lines": 11},

@@ -14,6 +14,7 @@ submodules:
 
 from __future__ import annotations
 
+from nexus.assessment.dsl import ConstraintResult
 from nexus.assessment.errors import AssessmentError, RulesetLoadError
 from nexus.assessment.loader import load_ruleset
 from nexus.assessment.schemas.constraints import (
@@ -34,6 +35,7 @@ from nexus.assessment.schemas.scope import CrossTableScope, RuleScope, TableScop
 __all__ = [
     "AssessmentError",
     "AssessmentRule",
+    "ConstraintResult",
     "CountGteConstraint",
     "CountLteConstraint",
     "CrossTableScope",
