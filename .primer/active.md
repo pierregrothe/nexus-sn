@@ -53,6 +53,12 @@ before Agent Specialists adds another multi-week scope.
   configured ServiceNowClient + CaptureEngine pairing is wired
   (test wiring covers the contract end-to-end against
   FakeServiceNowClient).
+- **sys_update_xml direct-REST POST is blocked by SN ACL** even for
+  admin via OAuth Bearer. Live smoke 2026-05-19 proved every layer
+  ApplyEngine owns works (token, scope resolve, deterministic sys_ids,
+  sys_update_set creation with provenance). Same blocker affects the
+  existing `nexus capture push`. See decisions.md 2026-05-19 entry +
+  backlog item "ApplyEngine v2".
 - Plugin deactivate / uninstall are SN-platform-blocked (no API);
   CLI commands present as forward-compatible stubs.
 - Plugin install/upgrade for offering plugins (sn_hs_*, sn_fs_*) is

@@ -103,3 +103,9 @@
 - [ ] Mine the broader scripted-REST catalog (120 services / 218 ops, see
       docs/sn-internal-api-catalog.md) for assessment + automation features
       not currently reachable through the documented Table API
+- [ ] ApplyEngine v2 -- direct-write or update-set-import path for OAuth
+      Bearer environments. Live smoke 2026-05-19 found `sys_update_xml`
+      ACL blocks direct REST POST even for admin via OAuth; same blocker
+      hits the existing `nexus capture push`. See decisions.md 2026-05-19
+      entry for the four options (direct-write / Import API / scripted
+      REST / Basic auth).

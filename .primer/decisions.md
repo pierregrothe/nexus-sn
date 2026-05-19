@@ -639,3 +639,68 @@ rulesets in templates/, with CI validator (validate_template_documents.py).
 **Consequences:** Test count 1367 -> 1624. PRD count 1 -> 3 (PRD-002,
 PRD-003 added). All five quality gates remain green. Next:
 2026.07-agent-specialists OR 2026.08-distribution.
+
+## 2026-05-19 -- sys_update_xml ACL block on live PDIs (production gap)
+
+Live-smoke run of `nexus apply` against alectri (commit 6fc6e33) returned
+HTTP 403 "ACL Exception Insert Failed due to security constraints" on the
+`sys_update_xml` POST inside UpdateSetWriter. Initial reading flagged it as
+an OAuth user permissions issue (`anna.mancini` had 0 role bindings via
+sys_user_has_role). Further probing inverted that conclusion.
+
+**Findings**:
+* The OAuth token's actual principal -- via `gs.getUserID()` JS evaluator --
+  is `admin` / sys_id `6816f79cc0a8016401c5a33be04be441` (System
+  Administrator). Not anna.mancini. The OAuth grant maps to a separate
+  service account, not the user who owned the OAuth registry record.
+* admin gets the same 403 on direct REST POST to `sys_update_xml`. The
+  parent `sys_update_set` POST succeeds (HTTP 201). Only the per-record
+  XML bundling step is blocked.
+* `sys_security_acl` has active rows for `name=sys_update_xml` with
+  `operation in {write, create}` and empty `script` -- a pure role-gate
+  ACL that blocks direct inserts as platform policy.
+* **The existing `nexus capture push` hits the identical 403** against
+  the same instance. Same UpdateSetWriter code path, same outcome. The
+  "capture push works against retail/alectri" claim in `.primer/progress.md`
+  was carried forward without ever being live-validated under OAuth.
+
+**Root cause**: ServiceNow treats `sys_update_xml` as a platform-managed
+table. Records are auto-generated when modifications happen inside an
+update set context (via `gs.setCurrentUpdateSet()` + standard CRUD on the
+target table). Direct REST POSTs to `sys_update_xml` are blocked by ACL
+even for admin -- this is a security pattern, not a misconfiguration.
+
+**Impact**: The bundle-via-update-set architecture chosen for PRD-003 v1
+(Template Library) and inherited by PRD-002 (Assessment Gate 2's apply_result
+consumer) cannot complete writes through OAuth Bearer auth on standard PDIs.
+Every layer ApplyEngine owns works correctly: scope resolution,
+deterministic sys_ids, sys_update_set creation with provenance metadata,
+UpdateSetWriter reuse-existing path, failure-mode classification (HTTP 403
+-> AppliedAction.FAILED with error context). The break is at the very last
+hop where the bundled write would land.
+
+**Options for v2** (Template Library follow-up epic):
+1. Direct-write path: ApplyEngine writes to the target tables (ai_skill,
+   sys_hub_flow, etc.) via plain REST CRUD. Lose the in-NEXUS audit-trail
+   bundling; rely on whatever update-set context ServiceNow has active
+   server-side (typically Default).
+2. Update Set Import API: post a full XML update-set archive to
+   `/api/now/import/now_update_set_xml`. Requires constructing a full
+   sys_remote_update_set + sys_update_xml payload via SN's import format.
+3. Scripted REST endpoint: ship a NEXUS-side scripted-REST resource that
+   uses `gs.setCurrentUpdateSet()` then writes the target records normally.
+   Requires SN admin to import the scripted REST -- adds setup friction
+   but unlocks the bundle-via-update-set behavior.
+4. Basic auth fallback: switch to session-based auth where the user's
+   admin role is fully active. Drops the OAuth Bearer convenience.
+
+**Status**: PRD-003 anti-creep fence is NOT re-opened -- bundle semantics
+were the chosen v1 design and the design is internally consistent. The gap
+is a separate "live integration" deferred work item. Add to roadmap as
+2026.08 or backlog: "ApplyEngine v2 -- direct-write or import-API path
+for OAuth Bearer environments". Same fix applies to `nexus capture push`.
+
+Live smoke artefact: `sys_update_set` named
+`NEXUS-apply-nowassist-tier1-rephrase-20260519T212449Z`
+(sys_id `e23057c43b0503946c7dfa9aa4e45a6d`) remains on alectri as
+audit-trail evidence; delete via SN UI when ready.
