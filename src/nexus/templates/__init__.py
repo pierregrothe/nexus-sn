@@ -22,6 +22,7 @@ from nexus.templates.models import (
     TemplateManifest,
 )
 from nexus.templates.registry import TemplateRegistry
+from nexus.templates.renderer import render_to_records
 from nexus.templates.repo_name import validate_github_repo
 from nexus.templates.schemas.now_assist_skill import NowAssistSkill
 from nexus.templates.schemas.workflow import Workflow, WorkflowInput, WorkflowLogic
@@ -45,5 +46,6 @@ __all__ = [
     "WorkflowInput",
     "WorkflowLogic",
     "load_template_document",
+    "render_to_records",
     "validate_github_repo",
 ]
