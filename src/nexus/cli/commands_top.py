@@ -172,12 +172,39 @@ def assess(
 @app.command()
 def apply(
     template: Annotated[str, typer.Argument(help="Template name to deploy")],
-    dry_run: Annotated[bool, typer.Option("--dry-run")] = False,
+    scope: Annotated[
+        str, typer.Option("--scope", help="Override the template's declared target_scope")
+    ] = "",
+    force: Annotated[bool, typer.Option("--force", help="Skip Gate 1 BLOCK (not ERROR)")] = False,
+    skip_gate2: Annotated[
+        bool, typer.Option("--skip-gate2", help="Run apply without post-apply Gate 2")
+    ] = False,
+    dry_run: Annotated[
+        bool, typer.Option("--dry-run", help="Reserved -- not implemented in v1")
+    ] = False,
 ) -> None:
     """Deploy a template to the configured ServiceNow instance."""
-    console.print(
-        Notice.info(f"Applying template: {template!r} (dry_run={dry_run}) -- not yet implemented.")
+    if dry_run:
+        console.print(Notice.error("--dry-run is not implemented in v1"))
+        raise typer.Exit(1)
+
+    from nexus.cli.commands_apply import (  # noqa: PLC0415
+        default_apply_collaborators,
+        run_apply,
     )
+    from nexus.config.paths import NexusPaths  # noqa: PLC0415
+
+    paths = NexusPaths.from_env()
+    exit_code = run_apply(
+        template_id=template,
+        scope_override=scope,
+        force=force,
+        skip_gate2=skip_gate2,
+        render_context=_render_context,
+        paths=paths,
+        collaborators=default_apply_collaborators(paths),
+    )
+    raise typer.Exit(exit_code)
 
 
 @app.command()
