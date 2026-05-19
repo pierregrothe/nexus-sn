@@ -1,0 +1,24 @@
+kind: workflow
+id: simple-approval-flow
+version: "1.0.0"
+target_scope: global
+name: Simple Approval Flow
+description: Two-step approval flow for change requests.
+active: true
+inputs:
+  - name: request_sys_id
+    type: string
+    required: true
+  - name: approver
+    type: reference
+    required: true
+logic:
+  - name: notify_approver
+    action: notification
+    inputs:
+      to: approver
+      template: approval_request
+  - name: wait_for_response
+    action: wait_for_event
+    inputs:
+      event: approval_decided

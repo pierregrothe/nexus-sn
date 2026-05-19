@@ -1,0 +1,21 @@
+id: nowassist-tier1-rephrase-readiness
+version: "1.0.0"
+description: Pre-deploy readiness for the tier1-rephrase NowAssist skill.
+applies_to:
+  - nowassist-tier1-rephrase
+rules:
+  - id: target-scope-records-exist
+    description: At least one sys_scope record is captured for resolution.
+    severity: ERROR
+    phase: PRE_APPLY
+    scope:
+      kind: table
+      table: sys_scope
+    required_tables:
+      - sys_scope
+    logic: AND_ALL
+    constraints:
+      - operator: count_gte
+        table: sys_scope
+        threshold: 1
+        filter: []

@@ -1,0 +1,10 @@
+kind: now_assist_skill
+id: nowassist-tier1-rephrase
+version: "1.0.0"
+target_scope: global
+name: Tier-1 Rephrase
+description: Rewrite a customer-facing message in concise neutral tone.
+instructions: |
+  Rephrase the supplied message in 1-2 sentences.
+  Keep the meaning, remove jargon, neutral tone.
+active: true

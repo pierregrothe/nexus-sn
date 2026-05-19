@@ -1,0 +1,4 @@
+id: simple-approval-flow
+version: "1.0.0"
+type: workflow
+path: template.yaml

@@ -1,0 +1,4 @@
+id: nowassist-incident-triage
+version: "1.0.0"
+type: now_assist_skill
+path: template.yaml

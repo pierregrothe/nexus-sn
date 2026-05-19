@@ -1,5 +1,24 @@
 {
   "version": "1.0",
-  "generated": "2026-05-07",
-  "templates": []
+  "generated": "2026-05-19",
+  "templates": [
+    {
+      "id": "nowassist-incident-triage",
+      "version": "1.0.0",
+      "type": "now_assist_skill",
+      "path": "nowassist-incident-triage/template.yaml"
+    },
+    {
+      "id": "nowassist-tier1-rephrase",
+      "version": "1.0.0",
+      "type": "now_assist_skill",
+      "path": "nowassist-tier1-rephrase/template.yaml"
+    },
+    {
+      "id": "simple-approval-flow",
+      "version": "1.0.0",
+      "type": "workflow",
+      "path": "simple-approval-flow/template.yaml"
+    }
+  ]
 }

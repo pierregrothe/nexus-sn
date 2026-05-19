@@ -1,0 +1,12 @@
+kind: now_assist_skill
+id: nowassist-incident-triage
+version: "1.0.0"
+target_scope: global
+name: Incident Triage
+description: |
+  Classify incoming incident urgency and route to the right queue.
+instructions: |
+  Read the incident short_description and description.
+  Assign urgency 1-4 (1=critical, 4=low).
+  Route to assignment_group based on the inferred category.
+active: true
