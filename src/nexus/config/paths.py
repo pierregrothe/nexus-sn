@@ -102,6 +102,15 @@ class NexusPaths:
         """Local capture archives root."""
         return self.root / "archives"
 
+    @property
+    def eta_prior_cache_path(self) -> Path:
+        """JSONL store of per-family completed-upgrade durations.
+
+        Returns:
+            Path to ``cache_dir/eta_prior.jsonl``.
+        """
+        return self.cache_dir / "eta_prior.jsonl"
+
     def instance_dir(self, profile: str) -> Path:
         """Directory for a specific instance profile.
 

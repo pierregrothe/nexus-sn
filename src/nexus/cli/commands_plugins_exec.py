@@ -19,7 +19,8 @@ import yaml as _yaml
 
 from nexus.cli.apps import plugins_app
 from nexus.cli.auth import acquire_token as _acquire_token
-from nexus.cli.console import console, err_console
+from nexus.cli.console import console, err_console, render_context
+from nexus.cli.errors import InteractiveRequiredError
 from nexus.cli.renderables import (
     cascade_actionable,
     cascade_scope,
@@ -33,11 +34,14 @@ from nexus.cli.views import (
     _rescan_plugin_inventory,
     _validate_family_filter,
 )
+from nexus.config.paths import NexusPaths
 from nexus.connectors.servicenow.client import RefreshTokenCallback, ServiceNowClient
 from nexus.plugins.diff import PromotionPlan
-from nexus.plugins.models import PluginInfo
 from nexus.plugins.updates import plugins_with_updates
 from nexus.ui import Hint, Notice, nexus_progress
+from nexus.ui.capabilities import RenderProfile
+from nexus.ui.components.batch_progress import make_batch_progress
+from nexus.ui.components.eta_store import EmaPriorStore
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -254,8 +258,19 @@ def _upgrade_single(
                 console.print(dependencies_panel(deps, plugin_id))
             if actionable:
                 console.print(cascade_summary_notice(actionable, plugin_id))
-            if not yes and not typer.confirm(f"Upgrade {plugin_id} on {meta.profile}?"):
-                raise typer.Exit(0)
+            if not yes:
+                if render_context.profile is RenderProfile.PLAIN:
+                    err_console.print(
+                        Notice.error(
+                            "Interactive confirmation required; pass --yes for non-interactive use."
+                        )
+                    )
+                    err_console.print(
+                        Hint(label="Bypass", command=f"nexus plugins upgrade --yes {plugin_id}")
+                    )
+                    raise typer.Exit(InteractiveRequiredError.exit_code)
+                if not typer.confirm(f"Upgrade {plugin_id} on {meta.profile}?"):
+                    raise typer.Exit(0)
             executor = PluginExecutor(client=client, inventory=inventory)
             cascade_scopes: tuple[str, ...] = (
                 *(cascade_scope(d) for d in actionable),
@@ -314,10 +329,20 @@ def _upgrade_batch(
     if not pending:
         console.print(Notice.info("Nothing to upgrade."))
         return
-    if not yes and not typer.confirm(f"Upgrade {len(pending)} plugin(s) on {meta.profile}?"):
-        raise typer.Exit(0)
+    if not yes:
+        if render_context.profile is RenderProfile.PLAIN:
+            err_console.print(
+                Notice.error(
+                    "Interactive confirmation required; pass --yes for non-interactive use."
+                )
+            )
+            err_console.print(Hint(label="Bypass", command="nexus plugins upgrade --yes ..."))
+            raise typer.Exit(InteractiveRequiredError.exit_code)
+        if not typer.confirm(f"Upgrade {len(pending)} plugin(s) on {meta.profile}?"):
+            raise typer.Exit(0)
 
     registry, _, token, expiry = _acquire_token(meta.profile)
+    store = EmaPriorStore(cache_path=NexusPaths.from_env().eta_prior_cache_path)
 
     async def _run() -> None:
         async with ServiceNowClient(
@@ -327,41 +352,12 @@ def _upgrade_batch(
             token_expires_at=expiry,
         ) as client:
             executor = PluginExecutor(client=client, inventory=inventory)
-            with nexus_progress(console) as progress:
-                batch_task = progress.add_task("Batch upgrade", total=len(pending))
-                plugin_task = progress.add_task("Waiting...", total=100, visible=False)
-                current_label: dict[str, str] = {"text": "Waiting..."}
-
-                def on_plugin_start(_index: int, p: PluginInfo) -> None:
-                    current_label["text"] = f"Upgrading {p.plugin_id}"
-                    progress.reset(plugin_task)
-                    progress.update(
-                        plugin_task,
-                        description=current_label["text"],
-                        completed=0,
-                        visible=True,
-                    )
-
-                def on_plugin_progress(state: ProgressState) -> None:
-                    label = state.status_label or current_label["text"]
-                    current_label["text"] = label
-                    progress.update(
-                        plugin_task,
-                        completed=state.percent_complete,
-                        description=label,
-                    )
-
-                def on_plugin_complete(_index: int, _result: object) -> None:
-                    progress.update(batch_task, advance=1)
-                    progress.update(plugin_task, visible=False)
-
+            with make_batch_progress(render_context, len(pending), store) as bp:
                 report = await executor.batch_upgrade(
                     pending,
                     families=families,
                     console=console,
-                    on_plugin_start=on_plugin_start,
-                    on_plugin_progress=on_plugin_progress,
-                    on_plugin_complete=on_plugin_complete,
+                    progress=bp,
                 )
             console.print(
                 Notice.info(

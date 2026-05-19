@@ -119,8 +119,16 @@ def _recording_unreachable_batch(
         on_plugin_start: object = None,
         on_plugin_progress: object = None,
         on_plugin_complete: object = None,
+        progress: object = None,
     ) -> BatchUpgradeReport:
-        del families, console, on_plugin_start, on_plugin_progress, on_plugin_complete
+        del (
+            families,
+            console,
+            on_plugin_start,
+            on_plugin_progress,
+            on_plugin_complete,
+            progress,
+        )
         calls.append(1)
         return BatchUpgradeReport(results=(), families=(), target_count=0, succeeded=0, failed=0)
 
@@ -178,8 +186,9 @@ def test_plugins_upgrade_batch_executes_batch_upgrade(
         on_plugin_start: object = None,
         on_plugin_progress: object = None,
         on_plugin_complete: object = None,
+        progress: object = None,
     ) -> BatchUpgradeReport:
-        del console, on_plugin_start, on_plugin_progress, on_plugin_complete
+        del console, on_plugin_start, on_plugin_progress, on_plugin_complete, progress
         calls.append({"targets": [p.plugin_id for p in targets], "families": families})
         return BatchUpgradeReport(
             results=(),
@@ -219,8 +228,9 @@ def test_plugins_upgrade_batch_writes_report_yaml(
         on_plugin_start: object = None,
         on_plugin_progress: object = None,
         on_plugin_complete: object = None,
+        progress: object = None,
     ) -> BatchUpgradeReport:
-        del console, on_plugin_start, on_plugin_progress, on_plugin_complete, targets
+        del console, on_plugin_start, on_plugin_progress, on_plugin_complete, progress, targets
         return BatchUpgradeReport(
             results=(
                 OperationResult(
@@ -267,7 +277,7 @@ def test_plugins_upgrade_batch_writes_report_yaml(
 def test_plugins_upgrade_batch_prompts_when_yes_absent(
     runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Without --yes, declining the prompt exits 0 without calling batch_upgrade."""
+    """Without --yes on PLAIN (CliRunner), exit 2 without calling batch_upgrade."""
     _seed(tmp_path, "prod", (_info("com.acme.incident", family="ITSM"),))
     runner.invoke(app, ["instance", "use", "prod"])
 
@@ -277,7 +287,7 @@ def test_plugins_upgrade_batch_prompts_when_yes_absent(
         _recording_unreachable_batch(calls),
     )
     result = runner.invoke(app, ["plugins", "upgrade"], input="n\n")
-    assert result.exit_code == 0
+    assert result.exit_code == 2
     assert calls == []
 
 
@@ -335,8 +345,9 @@ def test_plugins_upgrade_all_flag_executes_batch_upgrade(
         on_plugin_start: object = None,
         on_plugin_progress: object = None,
         on_plugin_complete: object = None,
+        progress: object = None,
     ) -> BatchUpgradeReport:
-        del console, on_plugin_start, on_plugin_progress, on_plugin_complete
+        del console, on_plugin_start, on_plugin_progress, on_plugin_complete, progress
         calls.append({"targets": [p.plugin_id for p in targets], "families": families})
         return BatchUpgradeReport(
             results=(),

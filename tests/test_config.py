@@ -49,6 +49,11 @@ def test_nexus_paths_archives_dir_under_root() -> None:
     assert paths.archives_dir == Path("/tmp/nexus/archives")
 
 
+def test_nexus_paths_eta_prior_cache_path_under_cache_dir() -> None:
+    paths = NexusPaths(root=Path("/tmp/nexus"))
+    assert paths.eta_prior_cache_path == Path("/tmp/nexus/cache/eta_prior.jsonl")
+
+
 def test_nexus_paths_instance_dir_includes_profile(nexus_paths: NexusPaths) -> None:
     assert nexus_paths.instance_dir("dev12345") == nexus_paths.root / "instances" / "dev12345"
 

@@ -19,6 +19,7 @@ if TYPE_CHECKING:
 
     from nexus.connectors.servicenow.protocol import ServiceNowClientProtocol
     from nexus.plugins.diff import PromotionPlan
+    from nexus.ui.components.batch_progress import BatchProgressProtocol
 
 from nexus.plugins.dependencies import fetch_dependencies
 from nexus.plugins.error_classification import (
@@ -43,7 +44,7 @@ from nexus.plugins.executor_models import (
 )
 from nexus.plugins.impact import reverse_dependencies
 from nexus.plugins.models import PluginInfo, PluginInventory
-from nexus.plugins.progress import ProgressCallback, ProgressPoller
+from nexus.plugins.progress import ProgressCallback, ProgressPoller, ProgressState
 
 BatchPluginStartCallback = Callable[[int, PluginInfo], None]
 BatchPluginCompleteCallback = Callable[[int, OperationResult], None]
@@ -402,15 +403,20 @@ class PluginExecutor:
         target_version: str | None = None,
         *,
         on_progress: ProgressCallback | None = None,
+        progress: BatchProgressProtocol | None = None,
     ) -> OperationResult:
         """Upgrade plugin_id (optionally to a specific target_version).
 
         Args:
             plugin_id: Canonical plugin identifier (must be in snapshot).
             target_version: Target version, or None to upgrade to latest.
-            on_progress: Optional callback invoked with each progress snapshot
-                during SN's poll loop. CLI commands use this to drive a Rich
-                progress bar; library callers can ignore it.
+            on_progress: Optional raw poll callback invoked with each
+                ``ProgressState`` snapshot during SN's poll loop. Library
+                callers use this for custom progress hooks.
+            progress: Optional adaptive batch-progress driver. When set,
+                ``start_item / update_item / finish_item`` are called and
+                ``on_progress`` is ignored to prevent double-emission. The
+                CLI uses this; library callers may leave it ``None``.
 
         Returns:
             OperationResult preserving rollback_version from SN.
@@ -429,28 +435,67 @@ class PluginExecutor:
                 update_set=None,
                 rollback_version=None,
             )
+
+        progress_task_id: int | None = None
+        effective_on_progress: ProgressCallback | None
+        if progress is not None:
+            progress_task_id = progress.start_item(plugin_id, info.product_family)
+            captured_progress = progress
+            captured_task_id = progress_task_id
+
+            def _forward(state: ProgressState) -> None:
+                captured_progress.update_item(captured_task_id, state.percent_complete)
+
+            effective_on_progress = _forward
+        else:
+            effective_on_progress = on_progress
+
         try:
             raw = await self._client.submit_upgrade(info.sys_id, target_version)
         except Exception as exc:
             classified = self._classify_known_sn_error("upgrade", plugin_id, started, exc)
             if classified is not None:
+                if progress is not None and progress_task_id is not None:
+                    progress.finish_item(
+                        progress_task_id,
+                        classified.duration_s,
+                        info.product_family,
+                        classified.success,
+                    )
                 return classified
-            return self._failure_result("upgrade", plugin_id, str(exc), started)
+            failure = self._failure_result("upgrade", plugin_id, str(exc), started)
+            if progress is not None and progress_task_id is not None:
+                progress.finish_item(
+                    progress_task_id, failure.duration_s, info.product_family, False
+                )
+            return failure
         tracker_id = str(raw.get("trackerId", ""))
         poller = ProgressPoller(self._client)
         try:
-            final = await poller.poll(tracker_id, on_progress=on_progress)
+            final = await poller.poll(tracker_id, on_progress=effective_on_progress)
         except Exception as exc:
             classified = self._classify_known_sn_error(
                 "upgrade", plugin_id, started, exc, tracker_id=tracker_id
             )
             if classified is not None:
+                if progress is not None and progress_task_id is not None:
+                    progress.finish_item(
+                        progress_task_id,
+                        classified.duration_s,
+                        info.product_family,
+                        classified.success,
+                    )
                 return classified
             err_msg = getattr(exc, "error_message", "") or str(exc)
-            return self._failure_result(
+            failure = self._failure_result(
                 "upgrade", plugin_id, err_msg, started, tracker_id=tracker_id
             )
-        return OperationResult(
+            if progress is not None and progress_task_id is not None:
+                progress.finish_item(
+                    progress_task_id, failure.duration_s, info.product_family, False
+                )
+            return failure
+        result = OperationResult(
             action="upgrade",
             plugin_id=plugin_id,
             success=True,
@@ -460,6 +505,9 @@ class PluginExecutor:
             update_set=final.update_set,
             rollback_version=final.rollback_version,
         )
+        if progress is not None and progress_task_id is not None:
+            progress.finish_item(progress_task_id, result.duration_s, info.product_family, True)
+        return result
 
     async def deactivate(
         self,
@@ -624,6 +672,7 @@ class PluginExecutor:
         on_plugin_start: BatchPluginStartCallback | None = None,
         on_plugin_progress: ProgressCallback | None = None,
         on_plugin_complete: BatchPluginCompleteCallback | None = None,
+        progress: BatchProgressProtocol | None = None,
     ) -> BatchUpgradeReport:
         """Upgrade each target plugin sequentially. Skip-on-fail; never rolls back.
 
@@ -650,25 +699,35 @@ class PluginExecutor:
             on_plugin_complete: Optional callback invoked with
                 ``(index, result)`` after each plugin completes. Used by the
                 CLI to advance the outer batch progress bar.
+            progress: Optional adaptive batch-progress driver. When set,
+                ``console`` output and per-item updates flow through it
+                and the on_plugin_* callbacks are bypassed in favour of
+                the protocol methods.
 
         Returns:
             BatchUpgradeReport with per-plugin OperationResult in execution order.
         """
+        out = progress.console if progress is not None else console
+        if progress is not None:
+            progress.start_batch(len(targets))
         results: list[OperationResult] = []
         for index, plugin in enumerate(targets):
             if on_plugin_start is not None:
                 on_plugin_start(index, plugin)
-            console.print(f"[label]upgrade {plugin.plugin_id}[/]")
+            if progress is None:
+                out.print(f"[label]upgrade {plugin.plugin_id}[/]")
             result = await self.upgrade(
                 plugin.plugin_id,
                 plugin.latest_version,
-                on_progress=on_plugin_progress,
+                on_progress=on_plugin_progress if progress is None else None,
+                progress=progress,
             )
             results.append(result)
-            if result.success:
-                console.print(f"[ok]ok {plugin.plugin_id} -> {result.message}[/]")
-            else:
-                console.print(f"[error]fail {plugin.plugin_id}: {result.message}[/]")
+            if progress is None:
+                if result.success:
+                    out.print(f"[ok]ok {plugin.plugin_id} -> {result.message}[/]")
+                else:
+                    out.print(f"[error]fail {plugin.plugin_id}: {result.message}[/]")
             if on_plugin_complete is not None:
                 on_plugin_complete(index, result)
         succeeded = sum(1 for r in results if r.success)
