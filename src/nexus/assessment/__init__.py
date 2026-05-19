@@ -23,6 +23,7 @@ from nexus.assessment.gate import GateProtocol
 from nexus.assessment.gates import Gate1Readiness, Gate2Validation, HealthScan
 from nexus.assessment.loader import load_ruleset
 from nexus.assessment.report import GateReport, GateSummary
+from nexus.assessment.reporter import render_report
 from nexus.assessment.schemas.constraints import (
     CountGteConstraint,
     CountLteConstraint,
@@ -71,4 +72,5 @@ __all__ = [
     "TableScope",
     "evaluate",
     "load_ruleset",
+    "render_report",
 ]

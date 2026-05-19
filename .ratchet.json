@@ -17,6 +17,7 @@
     "nexus.assessment.gates.validation": {"covered_lines": 25, "total_lines": 25},
     "nexus.assessment.loader": {"covered_lines": 20, "total_lines": 20},
     "nexus.assessment.report": {"covered_lines": 38, "total_lines": 38},
+    "nexus.assessment.reporter": {"covered_lines": 81, "total_lines": 81},
     "nexus.assessment.verdict": {"covered_lines": 7, "total_lines": 7},
     "nexus.assessment.schemas.constraints": {"covered_lines": 76, "total_lines": 77},
     "nexus.assessment.schemas.enums": {"covered_lines": 14, "total_lines": 14},
