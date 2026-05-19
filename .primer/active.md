@@ -1,56 +1,41 @@
 # NEXUS -- Active Work
 
-Last updated: 2026-05-18
-Session: shipped two full epics back-to-back -- `nexus setup`
-credential wizard (commits 1eca36f + fd0f0df) and `nexus sync` v1
-catalog index + working `nexus templates` (commit 1021038). Each
-epic went through the brainstorm + adversarial-review + epic
-decomposition flow before implementation. 1303 tests passing.
+Last updated: 2026-05-19
+Session: shipped the CLI UX batch-progress epic top-to-bottom. The
+brainstorm pivot caught PRD-001's "no Textual" anti-creep fence
+silently broken on day one (FramedViewer + Textual landed in the
+same commit as the PRD). PRD-001 v2 reconciles with reality;
+ADR-024 records the FramedViewer-supersedes-pypager reversal;
+Story 00 deletes ~250 LOC of dead pypager/PagedTable code; stories
+01-05 build EmaPriorStore + WeightedETAColumn +
+BatchProgressProtocol + executor.upgrade(progress=) +
+nexus plugins upgrade wiring with InteractiveRequiredError exit-2.
+1367 tests passing.
 
 ## Current Focus
 
-Clean rest-state on main at 1021038 (just pushed). The two former
-NotImplementedError stubs in the `2026.05-setup-sync` phase are now
-real:
+Clean rest-state on main at bfd8cb9 (just pushed via 3 commits:
+c75de7c primer, 363c1cb dead-code+pre-existing-fixes, bfd8cb9
+batch-progress feature). The `2026.05-setup-sync` phase is now
+done. No open epic. Next major capability target is either:
 
-* `nexus setup` -- idempotent first-run wizard. Probes the OS
-  keychain, scans `~/.nexus/instances/` for existing profiles, and
-  dispatches to clean-slate / inline-reauth / already-configured /
-  corrupted-profile branches. Every prompt routes through a typed
-  `PromptSource` Protocol so tests use `ScriptedPromptSource` with
-  zero `unittest.mock`. `provision_oauth` is now idempotent on a
-  deterministic `nexus-<profile>` SN entity name -- Ctrl-C between
-  OAuth creation and token exchange no longer accumulates duplicate
-  oauth_entity records on retry; the next run finds and PATCH-rotates
-  the existing secret.
-* `nexus sync` -- pulls a manifest from
-  `https://raw.githubusercontent.com/<repo>/<branch>/templates/
-  manifest.json` and caches it locally with a UTC `cached_at` stamp.
-  Wire vs cached models are separate (adversarial-review fix: a
-  single `extra="forbid"` model would have broken round-trip
-  serialization). Never-raises client mirrors the
-  `GitHubReleasesClient` pattern; `validate_github_repo` rejects URLs
-  and malformed slugs before any HTTP. `nexus templates` reads the
-  cache and renders a Rich DataTable, falling back to a Hint when no
-  prior sync has run.
+* `2026.06-template-library` -- builds on the sync v1 foundation;
+  `template-apply-engine` would close the loop from
+  `nexus sync` -> `nexus templates` -> `nexus apply <template>`.
+* `2026.06-assessment` -- consumes the capture layer; bigger scope
+  (RuleEngine + AssessmentReporter + Gate 1/2 + `nexus assess`).
 
-All five quality gates green: pytest 1303 / pyright src/ 0 / mypy
-strict 0 / ruff 0 / black clean. The pre-existing UP043 ruff error
-in `src/stubs/pypager/source.pyi:8` was fixed mid-session (rolled
-into commit 1eca36f).
-
-The next implementation target is the assessment layer
-(`RuleEngine` + `AssessmentReporter` + `nexus assess`) for the
-`2026.06-assessment` phase, or `template-apply-engine` for
-`2026.06-template-library` which now has the sync foundation.
+Recommendation: pick Template Library first (smaller scope, gives
+sync a concrete consumer, validates the apply pattern before
+Assessment builds on it).
 
 ## Recent Changes
 
+- bfd8cb9 feat(plugins): adaptive batch-progress + weighted ETA for nexus plugins upgrade
+- 363c1cb chore: Story 00 -- delete pypager+PagedTable dead code + pre-existing fixes
+- c75de7c primer: CLI UX brainstorm pivot + batch-progress epic + ADR-024
+- 592d525 primer: sync after setup + sync epics shipped
 - 1021038 feat(sync): nexus sync v1 catalog index + working nexus templates
-- fd0f0df feat(setup): stories 5-7 complete the nexus setup credential wizard
-- 1eca36f feat(setup): foundations 1-4 for nexus setup credential wizard
-- dee8167 primer: sync after offering investigation + diagnose-roles ship
-- 26a0e9e feat: diagnose-roles + outdated auto-refresh + offering detection
 
 ## Open Blockers
 
@@ -69,16 +54,14 @@ The next implementation target is the assessment layer
 
 ## Next Steps
 
-1. Assessment layer (RuleEngine + AssessmentReporter + `nexus assess`)
-   -- next major feature in phase `2026.06-assessment`.
-2. `template-apply-engine` + first 3 community templates -- builds on
-   the sync foundation just shipped, completes the
+1. Template Library: `template-apply-engine` + first 3 community
+   templates -- builds on sync v1 we just shipped, completes the
    `2026.06-template-library` phase.
-3. `cli-paged-list-widget` (ready in sprint-status) and
-   `cli-batch-progress-eta` (backlog) -- UI improvements in the
-   current `2026.05-setup-sync` phase but separate from the
-   feature-shipping path.
+2. Assessment layer: `RuleEngine` + `AssessmentReporter` +
+   `nexus assess` + Gate 1 (readiness) + Gate 2 (validation).
+3. Distribution path (2026.08): pyproject metadata + README +
+   PyPI publish for the `nexus-sn` package.
 
 ## Branch / remote state
 
-main: 1021038 (origin/main in sync). No active feature branch.
+main: bfd8cb9 (origin/main in sync). No active feature branch.

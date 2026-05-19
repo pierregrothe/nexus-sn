@@ -32,7 +32,7 @@
 - [x] Batch upgrade -- `nexus plugins updates --apply [--family ...]` with
       skip-on-fail; reuses sub-project M's PluginExecutor.upgrade primitive.
 
-## 2026.05 -- Setup + Sync [active]
+## 2026.05 -- Setup + Sync [done]
 - [x] nexus setup command -- credential wizard, config write, initial sync
       Epic: epics/2026.05-nexus-setup-wizard/
       Brainstorm: brainstorming/2026-05-18-nexus-setup-credential-wizard.md
@@ -43,21 +43,22 @@
       Start: epics/2026.05-nexus-sync-catalog/01-template-models.story.md
 - [x] TemplateRegistry -- list and get from local cache
       Epic: epics/2026.05-nexus-sync-catalog/
-- [ ] CLI adaptive list rendering -- TerminalCapabilities +
-      RenderContext + four-tier RenderProfile (RICH / BASIC /
-      LEGACY / PLAIN); single `--plain` flag; PagedTable +
-      pypager backend (RICH/BASIC only); nexus status Terminal
-      panel for discoverability
+- [x] CLI adaptive list rendering -- superseded by FramedViewer
+      (Textual). See ADR-024. PRD-001 v2 (2026-05-18) records
+      the architectural reversal; pypager + PagedTable removed
+      as dead code in Story 00 of the batch-progress epic.
       PRD: prd/PRD-001-cli-ux-wow-factor.md
-      Story: stories/2026.05.01-cli-paged-list-widget.md
-- [ ] CLI adaptive batch progress with weighted ETA --
+      ADR: adr/ADR-024-framedviewer-supersedes-pypager.md
+- [x] CLI adaptive batch progress with weighted ETA --
       BatchProgressProtocol with RichBatchProgress (RICH/BASIC)
       and PlainBatchProgress (LEGACY/PLAIN); WeightedETAColumn +
       EmaPriorStore (JSONL); single-item + batch bars driven by
       ServiceNow's reported percent blended with EMA of
       completed-item durations
       PRD: prd/PRD-001-cli-ux-wow-factor.md
-      Story: stories/2026.05.02-cli-batch-progress-eta.md
+      Epic: epics/2026.05-cli-ux-batch-progress/
+      Brainstorm: brainstorming/2026-05-18-cli-ux-implementation-plan.md
+      Start: epics/2026.05-cli-ux-batch-progress/01-ema-prior-store.story.md
 
 ## 2026.06 -- Assessment [planned]
 - [ ] RuleEngine + AssessmentReporter (consuming CaptureResult)

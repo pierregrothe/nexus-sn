@@ -1,7 +1,7 @@
 # Epic: nexus CLI batch progress + ETA (v1)
 
 Phase: 2026.05-setup-sync
-Status: ready
+Status: done
 
 ## Goal
 
@@ -117,12 +117,12 @@ proposed but `FramedViewer` superseded on day one.
 
 | #  | Title                                                                 | Clarity | Depends-On | Status  |
 |----|-----------------------------------------------------------------------|---------|------------|---------|
-| 00 | Delete dead paging code + ADR-XXX (Textual supersedes pypager)        | high    | none       | ready   |
-| 01 | `EmaPriorStore` + `EmaSample` (JSONL, in-process multi-thread safe)   | high    | none       | ready   |
-| 02 | `WeightedETAColumn` + `ema_compute` pure function                     | high    | 01         | ready   |
-| 03 | `BatchProgressProtocol` + `Rich/PlainBatchProgress` + factory         | high    | 02         | ready   |
-| 04 | `PluginExecutor.upgrade` + `batch_upgrade` progress kwarg refactor    | high    | 03         | ready   |
-| 05 | Wire CLI commands + `InteractiveRequiredError` exit-2 + ADR finalize  | high    | 04         | ready   |
+| 00 | Delete dead paging code + ADR-024 (Textual supersedes pypager)        | high    | none       | done    |
+| 01 | `EmaPriorStore` + `EmaSample` (JSONL, in-process multi-thread safe)   | high    | none       | done    |
+| 02 | `WeightedETAColumn` + `ema_compute` pure function                     | high    | 01         | done    |
+| 03 | `BatchProgressProtocol` + `Rich/PlainBatchProgress` + factory         | high    | 02         | done    |
+| 04 | `PluginExecutor.upgrade` + `batch_upgrade` progress kwarg refactor    | high    | 03         | done    |
+| 05 | Wire CLI commands + `InteractiveRequiredError` exit-2 + ADR finalize  | high    | 04         | done    |
 
 Story 00 is parallel-safe with 01. Stories 02..05 ship serially.
 
@@ -157,7 +157,7 @@ Story 00 is parallel-safe with 01. Stories 02..05 ship serially.
 
 ## Progress
 
-* Stories: 0/6 done, 6 ready
+* Stories: 6/6 done -- COMPLETE (commits c75de7c + 363c1cb + bfd8cb9)
 
 ## Dead-Code Inventory (Story 00 target)
 

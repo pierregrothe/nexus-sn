@@ -1,6 +1,6 @@
 # Story 00: Delete pypager + PagedTable + Pager dead code
 
-Status: ready
+Status: done
 Spec-Clarity: high
 Depends-On: none
 

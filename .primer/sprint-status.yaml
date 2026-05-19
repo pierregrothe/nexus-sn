@@ -3,7 +3,7 @@
 # backlog | ready | in-progress | review | done.
 # Derived from roadmap.md checkboxes; "next implementation target" entries
 # from active.md Next Steps are promoted to `ready`.
-generated: 2026-05-18  # synced after sync epic shipped
+generated: 2026-05-19  # synced after batch-progress epic shipped
 project: nexus-sn
 
 phases:
@@ -32,7 +32,7 @@ phases:
       batch-upgrade: done
 
   2026.05-setup-sync:
-    status: active
+    status: done
     items:
       nexus-setup-command: done  # epic 2026.05-nexus-setup-wizard shipped (fd0f0df)
       nexus-setup-wizard-01-prompt-source: done
@@ -51,8 +51,14 @@ phases:
       nexus-sync-catalog-05-github-sync-orchestrator: done
       nexus-sync-catalog-06-nexus-sync-command: done
       nexus-sync-catalog-07-nexus-templates-command: done
-      cli-paged-list-widget: ready
-      cli-batch-progress-eta: backlog
+      cli-paged-list-widget: done  # superseded by FramedViewer (ADR-024)
+      cli-batch-progress-eta: done  # epic 2026.05-cli-ux-batch-progress shipped (bfd8cb9)
+      cli-ux-batch-progress-00-delete-dead-paging-code: done
+      cli-ux-batch-progress-01-ema-prior-store: done
+      cli-ux-batch-progress-02-weighted-eta-column: done
+      cli-ux-batch-progress-03-batch-progress-protocol: done
+      cli-ux-batch-progress-04-executor-progress-kwarg: done
+      cli-ux-batch-progress-05-cli-wiring-and-interactive-required: done
 
   2026.06-assessment:
     status: planned

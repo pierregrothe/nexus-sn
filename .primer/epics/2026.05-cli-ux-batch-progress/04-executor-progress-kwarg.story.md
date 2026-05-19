@@ -1,6 +1,6 @@
 # Story 04: PluginExecutor.upgrade + batch_upgrade progress kwarg refactor
 
-Status: ready
+Status: done
 Spec-Clarity: high
 Depends-On: 03
 

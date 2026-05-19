@@ -1,6 +1,6 @@
 # Story 05: Wire CLI + InteractiveRequiredError exit-2 + ADR finalize
 
-Status: ready
+Status: done
 Spec-Clarity: high
 Depends-On: 04
 

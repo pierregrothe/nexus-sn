@@ -1,6 +1,6 @@
 # Story 01: EmaPriorStore + EmaSample JSONL persistence
 
-Status: ready
+Status: done
 Spec-Clarity: high
 Depends-On: none
 

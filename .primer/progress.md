@@ -185,17 +185,6 @@ CLI:
     footer; Hint pointing at `nexus sync` when no prior sync has run.
   assess -- stub (raises NotImplementedError)
 
-Governance enforcement:
-  Pre-edit hook (.claude/hooks/pre-edit-validate.py) -- 10 blocking rules
-  Coverage ratchet (.ratchet.json) -- per-module covered_lines can only increase
-  Semgrep rules (.semgrep/rules.yml) -- semantic rules with ADR tracing
-  Post-edit checks: black + ruff + mypy + pyright (all strict, all blocking)
-  Pre-commit hook: black + ruff + mypy + pyright + semgrep + pytest
-  ADR catalog: 23 ADRs in .primer/adr/. Latest: ADR-023 (file-size
-    cap: 800 src / 1000 tests with ratchet enforcement). cli.py
-    (4478 lines) was split into a 17-module cli/ package as the
-    first beneficiary; ratchet baseline is now empty.
-
 Infrastructure:
   pyproject.toml -- Python 3.14, Poetry in-project venv, ruff/black/mypy/pyright
   pyrightconfig.json -- strict, py314
@@ -218,10 +207,59 @@ Infrastructure:
     progressive levels plus live SPM family run (6 fresh + 3 already-
     installed treated as success, 1 timeout).
 
-Tests: 1303 passing. All real fakes (incl. httpx.MockTransport, no
-unittest.mock). mypy strict + pyright strict report 0 errors across
-src/. ruff + black clean.
+Tests: 1367 passing. All real fakes (incl. httpx.MockTransport,
+FakeBatchProgress, no unittest.mock). mypy strict + pyright strict
+report 0 errors across src/. ruff + black clean.
 GitHub: https://github.com/pierregrothe/nexus-sn (public).
+
+CLI UX batch-progress layer (adaptive plugin upgrade display):
+  EmaPriorStore -- append-only JSONL at ~/.nexus/cache/eta_prior.jsonl
+    recording {family, duration_s, ts: UtcDatetime}. Per-path
+    threading.Lock for in-process multi-thread safety; cross-process
+    atomicity declared out of scope for v1 (POSIX O_APPEND semantics
+    differ from Windows). load() filters by family, caps at 1000
+    most-recent entries, silently skips malformed JSONL lines.
+  WeightedETAColumn + ema_compute -- pure EMA helper (alpha=0.4
+    default) + Rich ProgressColumn that reads task.fields["sn_pct",
+    "ema_duration_s"] and renders "ETA: estimating..." (dim) when
+    no prior samples exist, or "ETA: MM:SS" computed as
+    remaining_full*ema + (1 - sn_pct/100)*ema.
+  BatchProgressProtocol (@runtime_checkable) -- start_batch /
+    start_item / update_item / finish_item + console property +
+    context-manager surface.
+  RichBatchProgress -- wraps rich.progress.Progress with brand
+    spinner (RICH only), WeightedETAColumn, transient per-item
+    tasks. Records successful-item durations to EmaPriorStore on
+    finish_item; failure path skips recording.
+  PlainBatchProgress -- one line per event via console.print. No
+    Live region, no `\r`, multiplexer-safe.
+  make_batch_progress(ctx, total, store) -- factory dispatching on
+    ctx.profile (RICH/BASIC -> Rich; LEGACY/PLAIN -> Plain).
+  PluginExecutor.upgrade + batch_upgrade accept progress kwarg --
+    when provided, executor drives start_item / update_item /
+    finish_item directly and routes console output through
+    progress.console. progress=None preserves today's behaviour.
+  InteractiveRequiredError -- cli/errors.py exception with
+    exit_code=2 (typer usage-error convention, avoids POSIX `diff`
+    exit-3 shadowing). Raised by `nexus plugins upgrade` when
+    --yes is absent on PLAIN profile.
+  ADR-024 -- FramedViewer (Textual) supersedes pypager for sticky-
+    frame paging. pypager + PagedTable + PagerProtocol +
+    PypagerPager removed in Story 00 of the batch-progress epic.
+
+Governance enforcement:
+  Pre-edit hook (.claude/hooks/pre-edit-validate.py) -- 10 blocking rules
+  Coverage ratchet (.ratchet.json) -- per-module covered_lines can only increase
+  Semgrep rules (.semgrep/rules.yml) -- semantic rules with ADR tracing
+  Post-edit checks: black + ruff + mypy + pyright (all strict, all blocking)
+  Pre-commit hook: black + ruff + mypy + pyright + semgrep + pytest
+  ADR catalog: 24 ADRs in .primer/adr/. Latest: ADR-024
+    (FramedViewer supersedes pypager). ADR-023 (file-size cap:
+    800 src / 1000 tests with ratchet enforcement) drove the cli.py
+    split into a 22-module cli/ package.
+  PRD catalog: 1 PRD in .primer/prd/ -- PRD-001 (CLI UX wow
+    factor) at status=draft, revised v2 2026-05-18 to reconcile
+    with FramedViewer reality.
 
 Setup wizard layer (credential management):
   PromptSource Protocol + TyperPromptSource + ScriptedPromptSource

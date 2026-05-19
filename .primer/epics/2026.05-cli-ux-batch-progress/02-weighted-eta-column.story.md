@@ -1,6 +1,6 @@
 # Story 02: WeightedETAColumn + ema_compute pure function
 
-Status: ready
+Status: done
 Spec-Clarity: high
 Depends-On: 01
 

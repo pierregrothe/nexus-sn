@@ -1,6 +1,6 @@
 # Story 03: BatchProgressProtocol + Rich/PlainBatchProgress + factory
 
-Status: ready
+Status: done
 Spec-Clarity: high
 Depends-On: 02
 
