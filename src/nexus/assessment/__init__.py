@@ -14,8 +14,11 @@ submodules:
 
 from __future__ import annotations
 
+from nexus.assessment.context import ApplyResult, GateContext
 from nexus.assessment.dsl import ConstraintResult
+from nexus.assessment.engine import evaluate
 from nexus.assessment.errors import AssessmentError, RulesetLoadError
+from nexus.assessment.findings import Finding
 from nexus.assessment.loader import load_ruleset
 from nexus.assessment.schemas.constraints import (
     CountGteConstraint,
@@ -33,6 +36,7 @@ from nexus.assessment.schemas.ruleset import Ruleset
 from nexus.assessment.schemas.scope import CrossTableScope, RuleScope, TableScope
 
 __all__ = [
+    "ApplyResult",
     "AssessmentError",
     "AssessmentRule",
     "ConstraintResult",
@@ -43,6 +47,8 @@ __all__ = [
     "FieldFilter",
     "FieldFilterPair",
     "FieldInConstraint",
+    "Finding",
+    "GateContext",
     "Logic",
     "Phase",
     "RecordExistsConstraint",
@@ -52,5 +58,6 @@ __all__ = [
     "RulesetLoadError",
     "Severity",
     "TableScope",
+    "evaluate",
     "load_ruleset",
 ]
