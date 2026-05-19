@@ -6,7 +6,13 @@
 
 from __future__ import annotations
 
-__all__ = ["InvalidGitHubRepoError", "TemplatesError"]
+from pathlib import Path
+
+__all__ = [
+    "InvalidGitHubRepoError",
+    "TemplateLoadError",
+    "TemplatesError",
+]
 
 
 class TemplatesError(Exception):
@@ -33,3 +39,23 @@ class InvalidGitHubRepoError(TemplatesError):
         super().__init__(f"Invalid github_repo {value!r}: {reason}")
         self.value = value
         self.reason = reason
+
+
+class TemplateLoadError(TemplatesError):
+    """A template YAML file failed to read, parse, or validate.
+
+    Attributes:
+        path: Filesystem path of the offending template.
+        cause: Underlying OSError, yaml.YAMLError, or pydantic.ValidationError.
+    """
+
+    def __init__(self, path: Path, cause: Exception) -> None:
+        """Initialize with the offending path and the wrapped exception.
+
+        Args:
+            path: Filesystem path of the failed template.
+            cause: Original exception.
+        """
+        self.path = path
+        self.cause = cause
+        super().__init__(f"failed to load template at {path}: {cause}")

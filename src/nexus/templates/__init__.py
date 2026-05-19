@@ -9,7 +9,12 @@ locally. Per-template downloads, schema validation, and the apply
 engine live in the 2026.06-template-library epic.
 """
 
-from nexus.templates.errors import InvalidGitHubRepoError, TemplatesError
+from nexus.templates.document import TemplateDocument, load_template_document
+from nexus.templates.errors import (
+    InvalidGitHubRepoError,
+    TemplateLoadError,
+    TemplatesError,
+)
 from nexus.templates.models import (
     CachedManifest,
     SyncSource,
@@ -30,12 +35,15 @@ __all__ = [
     "NowAssistSkill",
     "SyncReport",
     "SyncSource",
+    "TemplateDocument",
     "TemplateEntry",
+    "TemplateLoadError",
     "TemplateManifest",
     "TemplateRegistry",
     "TemplatesError",
     "Workflow",
     "WorkflowInput",
     "WorkflowLogic",
+    "load_template_document",
     "validate_github_repo",
 ]
