@@ -19,6 +19,7 @@ from nexus.templates.models import (
 from nexus.templates.registry import TemplateRegistry
 from nexus.templates.repo_name import validate_github_repo
 from nexus.templates.schemas.now_assist_skill import NowAssistSkill
+from nexus.templates.schemas.workflow import Workflow, WorkflowInput, WorkflowLogic
 from nexus.templates.sync import GitHubSync, GitHubTemplateClient, SyncReport
 
 __all__ = [
@@ -33,5 +34,8 @@ __all__ = [
     "TemplateManifest",
     "TemplateRegistry",
     "TemplatesError",
+    "Workflow",
+    "WorkflowInput",
+    "WorkflowLogic",
     "validate_github_repo",
 ]

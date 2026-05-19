@@ -18,8 +18,13 @@ from __future__ import annotations
 
 import os
 import re
+from typing import cast
 
-__all__ = ["resolve_env_in_string", "resolve_env_in_value"]
+__all__ = [
+    "resolve_env_in_dict_values",
+    "resolve_env_in_string",
+    "resolve_env_in_value",
+]
 
 
 _ENV_PATTERN = re.compile(r"\{\{\s*env\.([A-Z_][A-Z0-9_]*)\s*\}\}")
@@ -69,3 +74,36 @@ def resolve_env_in_value(value: object) -> object:
     if isinstance(value, str):
         return resolve_env_in_string(value)
     return value
+
+
+def resolve_env_in_dict_values(value: object) -> object:
+    """Resolve env references inside every value of a dict.
+
+    Non-dict inputs pass through unchanged. Keys are returned verbatim;
+    only the values are walked. Useful as a `@field_validator(mode="before")`
+    callable for dict-typed fields.
+
+    Args:
+        value: Either a parsed-YAML dict or any other value.
+
+    Returns:
+        A new dict with each string value resolved, OR the input
+        unchanged when not a dict.
+
+    Raises:
+        ValueError: If any value's embedded env var is not set.
+    """
+    typed: dict[object, object] | None = _as_dict(value)
+    if typed is None:
+        return value
+    resolved: dict[object, object] = {}
+    for key, item in typed.items():
+        resolved[key] = resolve_env_in_value(item)
+    return resolved
+
+
+def _as_dict(value: object) -> dict[object, object] | None:
+    """Narrow to `dict[object, object]` or None."""
+    if not isinstance(value, dict):
+        return None
+    return cast("dict[object, object]", value)
