@@ -204,9 +204,9 @@ def test_status_reporter_terminal_panel_renders_profile_name() -> None:
     assert "RICH" in out
 
 
-def test_status_reporter_terminal_panel_shows_pypager_for_rich() -> None:
+def test_status_reporter_terminal_panel_shows_framed_for_rich() -> None:
     out = _render_with_context(RenderProfile.RICH)
-    assert "pypager" in out
+    assert "framed" in out
 
 
 def test_status_reporter_terminal_panel_shows_inline_for_plain() -> None:

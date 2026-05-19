@@ -28,7 +28,7 @@ from nexus.updater.installer import download_wheel, pip_install_wheel
 if sys.platform == "win32":
     import msvcrt  # pragma: no cover
 else:
-    import fcntl
+    import fcntl  # pragma: no cover
 
 log = logging.getLogger(__name__)
 
@@ -190,7 +190,7 @@ def _try_acquire_lock() -> _LockHandle | None:
     try:
         if sys.platform == "win32":  # pragma: no cover
             msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
-        else:
+        else:  # pragma: no cover
             fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
     except OSError:
         handle.close()
@@ -203,7 +203,7 @@ def _release_lock(lock: _LockHandle) -> None:
     try:
         if sys.platform == "win32":  # pragma: no cover
             msvcrt.locking(lock.fileno(), msvcrt.LK_UNLCK, 1)
-        else:
+        else:  # pragma: no cover
             fcntl.flock(lock.fileno(), fcntl.LOCK_UN)
     finally:
         lock.close()

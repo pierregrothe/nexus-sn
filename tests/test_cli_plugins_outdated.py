@@ -282,9 +282,14 @@ def test_plugins_outdated_with_refresh_flag_triggers_rescan(
     monkeypatch.setattr(
         "nexus.cli.commands_plugins_outdated._rescan_plugin_inventory", _fake_rescan
     )
+
+    def _fake_acquire(profile: str) -> tuple[object, object, str, datetime]:
+        del profile
+        return (object(), _meta("prod"), "tok", datetime.now(UTC))
+
     monkeypatch.setattr(
         "nexus.cli.commands_plugins_outdated._acquire_token",
-        lambda profile: (object(), _meta("prod"), "tok", datetime.now(UTC)),
+        _fake_acquire,
     )
 
     result = runner.invoke(app, ["plugins", "outdated", "--refresh"])
@@ -318,9 +323,14 @@ def test_plugins_outdated_auto_refreshes_when_cache_older_than_threshold(
     monkeypatch.setattr(
         "nexus.cli.commands_plugins_outdated._rescan_plugin_inventory", _fake_rescan
     )
+
+    def _fake_acquire(profile: str) -> tuple[object, object, str, datetime]:
+        del profile
+        return (object(), _meta("prod"), "tok", datetime.now(UTC))
+
     monkeypatch.setattr(
         "nexus.cli.commands_plugins_outdated._acquire_token",
-        lambda profile: (object(), _meta("prod"), "tok", datetime.now(UTC)),
+        _fake_acquire,
     )
 
     result = runner.invoke(app, ["plugins", "outdated"])

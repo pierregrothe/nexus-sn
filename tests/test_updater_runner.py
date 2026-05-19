@@ -4,25 +4,20 @@
 # Date: 2026-05-08
 """Tests for nexus.updater.runner.check_and_maybe_update.
 
-POSIX-only: the runner uses fcntl advisory file locks; module collection
-aborts on Windows where fcntl is unavailable.
+Cross-platform: all behavioural tests run on Windows and POSIX. The single
+fcntl-specific lock-contention test guards itself with skipif so collection
+proceeds everywhere.
 """
 
-import sys
-
-import pytest
-
-if sys.platform == "win32":
-    pytest.skip("fcntl advisory locking is POSIX-only", allow_module_level=True)
-
-import fcntl
 import os
 import subprocess
+import sys
 import time
 from pathlib import Path
 from typing import TypedDict
 
 import httpx
+import pytest
 
 from nexus.config.paths import NexusPaths
 from nexus.updater import runner as runner_module
@@ -151,6 +146,7 @@ def test_runner_skips_when_tag_is_invalid_version(
     assert calls["install"] is False
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="os.execv is POSIX-only")
 def test_runner_installs_and_re_execs_when_newer_version_available(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
@@ -182,6 +178,8 @@ def test_runner_continues_when_install_fails(
 @pytest.mark.skipif(sys.platform == "win32", reason="POSIX flock test")
 def test_runner_skips_when_lockfile_held(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Simulate another nexus invocation holding the lock; runner skips."""
+    import fcntl  # noqa: PLC0415
+
     info = ReleaseInfo(tag_name="2026.06.0", wheel_url="https://example.com/x.whl")
     calls = _patch_runner(monkeypatch, editable=False, current="2026.05.1", info=info)
 
@@ -193,6 +191,29 @@ def test_runner_skips_when_lockfile_held(tmp_path: Path, monkeypatch: pytest.Mon
         check_and_maybe_update()
     finally:
         fcntl.flock(held_lock.fileno(), fcntl.LOCK_UN)
+        held_lock.close()
+    assert calls["install"] is False
+
+
+def test_runner_skips_when_lockfile_held_on_windows(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Simulate another invocation holding the msvcrt lock; runner skips."""
+    if sys.platform != "win32":
+        pytest.skip("Windows msvcrt test")
+    import msvcrt  # noqa: PLC0415
+
+    info = ReleaseInfo(tag_name="2026.06.0", wheel_url="https://example.com/x.whl")
+    calls = _patch_runner(monkeypatch, editable=False, current="2026.05.1", info=info)
+
+    lock_path = tmp_path / "update.lock"
+    monkeypatch.setattr(runner_module, "_lock_path", lambda: lock_path)
+    held_lock = lock_path.open("a")
+    msvcrt.locking(held_lock.fileno(), msvcrt.LK_NBLCK, 1)
+    try:
+        check_and_maybe_update()
+    finally:
+        msvcrt.locking(held_lock.fileno(), msvcrt.LK_UNLCK, 1)
         held_lock.close()
     assert calls["install"] is False
 

@@ -94,7 +94,7 @@ class StatusReporter:
             ``KeyValuePanel`` titled ``Terminal``.
         """
         caps = render_context.caps
-        pager = "pypager" if render_context.profile.value in {"rich", "basic"} else "inline"
+        pager = "framed" if render_context.profile.value in {"rich", "basic"} else "inline"
         terminal = caps.term_program or ("Windows" if caps.legacy_windows else "default")
         rows: list[KvRow] = [
             KvRow(label="Profile", value=render_context.profile.value.upper()),
