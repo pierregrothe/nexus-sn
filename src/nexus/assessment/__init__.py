@@ -19,7 +19,10 @@ from nexus.assessment.dsl import ConstraintResult
 from nexus.assessment.engine import evaluate
 from nexus.assessment.errors import AssessmentError, RulesetLoadError
 from nexus.assessment.findings import Finding
+from nexus.assessment.gate import GateProtocol
+from nexus.assessment.gates import Gate1Readiness, Gate2Validation, HealthScan
 from nexus.assessment.loader import load_ruleset
+from nexus.assessment.report import GateReport, GateSummary
 from nexus.assessment.schemas.constraints import (
     CountGteConstraint,
     CountLteConstraint,
@@ -34,6 +37,7 @@ from nexus.assessment.schemas.enums import Logic, Phase, Severity
 from nexus.assessment.schemas.rule import AssessmentRule
 from nexus.assessment.schemas.ruleset import Ruleset
 from nexus.assessment.schemas.scope import CrossTableScope, RuleScope, TableScope
+from nexus.assessment.verdict import GateVerdict
 
 __all__ = [
     "ApplyResult",
@@ -48,7 +52,14 @@ __all__ = [
     "FieldFilterPair",
     "FieldInConstraint",
     "Finding",
+    "Gate1Readiness",
+    "Gate2Validation",
     "GateContext",
+    "GateProtocol",
+    "GateReport",
+    "GateSummary",
+    "GateVerdict",
+    "HealthScan",
     "Logic",
     "Phase",
     "RecordExistsConstraint",
