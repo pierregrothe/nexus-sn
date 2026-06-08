@@ -41,4 +41,6 @@ def test_table_def_is_frozen() -> None:
 
 def test_reference_edge_rejects_extra_field() -> None:
     with pytest.raises(ValidationError):
-        ReferenceEdge(**{"from_table": "a", "field": "f", "to_table": "b", "cross_scope": False, "bogus": 1})
+        ReferenceEdge(
+            **{"from_table": "a", "field": "f", "to_table": "b", "cross_scope": False, "bogus": 1}
+        )

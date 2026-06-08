@@ -101,7 +101,9 @@ class SchemaDiscoverer:
 
         # In-scope tables: membership derived from each row's sys_scope.
         db_rows = await self._batched_in(
-            "sys_db_object", "sys_scope", list(key_by_id),
+            "sys_db_object",
+            "sys_scope",
+            list(key_by_id),
             fields="sys_id,name,label,super_class,sys_scope",
         )
         name_by_id: dict[str, str] = {}
@@ -130,8 +132,11 @@ class SchemaDiscoverer:
 
         # Fields + reference edges.
         dict_rows = await self._batched_in(
-            "sys_dictionary", "name", in_scope,
-            fields="name,element,column_label,reference,mandatory", suffix="^elementISNOTEMPTY",
+            "sys_dictionary",
+            "name",
+            in_scope,
+            fields="name,element,column_label,reference,mandatory",
+            suffix="^elementISNOTEMPTY",
         )
         fields_by: dict[str, list[FieldDef]] = {}
         ref_edges: list[ReferenceEdge] = []

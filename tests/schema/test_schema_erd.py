@@ -29,14 +29,26 @@ def _graph() -> SchemaGraph:
                 scope="sn_grc_doc_design",
                 fields=(FieldDef(name="data_relationship", label="Data rel", type="reference"),),
             ),
-            TableDef(name="data_relationship", label="Data relationship", scope="sn_grc_doc_design"),
-            TableDef(name="sn_data_registry_relationship", label="Registry", scope="", is_neighbor=True),
+            TableDef(
+                name="data_relationship", label="Data relationship", scope="sn_grc_doc_design"
+            ),
+            TableDef(
+                name="sn_data_registry_relationship", label="Registry", scope="", is_neighbor=True
+            ),
         ),
         reference_edges=(
-            ReferenceEdge(from_table="content_config", field="data_relationship",
-                          to_table="data_relationship", cross_scope=False),
-            ReferenceEdge(from_table="data_relationship", field="data_registry",
-                          to_table="sn_data_registry_relationship", cross_scope=True),
+            ReferenceEdge(
+                from_table="content_config",
+                field="data_relationship",
+                to_table="data_relationship",
+                cross_scope=False,
+            ),
+            ReferenceEdge(
+                from_table="data_relationship",
+                field="data_registry",
+                to_table="sn_data_registry_relationship",
+                cross_scope=True,
+            ),
         ),
         inheritance_edges=(),
         relationship_edges=(),
@@ -73,7 +85,9 @@ def test_render_inheritance_edge_renders_one_to_one() -> None:
         discovered_at=datetime(2026, 6, 8, tzinfo=UTC),
         scope_keys=("sn_grc_doc_design",),
         tables=(
-            TableDef(name="content_config", label="Content configuration", scope="sn_grc_doc_design"),
+            TableDef(
+                name="content_config", label="Content configuration", scope="sn_grc_doc_design"
+            ),
             TableDef(name="base_table", label="Base", scope="sn_grc_doc_design"),
         ),
         reference_edges=(),
@@ -93,11 +107,15 @@ def test_render_cross_scope_bridge_section_shows_none_when_empty() -> None:
         discovered_at=datetime(2026, 6, 8, tzinfo=UTC),
         scope_keys=("sn_grc_doc_design",),
         tables=(
-            TableDef(name="content_config", label="Content configuration", scope="sn_grc_doc_design"),
+            TableDef(
+                name="content_config", label="Content configuration", scope="sn_grc_doc_design"
+            ),
         ),
         reference_edges=(
             ReferenceEdge(
-                from_table="content_config", field="data_rel", to_table="content_config",
+                from_table="content_config",
+                field="data_rel",
+                to_table="content_config",
                 cross_scope=False,
             ),
         ),

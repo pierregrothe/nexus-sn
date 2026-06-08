@@ -39,19 +39,36 @@ def _seed() -> dict[str, list[dict[str, object]]]:
                 "super_class": "",
                 "sys_scope": _ref("SCID"),
             },
-            {"sys_id": "TASK", "name": "task", "label": "Task", "super_class": "",
-             "sys_scope": _ref("GLOBAL")},
+            {
+                "sys_id": "TASK",
+                "name": "task",
+                "label": "Task",
+                "super_class": "",
+                "sys_scope": _ref("GLOBAL"),
+            },
         ],
         "sys_dictionary": [
-            {"name": "sn_grc_doc_design_data_rel_mapping", "element": "data_relationship",
-             "column_label": "Data relationship", "reference": _ref("sn_grc_doc_design_data_relationship"),
-             "mandatory": "true"},
-            {"name": "sn_grc_doc_design_data_relationship", "element": "name",
-             "column_label": "Name", "reference": "", "mandatory": "false"},
+            {
+                "name": "sn_grc_doc_design_data_rel_mapping",
+                "element": "data_relationship",
+                "column_label": "Data relationship",
+                "reference": _ref("sn_grc_doc_design_data_relationship"),
+                "mandatory": "true",
+            },
+            {
+                "name": "sn_grc_doc_design_data_relationship",
+                "element": "name",
+                "column_label": "Name",
+                "reference": "",
+                "mandatory": "false",
+            },
         ],
         "sys_relationship": [
-            {"name": "rel", "apply_to": _ref("sn_grc_doc_design_data_relationship"),
-             "query_from": _ref("sn_grc_doc_design_data_rel_mapping")},
+            {
+                "name": "rel",
+                "apply_to": _ref("sn_grc_doc_design_data_relationship"),
+                "query_from": _ref("sn_grc_doc_design_data_rel_mapping"),
+            },
         ],
     }
 
@@ -128,7 +145,9 @@ async def test_discover_inheritance_edge_marks_neighbor_parent() -> None:
         if row["name"] == "sn_grc_doc_design_data_relationship":
             row["super_class"] = _ref("TASK")
     graph = await _disc(seed).discover("alectri", "dd")
-    inh = next(e for e in graph.inheritance_edges if e.table == "sn_grc_doc_design_data_relationship")
+    inh = next(
+        e for e in graph.inheritance_edges if e.table == "sn_grc_doc_design_data_relationship"
+    )
     assert inh.extends == "task"
     assert inh.cross_scope is True
     assert any(t.name == "task" and t.is_neighbor for t in graph.tables)
@@ -139,8 +158,13 @@ async def test_discover_skips_dict_rows_for_out_of_scope_tables() -> None:
     seed = _seed()
     # A dictionary row for a table outside the area (the fake returns it anyway).
     seed["sys_dictionary"].append(
-        {"name": "task", "element": "number", "column_label": "Number",
-         "reference": "", "mandatory": "false"}
+        {
+            "name": "task",
+            "element": "number",
+            "column_label": "Number",
+            "reference": "",
+            "mandatory": "false",
+        }
     )
     graph = await _disc(seed).discover("alectri", "dd")
     assert not any(e.from_table == "task" for e in graph.reference_edges)
