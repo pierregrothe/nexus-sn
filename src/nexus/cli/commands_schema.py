@@ -54,3 +54,29 @@ def schema_erd(
 
     written = asyncio.run(_run())
     console.print(f"Wrote ERD to {written}")
+
+
+@schema_app.command("mindmap")
+def schema_mindmap(
+    area: Annotated[str, typer.Argument(help="Area key (see `nexus schema areas`)")],
+    profile: Annotated[str, typer.Option(help="Instance profile name")] = "",
+    output: Annotated[
+        Path | None, typer.Option("-o", "--output", help="Output Markdown path")
+    ] = None,
+) -> None:
+    """Reverse-engineer an area and write an AI-described mindmap catalog."""
+
+    async def _run() -> Path:
+        cartographer, client = _build_schema_cartographer(profile)
+        resolved = profile or _config_default()
+        with nexus_progress(console) as progress:
+            progress.add_task(f"Describing {area} on {resolved}...", total=None)
+            async with client:
+                catalog = await cartographer.build_mindmap(resolved, area)
+        markdown = cartographer.render_mindmap(catalog)
+        dest = output or Path(f"{area}-{resolved}-mindmap.md")
+        dest.write_text(markdown, encoding="utf-8")
+        return dest
+
+    written = asyncio.run(_run())
+    console.print(f"Wrote mindmap to {written}")

@@ -12,6 +12,7 @@ from typer.testing import CliRunner
 
 from nexus.cli import commands_schema
 from nexus.cli.apps import app
+from nexus.schema.catalog import Domain, MindmapCatalog, TableDescription
 from nexus.schema.models import SchemaGraph, TableDef
 from tests.schema.fakes.fake_schema_cartographer import FakeSchemaCartographer
 
@@ -47,3 +48,23 @@ def test_schema_erd_writes_markdown_file(tmp_path: Path, monkeypatch: pytest.Mon
     assert result.exit_code == 0, result.stdout
     assert out.is_file()
     assert "erDiagram" in out.read_text(encoding="utf-8")
+
+
+def test_schema_mindmap_writes_markdown_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    catalog = MindmapCatalog(
+        instance_id="alectri", area_key="doc-designer",
+        generated_at=datetime(2026, 6, 8, tzinfo=UTC), display="Document Designer",
+        domains=(Domain(name="Core", tables=(
+            TableDescription(table="t", label="T", description="Stores t.", source="ai"),)),),
+    )
+    fake = FakeSchemaCartographer(_graph(), catalog=catalog)
+    monkeypatch.setattr(
+        commands_schema, "_build_schema_cartographer", lambda _profile: (fake, fake)
+    )
+    out = tmp_path / "mm.md"
+    result = CliRunner().invoke(
+        app, ["schema", "mindmap", "doc-designer", "--profile", "alectri", "-o", str(out)]
+    )
+    assert result.exit_code == 0, result.stdout
+    assert out.is_file()
+    assert "mindmap" in out.read_text(encoding="utf-8")

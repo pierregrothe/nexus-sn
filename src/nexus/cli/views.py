@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING, cast
 
 import typer
 
+from nexus.api.agent_client import AgentClient
 from nexus.capture.engine import CaptureEngine
 from nexus.cli.auth import acquire_token as _acquire_token
 from nexus.cli.auth import resolve_profile as _resolve_profile
@@ -90,7 +91,11 @@ def _build_schema_cartographer(profile: str) -> tuple[SchemaCartographer, Servic
     """
     _, meta, token, _ = _acquire_token(profile)
     client = ServiceNowClient(instance_url=meta.url, token=token)
-    cartographer = SchemaCartographer(client=client, archive_root=NexusPaths.from_env().schema_dir)
+    cartographer = SchemaCartographer(
+        client=client,
+        archive_root=NexusPaths.from_env().schema_dir,
+        agent_client=AgentClient(),
+    )
     return cartographer, client
 
 
