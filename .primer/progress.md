@@ -215,10 +215,12 @@ Infrastructure:
     progressive levels plus live SPM family run (6 fresh + 3 already-
     installed treated as success, 1 timeout).
 
-Tests: 1624 passing. All real fakes (incl. httpx.MockTransport,
-FakeBatchProgress, FakeServiceNowClient, no unittest.mock). mypy
-strict + pyright strict report 0 errors across src/. ruff + black
-clean. GitHub: https://github.com/pierregrothe/nexus-sn (public).
+Tests: 1680 passing. All real fakes (incl. httpx.MockTransport,
+FakeBatchProgress, FakeServiceNowClient, FakeSchemaCartographer,
+FakeAgentClient, no
+unittest.mock). mypy strict + pyright strict report 0 errors across
+src/. ruff + black clean. GitHub:
+https://github.com/pierregrothe/nexus-sn (public).
 
 CLI UX batch-progress layer (adaptive plugin upgrade display):
   EmaPriorStore -- append-only JSONL at ~/.nexus/cache/eta_prior.jsonl
@@ -257,7 +259,7 @@ CLI UX batch-progress layer (adaptive plugin upgrade display):
 
 Governance enforcement:
   Pre-edit hook (.claude/hooks/pre-edit-validate.py) -- 10 blocking rules
-  Coverage ratchet (.ratchet.json) -- 115 per-module entries; per-module
+  Coverage ratchet (.ratchet.json) -- 127 per-module entries; per-module
     covered_lines can only increase, never decrease
   Semgrep rules (.semgrep/rules.yml) -- semantic rules with ADR tracing
   Post-edit checks: black + ruff + mypy + pyright (all strict, all blocking)
@@ -400,6 +402,49 @@ Templates layer (catalog sync + cache):
   GitHubSync orchestrator + SyncReport -- typed frozen dataclass with
     outcome in {"ok", "no-config", "invalid-repo", "fetch-failed"},
     manifest, reason. Command layer renders the report.
+
+Schema Cartographer layer (2026.06-schema-cartographer, branch not yet merged):
+  Read-only layer 5 that reverse-engineers a live SN data dictionary into
+  Mermaid ERDs. Driver: case CS9240769 (RONA) -- Document Designer
+  Fields/Data Relationships/Content Configuration relationship + reusable
+  BCM and CMDB<->BCM table maps.
+  SchemaArea registry (areas.py) -- pure frozen dataclasses; 3 seeded areas:
+    doc-designer (sn_grc_doc_design + sn_grc_rel_config), bcm (sn_bcm/lite/map
+    + sn_bcp), cmdb-bcm. neighbor_hops=1 pulls bridge tables 1 hop out.
+  SchemaDiscoverer -- sys_scope -> sys_db_object -> sys_dictionary /
+    sys_relationship. cell() normalizes Table API reference cells (always
+    dicts {link|display_value, value}); sys_dictionary.reference.value is the
+    target table NAME directly, sys_db_object.super_class.value is a sys_id to
+    resolve. In-scope membership derived from each row's sys_scope. Builds
+    ReferenceEdge / InheritanceEdge / RelationshipEdge + neighbor TableDefs.
+  Frozen SchemaGraph models (frozen+strict+extra=forbid): FieldDef, TableDef,
+    ReferenceEdge, InheritanceEdge, RelationshipEdge, SchemaGraph with
+    cross_scope_edges() helper.
+  SchemaArchiveWriter/Reader -- JSON snapshots under ~/.nexus/schema/ via
+    Pydantic model_dump_json / model_validate_json.
+  MermaidErdEmitter -- SchemaGraph -> Markdown with a single erDiagram
+    (}o--|| reference, ||--|| inheritance), a Cross-scope bridges list, and a
+    per-table field appendix.
+  SchemaCartographer behind SchemaProtocol -- discover / save_archive /
+    load_archive / render_erd; archive_root is a required keyword-only arg.
+  nexus schema CLI -- `areas` (list registry) + `erd <area> [--profile] [-o]`
+    (discover + render + write Markdown). Mirrors the nexus capture pattern.
+  Validated live against alectri (94 reference edges, 42 cross-scope) BEFORE
+    building. doc-designer wiring (the P2 answer) is a three-level hierarchy:
+    Template -> Content Config (data_rel_mapping) [-> Data Relationship] ->
+    Fields (data_column) -- corrects the customer's "Fields standalone" guess.
+  100% line coverage on all modules except protocol.py (Protocol stubs, like
+    capture.protocol). Generated ERDs committed under docs/erd/.
+  Mindmap mode (`nexus schema mindmap <area>`): the "which table stores what"
+    view -- an AI-enriched, business-domain-grouped table catalog (Mermaid
+    mindmap + "Stores X" descriptions), the generated/current equivalent of the
+    community-blog artifact. catalog.py (MindmapCatalog/Domain/TableDescription),
+    enricher.py (TableEnricher: one batched AgentClient call clustering tables
+    into domains + writing descriptions grounded on the discovered fields +
+    sparse sys_documentation hints; scope-grouping fallback on AI failure),
+    mindmap_emitter.py. SchemaCartographer gains an injected AgentClient +
+    build_mindmap/render_mindmap. Live AI mindmaps in docs/mindmaps/ for all
+    three areas.
 
 ## Known Issues
 

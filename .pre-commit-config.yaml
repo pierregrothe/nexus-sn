@@ -52,7 +52,7 @@ repos:
         always_run: true
       - id: pytest
         name: Run test suite
-        entry: python .claude/hooks/_venv_run.py pytest -q --tb=short -p no:cacheprovider --override-ini=addopts=
+        entry: python .claude/hooks/_venv_run.py pytest -q --tb=short -p no:cacheprovider -n auto
         language: system
         types: [python]
         pass_filenames: false

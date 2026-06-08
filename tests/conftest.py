@@ -15,8 +15,10 @@ from nexus.cache import clear_cache
 from nexus.config.paths import NexusPaths
 from nexus.config.settings import NexusConfig
 
-# Configure logging for tests
-logging.basicConfig(level=logging.DEBUG)
+# Configure logging for tests. WARNING (not DEBUG) keeps per-test overhead
+# and captured-output noise down across the full suite; individual tests that
+# assert on lower-level records use caplog.set_level() locally.
+logging.basicConfig(level=logging.WARNING)
 
 
 @pytest.fixture(autouse=True)
@@ -54,12 +56,26 @@ def default_config() -> NexusConfig:
 
 
 def transport_returning(response: httpx.Response) -> httpx.MockTransport:
-    """Build an httpx.MockTransport that always returns ``response``."""
+    """Build an httpx.MockTransport that always returns ``response``.
+
+    Args:
+        response: The response every request should receive.
+
+    Returns:
+        An httpx.MockTransport that returns ``response`` for any request.
+    """
     return httpx.MockTransport(lambda req: response)
 
 
 def transport_raising(exc: Exception) -> httpx.MockTransport:
-    """Build an httpx.MockTransport whose handler raises ``exc``."""
+    """Build an httpx.MockTransport whose handler raises ``exc``.
+
+    Args:
+        exc: The exception raised on every request.
+
+    Returns:
+        An httpx.MockTransport whose handler raises ``exc``.
+    """
 
     def handler(req: httpx.Request) -> httpx.Response:
         raise exc
@@ -74,6 +90,10 @@ def isolate_home(monkeypatch: pytest.MonkeyPatch, home: Path) -> None:
     ``Path.home()`` resolves identically on both platforms. Setting only
     ``HOME`` is insufficient on Windows where ``Path.home()`` consults
     ``USERPROFILE``.
+
+    Args:
+        monkeypatch: The pytest monkeypatch fixture.
+        home: Directory that ``Path.home()`` should resolve to.
     """
     monkeypatch.setenv("HOME", str(home))
     monkeypatch.setenv("USERPROFILE", str(home))

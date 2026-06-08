@@ -1,0 +1,124 @@
+# src/nexus/schema/engine.py
+# Concrete SchemaCartographer wiring discoverer + archive + emitter.
+# Author: Pierre Grothe
+# Date: 2026-06-08
+"""SchemaCartographer: implements SchemaProtocol over a live client."""
+
+from __future__ import annotations
+
+from collections.abc import Callable, Mapping
+from datetime import UTC, datetime
+from pathlib import Path
+
+from nexus.api.agent_client import AgentClientProtocol
+from nexus.connectors.servicenow.protocol import ServiceNowClientProtocol
+from nexus.schema.archive import SchemaArchiveReader, SchemaArchiveWriter
+from nexus.schema.areas import DEFAULT_AREAS, SchemaArea
+from nexus.schema.catalog import MindmapCatalog
+from nexus.schema.discoverer import SchemaDiscoverer
+from nexus.schema.enricher import TableEnricher
+from nexus.schema.erd import MermaidErdEmitter
+from nexus.schema.mindmap_emitter import MindmapEmitter
+from nexus.schema.models import SchemaGraph
+
+__all__ = ["SchemaCartographer"]
+
+
+class SchemaCartographer:
+    """Wires discovery, archiving, and ERD rendering behind one object.
+
+    Args:
+        client: Open ServiceNow client.
+        areas: Area registry.
+        archive_root: Root directory for JSON snapshots.
+        agent_client: LLM client for mindmap enrichment.
+        clock: UTC clock (injectable for tests).
+    """
+
+    def __init__(
+        self,
+        client: ServiceNowClientProtocol,
+        areas: Mapping[str, SchemaArea] = DEFAULT_AREAS,
+        *,
+        archive_root: Path,
+        agent_client: AgentClientProtocol,
+        clock: Callable[[], datetime] = lambda: datetime.now(UTC),
+    ) -> None:
+        """Initialize the cartographer and its components."""
+        self._discoverer = SchemaDiscoverer(client, areas, clock)
+        self._reader = SchemaArchiveReader()
+        self._emitter = MermaidErdEmitter()
+        self._enricher = TableEnricher(client, agent_client, clock)
+        self._mindmap_emitter = MindmapEmitter()
+        self._areas = areas
+        self._archive_root = archive_root
+
+    async def discover(self, instance_id: str, area_key: str) -> SchemaGraph:
+        """Reverse-engineer one area into a SchemaGraph.
+
+        Args:
+            instance_id: Registered instance profile name.
+            area_key: Key into the area registry.
+
+        Returns:
+            The discovered SchemaGraph.
+        """
+        return await self._discoverer.discover(instance_id, area_key)
+
+    def save_archive(self, graph: SchemaGraph, dest: Path | None = None) -> Path:
+        """Persist a graph as JSON under dest or the configured archive root.
+
+        Args:
+            graph: The graph to persist.
+            dest: Optional override root; defaults to the configured archive root.
+
+        Returns:
+            Path to the written JSON file.
+        """
+        return SchemaArchiveWriter(dest or self._archive_root).write(graph)
+
+    def load_archive(self, path: Path) -> SchemaGraph:
+        """Load a graph snapshot from JSON.
+
+        Args:
+            path: Path to a snapshot JSON file.
+
+        Returns:
+            The reconstructed SchemaGraph.
+        """
+        return self._reader.read(path)
+
+    def render_erd(self, graph: SchemaGraph) -> str:
+        """Render a graph to Markdown + Mermaid.
+
+        Args:
+            graph: The graph to render.
+
+        Returns:
+            The Markdown ERD document.
+        """
+        return self._emitter.render(graph)
+
+    async def build_mindmap(self, instance_id: str, area_key: str) -> MindmapCatalog:
+        """Discover an area and AI-enrich it into a MindmapCatalog.
+
+        Args:
+            instance_id: Registered instance profile name.
+            area_key: Key into the area registry.
+
+        Returns:
+            The enriched MindmapCatalog.
+        """
+        graph = await self._discoverer.discover(instance_id, area_key)
+        return await self._enricher.enrich(graph, display=self._areas[area_key].display)
+
+    def render_mindmap(self, catalog: MindmapCatalog) -> str:
+        """Render a MindmapCatalog to Markdown.
+
+        Args:
+            catalog: The catalog to render.
+
+        Returns:
+            The Markdown mindmap document.
+        """
+        return self._mindmap_emitter.render(catalog)

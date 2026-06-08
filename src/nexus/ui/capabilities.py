@@ -18,8 +18,8 @@ Profiles:
 """
 
 import os
-import shutil
 from enum import StrEnum
+from shutil import get_terminal_size
 from typing import Self
 
 from pydantic import BaseModel, ConfigDict, model_validator
@@ -159,7 +159,7 @@ def _detect_multiplexer(environ: dict[str, str]) -> bool:
 def _safe_terminal_size() -> tuple[int, int]:
     """Return (cols, rows) with a stable 80x24 fallback on OSError."""
     try:
-        size = shutil.get_terminal_size(fallback=(80, 24))
+        size = get_terminal_size(fallback=(80, 24))
     except OSError:
         return (80, 24)
     return (size.columns, size.lines)

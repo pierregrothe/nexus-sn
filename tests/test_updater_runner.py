@@ -246,6 +246,7 @@ def test_runner_re_exec_uses_subprocess_on_windows(monkeypatch: pytest.MonkeyPat
     assert calls["exit"] == 0
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="os.execv is POSIX-only")
 def test_runner_logs_when_re_exec_fails(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """OSError during execv is caught; user keeps current code."""
     monkeypatch.setattr(runner_module, "_lock_path", lambda: tmp_path / "update.lock")

@@ -231,7 +231,7 @@ def test_detect_falls_back_to_80x24_when_terminal_size_raises(
     def _raise(**_kwargs: object) -> object:
         raise OSError("no tty")
 
-    monkeypatch.setattr("nexus.ui.capabilities.shutil.get_terminal_size", _raise)
+    monkeypatch.setattr("nexus.ui.capabilities.get_terminal_size", _raise)
     console = Console(file=StringIO())
     caps = detect(console, forced_plain=False, environ={})
     assert caps.cols == 80
