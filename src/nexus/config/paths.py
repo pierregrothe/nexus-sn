@@ -103,6 +103,11 @@ class NexusPaths:
         return self.root / "archives"
 
     @property
+    def schema_dir(self) -> Path:
+        """Local schema cartography snapshots root."""
+        return self.root / "schema"
+
+    @property
     def eta_prior_cache_path(self) -> Path:
         """JSONL store of per-family completed-upgrade durations.
 
@@ -133,6 +138,7 @@ class NexusPaths:
             self.cache_dir,
             self.instances_dir,
             self.archives_dir,
+            self.schema_dir,
         ):
             path.mkdir(parents=True, exist_ok=True)
         log.debug("runtime directories ensured under %s", self.root)
