@@ -71,7 +71,7 @@ async def test_fake_build_mindmap_returns_canned_catalog() -> None:
 @pytest.mark.asyncio
 async def test_fake_build_mindmap_without_catalog_raises() -> None:
     fake = FakeSchemaCartographer(_graph())
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="without a catalog"):
         await fake.build_mindmap("alectri", "bcm")
 
 
