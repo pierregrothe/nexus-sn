@@ -5,12 +5,14 @@
 """nexus.schema -- ServiceNow data-dictionary cartographer."""
 
 from nexus.schema.areas import DEFAULT_AREAS, SchemaArea, ScopeRef
+from nexus.schema.catalog import MindmapCatalog
 from nexus.schema.engine import SchemaCartographer
 from nexus.schema.models import SchemaGraph
 from nexus.schema.protocol import SchemaProtocol
 
 __all__ = [
     "DEFAULT_AREAS",
+    "MindmapCatalog",
     "SchemaArea",
     "SchemaCartographer",
     "SchemaGraph",

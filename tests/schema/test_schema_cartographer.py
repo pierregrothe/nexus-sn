@@ -11,6 +11,7 @@ import pytest
 
 from nexus.schema.areas import SchemaArea, ScopeRef
 from nexus.schema.engine import SchemaCartographer
+from tests.fakes.fake_agent_client import FakeAgentClient
 from tests.fakes.fake_sn_client import FakeServiceNowClient
 
 _AREAS = {"dd": SchemaArea(key="dd", display="DD", scopes=(ScopeRef("sn_grc_doc_design", "DD"),))}
@@ -38,6 +39,7 @@ def _engine(tmp_path: Path) -> SchemaCartographer:
         FakeServiceNowClient(_seed()),
         areas=_AREAS,
         archive_root=tmp_path,
+        agent_client=FakeAgentClient(),
         clock=lambda: datetime(2026, 6, 8, tzinfo=UTC),
     )
 

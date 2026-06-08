@@ -10,11 +10,15 @@ from collections.abc import Callable, Mapping
 from datetime import UTC, datetime
 from pathlib import Path
 
+from nexus.api.agent_client import AgentClientProtocol
 from nexus.connectors.servicenow.protocol import ServiceNowClientProtocol
 from nexus.schema.archive import SchemaArchiveReader, SchemaArchiveWriter
 from nexus.schema.areas import DEFAULT_AREAS, SchemaArea
+from nexus.schema.catalog import MindmapCatalog
 from nexus.schema.discoverer import SchemaDiscoverer
+from nexus.schema.enricher import TableEnricher
 from nexus.schema.erd import MermaidErdEmitter
+from nexus.schema.mindmap_emitter import MindmapEmitter
 from nexus.schema.models import SchemaGraph
 
 __all__ = ["SchemaCartographer"]
@@ -27,6 +31,7 @@ class SchemaCartographer:
         client: Open ServiceNow client.
         areas: Area registry.
         archive_root: Root directory for JSON snapshots.
+        agent_client: LLM client for mindmap enrichment.
         clock: UTC clock (injectable for tests).
     """
 
@@ -36,12 +41,16 @@ class SchemaCartographer:
         areas: Mapping[str, SchemaArea] = DEFAULT_AREAS,
         *,
         archive_root: Path,
+        agent_client: AgentClientProtocol,
         clock: Callable[[], datetime] = lambda: datetime.now(UTC),
     ) -> None:
         """Initialize the cartographer and its components."""
         self._discoverer = SchemaDiscoverer(client, areas, clock)
         self._reader = SchemaArchiveReader()
         self._emitter = MermaidErdEmitter()
+        self._enricher = TableEnricher(client, agent_client, clock)
+        self._mindmap_emitter = MindmapEmitter()
+        self._areas = areas
         self._archive_root = archive_root
 
     async def discover(self, instance_id: str, area_key: str) -> SchemaGraph:
@@ -89,3 +98,27 @@ class SchemaCartographer:
             The Markdown ERD document.
         """
         return self._emitter.render(graph)
+
+    async def build_mindmap(self, instance_id: str, area_key: str) -> MindmapCatalog:
+        """Discover an area and AI-enrich it into a MindmapCatalog.
+
+        Args:
+            instance_id: Registered instance profile name.
+            area_key: Key into the area registry.
+
+        Returns:
+            The enriched MindmapCatalog.
+        """
+        graph = await self._discoverer.discover(instance_id, area_key)
+        return await self._enricher.enrich(graph, display=self._areas[area_key].display)
+
+    def render_mindmap(self, catalog: MindmapCatalog) -> str:
+        """Render a MindmapCatalog to Markdown.
+
+        Args:
+            catalog: The catalog to render.
+
+        Returns:
+            The Markdown mindmap document.
+        """
+        return self._mindmap_emitter.render(catalog)

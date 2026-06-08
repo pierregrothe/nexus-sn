@@ -9,6 +9,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Protocol
 
+from nexus.schema.catalog import MindmapCatalog
 from nexus.schema.models import SchemaGraph
 
 __all__ = ["SchemaProtocol"]
@@ -31,4 +32,12 @@ class SchemaProtocol(Protocol):
 
     def render_erd(self, graph: SchemaGraph) -> str:
         """Render a graph to Markdown + Mermaid."""
+        ...
+
+    async def build_mindmap(self, instance_id: str, area_key: str) -> MindmapCatalog:
+        """Discover an area and AI-enrich it into a MindmapCatalog."""
+        ...
+
+    def render_mindmap(self, catalog: MindmapCatalog) -> str:
+        """Render a MindmapCatalog to Markdown."""
         ...
