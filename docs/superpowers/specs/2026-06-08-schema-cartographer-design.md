@@ -360,11 +360,12 @@ A single Markdown file per area. Structure:
 1. Title + scope/version table + "discovered_at" provenance line.
 2. A narrative section (hand-written for `doc-designer`; templated for the
    others) explaining the cross-scope edges in plain language.
-3. One or more Mermaid `erDiagram` blocks. For areas above ~25 tables, the
-   emitter splits into one diagram per scope plus a "bridge" diagram containing
-   only cross-scope edges and their endpoints, so each renders legibly on GitHub
-   and in VS Code.
-4. A per-table field appendix (Markdown tables): field | type | references.
+3. A single Mermaid `erDiagram` block covering the area's tables, their
+   reference edges, and inheritance edges (v1; the seeded areas are small enough
+   to render legibly. Per-scope splitting for large areas is deferred).
+4. A "cross-scope bridges" summary list (from `SchemaGraph.cross_scope_edges()`)
+   -- the "how are these linked" answer in plain text.
+5. A per-table field appendix (Markdown tables): field | type | references.
 
 Mermaid example (shape):
 
@@ -466,8 +467,8 @@ test_discover_neighbor_expansion_bounded_by_hops
 
 test_erd_emitter_reference_edge_renders_many_to_one
 test_erd_emitter_optional_reference_renders_optional_cardinality
-test_erd_emitter_splits_large_area_into_per_scope_diagrams
-test_erd_emitter_bridge_block_contains_only_cross_scope_edges
+test_erd_emitter_cross_scope_bridge_section_lists_cross_scope_edges
+test_erd_emitter_field_appendix_lists_table_fields
 
 test_schema_archive_roundtrip_preserves_graph
 test_schema_archive_missing_file_raises_archive_error
@@ -542,6 +543,8 @@ fields) before wording the case reply. The ERD itself is correct regardless.
   schema-level ERD. New discoverer mode + models; separate story.
 - **Diff mode**: `nexus schema diff <area> <snapshotA> <snapshotB>` to track schema
   drift across releases.
+- **Per-scope ERD splitting**: for large areas, split into one diagram per scope
+  plus a cross-scope bridge diagram (v1 renders a single diagram).
 - **Additional areas**: CSM, ITSM, HRSD table groups -- one `SchemaArea` each.
 
 ---
