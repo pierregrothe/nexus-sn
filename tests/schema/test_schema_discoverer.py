@@ -132,3 +132,16 @@ async def test_discover_inheritance_edge_marks_neighbor_parent() -> None:
     assert inh.extends == "task"
     assert inh.cross_scope is True
     assert any(t.name == "task" and t.is_neighbor for t in graph.tables)
+
+
+@pytest.mark.asyncio
+async def test_discover_skips_dict_rows_for_out_of_scope_tables() -> None:
+    seed = _seed()
+    # A dictionary row for a table outside the area (the fake returns it anyway).
+    seed["sys_dictionary"].append(
+        {"name": "task", "element": "number", "column_label": "Number",
+         "reference": "", "mandatory": "false"}
+    )
+    graph = await _disc(seed).discover("alectri", "dd")
+    assert not any(e.from_table == "task" for e in graph.reference_edges)
+    assert all(t.name != "task" or t.is_neighbor for t in graph.tables)
