@@ -193,7 +193,9 @@ class TableEnricher:
             Domain(
                 name=scope,
                 tables=tuple(
-                    TableDescription(table=t.name, label=t.label, description=t.label, source="label")
+                    TableDescription(
+                        table=t.name, label=t.label, description=t.label, source="label"
+                    )
                     for t in tabs
                 ),
             )
