@@ -27,7 +27,7 @@ log = logging.getLogger(__name__)
 __all__ = ["SchemaDiscoverer", "cell"]
 
 _IN_BATCH = 40
-_OUT = "__out"  # sentinel scope for tables outside the area
+_OUT = "__out"  # sentinel scope for out-of-area tables; never a real scope key
 
 
 def cell(row: Mapping[str, object], key: str) -> str:
@@ -108,10 +108,11 @@ class SchemaDiscoverer:
         meta: dict[str, tuple[str, str]] = {}  # name -> (scope_key, super_id)
         for r in db_rows:
             name = cell(r, "name")
+            tid = cell(r, "sys_id")
             scope_id = cell(r, "sys_scope")
-            if not name or scope_id not in key_by_id:
+            if not name or not tid or scope_id not in key_by_id:
                 continue
-            name_by_id[cell(r, "sys_id")] = name
+            name_by_id[tid] = name
             label_by_name[name] = cell(r, "label")
             meta[name] = (key_by_id[scope_id], cell(r, "super_class"))
         in_scope = sorted(meta)
