@@ -9,6 +9,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable, Mapping
 from datetime import UTC, datetime
+from typing import cast
 
 from nexus.connectors.servicenow.protocol import ServiceNowClientProtocol
 from nexus.schema.areas import DEFAULT_AREAS, SchemaArea
@@ -45,7 +46,7 @@ def cell(row: Mapping[str, object], key: str) -> str:
     """
     raw = row.get(key)
     if isinstance(raw, dict):
-        return str(raw.get("value", ""))
+        return str(cast("dict[str, object]", raw).get("value", ""))
     return "" if raw is None else str(raw)
 
 
