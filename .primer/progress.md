@@ -215,8 +215,9 @@ Infrastructure:
     progressive levels plus live SPM family run (6 fresh + 3 already-
     installed treated as success, 1 timeout).
 
-Tests: 1665 passing. All real fakes (incl. httpx.MockTransport,
-FakeBatchProgress, FakeServiceNowClient, FakeSchemaCartographer, no
+Tests: 1680 passing. All real fakes (incl. httpx.MockTransport,
+FakeBatchProgress, FakeServiceNowClient, FakeSchemaCartographer,
+FakeAgentClient, no
 unittest.mock). mypy strict + pyright strict report 0 errors across
 src/. ruff + black clean. GitHub:
 https://github.com/pierregrothe/nexus-sn (public).
@@ -258,7 +259,7 @@ CLI UX batch-progress layer (adaptive plugin upgrade display):
 
 Governance enforcement:
   Pre-edit hook (.claude/hooks/pre-edit-validate.py) -- 10 blocking rules
-  Coverage ratchet (.ratchet.json) -- 124 per-module entries; per-module
+  Coverage ratchet (.ratchet.json) -- 127 per-module entries; per-module
     covered_lines can only increase, never decrease
   Semgrep rules (.semgrep/rules.yml) -- semantic rules with ADR tracing
   Post-edit checks: black + ruff + mypy + pyright (all strict, all blocking)
@@ -434,6 +435,16 @@ Schema Cartographer layer (2026.06-schema-cartographer, branch not yet merged):
     Fields (data_column) -- corrects the customer's "Fields standalone" guess.
   100% line coverage on all modules except protocol.py (Protocol stubs, like
     capture.protocol). Generated ERDs committed under docs/erd/.
+  Mindmap mode (`nexus schema mindmap <area>`): the "which table stores what"
+    view -- an AI-enriched, business-domain-grouped table catalog (Mermaid
+    mindmap + "Stores X" descriptions), the generated/current equivalent of the
+    community-blog artifact. catalog.py (MindmapCatalog/Domain/TableDescription),
+    enricher.py (TableEnricher: one batched AgentClient call clustering tables
+    into domains + writing descriptions grounded on the discovered fields +
+    sparse sys_documentation hints; scope-grouping fallback on AI failure),
+    mindmap_emitter.py. SchemaCartographer gains an injected AgentClient +
+    build_mindmap/render_mindmap. Live AI mindmaps in docs/mindmaps/ for all
+    three areas.
 
 ## Known Issues
 

@@ -14,12 +14,36 @@ Three areas seeded (doc-designer, bcm, cmdb-bcm). Validated live against
 `alectri` before building (94 reference edges, 42 cross-scope). Design spec +
 12-task plan under docs/superpowers/.
 
+Then added the Schema Mindmap mode (`nexus schema mindmap <area>`): an
+AI-enriched, business-domain-grouped table catalog (Mermaid mindmap +
+"Stores X" descriptions) -- the "which table stores what" companion to the
+ERD, matching the community-blog artifact RONA's customer works from. New
+modules catalog/enricher/mindmap_emitter; TableEnricher makes one batched
+Claude (AgentClient) call to cluster + describe, grounded on the discovered
+fields + sparse sys_documentation hints, with a scope-grouping fallback if the
+AI is unavailable. Built via brainstorm -> spec -> 7-task subagent TDD.
+
+Also fixed two pre-existing test-suite bugs that made the full `pytest`
+"slow and failing": an INTERNALERROR crash (test_ui_capabilities patched the
+global shutil.get_terminal_size that pytest's progress renderer calls) and a
+Windows hang (test_runner_logs_when_re_exec_fails missing @skipif(win32) ran a
+nested pytest). Perf: removed forced --cov from addopts (~3.5x), added
+pytest-xdist (`-n auto` in CI/pre-commit) + pytest-timeout, lowered conftest
+logging to WARNING.
+
 ## Current Focus
 
-Schema Cartographer complete on `feature/2026.06-schema-cartographer`.
-Test count 1624 -> 1665. New layer at 100% line coverage (protocol excluded,
-matching capture.protocol). mypy + pyright strict 0; ruff + black clean.
-Live ERDs generated in docs/erd/ for all three areas against `alectri`.
+Schema Cartographer + Mindmap complete on `feature/2026.06-schema-cartographer`.
+Test count 1624 -> 1680. New schema modules at 100% line coverage (protocol
+excluded). mypy + pyright strict 0; ruff + black clean. Full suite green
+(`pytest -n auto`: 1680 passed, 3 skipped, ~18s). Live ERDs in docs/erd/ and
+AI mindmaps in docs/mindmaps/ for all three areas against `alectri`.
+
+Known tooling landmine (pre-existing, Windows-local): `pytest --cov` errors at
+collection on `mcp`'s pydantic RootModel under coverage.py 7.13.5 -- affects
+CLI-test coverage measurement only (schema-module coverage + the ratchet are
+unaffected; tests pass without --cov). Worth a separate look (coverage omit or
+a version pin) before relying on local full-coverage runs.
 
 Key validated finding (corrects the customer hypothesis): Document Designer
 is a three-level hierarchy Template -> Content Configuration [-> Data
