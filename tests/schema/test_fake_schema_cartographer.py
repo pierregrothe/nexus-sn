@@ -44,8 +44,8 @@ def test_fake_save_and_load_roundtrips(tmp_path: Path) -> None:
     assert fake.load_archive(path) == _graph()
 
 
-def test_fake_build_mindmap_returns_canned_catalog() -> None:
-    catalog = MindmapCatalog(
+def _catalog() -> MindmapCatalog:
+    return MindmapCatalog(
         instance_id="alectri",
         area_key="bcm",
         generated_at=datetime(2026, 6, 8, tzinfo=UTC),
@@ -54,12 +54,27 @@ def test_fake_build_mindmap_returns_canned_catalog() -> None:
             Domain(
                 name="Core",
                 tables=(
-                    TableDescription(
-                        table="t", label="T", description="Stores t.", source="ai"
-                    ),
+                    TableDescription(table="t", label="T", description="Stores t.", source="ai"),
                 ),
             ),
         ),
     )
+
+
+@pytest.mark.asyncio
+async def test_fake_build_mindmap_returns_canned_catalog() -> None:
+    catalog = _catalog()
     fake = FakeSchemaCartographer(_graph(), catalog=catalog)
-    assert "mindmap" in fake.render_mindmap(catalog)
+    assert await fake.build_mindmap("alectri", "bcm") == catalog
+
+
+@pytest.mark.asyncio
+async def test_fake_build_mindmap_without_catalog_raises() -> None:
+    fake = FakeSchemaCartographer(_graph())
+    with pytest.raises(ValueError):
+        await fake.build_mindmap("alectri", "bcm")
+
+
+def test_fake_render_mindmap_contains_mindmap() -> None:
+    fake = FakeSchemaCartographer(_graph(), catalog=_catalog())
+    assert "mindmap" in fake.render_mindmap(_catalog())
