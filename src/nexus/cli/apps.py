@@ -25,6 +25,7 @@ __all__ = [
     "instance_app",
     "plugins_app",
     "recommend_app",
+    "schema_app",
 ]
 
 app = typer.Typer(
@@ -37,6 +38,9 @@ app.add_typer(instance_app)
 
 capture_app = typer.Typer(name="capture", help="Capture and deploy ServiceNow configurations.")
 app.add_typer(capture_app)
+
+schema_app = typer.Typer(name="schema", help="Reverse-engineer SN table schemas into ERDs.")
+app.add_typer(schema_app)
 
 plugins_app = typer.Typer(
     name="plugins", help="Inspect the plugin inventory of registered instances."

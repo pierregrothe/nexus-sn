@@ -32,6 +32,7 @@ from nexus.connectors.servicenow.client import ServiceNowClient
 from nexus.instances.models import InstanceMeta
 from nexus.instances.registry import InstanceRegistry
 from nexus.plugins import PluginInventory, PluginScanner
+from nexus.schema import SchemaCartographer
 from nexus.ui import CommandGuide, CommandHelp, DataColumn, DataTable, Hint, Notice
 from nexus.ui.capabilities import RenderProfile
 from nexus.ui.components.framed_viewer import FramedViewer, RefreshCallback
@@ -42,6 +43,7 @@ if TYPE_CHECKING:
 
 __all__ = [
     "_build_capture_engine",
+    "_build_schema_cartographer",
     "_capture_expandable_renderables",
     "_capture_header_renderables",
     "_emit_framed_view",
@@ -72,6 +74,24 @@ def _build_capture_engine(profile: str) -> tuple[CaptureEngine, ServiceNowClient
     client = ServiceNowClient(instance_url=meta.url, token=token)
     engine = CaptureEngine(client=client, archive_root=NexusPaths.from_env().archives_dir)
     return engine, client
+
+
+def _build_schema_cartographer(profile: str) -> tuple[SchemaCartographer, ServiceNowClient]:
+    """Build a SchemaCartographer for the given registered instance profile.
+
+    Args:
+        profile: Instance profile name from InstanceRegistry.
+
+    Returns:
+        Tuple of (SchemaCartographer, ServiceNowClient) for the caller to use.
+
+    Raises:
+        typer.Exit: With code 1 if the profile is not registered or expired.
+    """
+    _, meta, token, _ = _acquire_token(profile)
+    client = ServiceNowClient(instance_url=meta.url, token=token)
+    cartographer = SchemaCartographer(client=client, archive_root=NexusPaths.from_env().schema_dir)
+    return cartographer, client
 
 
 def _plugins_for(profile: str) -> tuple[InstanceMeta, PluginInventory] | None:
