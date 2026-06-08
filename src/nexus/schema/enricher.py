@@ -98,9 +98,7 @@ class TableEnricher:
                 hints[(cell(r, "name"), cell(r, "element"))] = cell(r, "hint")
         return hints
 
-    def _build_prompt(
-        self, tables: list[TableDef], hints: Mapping[tuple[str, str], str]
-    ) -> str:
+    def _build_prompt(self, tables: list[TableDef], hints: Mapping[tuple[str, str], str]) -> str:
         """Render a deterministic prompt describing every table and its fields.
 
         Args:
@@ -173,9 +171,7 @@ class TableEnricher:
             domains=domains,
         )
 
-    def _fallback(
-        self, tables: list[TableDef], graph: SchemaGraph, display: str
-    ) -> MindmapCatalog:
+    def _fallback(self, tables: list[TableDef], graph: SchemaGraph, display: str) -> MindmapCatalog:
         """Build a scope-grouped, label-described catalog when the AI is unavailable.
 
         Args:
