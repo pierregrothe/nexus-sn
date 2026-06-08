@@ -9,6 +9,7 @@ from pathlib import Path
 
 import pytest
 
+from nexus.schema.catalog import Domain, MindmapCatalog, TableDescription
 from nexus.schema.models import SchemaGraph, TableDef
 from tests.schema.fakes.fake_schema_cartographer import FakeSchemaCartographer
 
@@ -41,3 +42,24 @@ def test_fake_save_and_load_roundtrips(tmp_path: Path) -> None:
     fake = FakeSchemaCartographer(_graph())
     path = fake.save_archive(_graph(), dest=tmp_path)
     assert fake.load_archive(path) == _graph()
+
+
+def test_fake_build_mindmap_returns_canned_catalog() -> None:
+    catalog = MindmapCatalog(
+        instance_id="alectri",
+        area_key="bcm",
+        generated_at=datetime(2026, 6, 8, tzinfo=UTC),
+        display="BCM",
+        domains=(
+            Domain(
+                name="Core",
+                tables=(
+                    TableDescription(
+                        table="t", label="T", description="Stores t.", source="ai"
+                    ),
+                ),
+            ),
+        ),
+    )
+    fake = FakeSchemaCartographer(_graph(), catalog=catalog)
+    assert "mindmap" in fake.render_mindmap(catalog)

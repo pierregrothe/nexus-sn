@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from nexus.schema.catalog import MindmapCatalog
 from nexus.schema.models import SchemaGraph
 
 __all__ = ["FakeSchemaCartographer"]
@@ -22,9 +23,10 @@ class FakeSchemaCartographer:
         graph: The graph returned by discover() and persisted by save_archive().
     """
 
-    def __init__(self, graph: SchemaGraph) -> None:
-        """Initialize with the canned graph."""
+    def __init__(self, graph: SchemaGraph, catalog: MindmapCatalog | None = None) -> None:
+        """Initialize with the canned graph and optional catalog."""
         self._graph = graph
+        self._catalog = catalog
 
     async def __aenter__(self) -> FakeSchemaCartographer:
         """Enter the async context (returns self)."""
@@ -83,3 +85,32 @@ class FakeSchemaCartographer:
             A minimal Markdown string containing the area key.
         """
         return f"# {graph.area_key}\n\nerDiagram"
+
+    async def build_mindmap(self, instance_id: str, area_key: str) -> MindmapCatalog:
+        """Return the canned catalog (raises if none was provided).
+
+        Args:
+            instance_id: Ignored.
+            area_key: Ignored.
+
+        Returns:
+            The canned MindmapCatalog.
+
+        Raises:
+            ValueError: If the fake was created without a catalog.
+        """
+        del instance_id, area_key
+        if self._catalog is None:
+            raise ValueError("FakeSchemaCartographer was created without a catalog")
+        return self._catalog
+
+    def render_mindmap(self, catalog: MindmapCatalog) -> str:
+        """Return a trivial Markdown stub mentioning the area key.
+
+        Args:
+            catalog: The catalog to render.
+
+        Returns:
+            A minimal Markdown string containing the area key and 'mindmap'.
+        """
+        return f"# {catalog.area_key}\n\nmindmap"
