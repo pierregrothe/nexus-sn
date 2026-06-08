@@ -50,12 +50,22 @@ def test_schema_erd_writes_markdown_file(tmp_path: Path, monkeypatch: pytest.Mon
     assert "erDiagram" in out.read_text(encoding="utf-8")
 
 
-def test_schema_mindmap_writes_markdown_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_schema_mindmap_writes_markdown_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     catalog = MindmapCatalog(
-        instance_id="alectri", area_key="doc-designer",
-        generated_at=datetime(2026, 6, 8, tzinfo=UTC), display="Document Designer",
-        domains=(Domain(name="Core", tables=(
-            TableDescription(table="t", label="T", description="Stores t.", source="ai"),)),),
+        instance_id="alectri",
+        area_key="doc-designer",
+        generated_at=datetime(2026, 6, 8, tzinfo=UTC),
+        display="Document Designer",
+        domains=(
+            Domain(
+                name="Core",
+                tables=(
+                    TableDescription(table="t", label="T", description="Stores t.", source="ai"),
+                ),
+            ),
+        ),
     )
     fake = FakeSchemaCartographer(_graph(), catalog=catalog)
     monkeypatch.setattr(

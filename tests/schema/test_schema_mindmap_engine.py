@@ -22,8 +22,13 @@ def _seed() -> dict[str, list[dict[str, object]]]:
     return {
         "sys_scope": [{"sys_id": "SCID", "scope": "sn_grc_doc_design"}],
         "sys_db_object": [
-            {"sys_id": "T1", "name": "t1", "label": "T1", "super_class": "",
-             "sys_scope": {"link": "x", "value": "SCID"}},
+            {
+                "sys_id": "T1",
+                "name": "t1",
+                "label": "T1",
+                "super_class": "",
+                "sys_scope": {"link": "x", "value": "SCID"},
+            },
         ],
         "sys_dictionary": [],
         "sys_relationship": [],

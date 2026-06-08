@@ -28,9 +28,17 @@ def _graph() -> SchemaGraph:
         scope_keys=("sn_bcp",),
         tables=(
             TableDef(
-                name="sn_bcp_plan", label="Plan", scope="sn_bcp",
-                fields=(FieldDef(name="plan_owner", label="Plan owner", type="reference",
-                                 reference_target="sys_user"),),
+                name="sn_bcp_plan",
+                label="Plan",
+                scope="sn_bcp",
+                fields=(
+                    FieldDef(
+                        name="plan_owner",
+                        label="Plan owner",
+                        type="reference",
+                        reference_target="sys_user",
+                    ),
+                ),
             ),
         ),
         reference_edges=(),
@@ -61,8 +69,15 @@ async def test_enrich_joins_ai_description_to_discovered_label() -> None:
 @pytest.mark.asyncio
 async def test_enrich_includes_sys_documentation_hints_in_prompt() -> None:
     sn = FakeServiceNowClient(
-        {"sys_documentation": [{"name": "sn_bcp_plan", "element": "plan_owner",
-                                "hint": "The accountable plan owner."}]}
+        {
+            "sys_documentation": [
+                {
+                    "name": "sn_bcp_plan",
+                    "element": "plan_owner",
+                    "hint": "The accountable plan owner.",
+                }
+            ]
+        }
     )
     ai = FakeAgentClient(canned_response=_AI_JSON)
     await _enricher(sn, ai).enrich(_graph(), display="BCM")

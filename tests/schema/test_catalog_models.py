@@ -23,8 +23,10 @@ def _catalog() -> MindmapCatalog:
                 name="Plan Management",
                 tables=(
                     TableDescription(
-                        table="sn_bcp_plan", label="Plan",
-                        description="Stores BC plans.", source="ai",
+                        table="sn_bcp_plan",
+                        label="Plan",
+                        description="Stores BC plans.",
+                        source="ai",
                     ),
                 ),
             ),
