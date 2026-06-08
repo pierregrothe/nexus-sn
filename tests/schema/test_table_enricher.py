@@ -82,3 +82,10 @@ async def test_enrich_falls_back_on_unparseable_json() -> None:
     ai = FakeAgentClient(canned_response="sorry, no JSON here")
     catalog = await _enricher(FakeServiceNowClient(), ai).enrich(_graph(), display="BCM")
     assert catalog.domains[0].name == "sn_bcp"
+
+
+@pytest.mark.asyncio
+async def test_enrich_falls_back_on_valid_json_with_wrong_shape() -> None:
+    ai = FakeAgentClient(canned_response='{"foo": 1}')  # valid JSON, no "domains" key
+    catalog = await _enricher(FakeServiceNowClient(), ai).enrich(_graph(), display="BCM")
+    assert catalog.domains[0].name == "sn_bcp"
