@@ -8,7 +8,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict
 
-__all__ = ["Domain", "MindmapCatalog", "TableDescription"]
+__all__ = ["Domain", "MindmapCatalog", "Section", "TableDescription"]
 
 _CONFIG = ConfigDict(frozen=True, strict=True, extra="forbid")
 
@@ -31,7 +31,7 @@ class TableDescription(BaseModel):
 
 
 class Domain(BaseModel):
-    """A named business-domain grouping of tables.
+    """A named business-domain grouping of tables (the inner mindmap branch).
 
     Args:
         name: Domain name (e.g. "Plan Management").
@@ -43,6 +43,19 @@ class Domain(BaseModel):
     tables: tuple[TableDescription, ...]
 
 
+class Section(BaseModel):
+    """A top-level grouping of domains (the outer mindmap branch).
+
+    Args:
+        name: Section name (e.g. "Core", "Planning").
+        domains: The business domains under this section.
+    """
+
+    model_config = _CONFIG
+    name: str
+    domains: tuple[Domain, ...]
+
+
 class MindmapCatalog(BaseModel):
     """The full AI-enriched catalog for one area.
 
@@ -51,7 +64,7 @@ class MindmapCatalog(BaseModel):
         area_key: Area key the catalog was built for.
         generated_at: UTC generation timestamp.
         display: Area display name (the mindmap root label).
-        domains: The business domains and their tables.
+        sections: The top-level sections, each grouping business domains.
     """
 
     model_config = _CONFIG
@@ -59,4 +72,4 @@ class MindmapCatalog(BaseModel):
     area_key: str
     generated_at: datetime
     display: str
-    domains: tuple[Domain, ...]
+    sections: tuple[Section, ...]

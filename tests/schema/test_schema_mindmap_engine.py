@@ -16,7 +16,10 @@ from tests.fakes.fake_kroki_client import FakeKrokiClient
 from tests.fakes.fake_sn_client import FakeServiceNowClient
 
 _AREAS = {"dd": SchemaArea(key="dd", display="DD", scopes=(ScopeRef("sn_grc_doc_design", "DD"),))}
-_AI_JSON = '{"domains":[{"name":"Core","tables":[{"table":"t1","description":"Stores t1."}]}]}'
+_AI_JSON = (
+    '{"sections":[{"name":"Top","domains":[{"name":"Core",'
+    '"tables":[{"table":"t1","description":"Stores t1."}]}]}]}'
+)
 
 
 def _seed() -> dict[str, list[dict[str, object]]]:
@@ -52,7 +55,8 @@ def _engine(tmp_path: Path, kroki: FakeKrokiClient | None = None) -> SchemaCarto
 async def test_build_mindmap_discovers_then_enriches(tmp_path: Path) -> None:
     catalog = await _engine(tmp_path).build_mindmap("alectri", "dd")
     assert catalog.display == "DD"
-    assert catalog.domains[0].tables[0].description == "Stores t1."
+    assert catalog.sections[0].name == "Top"
+    assert catalog.sections[0].domains[0].tables[0].description == "Stores t1."
 
 
 @pytest.mark.asyncio

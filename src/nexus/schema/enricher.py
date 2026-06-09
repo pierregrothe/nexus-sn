@@ -16,7 +16,7 @@ from pydantic import ValidationError
 from nexus.api.agent_client import AgentClientProtocol
 from nexus.api.errors import AnthropicError
 from nexus.connectors.servicenow.protocol import ServiceNowClientProtocol
-from nexus.schema.catalog import Domain, MindmapCatalog, TableDescription
+from nexus.schema.catalog import Domain, MindmapCatalog, Section, TableDescription
 from nexus.schema.discoverer import cell
 from nexus.schema.models import SchemaGraph, TableDef
 
@@ -27,10 +27,13 @@ __all__ = ["TableEnricher"]
 _IN_BATCH = 50
 _SYSTEM = (
     "You are a ServiceNow data-model architect. Given tables with their fields, "
-    "group EVERY table into business domains and write a one-line 'Stores X' "
-    "description for each, grounded ONLY in the listed columns. Never invent "
-    "tables. Respond with JSON only (no prose) of the exact shape: "
-    '{"domains":[{"name":"<domain>","tables":[{"table":"<name>","description":"<text>"}]}]}'
+    "organize EVERY table into a two-level hierarchy: a few broad top-level "
+    "sections (e.g. Core, Planning), each containing business domains, each "
+    "containing tables. Write a one-line 'Stores X' description for each table, "
+    "grounded ONLY in the listed columns. Never invent tables. Respond with JSON "
+    "only (no prose) of the exact shape: "
+    '{"sections":[{"name":"<section>","domains":[{"name":"<domain>",'
+    '"tables":[{"table":"<name>","description":"<text>"}]}]}]}'
 )
 
 
@@ -146,20 +149,26 @@ class TableEnricher:
             raise ValueError("no JSON object in AI response")
         try:
             obj = json.loads(raw[start : end + 1])
-            domains = tuple(
-                Domain(
-                    name=str(d["name"]),
-                    tables=tuple(
-                        TableDescription(
-                            table=str(t["table"]),
-                            label=label_by_name.get(str(t["table"]), str(t["table"])),
-                            description=str(t["description"]),
-                            source="ai",
+            sections = tuple(
+                Section(
+                    name=str(s["name"]),
+                    domains=tuple(
+                        Domain(
+                            name=str(d["name"]),
+                            tables=tuple(
+                                TableDescription(
+                                    table=str(t["table"]),
+                                    label=label_by_name.get(str(t["table"]), str(t["table"])),
+                                    description=str(t["description"]),
+                                    source="ai",
+                                )
+                                for t in d["tables"]
+                            ),
                         )
-                        for t in d["tables"]
+                        for d in s["domains"]
                     ),
                 )
-                for d in obj["domains"]
+                for s in obj["sections"]
             )
         except (KeyError, TypeError, ValidationError) as exc:
             raise ValueError(f"malformed mindmap JSON: {exc}") from exc
@@ -168,7 +177,7 @@ class TableEnricher:
             area_key=graph.area_key,
             generated_at=self._clock(),
             display=display,
-            domains=domains,
+            sections=sections,
         )
 
     def _fallback(self, tables: list[TableDef], graph: SchemaGraph, display: str) -> MindmapCatalog:
@@ -180,7 +189,7 @@ class TableEnricher:
             display: Area display name.
 
         Returns:
-            A fallback MindmapCatalog (one domain per scope; label descriptions).
+            A fallback MindmapCatalog: a single section, one domain per scope.
         """
         by_scope: dict[str, list[TableDef]] = {}
         for t in tables:
@@ -202,5 +211,5 @@ class TableEnricher:
             area_key=graph.area_key,
             generated_at=self._clock(),
             display=display,
-            domains=domains,
+            sections=(Section(name=display, domains=domains),),
         )

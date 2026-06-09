@@ -56,11 +56,13 @@ class MindmapEmitter:
             The Mermaid mindmap source, suitable for a render service.
         """
         lines: list[str] = ["mindmap", f"  root(({_plain(catalog.display)}))"]
-        for domain in catalog.domains:
-            lines.append(f"    {_plain(domain.name)}")
-            for table in domain.tables:
-                node = f"**{_md(table.label)}** [{table.table}]: {_md(table.description)}"
-                lines.append(f'      {table.table}["`{node}`"]')
+        for section in catalog.sections:
+            lines.append(f"    {_plain(section.name)}")
+            for domain in section.domains:
+                lines.append(f"      {_plain(domain.name)}")
+                for table in domain.tables:
+                    node = f"**{_md(table.label)}** [{table.table}]: {_md(table.description)}"
+                    lines.append(f'        {table.table}["`{node}`"]')
         return "\n".join(lines)
 
     def render(self, catalog: MindmapCatalog) -> str:
@@ -82,10 +84,13 @@ class MindmapEmitter:
             "```",
             "",
         ]
-        for domain in catalog.domains:
-            lines.append(f"## {domain.name}")
+        for section in catalog.sections:
+            lines.append(f"## {section.name}")
             lines.append("")
-            for table in domain.tables:
-                lines.append(f"- **{table.label}** [{table.table}]: {table.description}")
-            lines.append("")
+            for domain in section.domains:
+                lines.append(f"### {domain.name}")
+                lines.append("")
+                for table in domain.tables:
+                    lines.append(f"- **{table.label}** [{table.table}]: {table.description}")
+                lines.append("")
         return "\n".join(lines)

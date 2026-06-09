@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from nexus.schema.catalog import Domain, MindmapCatalog, TableDescription
+from nexus.schema.catalog import Domain, MindmapCatalog, Section, TableDescription
 from nexus.schema.models import SchemaGraph, TableDef
 from tests.schema.fakes.fake_schema_cartographer import FakeSchemaCartographer
 
@@ -50,11 +50,18 @@ def _catalog() -> MindmapCatalog:
         area_key="bcm",
         generated_at=datetime(2026, 6, 8, tzinfo=UTC),
         display="BCM",
-        domains=(
-            Domain(
+        sections=(
+            Section(
                 name="Core",
-                tables=(
-                    TableDescription(table="t", label="T", description="Stores t.", source="ai"),
+                domains=(
+                    Domain(
+                        name="Core",
+                        tables=(
+                            TableDescription(
+                                table="t", label="T", description="Stores t.", source="ai"
+                            ),
+                        ),
+                    ),
                 ),
             ),
         ),

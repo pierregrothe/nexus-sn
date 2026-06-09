@@ -15,8 +15,8 @@ from tests.fakes.fake_agent_client import FakeAgentClient
 from tests.fakes.fake_sn_client import FakeServiceNowClient
 
 _AI_JSON = (
-    '{"domains":[{"name":"Plan Management","tables":'
-    '[{"table":"sn_bcp_plan","description":"Stores BC plans."}]}]}'
+    '{"sections":[{"name":"Planning","domains":[{"name":"Plan Management","tables":'
+    '[{"table":"sn_bcp_plan","description":"Stores BC plans."}]}]}]}'
 )
 
 
@@ -55,15 +55,16 @@ def _enricher(sn: FakeServiceNowClient, ai: FakeAgentClient) -> TableEnricher:
 async def test_enrich_builds_catalog_from_ai_json() -> None:
     enricher = _enricher(FakeServiceNowClient(), FakeAgentClient(canned_response=_AI_JSON))
     catalog = await enricher.enrich(_graph(), display="BCM")
-    assert catalog.domains[0].name == "Plan Management"
-    assert catalog.domains[0].tables[0].description == "Stores BC plans."
+    assert catalog.sections[0].name == "Planning"
+    assert catalog.sections[0].domains[0].name == "Plan Management"
+    assert catalog.sections[0].domains[0].tables[0].description == "Stores BC plans."
 
 
 @pytest.mark.asyncio
 async def test_enrich_joins_ai_description_to_discovered_label() -> None:
     enricher = _enricher(FakeServiceNowClient(), FakeAgentClient(canned_response=_AI_JSON))
     catalog = await enricher.enrich(_graph(), display="BCM")
-    assert catalog.domains[0].tables[0].label == "Plan"  # from the graph, not the AI
+    assert catalog.sections[0].domains[0].tables[0].label == "Plan"  # from the graph, not the AI
 
 
 @pytest.mark.asyncio
@@ -88,19 +89,20 @@ async def test_enrich_includes_sys_documentation_hints_in_prompt() -> None:
 async def test_enrich_falls_back_to_scope_grouping_on_ai_error() -> None:
     ai = FakeAgentClient(side_effect=AnthropicError(0, "boom"))
     catalog = await _enricher(FakeServiceNowClient(), ai).enrich(_graph(), display="BCM")
-    assert catalog.domains[0].name == "sn_bcp"
-    assert catalog.domains[0].tables[0].description == "Plan"  # label fallback
+    assert catalog.sections[0].name == "BCM"  # single fallback section named after the area
+    assert catalog.sections[0].domains[0].name == "sn_bcp"
+    assert catalog.sections[0].domains[0].tables[0].description == "Plan"  # label fallback
 
 
 @pytest.mark.asyncio
 async def test_enrich_falls_back_on_unparseable_json() -> None:
     ai = FakeAgentClient(canned_response="sorry, no JSON here")
     catalog = await _enricher(FakeServiceNowClient(), ai).enrich(_graph(), display="BCM")
-    assert catalog.domains[0].name == "sn_bcp"
+    assert catalog.sections[0].domains[0].name == "sn_bcp"
 
 
 @pytest.mark.asyncio
 async def test_enrich_falls_back_on_valid_json_with_wrong_shape() -> None:
-    ai = FakeAgentClient(canned_response='{"foo": 1}')  # valid JSON, no "domains" key
+    ai = FakeAgentClient(canned_response='{"foo": 1}')  # valid JSON, no "sections" key
     catalog = await _enricher(FakeServiceNowClient(), ai).enrich(_graph(), display="BCM")
-    assert catalog.domains[0].name == "sn_bcp"
+    assert catalog.sections[0].domains[0].name == "sn_bcp"

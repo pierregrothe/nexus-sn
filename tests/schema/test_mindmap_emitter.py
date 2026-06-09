@@ -6,7 +6,7 @@
 
 from datetime import UTC, datetime
 
-from nexus.schema.catalog import Domain, MindmapCatalog, TableDescription
+from nexus.schema.catalog import Domain, MindmapCatalog, Section, TableDescription
 from nexus.schema.mindmap_emitter import MindmapEmitter
 
 
@@ -16,15 +16,20 @@ def _catalog() -> MindmapCatalog:
         area_key="bcm",
         generated_at=datetime(2026, 6, 8, tzinfo=UTC),
         display="Business Continuity Management",
-        domains=(
-            Domain(
-                name="Plan Management",
-                tables=(
-                    TableDescription(
-                        table="sn_bcp_plan",
-                        label="Plan",
-                        description="Stores BC plans and recovery objectives.",
-                        source="ai",
+        sections=(
+            Section(
+                name="Planning",
+                domains=(
+                    Domain(
+                        name="Plan Management",
+                        tables=(
+                            TableDescription(
+                                table="sn_bcp_plan",
+                                label="Plan",
+                                description="Stores BC plans and recovery objectives.",
+                                source="ai",
+                            ),
+                        ),
                     ),
                 ),
             ),
@@ -46,9 +51,10 @@ def test_render_mindmap_leaf_embeds_label_table_and_description() -> None:
     )
 
 
-def test_render_grouped_catalog_has_domain_and_description() -> None:
+def test_render_grouped_catalog_has_section_domain_and_description() -> None:
     out = MindmapEmitter().render(_catalog())
-    assert "## Plan Management" in out
+    assert "## Planning" in out
+    assert "### Plan Management" in out
     assert "**Plan** [sn_bcp_plan]: Stores BC plans and recovery objectives." in out
 
 
@@ -56,9 +62,11 @@ def test_diagram_returns_bare_mindmap_source() -> None:
     diagram = MindmapEmitter().diagram(_catalog())
     assert diagram.startswith("mindmap")
     assert "root((Business Continuity Management))" in diagram
-    assert "    Plan Management" in diagram
+    assert "    Planning" in diagram
+    assert "      Plan Management" in diagram
     assert (
-        '      sn_bcp_plan["`**Plan** [sn_bcp_plan]: ' 'Stores BC plans and recovery objectives.`"]'
+        '        sn_bcp_plan["`**Plan** [sn_bcp_plan]: '
+        'Stores BC plans and recovery objectives.`"]'
     ) in diagram
     assert "```" not in diagram
 
@@ -69,15 +77,20 @@ def test_diagram_neutralizes_markdown_string_delimiters() -> None:
         area_key="a",
         generated_at=datetime(2026, 6, 8, tzinfo=UTC),
         display="Root (with parens)",
-        domains=(
-            Domain(
-                name="Grp",
-                tables=(
-                    TableDescription(
-                        table="sn_x",
-                        label="La`bel",
-                        description='Stores "quoted" and `backtick` text',
-                        source="ai",
+        sections=(
+            Section(
+                name="Sec",
+                domains=(
+                    Domain(
+                        name="Grp",
+                        tables=(
+                            TableDescription(
+                                table="sn_x",
+                                label="La`bel",
+                                description='Stores "quoted" and `backtick` text',
+                                source="ai",
+                            ),
+                        ),
                     ),
                 ),
             ),

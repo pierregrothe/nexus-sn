@@ -9,7 +9,7 @@ from datetime import UTC, datetime
 import pytest
 from pydantic import ValidationError
 
-from nexus.schema.catalog import Domain, MindmapCatalog, TableDescription
+from nexus.schema.catalog import Domain, MindmapCatalog, Section, TableDescription
 
 
 def _catalog() -> MindmapCatalog:
@@ -18,15 +18,20 @@ def _catalog() -> MindmapCatalog:
         area_key="bcm",
         generated_at=datetime(2026, 6, 8, tzinfo=UTC),
         display="Business Continuity Management",
-        domains=(
-            Domain(
-                name="Plan Management",
-                tables=(
-                    TableDescription(
-                        table="sn_bcp_plan",
-                        label="Plan",
-                        description="Stores BC plans.",
-                        source="ai",
+        sections=(
+            Section(
+                name="Planning",
+                domains=(
+                    Domain(
+                        name="Plan Management",
+                        tables=(
+                            TableDescription(
+                                table="sn_bcp_plan",
+                                label="Plan",
+                                description="Stores BC plans.",
+                                source="ai",
+                            ),
+                        ),
                     ),
                 ),
             ),
