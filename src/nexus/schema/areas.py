@@ -39,12 +39,17 @@ class SchemaArea:
         scopes: Scopes whose tables form the area.
         neighbor_hops: How many reference/inheritance hops outside the scopes
             to pull in as bridge nodes.
+        bridge_targets: When set, narrow the discovered graph to the bridge
+            neighborhood around these target tables (e.g. ("cmdb_ci",)) -- the
+            targets, in-scope tables referencing them, and their one-hop
+            reference neighbors. Empty means "keep the whole area".
     """
 
     key: str
     display: str
     scopes: tuple[ScopeRef, ...]
     neighbor_hops: int = 1
+    bridge_targets: tuple[str, ...] = ()
 
 
 DOC_DESIGNER = SchemaArea(
@@ -74,6 +79,7 @@ CMDB_BCM = SchemaArea(
         ScopeRef("sn_bcm", "BCM Core"),
         ScopeRef("sn_bcp", "Business Continuity Planning"),
     ),
+    bridge_targets=("cmdb_ci",),
 )
 
 DEFAULT_AREAS: dict[str, SchemaArea] = {a.key: a for a in (DOC_DESIGNER, BCM, CMDB_BCM)}

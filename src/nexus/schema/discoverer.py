@@ -13,6 +13,7 @@ from typing import cast
 
 from nexus.connectors.servicenow.protocol import ServiceNowClientProtocol
 from nexus.schema.areas import DEFAULT_AREAS, SchemaArea
+from nexus.schema.bridge import bridge_subgraph
 from nexus.schema.errors import AreaNotFoundError, ScopeNotFoundError
 from nexus.schema.models import (
     FieldDef,
@@ -204,7 +205,7 @@ class SchemaDiscoverer:
             if cell(r, "name")
         ]
 
-        return SchemaGraph(
+        graph = SchemaGraph(
             instance_id=instance_id,
             area_key=area_key,
             discovered_at=self._clock(),
@@ -214,6 +215,9 @@ class SchemaDiscoverer:
             inheritance_edges=tuple(inh_edges),
             relationship_edges=tuple(rel_edges),
         )
+        if area.bridge_targets:
+            return bridge_subgraph(graph, area.bridge_targets)
+        return graph
 
     async def _batched_in(
         self,

@@ -169,3 +169,22 @@ async def test_discover_skips_dict_rows_for_out_of_scope_tables() -> None:
     graph = await _disc(seed).discover("alectri", "dd")
     assert not any(e.from_table == "task" for e in graph.reference_edges)
     assert all(t.name != "task" or t.is_neighbor for t in graph.tables)
+
+
+@pytest.mark.asyncio
+async def test_discover_with_bridge_targets_narrows_to_neighborhood() -> None:
+    area = SchemaArea(
+        key="b",
+        display="B",
+        scopes=(ScopeRef("sn_grc_doc_design", "DD"),),
+        bridge_targets=("sn_grc_doc_design_data_relationship",),
+    )
+    disc = SchemaDiscoverer(
+        FakeServiceNowClient(_seed()),
+        areas={"b": area},
+        clock=lambda: datetime(2026, 6, 8, tzinfo=UTC),
+    )
+    graph = await disc.discover("alectri", "b")
+    names = {t.name for t in graph.tables}
+    assert "sn_grc_doc_design_data_rel_mapping" in names  # references the target
+    assert "sn_grc_doc_design_data_relationship" in names  # the bridge target
