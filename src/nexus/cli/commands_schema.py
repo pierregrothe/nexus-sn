@@ -31,6 +31,7 @@ class ImageFormat(StrEnum):
 
 
 _KROKI_DEFAULT = "https://kroki.io"
+_KROKI_TIMEOUT_DEFAULT = 60.0
 
 
 @schema_app.command("areas")
@@ -55,11 +56,14 @@ def schema_erd(
     kroki_url: Annotated[
         str, typer.Option("--kroki-url", envvar="NEXUS_KROKI_URL", help="Kroki render endpoint")
     ] = _KROKI_DEFAULT,
+    kroki_timeout: Annotated[
+        float, typer.Option("--kroki-timeout", help="Kroki request timeout in seconds")
+    ] = _KROKI_TIMEOUT_DEFAULT,
 ) -> None:
     """Reverse-engineer an area and write a Markdown ERD."""
 
     async def _run() -> tuple[Path, Path | None]:
-        cartographer, client = _build_schema_cartographer(profile, kroki_url)
+        cartographer, client = _build_schema_cartographer(profile, kroki_url, kroki_timeout)
         resolved = profile or _config_default()
         with nexus_progress(console) as progress:
             progress.add_task(f"Mapping {area} on {resolved}...", total=None)
@@ -95,11 +99,14 @@ def schema_mindmap(
     kroki_url: Annotated[
         str, typer.Option("--kroki-url", envvar="NEXUS_KROKI_URL", help="Kroki render endpoint")
     ] = _KROKI_DEFAULT,
+    kroki_timeout: Annotated[
+        float, typer.Option("--kroki-timeout", help="Kroki request timeout in seconds")
+    ] = _KROKI_TIMEOUT_DEFAULT,
 ) -> None:
     """Reverse-engineer an area and write an AI-described mindmap catalog."""
 
     async def _run() -> tuple[Path, Path | None]:
-        cartographer, client = _build_schema_cartographer(profile, kroki_url)
+        cartographer, client = _build_schema_cartographer(profile, kroki_url, kroki_timeout)
         resolved = profile or _config_default()
         with nexus_progress(console) as progress:
             progress.add_task(f"Describing {area} on {resolved}...", total=None)

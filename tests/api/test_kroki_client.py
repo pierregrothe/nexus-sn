@@ -45,3 +45,10 @@ async def test_render_non_2xx_raises_kroki_error() -> None:
         await client.render("not a diagram", fmt="svg")
     assert exc.value.status_code == 400
     assert "bad diagram" in exc.value.message
+
+
+@pytest.mark.asyncio
+async def test_render_honors_custom_timeout() -> None:
+    transport = httpx.MockTransport(lambda req: httpx.Response(200, content=_SVG))
+    client = KrokiClient("https://kroki.io", timeout=5.0, transport=transport)
+    assert await client.render("mindmap", fmt="svg") == _SVG

@@ -79,13 +79,14 @@ def _build_capture_engine(profile: str) -> tuple[CaptureEngine, ServiceNowClient
 
 
 def _build_schema_cartographer(
-    profile: str, kroki_url: str = "https://kroki.io"
+    profile: str, kroki_url: str = "https://kroki.io", kroki_timeout: float = 60.0
 ) -> tuple[SchemaCartographer, ServiceNowClient]:
     """Build a SchemaCartographer for the given registered instance profile.
 
     Args:
         profile: Instance profile name from InstanceRegistry.
         kroki_url: Kroki render endpoint for diagram image export.
+        kroki_timeout: Per-request Kroki timeout in seconds.
 
     Returns:
         Tuple of (SchemaCartographer, ServiceNowClient) for the caller to use.
@@ -99,7 +100,7 @@ def _build_schema_cartographer(
         client=client,
         archive_root=NexusPaths.from_env().schema_dir,
         agent_client=AgentClient(),
-        kroki=KrokiClient(kroki_url),
+        kroki=KrokiClient(kroki_url, timeout=kroki_timeout),
     )
     return cartographer, client
 

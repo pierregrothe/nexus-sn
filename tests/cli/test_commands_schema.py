@@ -38,9 +38,7 @@ def test_schema_areas_lists_registered_areas() -> None:
 
 def test_schema_erd_writes_markdown_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     fake = FakeSchemaCartographer(_graph())
-    monkeypatch.setattr(
-        commands_schema, "_build_schema_cartographer", lambda _profile, _url: (fake, fake)
-    )
+    monkeypatch.setattr(commands_schema, "_build_schema_cartographer", lambda *_: (fake, fake))
     out = tmp_path / "erd.md"
     result = CliRunner().invoke(
         app, ["schema", "erd", "doc-designer", "--profile", "alectri", "-o", str(out)]
@@ -68,9 +66,7 @@ def test_schema_mindmap_writes_markdown_file(
         ),
     )
     fake = FakeSchemaCartographer(_graph(), catalog=catalog)
-    monkeypatch.setattr(
-        commands_schema, "_build_schema_cartographer", lambda _profile, _url: (fake, fake)
-    )
+    monkeypatch.setattr(commands_schema, "_build_schema_cartographer", lambda *_: (fake, fake))
     out = tmp_path / "mm.md"
     result = CliRunner().invoke(
         app, ["schema", "mindmap", "doc-designer", "--profile", "alectri", "-o", str(out)]
@@ -84,9 +80,7 @@ def test_schema_erd_writes_image_when_requested(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     fake = FakeSchemaCartographer(_graph(), image=b"<svg/>")
-    monkeypatch.setattr(
-        commands_schema, "_build_schema_cartographer", lambda _profile, _url: (fake, fake)
-    )
+    monkeypatch.setattr(commands_schema, "_build_schema_cartographer", lambda *_: (fake, fake))
     out = tmp_path / "erd.md"
     result = CliRunner().invoke(
         app,
@@ -114,9 +108,7 @@ def test_schema_mindmap_writes_image_when_requested(
         ),
     )
     fake = FakeSchemaCartographer(_graph(), catalog=catalog, image=b"PNG")
-    monkeypatch.setattr(
-        commands_schema, "_build_schema_cartographer", lambda _profile, _url: (fake, fake)
-    )
+    monkeypatch.setattr(commands_schema, "_build_schema_cartographer", lambda *_: (fake, fake))
     out = tmp_path / "mm.md"
     result = CliRunner().invoke(
         app,
