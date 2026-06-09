@@ -14,6 +14,22 @@ __all__ = ["MindmapEmitter"]
 class MindmapEmitter:
     """Renders a MindmapCatalog to a Markdown mindmap document."""
 
+    def diagram(self, catalog: MindmapCatalog) -> str:
+        """Render only the Mermaid ``mindmap`` source (no Markdown wrapper).
+
+        Args:
+            catalog: The catalog to render.
+
+        Returns:
+            The Mermaid mindmap source, suitable for a render service.
+        """
+        lines: list[str] = ["mindmap", f"  root(({catalog.display}))"]
+        for domain in catalog.domains:
+            lines.append(f"    {domain.name}")
+            for table in domain.tables:
+                lines.append(f"      {table.label} -- {table.table}")
+        return "\n".join(lines)
+
     def render(self, catalog: MindmapCatalog) -> str:
         """Render the catalog.
 
@@ -29,15 +45,10 @@ class MindmapEmitter:
             f"Instance: `{catalog.instance_id}`  |  generated: {catalog.generated_at.isoformat()}",
             "",
             "```mermaid",
-            "mindmap",
-            f"  root(({catalog.display}))",
+            self.diagram(catalog),
+            "```",
+            "",
         ]
-        for domain in catalog.domains:
-            lines.append(f"    {domain.name}")
-            for table in domain.tables:
-                lines.append(f"      {table.label} -- {table.table}")
-        lines.append("```")
-        lines.append("")
         for domain in catalog.domains:
             lines.append(f"## {domain.name}")
             lines.append("")

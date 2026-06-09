@@ -48,3 +48,11 @@ def test_render_grouped_catalog_has_domain_and_description() -> None:
     out = MindmapEmitter().render(_catalog())
     assert "## Plan Management" in out
     assert "**Plan** [sn_bcp_plan]: Stores BC plans and recovery objectives." in out
+
+
+def test_diagram_returns_bare_mindmap_source() -> None:
+    diagram = MindmapEmitter().diagram(_catalog())
+    assert diagram.startswith("mindmap")
+    assert "root((Business Continuity Management))" in diagram
+    assert "      Plan -- sn_bcp_plan" in diagram
+    assert "```" not in diagram

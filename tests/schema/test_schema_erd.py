@@ -124,3 +124,11 @@ def test_render_cross_scope_bridge_section_shows_none_when_empty() -> None:
     )
     out = MermaidErdEmitter().render(graph)
     assert "- (none)" in out
+
+
+def test_diagram_returns_bare_mermaid_source() -> None:
+    diagram = MermaidErdEmitter().diagram(_graph())
+    assert diagram.startswith("erDiagram")
+    assert "}o--||" in diagram
+    assert "```" not in diagram
+    assert "# Schema ERD" not in diagram

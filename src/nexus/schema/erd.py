@@ -14,6 +14,22 @@ __all__ = ["MermaidErdEmitter"]
 class MermaidErdEmitter:
     """Renders a SchemaGraph to a single-diagram Markdown ERD document."""
 
+    def diagram(self, graph: SchemaGraph) -> str:
+        """Render only the Mermaid ``erDiagram`` source (no Markdown wrapper).
+
+        Args:
+            graph: The graph to render.
+
+        Returns:
+            The Mermaid diagram source, suitable for a render service.
+        """
+        lines: list[str] = ["erDiagram"]
+        for edge in graph.reference_edges:
+            lines.append(f'    {edge.from_table} }}o--|| {edge.to_table} : "{edge.field}"')
+        for inh in graph.inheritance_edges:
+            lines.append(f'    {inh.extends} ||--|| {inh.table} : "extends"')
+        return "\n".join(lines)
+
     def render(self, graph: SchemaGraph) -> str:
         """Render the full Markdown document.
 
@@ -31,14 +47,10 @@ class MermaidErdEmitter:
             f"Discovered: {graph.discovered_at.isoformat()}",
             "",
             "```mermaid",
-            "erDiagram",
+            self.diagram(graph),
+            "```",
+            "",
         ]
-        for edge in graph.reference_edges:
-            lines.append(f'    {edge.from_table} }}o--|| {edge.to_table} : "{edge.field}"')
-        for inh in graph.inheritance_edges:
-            lines.append(f'    {inh.extends} ||--|| {inh.table} : "extends"')
-        lines.append("```")
-        lines.append("")
 
         lines.append("## Cross-scope bridges")
         lines.append("")
