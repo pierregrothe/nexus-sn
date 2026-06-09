@@ -31,7 +31,7 @@
     "nexus.schema.catalog": {"covered_lines": 12, "total_lines": 12},
     "nexus.schema.discoverer": {"covered_lines": 91, "total_lines": 91},
     "nexus.schema.engine": {"covered_lines": 43, "total_lines": 43},
-    "nexus.schema.enricher": {"covered_lines": 69, "total_lines": 69},
+    "nexus.schema.enricher": {"covered_lines": 117, "total_lines": 117},
     "nexus.schema.erd": {"covered_lines": 34, "total_lines": 34},
     "nexus.schema.errors": {"covered_lines": 16, "total_lines": 16},
     "nexus.schema.mindmap_emitter": {"covered_lines": 31, "total_lines": 31},

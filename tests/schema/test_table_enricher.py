@@ -106,3 +106,62 @@ async def test_enrich_falls_back_on_valid_json_with_wrong_shape() -> None:
     ai = FakeAgentClient(canned_response='{"foo": 1}')  # valid JSON, no "sections" key
     catalog = await _enricher(FakeServiceNowClient(), ai).enrich(_graph(), display="BCM")
     assert catalog.sections[0].domains[0].name == "sn_bcp"
+
+
+@pytest.mark.asyncio
+async def test_enrich_flattens_three_level_nesting_from_ai() -> None:
+    # The model sometimes nests domains-within-domains; the parser flattens it.
+    nested = (
+        '{"sections":[{"name":"Core","domains":['
+        '{"name":"Element Modeling","domains":['
+        '{"name":"Elements","tables":[{"table":"sn_bcp_plan","description":"Stores plans."}]}'
+        "]}]}]}"
+    )
+    ai = FakeAgentClient(canned_response=nested)
+    catalog = await _enricher(FakeServiceNowClient(), ai).enrich(_graph(), display="BCM")
+    assert catalog.sections[0].name == "Core"
+    assert catalog.sections[0].domains[0].name == "Elements"  # nested domain flattened up
+    assert catalog.sections[0].domains[0].tables[0].table == "sn_bcp_plan"
+
+
+@pytest.mark.asyncio
+async def test_enrich_skips_malformed_entries_and_keeps_good_ones() -> None:
+    mixed = (
+        '{"sections":['
+        '"not a dict",'  # non-dict section -> skipped
+        '{"name":"S1","domains":['
+        '"not a dict",'  # non-dict domain -> dropped
+        '{"name":"D0"},'  # no tables / no domains -> dropped
+        '{"name":"D1","tables":"not a list"},'  # tables not a list -> dropped
+        '{"name":"D3","domains":"nope"},'  # nested domains not a list -> dropped
+        '{"name":"D2","tables":[{"table":"sn_bcp_plan","description":"ok"},{"table":"x"}]}'
+        "]},"
+        '{"name":"S2","tables":[{"table":"sn_bcp_plan","description":"sec-level"}]}'  # section tables
+        "]}"
+    )
+    ai = FakeAgentClient(canned_response=mixed)
+    catalog = await _enricher(FakeServiceNowClient(), ai).enrich(_graph(), display="BCM")
+    names = [s.name for s in catalog.sections]
+    assert names == ["S1", "S2"]
+    s1_domains = [d.name for d in catalog.sections[0].domains]
+    assert s1_domains == ["D2"]  # only the valid domain survives
+    assert [t.table for t in catalog.sections[0].domains[0].tables] == [
+        "sn_bcp_plan"
+    ]  # "x" dropped
+    assert catalog.sections[1].domains[0].tables[0].description == "sec-level"
+
+
+@pytest.mark.asyncio
+async def test_enrich_wraps_legacy_flat_domains_shape() -> None:
+    # Older flat {"domains":[...]} shape (no "sections") is wrapped in one section
+    # named after the area; a non-dict table entry is skipped.
+    flat = (
+        '{"domains":[{"name":"Plans","tables":['
+        '"junk",'
+        '{"table":"sn_bcp_plan","description":"Stores plans."}]}]}'
+    )
+    ai = FakeAgentClient(canned_response=flat)
+    catalog = await _enricher(FakeServiceNowClient(), ai).enrich(_graph(), display="BCM")
+    assert catalog.sections[0].name == "BCM"  # wrapped under the display name
+    assert catalog.sections[0].domains[0].name == "Plans"
+    assert catalog.sections[0].domains[0].tables[0].table == "sn_bcp_plan"

@@ -10,8 +10,7 @@ import json
 import logging
 from collections.abc import Callable, Mapping
 from datetime import UTC, datetime
-
-from pydantic import ValidationError
+from typing import cast
 
 from nexus.api.agent_client import AgentClientProtocol
 from nexus.api.errors import AnthropicError
@@ -29,12 +28,102 @@ _SYSTEM = (
     "You are a ServiceNow data-model architect. Given tables with their fields, "
     "organize EVERY table into a two-level hierarchy: a few broad top-level "
     "sections (e.g. Core, Planning), each containing business domains, each "
-    "containing tables. Write a one-line 'Stores X' description for each table, "
-    "grounded ONLY in the listed columns. Never invent tables. Respond with JSON "
-    "only (no prose) of the exact shape: "
+    "containing tables. Each domain must list its tables directly in a 'tables' "
+    "array; never nest domains inside domains. Write a one-line 'Stores X' "
+    "description for each table, grounded ONLY in the listed columns. Never invent "
+    "tables. Respond with JSON only (no prose) of the exact shape: "
     '{"sections":[{"name":"<section>","domains":[{"name":"<domain>",'
     '"tables":[{"table":"<name>","description":"<text>"}]}]}]}'
 )
+
+
+def _tables_from(
+    raw_tables: object, label_by_name: Mapping[str, str]
+) -> tuple[TableDescription, ...]:
+    """Build table descriptions, skipping entries missing table or description.
+
+    Args:
+        raw_tables: The AI ``tables`` value (expected a list of dicts).
+        label_by_name: table name -> discovered label.
+
+    Returns:
+        Validated table descriptions in input order.
+    """
+    if not isinstance(raw_tables, list):
+        return ()
+    out: list[TableDescription] = []
+    for item in cast("list[object]", raw_tables):
+        if not isinstance(item, dict):
+            continue
+        t = cast("dict[str, object]", item)
+        if "table" in t and "description" in t:
+            name = str(t["table"])
+            out.append(
+                TableDescription(
+                    table=name,
+                    label=label_by_name.get(name, name),
+                    description=str(t["description"]),
+                    source="ai",
+                )
+            )
+    return tuple(out)
+
+
+def _domains_from(node: object, label_by_name: Mapping[str, str]) -> list[Domain]:
+    """Flatten an AI node into leaf domains.
+
+    A node carries either ``tables`` (a leaf domain) or nested ``domains`` (the
+    model occasionally adds an extra level); nesting is flattened recursively so
+    the catalog stays two-level. Tables-less domains are dropped.
+
+    Args:
+        node: A domain-shaped dict from the AI response.
+        label_by_name: table name -> discovered label.
+
+    Returns:
+        The flattened leaf domains.
+    """
+    if not isinstance(node, dict):
+        return []
+    n = cast("dict[str, object]", node)
+    if "tables" in n:
+        tables = _tables_from(n["tables"], label_by_name)
+        return [Domain(name=str(n.get("name", "")), tables=tables)] if tables else []
+    out: list[Domain] = []
+    nested = n.get("domains", [])
+    if isinstance(nested, list):
+        for sub in cast("list[object]", nested):
+            out.extend(_domains_from(sub, label_by_name))
+    return out
+
+
+def _sections_from(raw_sections: object, label_by_name: Mapping[str, str]) -> tuple[Section, ...]:
+    """Build catalog sections, tolerating shape variation and extra nesting.
+
+    Args:
+        raw_sections: The AI ``sections`` value (expected a list of dicts).
+        label_by_name: table name -> discovered label.
+
+    Returns:
+        Sections with at least one domain each; empty when nothing usable.
+    """
+    if not isinstance(raw_sections, list):
+        return ()
+    out: list[Section] = []
+    for item in cast("list[object]", raw_sections):
+        if not isinstance(item, dict):
+            continue
+        s = cast("dict[str, object]", item)
+        domains: list[Domain] = []
+        nested = s.get("domains", [])
+        if isinstance(nested, list):
+            for d in cast("list[object]", nested):
+                domains.extend(_domains_from(d, label_by_name))
+        if "tables" in s:  # a section that directly holds tables
+            domains.extend(_domains_from(s, label_by_name))
+        if domains:
+            out.append(Section(name=str(s.get("name", "")), domains=tuple(domains)))
+    return tuple(out)
 
 
 class TableEnricher:
@@ -147,31 +236,19 @@ class TableEnricher:
         start, end = raw.find("{"), raw.rfind("}")
         if start == -1 or end < start:
             raise ValueError("no JSON object in AI response")
-        try:
-            obj = json.loads(raw[start : end + 1])
-            sections = tuple(
-                Section(
-                    name=str(s["name"]),
-                    domains=tuple(
-                        Domain(
-                            name=str(d["name"]),
-                            tables=tuple(
-                                TableDescription(
-                                    table=str(t["table"]),
-                                    label=label_by_name.get(str(t["table"]), str(t["table"])),
-                                    description=str(t["description"]),
-                                    source="ai",
-                                )
-                                for t in d["tables"]
-                            ),
-                        )
-                        for d in s["domains"]
-                    ),
-                )
-                for s in obj["sections"]
-            )
-        except (KeyError, TypeError, ValidationError) as exc:
-            raise ValueError(f"malformed mindmap JSON: {exc}") from exc
+        # json.loads raises JSONDecodeError (a ValueError), which enrich() maps to
+        # the scope-grouping fallback; the tolerant helpers below never raise.
+        obj = json.loads(raw[start : end + 1])
+        raw_sections: object = None
+        if isinstance(obj, dict):
+            top = cast("dict[str, object]", obj)
+            raw_sections = top.get("sections")
+            if raw_sections is None and "domains" in top:
+                # tolerate the older flat {"domains": [...]} shape
+                raw_sections = [{"name": display, "domains": top["domains"]}]
+        sections = _sections_from(raw_sections, label_by_name)
+        if not sections:
+            raise ValueError("AI JSON produced no usable tables")
         return MindmapCatalog(
             instance_id=graph.instance_id,
             area_key=graph.area_key,
