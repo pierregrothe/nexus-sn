@@ -39,9 +39,11 @@ def test_render_contains_mermaid_mindmap_block() -> None:
     assert "root((Business Continuity Management))" in out
 
 
-def test_render_mindmap_leaf_shows_label_and_table() -> None:
+def test_render_mindmap_leaf_embeds_label_table_and_description() -> None:
     out = MindmapEmitter().render(_catalog())
-    assert "Plan -- sn_bcp_plan" in out
+    assert (
+        'sn_bcp_plan["`**Plan** [sn_bcp_plan]: Stores BC plans and recovery objectives.`"]' in out
+    )
 
 
 def test_render_grouped_catalog_has_domain_and_description() -> None:
@@ -54,5 +56,37 @@ def test_diagram_returns_bare_mindmap_source() -> None:
     diagram = MindmapEmitter().diagram(_catalog())
     assert diagram.startswith("mindmap")
     assert "root((Business Continuity Management))" in diagram
-    assert "      Plan -- sn_bcp_plan" in diagram
+    assert "    Plan Management" in diagram
+    assert (
+        '      sn_bcp_plan["`**Plan** [sn_bcp_plan]: ' 'Stores BC plans and recovery objectives.`"]'
+    ) in diagram
     assert "```" not in diagram
+
+
+def test_diagram_neutralizes_markdown_string_delimiters() -> None:
+    catalog = MindmapCatalog(
+        instance_id="i",
+        area_key="a",
+        generated_at=datetime(2026, 6, 8, tzinfo=UTC),
+        display="Root (with parens)",
+        domains=(
+            Domain(
+                name="Grp",
+                tables=(
+                    TableDescription(
+                        table="sn_x",
+                        label="La`bel",
+                        description='Stores "quoted" and `backtick` text',
+                        source="ai",
+                    ),
+                ),
+            ),
+        ),
+    )
+    diagram = MindmapEmitter().diagram(catalog)
+    # root parens stripped so the ((...)) shape is not broken
+    assert "root((Root with parens))" in diagram
+    # backticks/quotes inside the leaf replaced so the markdown string stays valid
+    assert "`backtick`" not in diagram
+    assert '"quoted"' not in diagram
+    assert "sn_x[\"`**La'bel** [sn_x]: Stores 'quoted' and 'backtick' text`\"]" in diagram
