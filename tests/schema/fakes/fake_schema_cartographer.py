@@ -23,10 +23,16 @@ class FakeSchemaCartographer:
         graph: The graph returned by discover() and persisted by save_archive().
     """
 
-    def __init__(self, graph: SchemaGraph, catalog: MindmapCatalog | None = None) -> None:
-        """Initialize with the canned graph and optional catalog."""
+    def __init__(
+        self,
+        graph: SchemaGraph,
+        catalog: MindmapCatalog | None = None,
+        image: bytes = b"<svg/>",
+    ) -> None:
+        """Initialize with the canned graph, optional catalog, and image bytes."""
         self._graph = graph
         self._catalog = catalog
+        self._image = image
 
     async def __aenter__(self) -> FakeSchemaCartographer:
         """Enter the async context (returns self)."""
@@ -114,3 +120,29 @@ class FakeSchemaCartographer:
             A minimal Markdown string containing the area key and 'mindmap'.
         """
         return f"# {catalog.area_key}\n\nmindmap"
+
+    async def render_erd_image(self, graph: SchemaGraph, *, fmt: str) -> bytes:
+        """Return canned image bytes (ignores inputs).
+
+        Args:
+            graph: Ignored.
+            fmt: Ignored.
+
+        Returns:
+            The canned image bytes.
+        """
+        del graph, fmt
+        return self._image
+
+    async def render_mindmap_image(self, catalog: MindmapCatalog, *, fmt: str) -> bytes:
+        """Return canned image bytes (ignores inputs).
+
+        Args:
+            catalog: Ignored.
+            fmt: Ignored.
+
+        Returns:
+            The canned image bytes.
+        """
+        del catalog, fmt
+        return self._image

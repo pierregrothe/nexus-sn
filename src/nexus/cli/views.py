@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING, cast
 import typer
 
 from nexus.api.agent_client import AgentClient
+from nexus.api.kroki_client import KrokiClient
 from nexus.capture.engine import CaptureEngine
 from nexus.cli.auth import acquire_token as _acquire_token
 from nexus.cli.auth import resolve_profile as _resolve_profile
@@ -77,11 +78,14 @@ def _build_capture_engine(profile: str) -> tuple[CaptureEngine, ServiceNowClient
     return engine, client
 
 
-def _build_schema_cartographer(profile: str) -> tuple[SchemaCartographer, ServiceNowClient]:
+def _build_schema_cartographer(
+    profile: str, kroki_url: str = "https://kroki.io"
+) -> tuple[SchemaCartographer, ServiceNowClient]:
     """Build a SchemaCartographer for the given registered instance profile.
 
     Args:
         profile: Instance profile name from InstanceRegistry.
+        kroki_url: Kroki render endpoint for diagram image export.
 
     Returns:
         Tuple of (SchemaCartographer, ServiceNowClient) for the caller to use.
@@ -95,6 +99,7 @@ def _build_schema_cartographer(profile: str) -> tuple[SchemaCartographer, Servic
         client=client,
         archive_root=NexusPaths.from_env().schema_dir,
         agent_client=AgentClient(),
+        kroki=KrokiClient(kroki_url),
     )
     return cartographer, client
 

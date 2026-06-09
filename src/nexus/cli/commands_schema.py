@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import asyncio
+from enum import StrEnum
 from pathlib import Path
 from typing import Annotated
 
@@ -20,6 +21,16 @@ from nexus.schema.areas import DEFAULT_AREAS
 from nexus.ui import nexus_progress
 
 __all__: list[str] = []
+
+
+class ImageFormat(StrEnum):
+    """Supported diagram image formats for Kroki rendering."""
+
+    svg = "svg"
+    png = "png"
+
+
+_KROKI_DEFAULT = "https://kroki.io"
 
 
 @schema_app.command("areas")
@@ -37,11 +48,18 @@ def schema_erd(
     output: Annotated[
         Path | None, typer.Option("-o", "--output", help="Output Markdown path")
     ] = None,
+    image: Annotated[
+        ImageFormat | None,
+        typer.Option("--image", help="Also render a shareable image (svg or png) via Kroki"),
+    ] = None,
+    kroki_url: Annotated[
+        str, typer.Option("--kroki-url", envvar="NEXUS_KROKI_URL", help="Kroki render endpoint")
+    ] = _KROKI_DEFAULT,
 ) -> None:
     """Reverse-engineer an area and write a Markdown ERD."""
 
-    async def _run() -> Path:
-        cartographer, client = _build_schema_cartographer(profile)
+    async def _run() -> tuple[Path, Path | None]:
+        cartographer, client = _build_schema_cartographer(profile, kroki_url)
         resolved = profile or _config_default()
         with nexus_progress(console) as progress:
             progress.add_task(f"Mapping {area} on {resolved}...", total=None)
@@ -50,10 +68,17 @@ def schema_erd(
         markdown = cartographer.render_erd(graph)
         dest = output or Path(f"{area}-{resolved}.md")
         dest.write_text(markdown, encoding="utf-8")
-        return dest
+        img_dest: Path | None = None
+        if image is not None:
+            data = await cartographer.render_erd_image(graph, fmt=image.value)
+            img_dest = dest.with_suffix(f".{image.value}")
+            img_dest.write_bytes(data)
+        return dest, img_dest
 
-    written = asyncio.run(_run())
+    written, img_written = asyncio.run(_run())
     console.print(f"Wrote ERD to {written}")
+    if img_written is not None:
+        console.print(f"Wrote image to {img_written}")
 
 
 @schema_app.command("mindmap")
@@ -63,11 +88,18 @@ def schema_mindmap(
     output: Annotated[
         Path | None, typer.Option("-o", "--output", help="Output Markdown path")
     ] = None,
+    image: Annotated[
+        ImageFormat | None,
+        typer.Option("--image", help="Also render a shareable image (svg or png) via Kroki"),
+    ] = None,
+    kroki_url: Annotated[
+        str, typer.Option("--kroki-url", envvar="NEXUS_KROKI_URL", help="Kroki render endpoint")
+    ] = _KROKI_DEFAULT,
 ) -> None:
     """Reverse-engineer an area and write an AI-described mindmap catalog."""
 
-    async def _run() -> Path:
-        cartographer, client = _build_schema_cartographer(profile)
+    async def _run() -> tuple[Path, Path | None]:
+        cartographer, client = _build_schema_cartographer(profile, kroki_url)
         resolved = profile or _config_default()
         with nexus_progress(console) as progress:
             progress.add_task(f"Describing {area} on {resolved}...", total=None)
@@ -76,7 +108,14 @@ def schema_mindmap(
         markdown = cartographer.render_mindmap(catalog)
         dest = output or Path(f"{area}-{resolved}-mindmap.md")
         dest.write_text(markdown, encoding="utf-8")
-        return dest
+        img_dest: Path | None = None
+        if image is not None:
+            data = await cartographer.render_mindmap_image(catalog, fmt=image.value)
+            img_dest = dest.with_suffix(f".{image.value}")
+            img_dest.write_bytes(data)
+        return dest, img_dest
 
-    written = asyncio.run(_run())
+    written, img_written = asyncio.run(_run())
     console.print(f"Wrote mindmap to {written}")
+    if img_written is not None:
+        console.print(f"Wrote image to {img_written}")
