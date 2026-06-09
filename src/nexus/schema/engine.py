@@ -11,6 +11,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from nexus.api.agent_client import AgentClientProtocol
+from nexus.api.kroki_client import KrokiClientProtocol
 from nexus.connectors.servicenow.protocol import ServiceNowClientProtocol
 from nexus.schema.archive import SchemaArchiveReader, SchemaArchiveWriter
 from nexus.schema.areas import DEFAULT_AREAS, SchemaArea
@@ -32,6 +33,7 @@ class SchemaCartographer:
         areas: Area registry.
         archive_root: Root directory for JSON snapshots.
         agent_client: LLM client for mindmap enrichment.
+        kroki: Kroki render client for diagram image export.
         clock: UTC clock (injectable for tests).
     """
 
@@ -42,6 +44,7 @@ class SchemaCartographer:
         *,
         archive_root: Path,
         agent_client: AgentClientProtocol,
+        kroki: KrokiClientProtocol,
         clock: Callable[[], datetime] = lambda: datetime.now(UTC),
     ) -> None:
         """Initialize the cartographer and its components."""
@@ -50,6 +53,7 @@ class SchemaCartographer:
         self._emitter = MermaidErdEmitter()
         self._enricher = TableEnricher(client, agent_client, clock)
         self._mindmap_emitter = MindmapEmitter()
+        self._kroki = kroki
         self._areas = areas
         self._archive_root = archive_root
 
@@ -122,3 +126,27 @@ class SchemaCartographer:
             The Markdown mindmap document.
         """
         return self._mindmap_emitter.render(catalog)
+
+    async def render_erd_image(self, graph: SchemaGraph, *, fmt: str) -> bytes:
+        """Render a graph's ERD to image bytes via the Kroki service.
+
+        Args:
+            graph: The graph to render.
+            fmt: Output format ("svg" or "png").
+
+        Returns:
+            The rendered image bytes.
+        """
+        return await self._kroki.render(self._emitter.diagram(graph), fmt=fmt)
+
+    async def render_mindmap_image(self, catalog: MindmapCatalog, *, fmt: str) -> bytes:
+        """Render a catalog's mindmap to image bytes via the Kroki service.
+
+        Args:
+            catalog: The catalog to render.
+            fmt: Output format ("svg" or "png").
+
+        Returns:
+            The rendered image bytes.
+        """
+        return await self._kroki.render(self._mindmap_emitter.diagram(catalog), fmt=fmt)
