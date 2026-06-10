@@ -46,3 +46,7 @@ htmlcov/
 # Generated schema diagram images (reproducible via `nexus schema erd <area> --image`)
 docs/erd/*.png
 docs/erd/*.svg
+
+# cosmic-ray mutation session databases
+*.sqlite
+mutation.sqlite

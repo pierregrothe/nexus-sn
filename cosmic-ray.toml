@@ -1,0 +1,15 @@
+# Mutation testing config -- whole nexus package.
+# Run:  poetry run cosmic-ray init cosmic-ray.toml mutation.sqlite
+#       poetry run cosmic-ray exec cosmic-ray.toml mutation.sqlite
+#       poetry run cr-report mutation.sqlite        # survivors
+#       poetry run cr-rate mutation.sqlite          # mutation score
+# The test-command runs serially with -x (fast kill on first failing test) and
+# no coverage (addopts has none; avoids the mcp/coverage collection issue).
+[cosmic-ray]
+module-path = "src/nexus"
+timeout = 60.0
+excluded-modules = []
+test-command = "poetry run pytest -x -q -p no:cacheprovider tests/"
+
+[cosmic-ray.distributor]
+name = "local"
