@@ -9,9 +9,12 @@ from pathlib import Path
 
 import pytest
 
+from nexus.api.errors import KrokiError
+from nexus.api.kroki_client import ImageFormat
 from nexus.schema.areas import SchemaArea, ScopeRef
 from nexus.schema.engine import SchemaCartographer
-from tests.fakes.fake_agent_client import FakeAgentClient
+from nexus.schema.models import FieldDef, SchemaGraph, TableDef
+from tests.fakes.fake_kroki_client import FakeKrokiClient
 from tests.fakes.fake_sn_client import FakeServiceNowClient
 
 _AREAS = {"dd": SchemaArea(key="dd", display="DD", scopes=(ScopeRef("sn_grc_doc_design", "DD"),))}
@@ -39,7 +42,7 @@ def _engine(tmp_path: Path) -> SchemaCartographer:
         FakeServiceNowClient(_seed()),
         areas=_AREAS,
         archive_root=tmp_path,
-        agent_client=FakeAgentClient(),
+        kroki=FakeKrokiClient(),
         clock=lambda: datetime(2026, 6, 8, tzinfo=UTC),
     )
 
@@ -65,3 +68,91 @@ async def test_save_archive_default_dest_uses_archive_root(tmp_path: Path) -> No
     graph = await engine.discover("alectri", "dd")
     path = engine.save_archive(graph)
     assert tmp_path in path.parents
+
+
+@pytest.mark.asyncio
+async def test_render_erd_image_renders_via_kroki(tmp_path: Path) -> None:
+    kroki = FakeKrokiClient(canned=b"IMG")
+    engine = SchemaCartographer(
+        FakeServiceNowClient(_seed()),
+        areas=_AREAS,
+        archive_root=tmp_path,
+        kroki=kroki,
+        clock=lambda: datetime(2026, 6, 8, tzinfo=UTC),
+    )
+    graph = await engine.discover("alectri", "dd")
+    assert await engine.render_erd_image(graph, fmt=ImageFormat.svg) == b"IMG"
+    assert kroki.calls[0]["fmt"] == "svg"
+    source = kroki.calls[0]["source"]
+    assert isinstance(source, str)
+    # Kroki must receive the bare Mermaid diagram, never the Markdown document.
+    assert source.startswith("erDiagram")
+    assert chr(96) not in source  # no Markdown code fence
+    assert "# Schema ERD" not in source
+
+
+@pytest.mark.asyncio
+async def test_render_erd_image_kroki_error_propagates(tmp_path: Path) -> None:
+    engine = SchemaCartographer(
+        FakeServiceNowClient(_seed()),
+        areas=_AREAS,
+        archive_root=tmp_path,
+        kroki=FakeKrokiClient(side_effect=KrokiError(400, "bad")),
+        clock=lambda: datetime(2026, 6, 8, tzinfo=UTC),
+    )
+    graph = await engine.discover("alectri", "dd")
+    with pytest.raises(KrokiError):
+        await engine.render_erd_image(graph, fmt=ImageFormat.svg)
+
+
+def _two_scope_graph() -> SchemaGraph:
+    return SchemaGraph(
+        instance_id="alectri",
+        area_key="dd",
+        discovered_at=datetime(2026, 6, 8, tzinfo=UTC),
+        scope_keys=("scope_a", "scope_b"),
+        tables=(
+            TableDef(
+                name="a_table",
+                label="A",
+                scope="scope_a",
+                fields=(FieldDef(name="sys_id", label="Sys ID", type="GUID"),),
+            ),
+            TableDef(
+                name="b_table",
+                label="B",
+                scope="scope_b",
+                fields=(FieldDef(name="sys_id", label="Sys ID", type="GUID"),),
+            ),
+        ),
+        reference_edges=(),
+        inheritance_edges=(),
+        relationship_edges=(),
+    )
+
+
+def test_render_erd_grouped_returns_markdown(tmp_path: Path) -> None:
+    out = _engine(tmp_path).render_erd_grouped(_two_scope_graph(), {"scope_a": "Scope A"})
+    assert "## Scope A" in out
+    assert "## scope_b" in out
+    assert "erDiagram" in out
+
+
+@pytest.mark.asyncio
+async def test_render_erd_group_images_renders_one_image_per_group(tmp_path: Path) -> None:
+    kroki = FakeKrokiClient(canned=b"IMG")
+    engine = SchemaCartographer(
+        FakeServiceNowClient(_seed()),
+        areas=_AREAS,
+        archive_root=tmp_path,
+        kroki=kroki,
+        clock=lambda: datetime(2026, 6, 8, tzinfo=UTC),
+    )
+    images = await engine.render_erd_group_images(_two_scope_graph(), {}, fmt=ImageFormat.svg)
+    assert images == (("scope_a", b"IMG"), ("scope_b", b"IMG"))
+    assert len(kroki.calls) == 2
+    for call in kroki.calls:
+        source = call["source"]
+        assert isinstance(source, str)
+        assert source.startswith("erDiagram")
+        assert call["fmt"] == "svg"

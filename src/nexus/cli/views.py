@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, cast
 
 import typer
 
-from nexus.api.agent_client import AgentClient
+from nexus.api.kroki_client import KrokiClient
 from nexus.capture.engine import CaptureEngine
 from nexus.cli.auth import acquire_token as _acquire_token
 from nexus.cli.auth import resolve_profile as _resolve_profile
@@ -34,6 +34,8 @@ from nexus.instances.models import InstanceMeta
 from nexus.instances.registry import InstanceRegistry
 from nexus.plugins import PluginInventory, PluginScanner
 from nexus.schema import SchemaCartographer
+from nexus.schema.archive import SchemaArchiveReader
+from nexus.schema.erd import MermaidErdEmitter
 from nexus.ui import CommandGuide, CommandHelp, DataColumn, DataTable, Hint, Notice
 from nexus.ui.capabilities import RenderProfile
 from nexus.ui.components.framed_viewer import FramedViewer, RefreshCallback
@@ -44,6 +46,7 @@ if TYPE_CHECKING:
 
 __all__ = [
     "_build_capture_engine",
+    "_build_offline_schema_renderer",
     "_build_schema_cartographer",
     "_capture_expandable_renderables",
     "_capture_header_renderables",
@@ -77,11 +80,15 @@ def _build_capture_engine(profile: str) -> tuple[CaptureEngine, ServiceNowClient
     return engine, client
 
 
-def _build_schema_cartographer(profile: str) -> tuple[SchemaCartographer, ServiceNowClient]:
+def _build_schema_cartographer(
+    profile: str, kroki_url: str, kroki_timeout: float
+) -> tuple[SchemaCartographer, ServiceNowClient]:
     """Build a SchemaCartographer for the given registered instance profile.
 
     Args:
         profile: Instance profile name from InstanceRegistry.
+        kroki_url: Kroki render endpoint for diagram image export.
+        kroki_timeout: Per-request Kroki timeout in seconds.
 
     Returns:
         Tuple of (SchemaCartographer, ServiceNowClient) for the caller to use.
@@ -94,9 +101,32 @@ def _build_schema_cartographer(profile: str) -> tuple[SchemaCartographer, Servic
     cartographer = SchemaCartographer(
         client=client,
         archive_root=NexusPaths.from_env().schema_dir,
-        agent_client=AgentClient(),
+        kroki=KrokiClient(kroki_url, timeout=kroki_timeout),
     )
     return cartographer, client
+
+
+def _build_offline_schema_renderer(
+    kroki_url: str, kroki_timeout: float
+) -> tuple[SchemaArchiveReader, MermaidErdEmitter, KrokiClient]:
+    """Build the pieces needed to re-render an ERD from a saved snapshot.
+
+    Offline counterpart to :func:`_build_schema_cartographer`: no auth, no
+    instance access. The reader loads a SchemaGraph from JSON, the emitter
+    renders it, and the Kroki client covers optional image export.
+
+    Args:
+        kroki_url: Kroki render endpoint for diagram image export.
+        kroki_timeout: Per-request Kroki timeout in seconds.
+
+    Returns:
+        Tuple of (SchemaArchiveReader, MermaidErdEmitter, KrokiClient).
+    """
+    return (
+        SchemaArchiveReader(),
+        MermaidErdEmitter(),
+        KrokiClient(kroki_url, timeout=kroki_timeout),
+    )
 
 
 def _plugins_for(profile: str) -> tuple[InstanceMeta, PluginInventory] | None:

@@ -6,9 +6,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from pathlib import Path
 
-from nexus.schema.catalog import MindmapCatalog
+from nexus.api.kroki_client import ImageFormat
 from nexus.schema.models import SchemaGraph
 
 __all__ = ["FakeSchemaCartographer"]
@@ -21,12 +22,24 @@ class FakeSchemaCartographer:
 
     Args:
         graph: The graph returned by discover() and persisted by save_archive().
+        image: Canned image bytes returned by render_erd_image().
+        discover_error: When set, discover() raises it instead of returning.
+        image_error: When set, render_erd_image() and render_erd_group_images()
+            raise it instead of returning.
     """
 
-    def __init__(self, graph: SchemaGraph, catalog: MindmapCatalog | None = None) -> None:
-        """Initialize with the canned graph and optional catalog."""
+    def __init__(
+        self,
+        graph: SchemaGraph,
+        image: bytes = b"<svg/>",
+        discover_error: Exception | None = None,
+        image_error: Exception | None = None,
+    ) -> None:
+        """Initialize with the canned graph, image bytes, and optional errors."""
         self._graph = graph
-        self._catalog = catalog
+        self._image = image
+        self._discover_error = discover_error
+        self._image_error = image_error
 
     async def __aenter__(self) -> FakeSchemaCartographer:
         """Enter the async context (returns self)."""
@@ -44,8 +57,13 @@ class FakeSchemaCartographer:
 
         Returns:
             The canned SchemaGraph.
+
+        Raises:
+            Exception: The configured ``discover_error`` when set.
         """
         del instance_id, area_key
+        if self._discover_error is not None:
+            raise self._discover_error
         return self._graph
 
     def save_archive(self, graph: SchemaGraph, dest: Path | None = None) -> Path:
@@ -86,31 +104,58 @@ class FakeSchemaCartographer:
         """
         return f"# {graph.area_key}\n\nerDiagram"
 
-    async def build_mindmap(self, instance_id: str, area_key: str) -> MindmapCatalog:
-        """Return the canned catalog (raises if none was provided).
+    async def render_erd_image(self, graph: SchemaGraph, *, fmt: ImageFormat) -> bytes:
+        """Return canned image bytes (ignores inputs).
 
         Args:
-            instance_id: Ignored.
-            area_key: Ignored.
+            graph: Ignored.
+            fmt: Ignored.
 
         Returns:
-            The canned MindmapCatalog.
+            The canned image bytes.
 
         Raises:
-            ValueError: If the fake was created without a catalog.
+            Exception: The configured ``image_error`` when set.
         """
-        del instance_id, area_key
-        if self._catalog is None:
-            raise ValueError("FakeSchemaCartographer was created without a catalog")
-        return self._catalog
+        del graph, fmt
+        if self._image_error is not None:
+            raise self._image_error
+        return self._image
 
-    def render_mindmap(self, catalog: MindmapCatalog) -> str:
-        """Return a trivial Markdown stub mentioning the area key.
+    def render_erd_grouped(self, graph: SchemaGraph, labels: Mapping[str, str]) -> str:
+        """Return a deterministic stub with one heading per owning scope.
 
         Args:
-            catalog: The catalog to render.
+            graph: The graph whose non-neighbor scopes become groups.
+            labels: Scope-key to label mapping; missing keys fall back to
+                the scope key itself.
 
         Returns:
-            A minimal Markdown string containing the area key and 'mindmap'.
+            Markdown with a ``## {label}`` heading plus a stub erDiagram
+            body per scope, in scope-key order.
         """
-        return f"# {catalog.area_key}\n\nmindmap"
+        scopes = sorted({t.scope for t in graph.tables if not t.is_neighbor})
+        sections = "\n\n".join(f"## {labels.get(s, s)}\n\nerDiagram" for s in scopes)
+        return f"# {graph.area_key}\n\n{sections}\n"
+
+    async def render_erd_group_images(
+        self, graph: SchemaGraph, labels: Mapping[str, str], *, fmt: ImageFormat
+    ) -> tuple[tuple[str, bytes], ...]:
+        """Return (scope key, canned image) per owning scope, in scope order.
+
+        Args:
+            graph: The graph whose non-neighbor scopes become groups.
+            labels: Ignored.
+            fmt: Ignored.
+
+        Returns:
+            One (scope key, canned image bytes) pair per scope.
+
+        Raises:
+            Exception: The configured ``image_error`` when set.
+        """
+        del labels, fmt
+        if self._image_error is not None:
+            raise self._image_error
+        scopes = sorted({t.scope for t in graph.tables if not t.is_neighbor})
+        return tuple((s, self._image) for s in scopes)

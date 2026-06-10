@@ -42,3 +42,7 @@ htmlcov/
 
 # Claude Code per-machine permissions
 .claude/settings.local.json
+
+# Generated schema diagram images (reproducible via `nexus schema erd <area> --image`)
+docs/erd/*.png
+docs/erd/*.svg

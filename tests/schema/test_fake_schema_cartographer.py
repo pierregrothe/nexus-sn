@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from nexus.schema.catalog import Domain, MindmapCatalog, TableDescription
+from nexus.api.kroki_client import ImageFormat
 from nexus.schema.models import SchemaGraph, TableDef
 from tests.schema.fakes.fake_schema_cartographer import FakeSchemaCartographer
 
@@ -44,37 +44,33 @@ def test_fake_save_and_load_roundtrips(tmp_path: Path) -> None:
     assert fake.load_archive(path) == _graph()
 
 
-def _catalog() -> MindmapCatalog:
-    return MindmapCatalog(
-        instance_id="alectri",
-        area_key="bcm",
-        generated_at=datetime(2026, 6, 8, tzinfo=UTC),
-        display="BCM",
-        domains=(
-            Domain(
-                name="Core",
-                tables=(
-                    TableDescription(table="t", label="T", description="Stores t.", source="ai"),
-                ),
-            ),
-        ),
-    )
-
-
 @pytest.mark.asyncio
-async def test_fake_build_mindmap_returns_canned_catalog() -> None:
-    catalog = _catalog()
-    fake = FakeSchemaCartographer(_graph(), catalog=catalog)
-    assert await fake.build_mindmap("alectri", "bcm") == catalog
+async def test_fake_render_erd_image_returns_canned_bytes() -> None:
+    fake = FakeSchemaCartographer(_graph(), image=b"PNG")
+    assert await fake.render_erd_image(_graph(), fmt=ImageFormat.png) == b"PNG"
 
 
-@pytest.mark.asyncio
-async def test_fake_build_mindmap_without_catalog_raises() -> None:
+def test_fake_render_erd_grouped_contains_label_headings() -> None:
     fake = FakeSchemaCartographer(_graph())
-    with pytest.raises(ValueError, match="without a catalog"):
-        await fake.build_mindmap("alectri", "bcm")
+    out = fake.render_erd_grouped(_graph(), {"sn_grc_doc_design": "Doc Design"})
+    assert "## Doc Design" in out
+    assert "doc-designer" in out
 
 
-def test_fake_render_mindmap_contains_mindmap() -> None:
-    fake = FakeSchemaCartographer(_graph(), catalog=_catalog())
-    assert "mindmap" in fake.render_mindmap(_catalog())
+def test_fake_render_erd_grouped_falls_back_to_scope_key() -> None:
+    fake = FakeSchemaCartographer(_graph())
+    assert "## sn_grc_doc_design" in fake.render_erd_grouped(_graph(), {})
+
+
+@pytest.mark.asyncio
+async def test_fake_render_erd_group_images_returns_pair_per_scope() -> None:
+    fake = FakeSchemaCartographer(_graph(), image=b"PNG")
+    images = await fake.render_erd_group_images(_graph(), {}, fmt=ImageFormat.png)
+    assert images == (("sn_grc_doc_design", b"PNG"),)
+
+
+@pytest.mark.asyncio
+async def test_fake_render_erd_group_images_raises_configured_error() -> None:
+    fake = FakeSchemaCartographer(_graph(), image_error=RuntimeError("boom"))
+    with pytest.raises(RuntimeError, match="boom"):
+        await fake.render_erd_group_images(_graph(), {}, fmt=ImageFormat.png)

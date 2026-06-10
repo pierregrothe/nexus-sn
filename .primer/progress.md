@@ -435,16 +435,17 @@ Schema Cartographer layer (2026.06-schema-cartographer, branch not yet merged):
     Fields (data_column) -- corrects the customer's "Fields standalone" guess.
   100% line coverage on all modules except protocol.py (Protocol stubs, like
     capture.protocol). Generated ERDs committed under docs/erd/.
-  Mindmap mode (`nexus schema mindmap <area>`): the "which table stores what"
-    view -- an AI-enriched, business-domain-grouped table catalog (Mermaid
-    mindmap + "Stores X" descriptions), the generated/current equivalent of the
-    community-blog artifact. catalog.py (MindmapCatalog/Domain/TableDescription),
-    enricher.py (TableEnricher: one batched AgentClient call clustering tables
-    into domains + writing descriptions grounded on the discovered fields +
-    sparse sys_documentation hints; scope-grouping fallback on AI failure),
-    mindmap_emitter.py. SchemaCartographer gains an injected AgentClient +
-    build_mindmap/render_mindmap. Live AI mindmaps in docs/mindmaps/ for all
-    three areas.
+  Mindmap mode (`nexus schema mindmap <area>`) -- shipped, then retired by
+    user decision in c96f1a8 (feature/2026.06-schema-image-export): the "which
+    table stores what" view -- an AI-enriched, business-domain-grouped table
+    catalog (Mermaid mindmap + "Stores X" descriptions). catalog.py
+    (MindmapCatalog/Domain/TableDescription), enricher.py (TableEnricher: one
+    batched AgentClient call clustering tables into domains + writing
+    descriptions grounded on the discovered fields + sparse sys_documentation
+    hints; scope-grouping fallback on AI failure), mindmap_emitter.py, the
+    SchemaCartographer build_mindmap/render_mindmap surface, and the
+    docs/mindmaps/ outputs were all deleted; the ERD with key fields inside
+    the entity boxes (1feb198) covers the same need in one artifact.
 
 ## Known Issues
 

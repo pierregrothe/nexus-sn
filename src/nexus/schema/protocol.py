@@ -6,10 +6,11 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Protocol
 
-from nexus.schema.catalog import MindmapCatalog
+from nexus.api.kroki_client import ImageFormat
 from nexus.schema.models import SchemaGraph
 
 __all__ = ["SchemaProtocol"]
@@ -34,10 +35,16 @@ class SchemaProtocol(Protocol):
         """Render a graph to Markdown + Mermaid."""
         ...
 
-    async def build_mindmap(self, instance_id: str, area_key: str) -> MindmapCatalog:
-        """Discover an area and AI-enrich it into a MindmapCatalog."""
+    async def render_erd_image(self, graph: SchemaGraph, *, fmt: ImageFormat) -> bytes:
+        """Render a graph's ERD to image bytes via the Kroki service."""
         ...
 
-    def render_mindmap(self, catalog: MindmapCatalog) -> str:
-        """Render a MindmapCatalog to Markdown."""
+    def render_erd_grouped(self, graph: SchemaGraph, labels: Mapping[str, str]) -> str:
+        """Render a graph to Markdown with one Mermaid diagram per scope."""
+        ...
+
+    async def render_erd_group_images(
+        self, graph: SchemaGraph, labels: Mapping[str, str], *, fmt: ImageFormat
+    ) -> tuple[tuple[str, bytes], ...]:
+        """Render one image per scope group; return (scope key, bytes) pairs."""
         ...

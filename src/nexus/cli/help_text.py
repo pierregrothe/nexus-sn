@@ -27,6 +27,8 @@ __all__ = [
     "PLUGINS_PARENT",
     "PLUGINS_RECOMMEND_HELP",
     "PLUGINS_RECOMMEND_PARENT",
+    "SCHEMA_HELP",
+    "SCHEMA_PARENT",
     "TOP_LEVEL_HELP",
     "guide_items",
     "help_entry",
@@ -70,6 +72,13 @@ CAPTURE_PARENT = help_entry(
     "Bidirectional ServiceNow config transport: discover custom scopes, pull "
     "them as YAML archives, push archives back as update sets.",
     "nexus capture discover --instance prod",
+)
+
+SCHEMA_PARENT = help_entry(
+    "schema",
+    "Reverse-engineer ServiceNow table schemas: list curated areas, then "
+    "map one area into a Markdown ERD with an optional shareable image.",
+    "nexus schema erd doc-designer --image svg",
 )
 
 PLUGINS_RECOMMEND_PARENT = help_entry(
@@ -283,6 +292,21 @@ CAPTURE_HELP: list[CommandHelpEntry] = [
     ),
 ]
 
+SCHEMA_HELP: list[CommandHelpEntry] = [
+    help_entry(
+        "areas",
+        "List the registered schema areas and the ServiceNow scopes each "
+        "covers. Area keys are the argument to 'erd'.",
+        "nexus schema areas",
+    ),
+    help_entry(
+        "erd <area>",
+        "Reverse-engineer one area into a Markdown ERD (Mermaid). Pass "
+        "--image svg|png to also render a shareable diagram via Kroki.",
+        "nexus schema erd doc-designer --profile prod --image svg",
+    ),
+]
+
 PLUGINS_RECOMMEND_HELP: list[CommandHelpEntry] = [
     help_entry(
         "deactivate",
@@ -387,6 +411,11 @@ TOP_LEVEL_HELP: list[CommandHelpEntry] = [
         "them to YAML on disk, push archived YAML back as update sets. "
         "Workhorse command for dev -> test -> prod promotion.",
         "nexus capture discover",
+    ),
+    help_entry(
+        "schema",
+        "Reverse-engineer ServiceNow table schemas into Mermaid ERDs",
+        "nexus schema erd doc-designer --image svg",
     ),
     help_entry(
         "plugins",

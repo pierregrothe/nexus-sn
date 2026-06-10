@@ -26,7 +26,8 @@ class FieldDef(BaseModel):
     Args:
         name: Field (element) name.
         label: Column label.
-        type: "reference" for reference fields, "field" otherwise.
+        type: ServiceNow internal type (e.g. "string", "glide_date_time",
+            "reference"); "field" when the dictionary type is unknown.
         reference_target: Target table name for reference fields, else None.
         mandatory: Whether the field is mandatory.
     """
@@ -68,6 +69,7 @@ class ReferenceEdge(BaseModel):
         field: The reference field element name.
         to_table: Target table name.
         cross_scope: True when from/to live in different scopes.
+        is_list: True for glide_list (watch-list) fields, i.e. many-to-many.
     """
 
     model_config = _CONFIG
@@ -75,6 +77,7 @@ class ReferenceEdge(BaseModel):
     field: str
     to_table: str
     cross_scope: bool
+    is_list: bool = False
 
 
 class InheritanceEdge(BaseModel):
