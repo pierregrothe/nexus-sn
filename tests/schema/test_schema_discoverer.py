@@ -197,6 +197,53 @@ class _ExtraDictRowClient(FakeServiceNowClient):
         return rows
 
 
+class _ExtraDbObjectRowClient(FakeServiceNowClient):
+    """Fake that returns one malformed sys_db_object row on every page."""
+
+    async def list_records(
+        self,
+        table: str,
+        query: str = "",
+        limit: int = 1000,
+        offset: int = 0,
+        fields: str = "",
+        display_value: str = "false",
+    ) -> list[dict[str, object]]:
+        """Append an unrequested out-of-scope table row to query results."""
+        rows = await super().list_records(
+            table,
+            query=query,
+            limit=limit,
+            offset=offset,
+            fields=fields,
+            display_value=display_value,
+        )
+        if table == "sys_db_object":
+            rows.append(
+                {
+                    "sys_id": "TASK",
+                    "name": "task",
+                    "label": "Task",
+                    "super_class": "",
+                    "sys_scope": _ref("GLOBAL"),
+                }
+            )
+        return rows
+
+
+@pytest.mark.asyncio
+async def test_discover_skips_db_object_rows_for_unresolved_scopes() -> None:
+    # A misbehaving server returns a table row whose scope was never
+    # requested; the discoverer must not classify it as in-scope.
+    disc = SchemaDiscoverer(
+        _ExtraDbObjectRowClient(_seed()),
+        areas=_AREAS,
+        clock=lambda: datetime(2026, 6, 8, tzinfo=UTC),
+    )
+    graph = await disc.discover("alectri", "dd")
+    assert all(t.name != "task" for t in graph.tables if not t.is_neighbor)
+
+
 @pytest.mark.asyncio
 async def test_discover_skips_dict_rows_for_out_of_scope_tables() -> None:
     # A misbehaving server returns a dictionary row for a table outside the
