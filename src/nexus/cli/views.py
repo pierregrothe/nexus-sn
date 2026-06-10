@@ -81,7 +81,7 @@ def _build_capture_engine(profile: str) -> tuple[CaptureEngine, ServiceNowClient
 
 
 def _build_schema_cartographer(
-    profile: str, kroki_url: str = "https://kroki.io", kroki_timeout: float = 60.0
+    profile: str, kroki_url: str, kroki_timeout: float
 ) -> tuple[SchemaCartographer, ServiceNowClient]:
     """Build a SchemaCartographer for the given registered instance profile.
 
@@ -107,7 +107,7 @@ def _build_schema_cartographer(
 
 
 def _build_offline_schema_renderer(
-    kroki_url: str = "https://kroki.io", kroki_timeout: float = 60.0
+    kroki_url: str, kroki_timeout: float
 ) -> tuple[SchemaArchiveReader, MermaidErdEmitter, KrokiClient]:
     """Build the pieces needed to re-render an ERD from a saved snapshot.
 

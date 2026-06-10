@@ -16,9 +16,17 @@ from nexus.api.errors import KrokiError
 
 log = logging.getLogger(__name__)
 
-__all__ = ["ImageFormat", "KrokiClient", "KrokiClientProtocol"]
+__all__ = [
+    "DEFAULT_KROKI_TIMEOUT",
+    "DEFAULT_KROKI_URL",
+    "ImageFormat",
+    "KrokiClient",
+    "KrokiClientProtocol",
+]
 
-_DEFAULT_TIMEOUT = 60.0
+DEFAULT_KROKI_URL: str = "https://kroki.io"
+DEFAULT_KROKI_TIMEOUT: float = 60.0
+
 _ERR_BODY_CHARS = 500
 
 
@@ -56,7 +64,7 @@ class KrokiClient:
     """Async Kroki client. Opens a short-lived httpx client per render call.
 
     Args:
-        base_url: Kroki endpoint root, e.g. "https://kroki.io".
+        base_url: Kroki endpoint root. Defaults to ``DEFAULT_KROKI_URL``.
         timeout: Per-request timeout in seconds. Dense diagrams on a busy
             endpoint can be slow; raise this (or self-host) if renders time out.
         transport: Optional httpx transport (test seam; house pattern).
@@ -64,9 +72,9 @@ class KrokiClient:
 
     def __init__(
         self,
-        base_url: str = "https://kroki.io",
+        base_url: str = DEFAULT_KROKI_URL,
         *,
-        timeout: float = _DEFAULT_TIMEOUT,
+        timeout: float = DEFAULT_KROKI_TIMEOUT,
         transport: httpx.AsyncBaseTransport | None = None,
     ) -> None:
         """Initialize with a base URL, request timeout, and optional transport."""

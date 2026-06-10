@@ -1,8 +1,8 @@
 # src/nexus/api/errors.py
-# Anthropic API error types.
+# API-layer error types (Anthropic and Kroki).
 # Author: Pierre Grothe
 # Date: 2026-05-07
-"""Typed exceptions for the Anthropic API layer."""
+"""Typed exceptions for the API layer: Anthropic and Kroki services."""
 
 __all__ = ["AnthropicError", "KrokiError"]
 

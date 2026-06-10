@@ -16,7 +16,7 @@ def _cell(row: Mapping[str, object], field: str) -> str:
     """Extract a row cell's scalar value for query matching.
 
     Reference cells are dicts (``{"link"|"display_value", "value"}``); take
-    ``value`` -- mirrors ``nexus.schema.discoverer.cell``. Plain scalars
+    ``value`` -- mirrors ``nexus.schema.discoverer._cell``. Plain scalars
     return as a string. Missing keys return "".
 
     Args:

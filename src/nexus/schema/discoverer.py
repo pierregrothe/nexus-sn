@@ -26,7 +26,7 @@ from nexus.schema.models import (
 
 log = logging.getLogger(__name__)
 
-__all__ = ["SchemaDiscoverer", "cell"]
+__all__ = ["SchemaDiscoverer"]
 
 _IN_BATCH = 40
 _PAGE_LIMIT = 5000
@@ -34,7 +34,7 @@ _OUT = "__out"  # sentinel scope for out-of-area tables; never a real scope key
 _REL_FIELDS = "name,apply_to,query_from"
 
 
-def cell(row: Mapping[str, object], key: str) -> str:
+def _cell(row: Mapping[str, object], key: str) -> str:
     """Extract a Table API cell's scalar value.
 
     Reference cells are dicts (``{"link"|"display_value", "value"}``); take
@@ -95,7 +95,9 @@ class SchemaDiscoverer:
         scope_rows = await self._client.list_records(
             "sys_scope", query=f"scopeIN{','.join(scope_keys)}", fields="sys_id,scope", limit=200
         )
-        key_by_id = {cell(r, "sys_id"): cell(r, "scope") for r in scope_rows if cell(r, "sys_id")}
+        key_by_id = {
+            _cell(r, "sys_id"): _cell(r, "scope") for r in scope_rows if _cell(r, "sys_id")
+        }
         present = set(key_by_id.values())
         for missing in (k for k in scope_keys if k not in present):
             log.warning("scope %r absent on %s -- skipping", missing, instance_id)
@@ -113,14 +115,14 @@ class SchemaDiscoverer:
         label_by_name: dict[str, str] = {}
         meta: dict[str, tuple[str, str]] = {}  # name -> (scope_key, super_id)
         for r in db_rows:
-            name = cell(r, "name")
-            tid = cell(r, "sys_id")
-            scope_id = cell(r, "sys_scope")
+            name = _cell(r, "name")
+            tid = _cell(r, "sys_id")
+            scope_id = _cell(r, "sys_scope")
             if not name or not tid or scope_id not in key_by_id:
                 continue
             name_by_id[tid] = name
-            label_by_name[name] = cell(r, "label")
-            meta[name] = (key_by_id[scope_id], cell(r, "super_class"))
+            label_by_name[name] = _cell(r, "label")
+            meta[name] = (key_by_id[scope_id], _cell(r, "super_class"))
         in_scope = sorted(meta)
 
         # Resolve super_class parent sys_ids to names (+ labels).
@@ -129,9 +131,9 @@ class SchemaDiscoverer:
             for r in await self._batched_in(
                 "sys_db_object", "sys_id", parent_ids, fields="sys_id,name,label"
             ):
-                pname = cell(r, "name")
-                name_by_id[cell(r, "sys_id")] = pname
-                label_by_name.setdefault(pname, cell(r, "label"))
+                pname = _cell(r, "name")
+                name_by_id[_cell(r, "sys_id")] = pname
+                label_by_name.setdefault(pname, _cell(r, "label"))
 
         # Fields + reference edges.
         dict_rows = await self._batched_in(
@@ -144,18 +146,18 @@ class SchemaDiscoverer:
         fields_by: dict[str, list[FieldDef]] = {}
         ref_edges: list[ReferenceEdge] = []
         for r in dict_rows:
-            tname = cell(r, "name")
-            elem = cell(r, "element")
+            tname = _cell(r, "name")
+            elem = _cell(r, "element")
             if tname not in meta or not elem:
                 continue
-            ref = cell(r, "reference")  # reference.value IS the target table name
+            ref = _cell(r, "reference")  # reference.value IS the target table name
             fields_by.setdefault(tname, []).append(
                 FieldDef(
                     name=elem,
-                    label=cell(r, "column_label"),
-                    type=cell(r, "internal_type") or ("reference" if ref else "field"),
+                    label=_cell(r, "column_label"),
+                    type=_cell(r, "internal_type") or ("reference" if ref else "field"),
                     reference_target=ref or None,
-                    mandatory=cell(r, "mandatory") == "true",
+                    mandatory=_cell(r, "mandatory") == "true",
                 )
             )
             if ref:
@@ -166,7 +168,7 @@ class SchemaDiscoverer:
                         field=elem,
                         to_table=ref,
                         cross_scope=cross,
-                        is_list=cell(r, "internal_type") == "glide_list",
+                        is_list=_cell(r, "internal_type") == "glide_list",
                     )
                 )
         ref_edges.sort(key=lambda e: (e.from_table, e.field))
@@ -211,7 +213,7 @@ class SchemaDiscoverer:
             )
             seen: set[tuple[str, str, str]] = set()
             for r in rel_rows:
-                key = (cell(r, "name"), cell(r, "apply_to"), cell(r, "query_from"))
+                key = (_cell(r, "name"), _cell(r, "apply_to"), _cell(r, "query_from"))
                 if not key[0] or key in seen:
                     continue
                 seen.add(key)

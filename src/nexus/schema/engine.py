@@ -46,7 +46,6 @@ class SchemaCartographer:
         self._reader = SchemaArchiveReader()
         self._emitter = MermaidErdEmitter()
         self._kroki = kroki
-        self._areas = areas
         self._archive_root = archive_root
 
     async def discover(self, instance_id: str, area_key: str) -> SchemaGraph:

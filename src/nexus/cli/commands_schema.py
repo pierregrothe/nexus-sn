@@ -13,7 +13,7 @@ from typing import Annotated
 import typer
 
 from nexus.api.errors import KrokiError
-from nexus.api.kroki_client import ImageFormat
+from nexus.api.kroki_client import DEFAULT_KROKI_TIMEOUT, DEFAULT_KROKI_URL, ImageFormat
 from nexus.cli.apps import schema_app
 from nexus.cli.auth import config_default as _config_default
 from nexus.cli.console import console
@@ -24,9 +24,6 @@ from nexus.schema.errors import SchemaError
 from nexus.ui import CommandGuide, CommandHelp, Hint, Notice, nexus_progress
 
 __all__: list[str] = []
-
-_KROKI_DEFAULT = "https://kroki.io"
-_KROKI_TIMEOUT_DEFAULT = 60.0
 
 
 @schema_app.callback(invoke_without_command=True)
@@ -76,10 +73,10 @@ def schema_erd(
     ] = None,
     kroki_url: Annotated[
         str, typer.Option("--kroki-url", envvar="NEXUS_KROKI_URL", help="Kroki render endpoint")
-    ] = _KROKI_DEFAULT,
+    ] = DEFAULT_KROKI_URL,
     kroki_timeout: Annotated[
         float, typer.Option("--kroki-timeout", help="Kroki request timeout in seconds")
-    ] = _KROKI_TIMEOUT_DEFAULT,
+    ] = DEFAULT_KROKI_TIMEOUT,
 ) -> None:
     """Reverse-engineer an area and write a Markdown ERD."""
     if save_archive and from_archive is not None:

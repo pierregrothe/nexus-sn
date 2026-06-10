@@ -9,7 +9,7 @@ from datetime import UTC, datetime
 import pytest
 
 from nexus.schema.areas import SchemaArea, ScopeRef
-from nexus.schema.discoverer import SchemaDiscoverer, cell
+from nexus.schema.discoverer import SchemaDiscoverer, _cell
 from nexus.schema.errors import AreaNotFoundError, ScopeNotFoundError
 from tests.fakes.fake_sn_client import FakeServiceNowClient
 
@@ -84,15 +84,15 @@ def _disc(seed: dict[str, list[dict[str, object]]]) -> SchemaDiscoverer:
 
 
 def test_cell_extracts_value_from_reference_dict() -> None:
-    assert cell({"f": {"link": "x", "value": "abc"}}, "f") == "abc"
+    assert _cell({"f": {"link": "x", "value": "abc"}}, "f") == "abc"
 
 
 def test_cell_returns_plain_string() -> None:
-    assert cell({"f": "plain"}, "f") == "plain"
+    assert _cell({"f": "plain"}, "f") == "plain"
 
 
 def test_cell_missing_key_returns_empty() -> None:
-    assert cell({}, "f") == ""
+    assert _cell({}, "f") == ""
 
 
 @pytest.mark.asyncio
