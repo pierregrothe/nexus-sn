@@ -119,6 +119,67 @@ async def test_discover_builds_reference_edge_with_target_name() -> None:
 
 
 @pytest.mark.asyncio
+async def test_discover_glide_list_field_marks_edge_is_list() -> None:
+    seed = _seed()
+    seed["sys_dictionary"].append(
+        {
+            "name": "sn_grc_doc_design_data_rel_mapping",
+            "element": "contributors",
+            "column_label": "Contributors",
+            "internal_type": "glide_list",
+            "reference": _ref("sys_user"),
+            "mandatory": "false",
+        }
+    )
+    graph = await _disc(seed).discover("alectri", "dd")
+    list_edge = next(e for e in graph.reference_edges if e.field == "contributors")
+    assert list_edge.is_list is True
+    plain_edge = next(e for e in graph.reference_edges if e.field == "data_relationship")
+    assert plain_edge.is_list is False
+
+
+@pytest.mark.asyncio
+async def test_discover_tables_and_fields_sorted_deterministically() -> None:
+    # Rows are seeded in non-alphabetical order; the graph must not depend
+    # on API row order for table or field ordering.
+    seed: dict[str, list[dict[str, object]]] = {
+        "sys_scope": [{"sys_id": "SCID", "scope": "sn_grc_doc_design"}],
+        "sys_db_object": [
+            {
+                "sys_id": f"T_{name}",
+                "name": f"sn_grc_doc_design_{name}",
+                "label": name.upper(),
+                "super_class": "",
+                "sys_scope": _ref("SCID"),
+            }
+            for name in ("zz", "mm", "aa")
+        ],
+        "sys_dictionary": [
+            {
+                "name": f"sn_grc_doc_design_{name}",
+                "element": element,
+                "column_label": element.capitalize(),
+                "internal_type": "string",
+                "reference": "",
+                "mandatory": "false",
+            }
+            for name, element in (("zz", "zeta"), ("zz", "alpha"), ("aa", "delta"), ("aa", "beta"))
+        ],
+        "sys_relationship": [],
+    }
+    graph = await _disc(seed).discover("alectri", "dd")
+    names = [t.name for t in graph.tables if not t.is_neighbor]
+    assert names == [
+        "sn_grc_doc_design_aa",
+        "sn_grc_doc_design_mm",
+        "sn_grc_doc_design_zz",
+    ]
+    fields_by_table = {t.name: [f.name for f in t.fields] for t in graph.tables}
+    assert fields_by_table["sn_grc_doc_design_zz"] == ["alpha", "zeta"]
+    assert fields_by_table["sn_grc_doc_design_aa"] == ["beta", "delta"]
+
+
+@pytest.mark.asyncio
 async def test_discover_field_uses_internal_type() -> None:
     graph = await _disc(_seed()).discover("alectri", "dd")
     table = next(t for t in graph.tables if t.name == "sn_grc_doc_design_data_relationship")

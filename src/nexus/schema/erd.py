@@ -32,7 +32,8 @@ def _entity_attributes(table: TableDef) -> list[str]:
     """Build the key-field attribute lines for one entity box.
 
     Shows the primary key (``sys_id``) first, then business columns, then
-    foreign keys. ``sys_*`` audit columns are hidden to keep boxes legible.
+    foreign keys; business and FK sections are sorted by field name.
+    ``sys_*`` audit columns are hidden to keep boxes legible.
 
     Args:
         table: The table whose key fields to render.
@@ -43,7 +44,7 @@ def _entity_attributes(table: TableDef) -> list[str]:
     pk: list[str] = []
     business: list[str] = []
     fks: list[str] = []
-    for fld in table.fields:
+    for fld in sorted(table.fields, key=lambda f: f.name):
         ftype = _token(fld.type, "field")
         fname = _token(fld.name, "field")
         if fld.name == "sys_id":
@@ -65,6 +66,8 @@ class MermaidErdEmitter:
 
         Each in-scope entity carries its key fields (PK, foreign keys, and
         business columns) inside the box; neighbors stay as bare boxes.
+        Entity blocks are emitted in table-name order so output is
+        deterministic regardless of graph tuple order.
 
         Args:
             graph: The graph to render.
@@ -73,7 +76,7 @@ class MermaidErdEmitter:
             The Mermaid diagram source, suitable for a render service.
         """
         lines: list[str] = ["erDiagram"]
-        for table in graph.tables:
+        for table in sorted(graph.tables, key=lambda t: t.name):
             if table.is_neighbor:
                 continue
             attrs = _entity_attributes(table)
@@ -83,7 +86,8 @@ class MermaidErdEmitter:
             lines.extend(attrs)
             lines.append("    }")
         for edge in graph.reference_edges:
-            lines.append(f'    {edge.from_table} }}o--|| {edge.to_table} : "{edge.field}"')
+            cardinality = "}o--o{" if edge.is_list else "}o--||"
+            lines.append(f'    {edge.from_table} {cardinality} {edge.to_table} : "{edge.field}"')
         for inh in graph.inheritance_edges:
             lines.append(f'    {inh.extends} ||--|| {inh.table} : "extends"')
         return "\n".join(lines)

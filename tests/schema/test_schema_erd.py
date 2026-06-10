@@ -16,14 +16,15 @@ from nexus.schema.models import (
     TableDef,
 )
 
-# Grammar for every line diagram() may emit. A future cardinality (e.g.
-# '}o--o{') is a one-line addition here.
+# Grammar for every line diagram() may emit. A future cardinality is a
+# one-line addition here.
 _ER_LINE_GRAMMAR: tuple[re.Pattern[str], ...] = (
     re.compile(r"erDiagram"),  # header
     re.compile(r"    \w+ \{"),  # entity open
     re.compile(r"        \w+ \w+( PK| FK)?"),  # attribute
     re.compile(r"    \}"),  # entity close
     re.compile(r'    \w+ \}o--\|\| \w+ : "[^"]+"'),  # reference edge
+    re.compile(r'    \w+ \}o--o\{ \w+ : "[^"]+"'),  # list-reference edge
     re.compile(r'    \w+ \|\|--\|\| \w+ : "extends"'),  # inheritance edge
 )
 
@@ -322,6 +323,110 @@ def test_diagram_duplicate_edges_render_twice() -> None:
     )
     diagram = MermaidErdEmitter().diagram(graph)
     assert diagram.count('content_config }o--|| data_relationship : "data_relationship"') == 2
+
+
+def test_diagram_list_reference_renders_many_to_many() -> None:
+    graph = SchemaGraph(
+        instance_id="alectri",
+        area_key="cmdb-bcm",
+        discovered_at=datetime(2026, 6, 8, tzinfo=UTC),
+        scope_keys=("sn_bcp",),
+        tables=(
+            TableDef(name="sn_bcp_plan", label="Plan", scope="sn_bcp"),
+            TableDef(name="sys_user", label="User", scope="", is_neighbor=True),
+        ),
+        reference_edges=(
+            ReferenceEdge(
+                from_table="sn_bcp_plan",
+                field="contributors",
+                to_table="sys_user",
+                cross_scope=True,
+                is_list=True,
+            ),
+        ),
+        inheritance_edges=(),
+        relationship_edges=(),
+    )
+    diagram = MermaidErdEmitter().diagram(graph)
+    assert '    sn_bcp_plan }o--o{ sys_user : "contributors"' in diagram
+    assert "}o--||" not in diagram
+
+
+def test_diagram_tables_emitted_in_sorted_order() -> None:
+    # Tables are seeded out of alphabetical order; entity blocks must sort.
+    graph = SchemaGraph(
+        instance_id="alectri",
+        area_key="doc-designer",
+        discovered_at=datetime(2026, 6, 8, tzinfo=UTC),
+        scope_keys=("sn_grc_doc_design",),
+        tables=(
+            TableDef(
+                name="zeta_table",
+                label="Zeta",
+                scope="sn_grc_doc_design",
+                fields=(FieldDef(name="sys_id", label="Sys ID", type="GUID"),),
+            ),
+            TableDef(
+                name="alpha_table",
+                label="Alpha",
+                scope="sn_grc_doc_design",
+                fields=(FieldDef(name="sys_id", label="Sys ID", type="GUID"),),
+            ),
+        ),
+        reference_edges=(),
+        inheritance_edges=(),
+        relationship_edges=(),
+    )
+    diagram = MermaidErdEmitter().diagram(graph)
+    opens = [line for line in diagram.splitlines() if line.endswith(" {")]
+    assert opens == ["    alpha_table {", "    zeta_table {"]
+
+
+def test_diagram_entity_attributes_sorted_within_sections() -> None:
+    # Fields are seeded out of order; PK stays first, business and FK
+    # sections each sort alphabetically by field name.
+    graph = SchemaGraph(
+        instance_id="alectri",
+        area_key="doc-designer",
+        discovered_at=datetime(2026, 6, 8, tzinfo=UTC),
+        scope_keys=("sn_grc_doc_design",),
+        tables=(
+            TableDef(
+                name="plan_table",
+                label="Plan",
+                scope="sn_grc_doc_design",
+                fields=(
+                    FieldDef(name="zeta", label="Zeta", type="string"),
+                    FieldDef(
+                        name="ref_b", label="Ref B", type="reference", reference_target="b_table"
+                    ),
+                    FieldDef(name="sys_id", label="Sys ID", type="GUID"),
+                    FieldDef(name="alpha", label="Alpha", type="string"),
+                    FieldDef(
+                        name="ref_a", label="Ref A", type="reference", reference_target="a_table"
+                    ),
+                ),
+            ),
+        ),
+        reference_edges=(),
+        inheritance_edges=(),
+        relationship_edges=(),
+    )
+    lines = MermaidErdEmitter().diagram(graph).splitlines()
+    attrs = [line.strip() for line in lines[lines.index("    plan_table {") + 1 : -1]]
+    assert attrs == [
+        "GUID sys_id PK",
+        "string alpha",
+        "string zeta",
+        "reference ref_a FK",
+        "reference ref_b FK",
+    ]
+
+
+def test_diagram_rendered_twice_is_byte_identical() -> None:
+    emitter = MermaidErdEmitter()
+    graph = _multi_entity_graph()
+    assert emitter.diagram(graph) == emitter.diagram(graph)
 
 
 def test_token_empty_type_falls_back() -> None:

@@ -161,8 +161,15 @@ class SchemaDiscoverer:
             if ref:
                 cross = meta[tname][0] != meta.get(ref, (_OUT, ""))[0]
                 ref_edges.append(
-                    ReferenceEdge(from_table=tname, field=elem, to_table=ref, cross_scope=cross)
+                    ReferenceEdge(
+                        from_table=tname,
+                        field=elem,
+                        to_table=ref,
+                        cross_scope=cross,
+                        is_list=cell(r, "internal_type") == "glide_list",
+                    )
                 )
+        ref_edges.sort(key=lambda e: (e.from_table, e.field))
 
         # Inheritance edges + neighbor collection.
         inh_edges: list[InheritanceEdge] = []
@@ -181,12 +188,12 @@ class SchemaDiscoverer:
             TableDef(
                 name=name,
                 label=label_by_name.get(name, name),
-                scope=scope_key,
-                super_class=name_by_id.get(super_id) or None,
+                scope=meta[name][0],
+                super_class=name_by_id.get(meta[name][1]) or None,
                 is_neighbor=False,
-                fields=tuple(fields_by.get(name, ())),
+                fields=tuple(sorted(fields_by.get(name, ()), key=lambda f: f.name)),
             )
-            for name, (scope_key, super_id) in meta.items()
+            for name in sorted(meta)
         ]
         tables.extend(
             TableDef(name=nb, label=label_by_name.get(nb, nb), scope="", is_neighbor=True)
