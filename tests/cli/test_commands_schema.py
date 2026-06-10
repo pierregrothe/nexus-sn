@@ -262,6 +262,145 @@ def test_schema_erd_from_archive_with_image_writes_image(
     assert fake_kroki.calls[0]["fmt"] == "svg"
 
 
+def _grouped_graph() -> SchemaGraph:
+    """Canned graph spanning both doc-designer scopes (for --grouped tests)."""
+    return SchemaGraph(
+        instance_id="alectri",
+        area_key="doc-designer",
+        discovered_at=datetime(2026, 6, 8, tzinfo=UTC),
+        scope_keys=("sn_grc_doc_design", "sn_grc_rel_config"),
+        tables=(
+            TableDef(name="content_config", label="Content", scope="sn_grc_doc_design"),
+            TableDef(name="rel_filter", label="Filter", scope="sn_grc_rel_config"),
+        ),
+        reference_edges=(),
+        inheritance_edges=(),
+        relationship_edges=(),
+    )
+
+
+def test_schema_erd_grouped_writes_multi_diagram_markdown(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fake = FakeSchemaCartographer(_grouped_graph())
+    _patch_builder(monkeypatch, fake)
+    out = tmp_path / "erd.md"
+    result = CliRunner().invoke(
+        app,
+        ["schema", "erd", "doc-designer", "--profile", "alectri", "-o", str(out), "--grouped"],
+    )
+    assert result.exit_code == 0, result.stdout
+    text = out.read_text(encoding="utf-8")
+    assert "## Document Designer with Word" in text
+    assert "## Data Relationships Framework" in text
+
+
+def test_schema_erd_grouped_image_writes_file_per_group(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fake = FakeSchemaCartographer(_grouped_graph(), image=b"<svg/>")
+    _patch_builder(monkeypatch, fake)
+    out = tmp_path / "erd.md"
+    result = CliRunner().invoke(
+        app,
+        [
+            "schema",
+            "erd",
+            "doc-designer",
+            "--profile",
+            "alectri",
+            "-o",
+            str(out),
+            "--grouped",
+            "--image",
+            "svg",
+        ],
+    )
+    assert result.exit_code == 0, result.stdout
+    assert (tmp_path / "erd-sn_grc_doc_design.svg").read_bytes() == b"<svg/>"
+    assert (tmp_path / "erd-sn_grc_rel_config.svg").read_bytes() == b"<svg/>"
+
+
+def test_schema_erd_from_archive_grouped_renders_offline(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def _forbid(*_: object) -> tuple[object, object]:
+        raise AssertionError("auth path must not run")
+
+    monkeypatch.setattr(commands_schema, "_build_schema_cartographer", _forbid)
+    snapshot = tmp_path / "snap.json"
+    snapshot.write_text(_grouped_graph().model_dump_json(indent=2), encoding="utf-8")
+    out = tmp_path / "erd.md"
+    result = CliRunner().invoke(
+        app,
+        [
+            "schema",
+            "erd",
+            "doc-designer",
+            "--from-archive",
+            str(snapshot),
+            "-o",
+            str(out),
+            "--grouped",
+        ],
+    )
+    assert result.exit_code == 0, result.stdout
+    text = out.read_text(encoding="utf-8")
+    assert "## Document Designer with Word" in text
+    assert "## Data Relationships Framework" in text
+    assert "## Cross-scope bridges" in text
+
+
+def test_schema_erd_from_archive_grouped_unknown_area_falls_back_to_scope_keys(
+    tmp_path: Path,
+) -> None:
+    graph = _grouped_graph().model_copy(update={"area_key": "mystery"})
+    snapshot = tmp_path / "snap.json"
+    snapshot.write_text(graph.model_dump_json(indent=2), encoding="utf-8")
+    out = tmp_path / "erd.md"
+    result = CliRunner().invoke(
+        app,
+        ["schema", "erd", "mystery", "--from-archive", str(snapshot), "-o", str(out), "--grouped"],
+    )
+    assert result.exit_code == 0, result.stdout
+    text = out.read_text(encoding="utf-8")
+    assert "## sn_grc_doc_design" in text
+    assert "## sn_grc_rel_config" in text
+
+
+def test_schema_erd_from_archive_grouped_image_writes_file_per_group(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fake_kroki = FakeKrokiClient(canned=b"<svg/>")
+
+    def _offline(*_: object) -> tuple[SchemaArchiveReader, MermaidErdEmitter, FakeKrokiClient]:
+        return SchemaArchiveReader(), MermaidErdEmitter(), fake_kroki
+
+    monkeypatch.setattr(commands_schema, "_build_offline_schema_renderer", _offline)
+    snapshot = tmp_path / "snap.json"
+    snapshot.write_text(_grouped_graph().model_dump_json(indent=2), encoding="utf-8")
+    out = tmp_path / "erd.md"
+    result = CliRunner().invoke(
+        app,
+        [
+            "schema",
+            "erd",
+            "doc-designer",
+            "--from-archive",
+            str(snapshot),
+            "-o",
+            str(out),
+            "--grouped",
+            "--image",
+            "svg",
+        ],
+    )
+    assert result.exit_code == 0, result.stdout
+    assert (tmp_path / "erd-sn_grc_doc_design.svg").read_bytes() == b"<svg/>"
+    assert (tmp_path / "erd-sn_grc_rel_config.svg").read_bytes() == b"<svg/>"
+    assert len(fake_kroki.calls) == 2
+
+
 def test_schema_callback_renders_themed_help() -> None:
     result = CliRunner().invoke(app, ["schema"])
     assert result.exit_code == 0, result.stdout

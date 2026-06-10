@@ -13,6 +13,7 @@ from nexus.api.errors import KrokiError
 from nexus.api.kroki_client import ImageFormat
 from nexus.schema.areas import SchemaArea, ScopeRef
 from nexus.schema.engine import SchemaCartographer
+from nexus.schema.models import FieldDef, SchemaGraph, TableDef
 from tests.fakes.fake_kroki_client import FakeKrokiClient
 from tests.fakes.fake_sn_client import FakeServiceNowClient
 
@@ -102,3 +103,56 @@ async def test_render_erd_image_kroki_error_propagates(tmp_path: Path) -> None:
     graph = await engine.discover("alectri", "dd")
     with pytest.raises(KrokiError):
         await engine.render_erd_image(graph, fmt=ImageFormat.svg)
+
+
+def _two_scope_graph() -> SchemaGraph:
+    return SchemaGraph(
+        instance_id="alectri",
+        area_key="dd",
+        discovered_at=datetime(2026, 6, 8, tzinfo=UTC),
+        scope_keys=("scope_a", "scope_b"),
+        tables=(
+            TableDef(
+                name="a_table",
+                label="A",
+                scope="scope_a",
+                fields=(FieldDef(name="sys_id", label="Sys ID", type="GUID"),),
+            ),
+            TableDef(
+                name="b_table",
+                label="B",
+                scope="scope_b",
+                fields=(FieldDef(name="sys_id", label="Sys ID", type="GUID"),),
+            ),
+        ),
+        reference_edges=(),
+        inheritance_edges=(),
+        relationship_edges=(),
+    )
+
+
+def test_render_erd_grouped_returns_markdown(tmp_path: Path) -> None:
+    out = _engine(tmp_path).render_erd_grouped(_two_scope_graph(), {"scope_a": "Scope A"})
+    assert "## Scope A" in out
+    assert "## scope_b" in out
+    assert "erDiagram" in out
+
+
+@pytest.mark.asyncio
+async def test_render_erd_group_images_renders_one_image_per_group(tmp_path: Path) -> None:
+    kroki = FakeKrokiClient(canned=b"IMG")
+    engine = SchemaCartographer(
+        FakeServiceNowClient(_seed()),
+        areas=_AREAS,
+        archive_root=tmp_path,
+        kroki=kroki,
+        clock=lambda: datetime(2026, 6, 8, tzinfo=UTC),
+    )
+    images = await engine.render_erd_group_images(_two_scope_graph(), {}, fmt=ImageFormat.svg)
+    assert images == (("scope_a", b"IMG"), ("scope_b", b"IMG"))
+    assert len(kroki.calls) == 2
+    for call in kroki.calls:
+        source = call["source"]
+        assert isinstance(source, str)
+        assert source.startswith("erDiagram")
+        assert call["fmt"] == "svg"

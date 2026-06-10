@@ -32,11 +32,28 @@ extension (for example `doc-designer-alectri.png` next to
 `docs/erd/{area}-{profile}.md`; generated images there are git-ignored and
 reproducible on demand.
 
+## Grouped ERDs
+
+`--grouped` splits the document into one Mermaid `erDiagram` per scope
+instead of a single dense diagram. Section headings use the scope labels
+from the area registry (falling back to the raw scope key for archives of
+unregistered areas), every table stays in its owning scope's diagram, and
+each edge lands in the diagram of its source table (the child table for
+`extends` edges) with out-of-group targets shown as bare name-only boxes.
+The split is rule-based and fully deterministic.
+
+With `--image`, one image is written per group as a sibling of the
+Markdown, named `{stem}-{scope}.{fmt}` (for example
+`bcm-alectri-sn_bcm.svg` next to `bcm-alectri.md`). Several small diagrams
+render more reliably on the public `kroki.io` endpoint than one dense one,
+so `--grouped` also mitigates HTTP 504 gateway timeouts on large areas.
+
 ## Options
 
 | Option | Default | Purpose |
 | --- | --- | --- |
 | `--image {svg,png}` | (off) | Also render a shareable image. SVG is vector (crisp, small); PNG pastes into Office. |
+| `--grouped` | (off) | One diagram per scope instead of a single dense diagram; one image per group with `--image`. |
 | `--kroki-url URL` | `https://kroki.io` | Kroki endpoint. Also reads `NEXUS_KROKI_URL`. |
 | `--kroki-timeout SECONDS` | `60` | Per-request timeout. Raise for very dense diagrams on a slow endpoint. |
 

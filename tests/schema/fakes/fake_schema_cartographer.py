@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from pathlib import Path
 
 from nexus.api.kroki_client import ImageFormat
@@ -23,7 +24,8 @@ class FakeSchemaCartographer:
         graph: The graph returned by discover() and persisted by save_archive().
         image: Canned image bytes returned by render_erd_image().
         discover_error: When set, discover() raises it instead of returning.
-        image_error: When set, render_erd_image() raises it instead of returning.
+        image_error: When set, render_erd_image() and render_erd_group_images()
+            raise it instead of returning.
     """
 
     def __init__(
@@ -119,3 +121,41 @@ class FakeSchemaCartographer:
         if self._image_error is not None:
             raise self._image_error
         return self._image
+
+    def render_erd_grouped(self, graph: SchemaGraph, labels: Mapping[str, str]) -> str:
+        """Return a deterministic stub with one heading per owning scope.
+
+        Args:
+            graph: The graph whose non-neighbor scopes become groups.
+            labels: Scope-key to label mapping; missing keys fall back to
+                the scope key itself.
+
+        Returns:
+            Markdown with a ``## {label}`` heading plus a stub erDiagram
+            body per scope, in scope-key order.
+        """
+        scopes = sorted({t.scope for t in graph.tables if not t.is_neighbor})
+        sections = "\n\n".join(f"## {labels.get(s, s)}\n\nerDiagram" for s in scopes)
+        return f"# {graph.area_key}\n\n{sections}\n"
+
+    async def render_erd_group_images(
+        self, graph: SchemaGraph, labels: Mapping[str, str], *, fmt: ImageFormat
+    ) -> tuple[tuple[str, bytes], ...]:
+        """Return (scope key, canned image) per owning scope, in scope order.
+
+        Args:
+            graph: The graph whose non-neighbor scopes become groups.
+            labels: Ignored.
+            fmt: Ignored.
+
+        Returns:
+            One (scope key, canned image bytes) pair per scope.
+
+        Raises:
+            Exception: The configured ``image_error`` when set.
+        """
+        del labels, fmt
+        if self._image_error is not None:
+            raise self._image_error
+        scopes = sorted({t.scope for t in graph.tables if not t.is_neighbor})
+        return tuple((s, self._image) for s in scopes)

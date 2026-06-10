@@ -431,3 +431,169 @@ def test_diagram_rendered_twice_is_byte_identical() -> None:
 
 def test_token_empty_type_falls_back() -> None:
     assert _token("", "field") == "field"
+
+
+def _two_scope_graph() -> SchemaGraph:
+    """Two scopes, a neighbor, a cross-scope ref edge, and an inheritance edge."""
+    return SchemaGraph(
+        instance_id="alectri",
+        area_key="bcm",
+        discovered_at=datetime(2026, 6, 8, tzinfo=UTC),
+        scope_keys=("sn_bcm", "sn_bcp"),
+        tables=(
+            TableDef(
+                name="sn_bcm_impact",
+                label="Impact",
+                scope="sn_bcm",
+                fields=(
+                    FieldDef(name="sys_id", label="Sys ID", type="GUID"),
+                    FieldDef(
+                        name="plan", label="Plan", type="reference", reference_target="sn_bcp_plan"
+                    ),
+                ),
+            ),
+            TableDef(
+                name="sn_bcm_orphan",
+                label="Orphan",
+                scope="sn_bcm",
+                fields=(FieldDef(name="sys_id", label="Sys ID", type="GUID"),),
+            ),
+            TableDef(
+                name="sn_bcp_plan",
+                label="Plan",
+                scope="sn_bcp",
+                fields=(FieldDef(name="sys_id", label="Sys ID", type="GUID"),),
+            ),
+            TableDef(
+                name="sn_bcp_task",
+                label="Task",
+                scope="sn_bcp",
+                fields=(FieldDef(name="sys_id", label="Sys ID", type="GUID"),),
+            ),
+            TableDef(name="cmdb_ci", label="CI", scope="", is_neighbor=True),
+        ),
+        reference_edges=(
+            ReferenceEdge(
+                from_table="sn_bcm_impact",
+                field="plan",
+                to_table="sn_bcp_plan",
+                cross_scope=True,
+            ),
+            ReferenceEdge(
+                from_table="sn_bcp_plan", field="ci", to_table="cmdb_ci", cross_scope=True
+            ),
+        ),
+        inheritance_edges=(
+            InheritanceEdge(table="sn_bcp_task", extends="sn_bcp_plan", cross_scope=False),
+        ),
+        relationship_edges=(),
+    )
+
+
+def test_group_diagrams_splits_by_scope() -> None:
+    groups = MermaidErdEmitter().group_diagrams(_two_scope_graph(), {})
+    assert [g.key for g in groups] == ["sn_bcm", "sn_bcp"]
+    assert "sn_bcm_impact {" in groups[0].source
+    assert "sn_bcm_orphan {" in groups[0].source
+    assert "sn_bcp_plan {" in groups[1].source
+    assert "sn_bcp_task {" in groups[1].source
+    assert "sn_bcm_impact" not in groups[1].source
+    assert "sn_bcp_task" not in groups[0].source
+
+
+def test_group_diagrams_assigns_cross_edge_to_from_group_with_bare_target() -> None:
+    bcm, bcp = MermaidErdEmitter().group_diagrams(_two_scope_graph(), {})
+    line = '    sn_bcm_impact }o--|| sn_bcp_plan : "plan"'
+    assert line in bcm.source
+    assert line not in bcp.source
+    # The target appears bare in the from-group: edge line only, no block.
+    assert "sn_bcp_plan {" not in bcm.source
+
+
+def test_group_diagrams_inheritance_edge_in_child_group() -> None:
+    bcm, bcp = MermaidErdEmitter().group_diagrams(_two_scope_graph(), {})
+    line = '    sn_bcp_plan ||--|| sn_bcp_task : "extends"'
+    assert line in bcp.source
+    assert line not in bcm.source
+
+
+def test_group_diagrams_neighbor_renders_bare_only_in_referencing_group() -> None:
+    bcm, bcp = MermaidErdEmitter().group_diagrams(_two_scope_graph(), {})
+    assert '    sn_bcp_plan }o--|| cmdb_ci : "ci"' in bcp.source
+    assert "cmdb_ci {" not in bcp.source
+    assert "cmdb_ci" not in bcm.source
+
+
+def test_group_diagrams_orders_groups_by_scope_key() -> None:
+    # Scopes are seeded out of alphabetical order; group order must sort.
+    graph = SchemaGraph(
+        instance_id="alectri",
+        area_key="bcm",
+        discovered_at=datetime(2026, 6, 8, tzinfo=UTC),
+        scope_keys=("z_scope", "a_scope"),
+        tables=(
+            TableDef(name="z_table", label="Z", scope="z_scope"),
+            TableDef(name="a_table", label="A", scope="a_scope"),
+        ),
+        reference_edges=(),
+        inheritance_edges=(),
+        relationship_edges=(),
+    )
+    groups = MermaidErdEmitter().group_diagrams(graph, {})
+    assert [g.key for g in groups] == ["a_scope", "z_scope"]
+
+
+def test_group_diagrams_label_falls_back_to_scope_key() -> None:
+    groups = MermaidErdEmitter().group_diagrams(_two_scope_graph(), {"sn_bcm": "BCM Core"})
+    assert [g.label for g in groups] == ["BCM Core", "sn_bcp"]
+
+
+def test_group_diagrams_skips_edge_with_unknown_from_table() -> None:
+    # Defensive: edges owned by an unknown table or a neighbor land nowhere.
+    graph = _two_scope_graph().model_copy(
+        update={
+            "reference_edges": (
+                ReferenceEdge(
+                    from_table="ghost", field="x", to_table="sn_bcp_plan", cross_scope=False
+                ),
+                ReferenceEdge(
+                    from_table="cmdb_ci", field="y", to_table="sn_bcp_plan", cross_scope=True
+                ),
+            ),
+            "inheritance_edges": (
+                InheritanceEdge(table="ghost_child", extends="sn_bcp_plan", cross_scope=False),
+                InheritanceEdge(table="cmdb_ci", extends="sn_bcp_plan", cross_scope=True),
+            ),
+        }
+    )
+    for group in MermaidErdEmitter().group_diagrams(graph, {}):
+        assert "ghost" not in group.source
+        assert "cmdb_ci" not in group.source
+
+
+def test_group_diagrams_every_line_matches_er_grammar() -> None:
+    for group in MermaidErdEmitter().group_diagrams(_two_scope_graph(), {}):
+        for line in group.source.splitlines():
+            assert any(p.fullmatch(line) for p in _ER_LINE_GRAMMAR), f"unparseable line: {line!r}"
+
+
+def test_render_grouped_emits_one_section_per_group() -> None:
+    out = MermaidErdEmitter().render_grouped(_two_scope_graph(), {"sn_bcm": "BCM Core"})
+    headings = [line for line in out.splitlines() if line.startswith("## ")]
+    assert headings == ["## BCM Core", "## sn_bcp", "## Cross-scope bridges", "## Fields"]
+    assert out.count("```mermaid") == 2
+
+
+def test_render_grouped_keeps_bridges_and_fields_once() -> None:
+    out = MermaidErdEmitter().render_grouped(_two_scope_graph(), {})
+    assert out.count("## Cross-scope bridges") == 1
+    assert out.count("## Fields") == 1
+    assert "- sn_bcm_impact.plan -> sn_bcp_plan" in out
+
+
+def test_render_grouped_edgeless_table_still_listed() -> None:
+    # sn_bcm_orphan has no edges; it still shows in its group diagram and
+    # in the field appendix.
+    out = MermaidErdEmitter().render_grouped(_two_scope_graph(), {})
+    assert "sn_bcm_orphan {" in out
+    assert "### sn_bcm_orphan -- Orphan" in out

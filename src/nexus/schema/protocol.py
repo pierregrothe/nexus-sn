@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Protocol
 
@@ -36,4 +37,14 @@ class SchemaProtocol(Protocol):
 
     async def render_erd_image(self, graph: SchemaGraph, *, fmt: ImageFormat) -> bytes:
         """Render a graph's ERD to image bytes via the Kroki service."""
+        ...
+
+    def render_erd_grouped(self, graph: SchemaGraph, labels: Mapping[str, str]) -> str:
+        """Render a graph to Markdown with one Mermaid diagram per scope."""
+        ...
+
+    async def render_erd_group_images(
+        self, graph: SchemaGraph, labels: Mapping[str, str], *, fmt: ImageFormat
+    ) -> tuple[tuple[str, bytes], ...]:
+        """Render one image per scope group; return (scope key, bytes) pairs."""
         ...

@@ -105,3 +105,33 @@ class SchemaCartographer:
             The rendered image bytes.
         """
         return await self._kroki.render(self._emitter.diagram(graph), fmt=fmt)
+
+    def render_erd_grouped(self, graph: SchemaGraph, labels: Mapping[str, str]) -> str:
+        """Render a graph to Markdown with one Mermaid diagram per scope.
+
+        Args:
+            graph: The graph to render.
+            labels: Scope-key to display-label mapping for group headings.
+
+        Returns:
+            The grouped Markdown ERD document.
+        """
+        return self._emitter.render_grouped(graph, labels)
+
+    async def render_erd_group_images(
+        self, graph: SchemaGraph, labels: Mapping[str, str], *, fmt: ImageFormat
+    ) -> tuple[tuple[str, bytes], ...]:
+        """Render one image per scope group via the Kroki service.
+
+        Args:
+            graph: The graph to render.
+            labels: Scope-key to display-label mapping (group labels).
+            fmt: Output image format.
+
+        Returns:
+            (scope key, image bytes) pairs in group (scope-key) order.
+        """
+        rendered: list[tuple[str, bytes]] = []
+        for group in self._emitter.group_diagrams(graph, labels):
+            rendered.append((group.key, await self._kroki.render(group.source, fmt=fmt)))
+        return tuple(rendered)

@@ -48,3 +48,29 @@ def test_fake_save_and_load_roundtrips(tmp_path: Path) -> None:
 async def test_fake_render_erd_image_returns_canned_bytes() -> None:
     fake = FakeSchemaCartographer(_graph(), image=b"PNG")
     assert await fake.render_erd_image(_graph(), fmt=ImageFormat.png) == b"PNG"
+
+
+def test_fake_render_erd_grouped_contains_label_headings() -> None:
+    fake = FakeSchemaCartographer(_graph())
+    out = fake.render_erd_grouped(_graph(), {"sn_grc_doc_design": "Doc Design"})
+    assert "## Doc Design" in out
+    assert "doc-designer" in out
+
+
+def test_fake_render_erd_grouped_falls_back_to_scope_key() -> None:
+    fake = FakeSchemaCartographer(_graph())
+    assert "## sn_grc_doc_design" in fake.render_erd_grouped(_graph(), {})
+
+
+@pytest.mark.asyncio
+async def test_fake_render_erd_group_images_returns_pair_per_scope() -> None:
+    fake = FakeSchemaCartographer(_graph(), image=b"PNG")
+    images = await fake.render_erd_group_images(_graph(), {}, fmt=ImageFormat.png)
+    assert images == (("sn_grc_doc_design", b"PNG"),)
+
+
+@pytest.mark.asyncio
+async def test_fake_render_erd_group_images_raises_configured_error() -> None:
+    fake = FakeSchemaCartographer(_graph(), image_error=RuntimeError("boom"))
+    with pytest.raises(RuntimeError, match="boom"):
+        await fake.render_erd_group_images(_graph(), {}, fmt=ImageFormat.png)

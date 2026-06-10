@@ -60,6 +60,10 @@ def schema_erd(
         ImageFormat | None,
         typer.Option("--image", help="Also render a shareable image (svg or png) via Kroki"),
     ] = None,
+    grouped: Annotated[
+        bool,
+        typer.Option("--grouped", help="Split the ERD into one Mermaid diagram per scope"),
+    ] = False,
     save_archive: Annotated[
         bool,
         typer.Option("--save-archive", help="Also persist the discovered graph as a JSON snapshot"),
@@ -91,6 +95,7 @@ def schema_erd(
     async def _run_live() -> None:
         cartographer, client = _build_schema_cartographer(profile, kroki_url, kroki_timeout)
         resolved = profile or _config_default()
+        labels = {s.scope: s.label for s in DEFAULT_AREAS[area].scopes}
         with nexus_progress(console) as progress:
             progress.add_task(f"Mapping {area} on {resolved}...", total=None)
             async with client:
@@ -100,16 +105,27 @@ def schema_erd(
             if save_archive:
                 snapshot = cartographer.save_archive(graph)
                 console.print(f"Wrote archive to {snapshot}")
-            markdown = cartographer.render_erd(graph)
+            markdown = (
+                cartographer.render_erd_grouped(graph, labels)
+                if grouped
+                else cartographer.render_erd(graph)
+            )
             dest = output or Path(f"{area}-{resolved}.md")
             dest.write_text(markdown, encoding="utf-8")
             console.print(f"Wrote ERD to {dest}")
             if image is not None:
                 progress.add_task(f"Rendering {image} via {kroki_url}...", total=None)
-                data = await cartographer.render_erd_image(graph, fmt=image)
-                img_dest = dest.with_suffix(f".{image}")
-                img_dest.write_bytes(data)
-                console.print(f"Wrote image to {img_dest}")
+                if grouped:
+                    images = await cartographer.render_erd_group_images(graph, labels, fmt=image)
+                    for key, data in images:
+                        img_dest = dest.with_name(f"{dest.stem}-{key}.{image}")
+                        img_dest.write_bytes(data)
+                        console.print(f"Wrote image to {img_dest}")
+                else:
+                    data = await cartographer.render_erd_image(graph, fmt=image)
+                    img_dest = dest.with_suffix(f".{image}")
+                    img_dest.write_bytes(data)
+                    console.print(f"Wrote image to {img_dest}")
 
     async def _run_offline(snapshot: Path) -> None:
         reader, emitter, kroki = _build_offline_schema_renderer(kroki_url, kroki_timeout)
@@ -118,17 +134,26 @@ def schema_erd(
             console.print(
                 Notice.warn(f"archive contains area {graph.area_key}, ignoring argument {area}")
             )
-        markdown = emitter.render(graph)
+        archive_area = DEFAULT_AREAS.get(graph.area_key)
+        labels = {s.scope: s.label for s in archive_area.scopes} if archive_area else {}
+        markdown = emitter.render_grouped(graph, labels) if grouped else emitter.render(graph)
         dest = output or Path(f"{graph.area_key}-{graph.instance_id}.md")
         dest.write_text(markdown, encoding="utf-8")
         console.print(f"Wrote ERD to {dest}")
         if image is not None:
             with nexus_progress(console) as progress:
                 progress.add_task(f"Rendering {image} via {kroki_url}...", total=None)
-                data = await kroki.render(emitter.diagram(graph), fmt=image)
-            img_dest = dest.with_suffix(f".{image}")
-            img_dest.write_bytes(data)
-            console.print(f"Wrote image to {img_dest}")
+                if grouped:
+                    for group in emitter.group_diagrams(graph, labels):
+                        data = await kroki.render(group.source, fmt=image)
+                        img_dest = dest.with_name(f"{dest.stem}-{group.key}.{image}")
+                        img_dest.write_bytes(data)
+                        console.print(f"Wrote image to {img_dest}")
+                else:
+                    data = await kroki.render(emitter.diagram(graph), fmt=image)
+                    img_dest = dest.with_suffix(f".{image}")
+                    img_dest.write_bytes(data)
+                    console.print(f"Wrote image to {img_dest}")
 
     try:
         if from_archive is not None:
