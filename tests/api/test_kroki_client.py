@@ -52,3 +52,23 @@ async def test_render_honors_custom_timeout() -> None:
     transport = httpx.MockTransport(lambda req: httpx.Response(200, content=_SVG))
     client = KrokiClient("https://kroki.io", timeout=5.0, transport=transport)
     assert await client.render("mindmap", fmt="svg") == _SVG
+
+
+@pytest.mark.asyncio
+async def test_render_transport_error_wrapped_as_kroki_error() -> None:
+    def handler(req: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("connection refused", request=req)
+
+    client = KrokiClient("https://kroki.io", transport=httpx.MockTransport(handler))
+    with pytest.raises(KrokiError) as exc:
+        await client.render("erDiagram", fmt="svg")
+    assert exc.value.status_code is None
+    assert "https://kroki.io" in exc.value.message
+    assert "connection refused" in exc.value.message
+
+
+@pytest.mark.asyncio
+async def test_render_non_200_success_status_returns_bytes() -> None:
+    transport = httpx.MockTransport(lambda req: httpx.Response(201, content=_SVG))
+    client = KrokiClient("https://kroki.io", transport=transport)
+    assert await client.render("erDiagram", fmt="svg") == _SVG

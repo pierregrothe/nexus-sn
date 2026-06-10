@@ -13,12 +13,15 @@ from typing import Annotated
 
 import typer
 
+from nexus.api.errors import KrokiError
 from nexus.cli.apps import schema_app
 from nexus.cli.auth import config_default as _config_default
 from nexus.cli.console import console
+from nexus.cli.help_text import SCHEMA_HELP, SCHEMA_PARENT, guide_items
 from nexus.cli.views import _build_schema_cartographer
 from nexus.schema.areas import DEFAULT_AREAS
-from nexus.ui import nexus_progress
+from nexus.schema.errors import SchemaError
+from nexus.ui import CommandGuide, CommandHelp, Hint, Notice, nexus_progress
 
 __all__: list[str] = []
 
@@ -32,6 +35,21 @@ class ImageFormat(StrEnum):
 
 _KROKI_DEFAULT = "https://kroki.io"
 _KROKI_TIMEOUT_DEFAULT = 60.0
+
+
+@schema_app.callback(invoke_without_command=True)
+def schema_callback(ctx: typer.Context) -> None:
+    """Show schema help and available commands."""
+    if ctx.invoked_subcommand is not None:
+        return
+    console.print(CommandHelp(title="nexus schema", entry=SCHEMA_PARENT))
+    console.print(
+        CommandGuide(
+            app_name="nexus schema",
+            items=guide_items(SCHEMA_HELP),
+            title="available commands",
+        )
+    )
 
 
 @schema_app.command("areas")
@@ -61,25 +79,44 @@ def schema_erd(
     ] = _KROKI_TIMEOUT_DEFAULT,
 ) -> None:
     """Reverse-engineer an area and write a Markdown ERD."""
+    if area not in DEFAULT_AREAS:
+        valid = ", ".join(DEFAULT_AREAS)
+        console.print(Notice.error(f"Unknown schema area {area!r}. Valid areas: {valid}."))
+        console.print(Hint(label="List areas", command="nexus schema areas"))
+        raise typer.Exit(2)
 
-    async def _run() -> tuple[Path, Path | None]:
+    async def _run() -> None:
         cartographer, client = _build_schema_cartographer(profile, kroki_url, kroki_timeout)
         resolved = profile or _config_default()
         with nexus_progress(console) as progress:
             progress.add_task(f"Mapping {area} on {resolved}...", total=None)
             async with client:
                 graph = await cartographer.discover(resolved, area)
-        markdown = cartographer.render_erd(graph)
-        dest = output or Path(f"{area}-{resolved}.md")
-        dest.write_text(markdown, encoding="utf-8")
-        img_dest: Path | None = None
-        if image is not None:
-            data = await cartographer.render_erd_image(graph, fmt=image.value)
-            img_dest = dest.with_suffix(f".{image.value}")
-            img_dest.write_bytes(data)
-        return dest, img_dest
+            if not graph.tables:
+                console.print(Notice.warn(f"No tables discovered for {area} on {resolved}."))
+            markdown = cartographer.render_erd(graph)
+            dest = output or Path(f"{area}-{resolved}.md")
+            dest.write_text(markdown, encoding="utf-8")
+            console.print(f"Wrote ERD to {dest}")
+            if image is not None:
+                progress.add_task(f"Rendering {image.value} via {kroki_url}...", total=None)
+                data = await cartographer.render_erd_image(graph, fmt=image.value)
+                img_dest = dest.with_suffix(f".{image.value}")
+                img_dest.write_bytes(data)
+                console.print(f"Wrote image to {img_dest}")
 
-    written, img_written = asyncio.run(_run())
-    console.print(f"Wrote ERD to {written}")
-    if img_written is not None:
-        console.print(f"Wrote image to {img_written}")
+    try:
+        asyncio.run(_run())
+    except SchemaError as exc:
+        console.print(Notice.error(str(exc)))
+        raise typer.Exit(1) from exc
+    except KrokiError as exc:
+        console.print(Notice.error(str(exc)))
+        console.print(
+            Hint(
+                label="Kroki",
+                command="--kroki-url <endpoint> --kroki-timeout <seconds>",
+                suffix="(self-hosting guide: docs/schema-image-export.md)",
+            )
+        )
+        raise typer.Exit(1) from exc

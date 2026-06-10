@@ -36,7 +36,8 @@ class KrokiClientProtocol(Protocol):
             The rendered image bytes.
 
         Raises:
-            KrokiError: When the service returns a non-2xx status.
+            KrokiError: When the service returns a non-2xx status, or when
+                the request fails at the transport level (status_code None).
         """
         ...
 
@@ -75,14 +76,20 @@ class KrokiClient:
             The rendered image bytes.
 
         Raises:
-            KrokiError: When the service returns a non-2xx status.
+            KrokiError: When the service returns a non-2xx status, or when
+                the request fails at the transport level (status_code None).
         """
         url = f"{self._base_url}/{diagram_type}/{fmt}"
         log.debug("Kroki render %s (%d chars)", url, len(source))
-        async with httpx.AsyncClient(timeout=self._timeout, transport=self._transport) as client:
-            response = await client.post(
-                url, content=source.encode("utf-8"), headers={"Content-Type": "text/plain"}
-            )
-        if response.status_code != 200:
+        try:
+            async with httpx.AsyncClient(
+                timeout=self._timeout, transport=self._transport
+            ) as client:
+                response = await client.post(
+                    url, content=source.encode("utf-8"), headers={"Content-Type": "text/plain"}
+                )
+        except httpx.HTTPError as exc:
+            raise KrokiError(None, f"could not reach Kroki at {self._base_url}: {exc}") from exc
+        if not response.is_success:
             raise KrokiError(response.status_code, response.text[:_ERR_BODY_CHARS])
         return response.content

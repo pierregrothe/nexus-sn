@@ -21,16 +21,22 @@ class FakeSchemaCartographer:
     Args:
         graph: The graph returned by discover() and persisted by save_archive().
         image: Canned image bytes returned by render_erd_image().
+        discover_error: When set, discover() raises it instead of returning.
+        image_error: When set, render_erd_image() raises it instead of returning.
     """
 
     def __init__(
         self,
         graph: SchemaGraph,
         image: bytes = b"<svg/>",
+        discover_error: Exception | None = None,
+        image_error: Exception | None = None,
     ) -> None:
-        """Initialize with the canned graph and image bytes."""
+        """Initialize with the canned graph, image bytes, and optional errors."""
         self._graph = graph
         self._image = image
+        self._discover_error = discover_error
+        self._image_error = image_error
 
     async def __aenter__(self) -> FakeSchemaCartographer:
         """Enter the async context (returns self)."""
@@ -48,8 +54,13 @@ class FakeSchemaCartographer:
 
         Returns:
             The canned SchemaGraph.
+
+        Raises:
+            Exception: The configured ``discover_error`` when set.
         """
         del instance_id, area_key
+        if self._discover_error is not None:
+            raise self._discover_error
         return self._graph
 
     def save_archive(self, graph: SchemaGraph, dest: Path | None = None) -> Path:
@@ -99,6 +110,11 @@ class FakeSchemaCartographer:
 
         Returns:
             The canned image bytes.
+
+        Raises:
+            Exception: The configured ``image_error`` when set.
         """
         del graph, fmt
+        if self._image_error is not None:
+            raise self._image_error
         return self._image

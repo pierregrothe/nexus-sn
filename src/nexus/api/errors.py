@@ -23,15 +23,21 @@ class AnthropicError(Exception):
 
 
 class KrokiError(Exception):
-    """Raised when the Kroki render service returns a non-2xx status.
+    """Raised when a Kroki render fails.
 
     Args:
-        status_code: HTTP status code from the Kroki response.
-        message: Error message from the Kroki response body (truncated).
+        status_code: HTTP status code from the Kroki response, or ``None``
+            for a transport-level failure (DNS, connect, timeout) before
+            any HTTP status was received.
+        message: Error message from the Kroki response body (truncated) or
+            the transport error detail.
     """
 
-    def __init__(self, status_code: int, message: str) -> None:
-        """Initialize with HTTP status code and error message."""
+    def __init__(self, status_code: int | None, message: str) -> None:
+        """Initialize with an optional HTTP status code and error message."""
         self.status_code = status_code
         self.message = message
-        super().__init__(f"Kroki render error {status_code}: {message}")
+        prefix = (
+            "Kroki render error" if status_code is None else f"Kroki render error {status_code}"
+        )
+        super().__init__(f"{prefix}: {message}")
