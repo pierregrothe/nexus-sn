@@ -16,7 +16,6 @@ from typing import TYPE_CHECKING, cast
 
 import typer
 
-from nexus.api.agent_client import AgentClient
 from nexus.api.kroki_client import KrokiClient
 from nexus.capture.engine import CaptureEngine
 from nexus.cli.auth import acquire_token as _acquire_token
@@ -99,7 +98,6 @@ def _build_schema_cartographer(
     cartographer = SchemaCartographer(
         client=client,
         archive_root=NexusPaths.from_env().schema_dir,
-        agent_client=AgentClient(),
         kroki=KrokiClient(kroki_url, timeout=kroki_timeout),
     )
     return cartographer, client

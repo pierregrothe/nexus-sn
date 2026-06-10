@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from nexus.schema.catalog import MindmapCatalog
 from nexus.schema.models import SchemaGraph
 
 __all__ = ["FakeSchemaCartographer"]
@@ -21,17 +20,16 @@ class FakeSchemaCartographer:
 
     Args:
         graph: The graph returned by discover() and persisted by save_archive().
+        image: Canned image bytes returned by render_erd_image().
     """
 
     def __init__(
         self,
         graph: SchemaGraph,
-        catalog: MindmapCatalog | None = None,
         image: bytes = b"<svg/>",
     ) -> None:
-        """Initialize with the canned graph, optional catalog, and image bytes."""
+        """Initialize with the canned graph and image bytes."""
         self._graph = graph
-        self._catalog = catalog
         self._image = image
 
     async def __aenter__(self) -> FakeSchemaCartographer:
@@ -92,35 +90,6 @@ class FakeSchemaCartographer:
         """
         return f"# {graph.area_key}\n\nerDiagram"
 
-    async def build_mindmap(self, instance_id: str, area_key: str) -> MindmapCatalog:
-        """Return the canned catalog (raises if none was provided).
-
-        Args:
-            instance_id: Ignored.
-            area_key: Ignored.
-
-        Returns:
-            The canned MindmapCatalog.
-
-        Raises:
-            ValueError: If the fake was created without a catalog.
-        """
-        del instance_id, area_key
-        if self._catalog is None:
-            raise ValueError("FakeSchemaCartographer was created without a catalog")
-        return self._catalog
-
-    def render_mindmap(self, catalog: MindmapCatalog) -> str:
-        """Return a trivial Markdown stub mentioning the area key.
-
-        Args:
-            catalog: The catalog to render.
-
-        Returns:
-            A minimal Markdown string containing the area key and 'mindmap'.
-        """
-        return f"# {catalog.area_key}\n\nmindmap"
-
     async def render_erd_image(self, graph: SchemaGraph, *, fmt: str) -> bytes:
         """Return canned image bytes (ignores inputs).
 
@@ -132,17 +101,4 @@ class FakeSchemaCartographer:
             The canned image bytes.
         """
         del graph, fmt
-        return self._image
-
-    async def render_mindmap_image(self, catalog: MindmapCatalog, *, fmt: str) -> bytes:
-        """Return canned image bytes (ignores inputs).
-
-        Args:
-            catalog: Ignored.
-            fmt: Ignored.
-
-        Returns:
-            The canned image bytes.
-        """
-        del catalog, fmt
         return self._image

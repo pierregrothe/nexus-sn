@@ -46,5 +46,3 @@ htmlcov/
 # Generated schema diagram images (reproducible via `nexus schema --image`)
 docs/erd/*.png
 docs/erd/*.svg
-docs/mindmaps/*.png
-docs/mindmaps/*.svg

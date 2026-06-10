@@ -11,7 +11,6 @@ import pytest
 
 from nexus.schema.areas import SchemaArea, ScopeRef
 from nexus.schema.engine import SchemaCartographer
-from tests.fakes.fake_agent_client import FakeAgentClient
 from tests.fakes.fake_kroki_client import FakeKrokiClient
 from tests.fakes.fake_sn_client import FakeServiceNowClient
 
@@ -40,7 +39,6 @@ def _engine(tmp_path: Path) -> SchemaCartographer:
         FakeServiceNowClient(_seed()),
         areas=_AREAS,
         archive_root=tmp_path,
-        agent_client=FakeAgentClient(),
         kroki=FakeKrokiClient(),
         clock=lambda: datetime(2026, 6, 8, tzinfo=UTC),
     )
@@ -67,3 +65,18 @@ async def test_save_archive_default_dest_uses_archive_root(tmp_path: Path) -> No
     graph = await engine.discover("alectri", "dd")
     path = engine.save_archive(graph)
     assert tmp_path in path.parents
+
+
+@pytest.mark.asyncio
+async def test_render_erd_image_renders_via_kroki(tmp_path: Path) -> None:
+    kroki = FakeKrokiClient(canned=b"IMG")
+    engine = SchemaCartographer(
+        FakeServiceNowClient(_seed()),
+        areas=_AREAS,
+        archive_root=tmp_path,
+        kroki=kroki,
+        clock=lambda: datetime(2026, 6, 8, tzinfo=UTC),
+    )
+    graph = await engine.discover("alectri", "dd")
+    assert await engine.render_erd_image(graph, fmt="svg") == b"IMG"
+    assert kroki.calls[0]["fmt"] == "svg"

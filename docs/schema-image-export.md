@@ -1,18 +1,18 @@
 # Schema image export (Kroki)
 
-`nexus schema erd` and `nexus schema mindmap` can emit a shareable image
-(SVG or PNG) alongside the Markdown, rendered from the diagram's Mermaid
-source by a [Kroki](https://kroki.io) service. The image pastes directly
-into Teams, email, Confluence, or Word.
+`nexus schema erd` can emit a shareable image (SVG or PNG) alongside the
+Markdown, rendered from the diagram's Mermaid source by a
+[Kroki](https://kroki.io) service. The image pastes directly into Teams,
+email, Confluence, or Word.
 
 ## Usage
 
 ```bash
 # Markdown only (offline, no Kroki call)
-nexus schema mindmap doc-designer --profile alectri
+nexus schema erd doc-designer --profile alectri
 
 # Markdown + a shareable image next to it
-nexus schema mindmap doc-designer --profile alectri --image png
+nexus schema erd doc-designer --profile alectri --image png
 nexus schema erd cmdb-bcm --profile alectri --image svg
 ```
 
@@ -31,7 +31,7 @@ is added beside it.
 ## Reliability: prefer a self-hosted Kroki
 
 The **public `kroki.io` instance is shared and can be slow or return HTTP 504
-(gateway timeout)** on dense diagrams (large ERDs, busy mindmaps). It is fine
+(gateway timeout)** on dense diagrams (large ERDs). It is fine
 for quick one-offs and demos, but for reliable or repeated rendering -- and so
 that internal table/field names never leave your machine -- run Kroki locally
 and point `--kroki-url` at it.
@@ -45,7 +45,7 @@ docker run -d --name kroki --network kroki-net \
   -e KROKI_MERMAID_HOST=kroki-mermaid -p 8000:8000 yuzutech/kroki
 
 # then render against the local instance
-nexus schema mindmap doc-designer --profile alectri --image png \
+nexus schema erd doc-designer --profile alectri --image png \
   --kroki-url http://localhost:8000
 ```
 
