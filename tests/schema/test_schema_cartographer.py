@@ -9,6 +9,7 @@ from pathlib import Path
 
 import pytest
 
+from nexus.api.errors import KrokiError
 from nexus.schema.areas import SchemaArea, ScopeRef
 from nexus.schema.engine import SchemaCartographer
 from tests.fakes.fake_kroki_client import FakeKrokiClient
@@ -80,3 +81,23 @@ async def test_render_erd_image_renders_via_kroki(tmp_path: Path) -> None:
     graph = await engine.discover("alectri", "dd")
     assert await engine.render_erd_image(graph, fmt="svg") == b"IMG"
     assert kroki.calls[0]["fmt"] == "svg"
+    source = kroki.calls[0]["source"]
+    assert isinstance(source, str)
+    # Kroki must receive the bare Mermaid diagram, never the Markdown document.
+    assert source.startswith("erDiagram")
+    assert chr(96) not in source  # no Markdown code fence
+    assert "# Schema ERD" not in source
+
+
+@pytest.mark.asyncio
+async def test_render_erd_image_kroki_error_propagates(tmp_path: Path) -> None:
+    engine = SchemaCartographer(
+        FakeServiceNowClient(_seed()),
+        areas=_AREAS,
+        archive_root=tmp_path,
+        kroki=FakeKrokiClient(side_effect=KrokiError(400, "bad")),
+        clock=lambda: datetime(2026, 6, 8, tzinfo=UTC),
+    )
+    graph = await engine.discover("alectri", "dd")
+    with pytest.raises(KrokiError):
+        await engine.render_erd_image(graph, fmt="svg")
