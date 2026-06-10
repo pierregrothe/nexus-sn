@@ -78,6 +78,25 @@
 - [x] First 3+ community templates in templates/
 - [x] Template apply engine (ApplyEngine)
 
+## 2026.06 -- Schema Cartographer [done]
+- [x] nexus.schema layer -- SchemaDiscoverer (sys_scope -> sys_db_object ->
+      sys_dictionary / sys_relationship), frozen SchemaGraph models, JSON
+      archive, MermaidErdEmitter, SchemaCartographer behind SchemaProtocol
+      Spec: specs/2026-06-08-schema-cartographer-design.md
+      Plan: plans/2026-06-08-schema-cartographer.md
+      Driver: support case CS9240769 (RONA) -- Document Designer answer +
+      reusable BCM and CMDB<->BCM table maps
+- [x] nexus schema command -- areas, erd; ERD entity boxes carry each
+      table's key fields (PK + business columns + FK references)
+- [x] Deterministic per-scope grouped ERD (--grouped) -- one Mermaid
+      diagram per scope, byte-stable across runs, no LLM
+- [x] Kroki image export (--image svg|png) + offline archive round-trip
+      (--save-archive / --from-archive)
+      Plan: plans/2026-06-08-schema-image-export.md
+      Doc: docs/schema-image-export.md
+- [x] Three seeded areas (doc-designer, bcm, cmdb-bcm) including the
+      CMDB<->BCM bridge view
+
 ## 2026.07 -- Agent Specialists [planned]
 - [ ] 8 domain specialist agents implemented
 - [ ] ExecutionContext enrichment from enterprise MCP

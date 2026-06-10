@@ -9,8 +9,8 @@
 [![CI](https://github.com/pierregrothe/nexus-sn/actions/workflows/ci.yml/badge.svg)](https://github.com/pierregrothe/nexus-sn/actions/workflows/ci.yml)
 [![License: Source Available](https://img.shields.io/badge/license-Source%20Available-orange)](LICENSE)
 [![Python 3.14+](https://img.shields.io/badge/python-3.14%2B-blue)](https://www.python.org/downloads/)
-[![Tests](https://img.shields.io/badge/tests-912%20passing-brightgreen)](https://github.com/pierregrothe/nexus-sn/actions)
-[![LOC](https://img.shields.io/badge/LOC-15%2C748-blue)](https://github.com/pierregrothe/nexus-sn/tree/main/src)
+[![Tests](https://img.shields.io/badge/tests-1757%20passing-brightgreen)](https://github.com/pierregrothe/nexus-sn/actions)
+[![LOC](https://img.shields.io/badge/LOC-26%2C021-blue)](https://github.com/pierregrothe/nexus-sn/tree/main/src)
 <!-- /badges -->
 
 ServiceNow AI architect agent -- standalone CLI and optional web dashboard.
@@ -29,6 +29,7 @@ graph TB
         plug["plugins"]
         tmpl["templates"]
         assess["assessment"]
+        sch["schema"]
     end
     subgraph Platform ["Platform Layer"]
         agent["AgentClient\n(claude-agent-sdk)"]
@@ -40,8 +41,9 @@ graph TB
         auth["auth (keychain)"]
         cache["cache"]
     end
-    cmd --> cap & plug & tmpl & assess
+    cmd --> cap & plug & tmpl & assess & sch
     cap & plug & tmpl & assess --> agent & sn
+    sch --> sn
     agent --> caps
     agent & sn & caps --> conf & auth & cache
     caps -.->|"Anthropic API\nenterprise MCP tools"| ext["Value Melody / SSC\nBT1 / Data Analytics"]
@@ -98,11 +100,13 @@ gantt
     section Plugin Execution
         Plugin Execution             :done, 2026-05, 2026-06
     section Setup + Sync
-        Setup + Sync                 :active, 2026-05, 2026-06
+        Setup + Sync                 :done, 2026-05, 2026-06
     section Assessment
-        Assessment                   : 2026-06, 2026-07
+        Assessment                   :done, 2026-06, 2026-07
     section Template Library
-        Template Library             : 2026-06, 2026-07
+        Template Library             :done, 2026-06, 2026-07
+    section Schema Cartographer
+        Schema Cartographer          :done, 2026-06, 2026-07
     section Agent Specialists
         Agent Specialists            : 2026-07, 2026-08
     section Distribution
@@ -112,7 +116,7 @@ gantt
 
 ## What is implemented
 
-<!-- tests -->1000 tests passing, all real fakes, no mocks.<!-- /tests -->
+<!-- tests -->1757 tests passing, all real fakes, no mocks.<!-- /tests -->
 
 NEXUS picks one of four render profiles at startup -- **RICH**, **BASIC**,
 **LEGACY**, **PLAIN** -- by inspecting the terminal once (TTY status, color
@@ -131,6 +135,9 @@ The following commands are fully functional:
   updates, drift, baselines, recommend, export, promote, install, activate,
   upgrade, apply (full lifecycle including PromotionPlan execution against
   ServiceNow's discovered sn_appclient endpoints)
+- `nexus schema` -- areas, erd (reverse-engineer ServiceNow tables into
+  Mermaid ERDs; deterministic, `--grouped` per-scope, `--image` svg/png via
+  Kroki, offline archive round-trip)
 - `nexus reauth` -- OAuth token refresh helper
 - `nexus update` -- manual update check
 
@@ -202,6 +209,30 @@ forward-compatible stubs but fail loudly on live ServiceNow. ServiceNow does
 not expose deactivation or uninstall via any programmatic API on Yokohama --
 the `AppsAjaxProcessor` is flagged "not public" and only the SN UI can
 invoke it. Use the ServiceNow Application Manager UI for those operations.
+
+## Schema cartography
+
+`nexus schema` reverse-engineers a live ServiceNow data dictionary into
+Mermaid entity-relationship diagrams. Each entity box carries the table's key
+fields (primary key, business columns, foreign-key references); edges are
+derived deterministically from `sys_dictionary` reference columns and
+`sys_relationship` rows. No LLM is involved, so the output is byte-stable
+across runs.
+
+```bash
+nexus schema areas                          # list registered areas + scopes
+nexus schema erd doc-designer               # write a Markdown ERD
+nexus schema erd bcm --grouped              # one diagram per scope
+nexus schema erd cmdb-bcm --image png       # also render a PNG via Kroki
+nexus schema erd bcm --save-archive         # persist the discovered graph as JSON
+nexus schema erd bcm --from-archive bcm.json --image svg  # re-render offline
+```
+
+Three areas ship out of the box: `doc-designer` (Document Designer Fields /
+Data Relationships / Content Configuration), `bcm` (Business Continuity
+Management), and `cmdb-bcm` (the CMDB<->BCM bridge view). Image export uses
+[Kroki](https://kroki.io) -- point `--kroki-url` at a self-hosted instance for
+dense diagrams. See `docs/schema-image-export.md`.
 
 ## Requirements
 
