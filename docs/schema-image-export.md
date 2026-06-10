@@ -3,7 +3,9 @@
 `nexus schema erd` can emit a shareable image (SVG or PNG) alongside the
 Markdown, rendered from the diagram's Mermaid source by a
 [Kroki](https://kroki.io) service. The image pastes directly into Teams,
-email, Confluence, or Word.
+email, Confluence, or Word. Entity boxes carry each table's key fields
+(primary key, business columns, and foreign-key references), which makes
+rendered diagrams noticeably denser than name-only boxes.
 
 ## Usage
 
@@ -19,6 +21,16 @@ nexus schema erd cmdb-bcm --profile alectri --image svg
 `--image` is opt-in: without it the command stays fully offline and only
 writes the `.md`. With it, the `.md` is still written and `<stem>.<fmt>`
 is added beside it.
+
+## Output files
+
+The Markdown is written to `{area}-{profile}.md` in the current working
+directory by default; pass `-o`/`--output` to choose another path. The image,
+when requested, is written as a sibling of the Markdown with the format
+extension (for example `doc-designer-alectri.png` next to
+`doc-designer-alectri.md`). This repo keeps checked-in ERDs under
+`docs/erd/{area}-{profile}.md`; generated images there are git-ignored and
+reproducible on demand.
 
 ## Options
 
@@ -54,12 +66,18 @@ A local instance renders even dense ERDs in a few seconds. Tear it down with
 
 ## What gets sent
 
-Only the diagram's Mermaid source -- table and field *names* and their edges --
-is sent to the configured Kroki endpoint. No record data is included. With a
-self-hosted endpoint, nothing leaves the host.
+Only the diagram's Mermaid source -- table names, field names and types, and
+their edges -- is sent to the configured Kroki endpoint. No record data is
+included. With a self-hosted endpoint, nothing leaves the host.
 
 ## Formats
 
 SVG and PNG are supported (Kroki's Mermaid renderer does not produce PDF). SVG
 is recommended for dense ERDs because it stays crisp at any zoom; PNG is handy
 for pasting into tools that do not render SVG.
+
+PNG renders at fixed pixel dimensions decided by the diagram layout -- there
+is no DPI or scale knob, and the file carries no DPI metadata -- and the
+background is transparent, which can look wrong when pasted into dark-themed
+tools. Prefer `--image svg` for large areas and rasterize the SVG yourself if
+a specific pixel size is required.

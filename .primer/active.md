@@ -1,6 +1,6 @@
 # NEXUS -- Active Work
 
-Last updated: 2026-06-08
+Last updated: 2026-06-09
 Session: shipped the Schema Cartographer (`nexus.schema`) layer end-to-end
 on branch `feature/2026.06-schema-cartographer` (commits 8e47e31..c967a74,
 12 tasks). Driver: support case CS9240769 (RONA) -- reverse-engineer a live
@@ -14,14 +14,16 @@ Three areas seeded (doc-designer, bcm, cmdb-bcm). Validated live against
 `alectri` before building (94 reference edges, 42 cross-scope). Design spec +
 12-task plan under docs/superpowers/.
 
-Then added the Schema Mindmap mode (`nexus schema mindmap <area>`): an
-AI-enriched, business-domain-grouped table catalog (Mermaid mindmap +
-"Stores X" descriptions) -- the "which table stores what" companion to the
-ERD, matching the community-blog artifact RONA's customer works from. New
-modules catalog/enricher/mindmap_emitter; TableEnricher makes one batched
-Claude (AgentClient) call to cluster + describe, grounded on the discovered
-fields + sparse sys_documentation hints, with a scope-grouping fallback if the
-AI is unavailable. Built via brainstorm -> spec -> 7-task subagent TDD.
+Then added -- and later retired -- the Schema Mindmap mode (`nexus schema
+mindmap <area>`): an AI-enriched, business-domain-grouped table catalog
+(Mermaid mindmap + "Stores X" descriptions), built via brainstorm -> spec ->
+7-task subagent TDD (modules catalog/enricher/mindmap_emitter; TableEnricher
+made one batched AgentClient call to cluster + describe, with a
+scope-grouping fallback). It was retired by user decision in commit c96f1a8
+on `feature/2026.06-schema-image-export`: the ERD now carries each table's
+key fields inside the entity boxes (1feb198), which answers the "which table
+stores what" question in one artifact, so the mindmap modules, the CLI
+command, and the docs/mindmaps/ outputs were deleted.
 
 Also fixed two pre-existing test-suite bugs that made the full `pytest`
 "slow and failing": an INTERNALERROR crash (test_ui_capabilities patched the
@@ -33,11 +35,15 @@ logging to WARNING.
 
 ## Current Focus
 
-Schema Cartographer + Mindmap complete on `feature/2026.06-schema-cartographer`.
-Test count 1624 -> 1680. New schema modules at 100% line coverage (protocol
-excluded). mypy + pyright strict 0; ruff + black clean. Full suite green
-(`pytest -n auto`: 1680 passed, 3 skipped, ~18s). Live ERDs in docs/erd/ and
-AI mindmaps in docs/mindmaps/ for all three areas against `alectri`.
+Schema Cartographer merged to main via PR #51. Current work on
+`feature/2026.06-schema-image-export`: Kroki image export for ERDs
+(`nexus schema erd <area> --image svg|png`, `--kroki-url` / `NEXUS_KROKI_URL`,
+`--kroki-timeout`; KrokiClient in api/), ERD entity boxes now carry key
+fields (PK, business columns, FK references), and cmdb-bcm rebuilt as a true
+CMDB<->BCM bridge view. The mindmap mode is retired (c96f1a8, user decision)
+-- the fields-in-boxes ERD is the single schema deliverable. mypy + pyright
+strict 0; ruff + black clean. Live ERDs in docs/erd/ for all three areas
+against `alectri` (images git-ignored, reproducible via `--image`).
 
 Known tooling landmine (pre-existing, Windows-local): `pytest --cov` errors at
 collection on `mcp`'s pydantic RootModel under coverage.py 7.13.5 -- affects
@@ -64,11 +70,12 @@ Next major capability target candidates (unchanged from prior session):
 
 ## Recent Changes
 
-- c967a74 chore(schema): ratchet coverage baselines for nexus.schema
-- b482008 docs(schema): generated ERDs (doc-designer, bcm, cmdb-bcm)
-- 5fd6b8d feat(cli): nexus schema areas/erd commands
-- 7698e8e feat(schema): SchemaProtocol + SchemaCartographer engine
-- ae61396 feat(schema): SchemaDiscoverer with validated cell normalization
+- c96f1a8 refactor(schema): retire mindmap mode -- ERD is the schema deliverable
+- 1feb198 feat(schema): ERD entities render key fields (PK/business/FK columns)
+- c96453d feat(schema): cmdb-bcm is now a true CMDB<->BCM bridge view
+- c1ad24e feat(schema): nexus schema erd|mindmap --image svg|png via Kroki
+- 7462fb3 feat(schema): add KrokiClient for diagram image rendering
+- f44073c Merge pull request #51 (schema cartographer -> main)
 
 ## Open Blockers
 
@@ -92,7 +99,8 @@ Next major capability target candidates (unchanged from prior session):
 
 ## Next Steps
 
-1. Merge `feature/2026.06-schema-cartographer` (open PR or fast-forward).
+1. Merge `feature/2026.06-schema-image-export` (Kroki export +
+   fields-in-boxes ERD + mindmap retirement).
 2. Optionally write ADR-025 (schema layer) + PRD-004 (schema cartographer).
 3. Use the doc-designer ERD + narrative to draft the CS9240769 case reply
    (confirm the UI "Fields" tab maps to `sn_grc_doc_design_data_column`).
@@ -101,5 +109,5 @@ Next major capability target candidates (unchanged from prior session):
 
 ## Branch / remote state
 
-feature/2026.06-schema-cartographer: c967a74 (not yet merged to main).
-main: 87a73c4 (origin/main in sync).
+feature/2026.06-schema-cartographer: merged to main via PR #51 (f44073c).
+feature/2026.06-schema-image-export: c96f1a8 (not yet merged to main).
