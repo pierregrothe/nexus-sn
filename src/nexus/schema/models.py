@@ -26,7 +26,8 @@ class FieldDef(BaseModel):
     Args:
         name: Field (element) name.
         label: Column label.
-        type: "reference" for reference fields, "field" otherwise.
+        type: ServiceNow internal type (e.g. "string", "glide_date_time",
+            "reference"); "field" when the dictionary type is unknown.
         reference_target: Target table name for reference fields, else None.
         mandatory: Whether the field is mandatory.
     """

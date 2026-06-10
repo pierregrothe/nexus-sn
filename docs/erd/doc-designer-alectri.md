@@ -5,6 +5,143 @@ Discovered: 2026-06-08T16:20:11.395757+00:00
 
 ```mermaid
 erDiagram
+    sn_grc_doc_design_data_relationship {
+        field sys_id PK
+        field source_table
+        field name
+        field root_table
+        field target_table
+        reference business_domain FK
+        reference parent_relationship FK
+        reference data_registry FK
+    }
+    sn_grc_rel_config_edge_status_config {
+        field sys_id PK
+        field color
+        field edge_type
+        field label
+        field conditions
+        field order
+        reference edge_config FK
+    }
+    sn_grc_rel_config_node_status_config {
+        field sys_id PK
+        field color
+        field order
+        field conditions
+        reference icon FK
+        reference node_config FK
+    }
+    sn_grc_rel_config_main_node_config {
+        field sys_id PK
+        field table
+        field name
+        field source
+        field max_nodes
+        field max_levels
+        field conditions
+        field active
+    }
+    sn_grc_doc_design_intermediate_filter {
+        field sys_id PK
+        field condition
+        field active
+        field number_of_records
+        field name
+        field set_record_limit
+        reference data_relationship_node FK
+        reference content_configuration FK
+    }
+    sn_grc_doc_design_scripted_variable {
+        field sys_id PK
+        field type
+        field script
+        field name
+        reference template_configuration FK
+    }
+    sn_grc_rel_config_node_config {
+        field sys_id PK
+        field tooltip
+        field secondary_label
+        field context_record
+        field primary_label
+        field table
+        reference icon FK
+        reference set_as_main_node_ui_config FK
+        reference data_nav_config FK
+    }
+    sn_grc_rel_config_graph_element_base {
+        field sys_id PK
+        field field_mapping
+        field active
+        reference main_node_ui_config FK
+    }
+    sn_grc_doc_design_data_rel_mapping {
+        field sys_id PK
+        field aggregation_type
+        field name
+        field number_of_records
+        field target_table
+        field group_by
+        field aggregation_query
+        field condition
+        field aggregation_field
+        reference parent_relationship_mapping FK
+        reference data_relationship FK
+        reference template_configuration FK
+    }
+    sn_grc_rel_config_main_node_ui_config {
+        field sys_id PK
+        field name
+        field workspace_type
+        field short_description
+        field active
+        field node_ui_type
+        reference main_node_config FK
+    }
+    sn_grc_doc_design_template_config {
+        field sys_id PK
+        field fields
+        field name
+        field table
+        reference business_domain FK
+    }
+    sn_grc_rel_config_edge_config {
+        field sys_id PK
+        field tooltip
+        field default_edge_type
+        field label
+        reference node_relationship_config FK
+    }
+    sn_grc_doc_design_data_column {
+        field sys_id PK
+        field script
+        field column_name
+        field column
+        field type
+        reference data_relationship_mapping FK
+    }
+    sn_grc_rel_config_node_rel_config {
+        field sys_id PK
+        field max_children
+        field sort_by
+        field type
+        field max_levels
+        field direction
+        field order
+        field query_category
+        field name
+        field target_conditions
+        field active
+        field relationship_table
+        field target_ref_field
+        field source_table
+        field relationship_conditions
+        field target_table
+        field sequence
+        reference rel_registry FK
+        reference main_node_config FK
+    }
     sn_grc_rel_config_main_node_ui_config }o--|| sn_grc_rel_config_main_node_config : "main_node_config"
     sn_grc_doc_design_data_relationship }o--|| sn_esg_msoff_intg_business_domain : "business_domain"
     sn_grc_doc_design_data_rel_mapping }o--|| sn_grc_doc_design_data_rel_mapping : "parent_relationship_mapping"

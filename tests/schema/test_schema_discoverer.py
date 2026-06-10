@@ -52,6 +52,7 @@ def _seed() -> dict[str, list[dict[str, object]]]:
                 "name": "sn_grc_doc_design_data_rel_mapping",
                 "element": "data_relationship",
                 "column_label": "Data relationship",
+                "internal_type": "reference",
                 "reference": _ref("sn_grc_doc_design_data_relationship"),
                 "mandatory": "true",
             },
@@ -59,6 +60,7 @@ def _seed() -> dict[str, list[dict[str, object]]]:
                 "name": "sn_grc_doc_design_data_relationship",
                 "element": "name",
                 "column_label": "Name",
+                "internal_type": "string",
                 "reference": "",
                 "mandatory": "false",
             },
@@ -114,6 +116,14 @@ async def test_discover_builds_reference_edge_with_target_name() -> None:
     assert edge.from_table == "sn_grc_doc_design_data_rel_mapping"
     assert edge.to_table == "sn_grc_doc_design_data_relationship"
     assert edge.cross_scope is False
+
+
+@pytest.mark.asyncio
+async def test_discover_field_uses_internal_type() -> None:
+    graph = await _disc(_seed()).discover("alectri", "dd")
+    table = next(t for t in graph.tables if t.name == "sn_grc_doc_design_data_relationship")
+    name_field = next(f for f in table.fields if f.name == "name")
+    assert name_field.type == "string"
 
 
 @pytest.mark.asyncio

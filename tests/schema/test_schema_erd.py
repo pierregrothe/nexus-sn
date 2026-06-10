@@ -27,7 +27,17 @@ def _graph() -> SchemaGraph:
                 name="content_config",
                 label="Content configuration",
                 scope="sn_grc_doc_design",
-                fields=(FieldDef(name="data_relationship", label="Data rel", type="reference"),),
+                fields=(
+                    FieldDef(name="sys_id", label="Sys ID", type="GUID"),
+                    FieldDef(name="name", label="Name", type="string"),
+                    FieldDef(name="sys_created_by", label="Created by", type="string"),
+                    FieldDef(
+                        name="data_relationship",
+                        label="Data rel",
+                        type="reference",
+                        reference_target="data_relationship",
+                    ),
+                ),
             ),
             TableDef(
                 name="data_relationship", label="Data relationship", scope="sn_grc_doc_design"
@@ -132,3 +142,22 @@ def test_diagram_returns_bare_mermaid_source() -> None:
     assert "}o--||" in diagram
     assert "```" not in diagram
     assert "# Schema ERD" not in diagram
+
+
+def test_diagram_renders_entity_block_with_key_fields() -> None:
+    diagram = MermaidErdEmitter().diagram(_graph())
+    assert "content_config {" in diagram
+    assert "GUID sys_id PK" in diagram
+    assert "string name" in diagram
+    assert "reference data_relationship FK" in diagram
+
+
+def test_diagram_hides_audit_fields_from_entity_block() -> None:
+    diagram = MermaidErdEmitter().diagram(_graph())
+    assert "sys_created_by" not in diagram
+
+
+def test_diagram_omits_block_for_table_without_key_fields() -> None:
+    # data_relationship has no fields -> no entity block, only edge lines.
+    diagram = MermaidErdEmitter().diagram(_graph())
+    assert "data_relationship {" not in diagram

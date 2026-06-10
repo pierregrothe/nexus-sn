@@ -6,9 +6,55 @@
 
 from __future__ import annotations
 
-from nexus.schema.models import SchemaGraph
+import re
+
+from nexus.schema.models import SchemaGraph, TableDef
 
 __all__ = ["MermaidErdEmitter"]
+
+_NON_TOKEN = re.compile(r"[^A-Za-z0-9_]")
+
+
+def _token(text: str, fallback: str) -> str:
+    """Reduce text to a Mermaid attribute token (word characters only).
+
+    Args:
+        text: Raw type or element name.
+        fallback: Value to use when sanitizing leaves an empty string.
+
+    Returns:
+        A single word-character token safe for a Mermaid attribute line.
+    """
+    return _NON_TOKEN.sub("_", text) or fallback
+
+
+def _entity_attributes(table: TableDef) -> list[str]:
+    """Build the key-field attribute lines for one entity box.
+
+    Shows the primary key (``sys_id``) first, then business columns, then
+    foreign keys. ``sys_*`` audit columns are hidden to keep boxes legible.
+
+    Args:
+        table: The table whose key fields to render.
+
+    Returns:
+        Indented Mermaid attribute lines, ordered PK, business, FK.
+    """
+    pk: list[str] = []
+    business: list[str] = []
+    fks: list[str] = []
+    for fld in table.fields:
+        ftype = _token(fld.type, "field")
+        fname = _token(fld.name, "field")
+        if fld.name == "sys_id":
+            pk.append(f"        {ftype} {fname} PK")
+        elif fld.name.startswith("sys_"):
+            continue
+        elif fld.reference_target:
+            fks.append(f"        {ftype} {fname} FK")
+        else:
+            business.append(f"        {ftype} {fname}")
+    return pk + business + fks
 
 
 class MermaidErdEmitter:
@@ -17,6 +63,9 @@ class MermaidErdEmitter:
     def diagram(self, graph: SchemaGraph) -> str:
         """Render only the Mermaid ``erDiagram`` source (no Markdown wrapper).
 
+        Each in-scope entity carries its key fields (PK, foreign keys, and
+        business columns) inside the box; neighbors stay as bare boxes.
+
         Args:
             graph: The graph to render.
 
@@ -24,6 +73,15 @@ class MermaidErdEmitter:
             The Mermaid diagram source, suitable for a render service.
         """
         lines: list[str] = ["erDiagram"]
+        for table in graph.tables:
+            if table.is_neighbor:
+                continue
+            attrs = _entity_attributes(table)
+            if not attrs:
+                continue
+            lines.append(f"    {table.name} {{")
+            lines.extend(attrs)
+            lines.append("    }")
         for edge in graph.reference_edges:
             lines.append(f'    {edge.from_table} }}o--|| {edge.to_table} : "{edge.field}"')
         for inh in graph.inheritance_edges:

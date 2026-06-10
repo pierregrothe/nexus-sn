@@ -136,7 +136,7 @@ class SchemaDiscoverer:
             "sys_dictionary",
             "name",
             in_scope,
-            fields="name,element,column_label,reference,mandatory",
+            fields="name,element,column_label,internal_type,reference,mandatory",
             suffix="^elementISNOTEMPTY",
         )
         fields_by: dict[str, list[FieldDef]] = {}
@@ -151,7 +151,7 @@ class SchemaDiscoverer:
                 FieldDef(
                     name=elem,
                     label=cell(r, "column_label"),
-                    type="reference" if ref else "field",
+                    type=cell(r, "internal_type") or ("reference" if ref else "field"),
                     reference_target=ref or None,
                     mandatory=cell(r, "mandatory") == "true",
                 )
