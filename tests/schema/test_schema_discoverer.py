@@ -163,22 +163,124 @@ async def test_discover_inheritance_edge_marks_neighbor_parent() -> None:
     assert any(t.name == "task" and t.is_neighbor for t in graph.tables)
 
 
+class _ExtraDictRowClient(FakeServiceNowClient):
+    """Fake that returns one out-of-scope sys_dictionary row on every page."""
+
+    async def list_records(
+        self,
+        table: str,
+        query: str = "",
+        limit: int = 1000,
+        offset: int = 0,
+        fields: str = "",
+        display_value: str = "false",
+    ) -> list[dict[str, object]]:
+        """Append an unrequested 'task' dictionary row to query results."""
+        rows = await super().list_records(
+            table,
+            query=query,
+            limit=limit,
+            offset=offset,
+            fields=fields,
+            display_value=display_value,
+        )
+        if table == "sys_dictionary":
+            rows.append(
+                {
+                    "name": "task",
+                    "element": "number",
+                    "column_label": "Number",
+                    "reference": "",
+                    "mandatory": "false",
+                }
+            )
+        return rows
+
+
 @pytest.mark.asyncio
 async def test_discover_skips_dict_rows_for_out_of_scope_tables() -> None:
+    # A misbehaving server returns a dictionary row for a table outside the
+    # area; the discoverer must drop it.
+    disc = SchemaDiscoverer(
+        _ExtraDictRowClient(_seed()),
+        areas=_AREAS,
+        clock=lambda: datetime(2026, 6, 8, tzinfo=UTC),
+    )
+    graph = await disc.discover("alectri", "dd")
+    assert not any(e.from_table == "task" for e in graph.reference_edges)
+    assert all(t.name != "task" or t.is_neighbor for t in graph.tables)
+
+
+@pytest.mark.asyncio
+async def test_discover_more_than_forty_tables_batches_dictionary_queries() -> None:
+    n = 41  # one over the IN-batch size of 40 -> two sys_dictionary queries
+    seed: dict[str, list[dict[str, object]]] = {
+        "sys_scope": [{"sys_id": "SCID", "scope": "sn_grc_doc_design"}],
+        "sys_db_object": [
+            {
+                "sys_id": f"T{i}",
+                "name": f"sn_grc_doc_design_t{i:02d}",
+                "label": f"Table {i}",
+                "super_class": "",
+                "sys_scope": _ref("SCID"),
+            }
+            for i in range(n)
+        ],
+        "sys_dictionary": [
+            {
+                "name": f"sn_grc_doc_design_t{i:02d}",
+                "element": "u_field",
+                "column_label": "Field",
+                "reference": "",
+                "mandatory": "false",
+            }
+            for i in range(n)
+        ],
+        "sys_relationship": [],
+    }
+    graph = await _disc(seed).discover("alectri", "dd")
+    in_scope = [t for t in graph.tables if not t.is_neighbor]
+    assert len(in_scope) == n
+    # Each table owns exactly one field: batch queries must not duplicate rows.
+    assert all(len(t.fields) == 1 for t in in_scope)
+
+
+@pytest.mark.asyncio
+async def test_discover_paginates_dictionary_rows_beyond_page_limit() -> None:
+    n_fields = 5001  # one over the 5000-row page limit -> two pages
     seed = _seed()
-    # A dictionary row for a table outside the area (the fake returns it anyway).
-    seed["sys_dictionary"].append(
+    seed["sys_dictionary"] = [
         {
-            "name": "task",
-            "element": "number",
-            "column_label": "Number",
+            "name": "sn_grc_doc_design_data_relationship",
+            "element": f"u_f{i:04d}",
+            "column_label": f"Field {i}",
             "reference": "",
             "mandatory": "false",
         }
-    )
+        for i in range(n_fields)
+    ]
     graph = await _disc(seed).discover("alectri", "dd")
-    assert not any(e.from_table == "task" for e in graph.reference_edges)
-    assert all(t.name != "task" or t.is_neighbor for t in graph.tables)
+    table = next(t for t in graph.tables if t.name == "sn_grc_doc_design_data_relationship")
+    assert len(table.fields) == n_fields
+
+
+@pytest.mark.asyncio
+async def test_discover_empty_scope_skips_relationship_query() -> None:
+    seed = _seed()
+    seed["sys_db_object"] = []  # scope resolves but owns zero tables
+    client = FakeServiceNowClient(seed)
+    disc = SchemaDiscoverer(client, areas=_AREAS, clock=lambda: datetime(2026, 6, 8, tzinfo=UTC))
+    graph = await disc.discover("alectri", "dd")
+    assert graph.relationship_edges == ()
+    assert all(table != "sys_relationship" for table, _ in client.calls)
+
+
+@pytest.mark.asyncio
+async def test_discover_relationship_rows_deduped_across_passes() -> None:
+    # The seeded row's apply_to AND query_from are both in scope, so it
+    # matches both batched passes -- it must still yield exactly one edge.
+    graph = await _disc(_seed()).discover("alectri", "dd")
+    assert len(graph.relationship_edges) == 1
 
 
 @pytest.mark.asyncio

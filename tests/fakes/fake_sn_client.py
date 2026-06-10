@@ -6,9 +6,83 @@
 """FakeServiceNowClient: in-memory substitute for ServiceNowClient."""
 
 import uuid
-from typing import Any
+from collections.abc import Mapping
+from typing import Any, cast
 
 __all__ = ["FakeServiceNowClient"]
+
+
+def _cell(row: Mapping[str, object], field: str) -> str:
+    """Extract a row cell's scalar value for query matching.
+
+    Reference cells are dicts (``{"link"|"display_value", "value"}``); take
+    ``value`` -- mirrors ``nexus.schema.discoverer.cell``. Plain scalars
+    return as a string. Missing keys return "".
+
+    Args:
+        row: A seeded record dict.
+        field: Column name.
+
+    Returns:
+        The scalar value (sys_id or table name for references), else "".
+    """
+    raw = row.get(field)
+    if isinstance(raw, dict):
+        return str(cast("dict[str, object]", raw).get("value", ""))
+    return "" if raw is None else str(raw)
+
+
+def _condition_matches(row: Mapping[str, object], cond: str) -> bool:
+    """Evaluate one encoded-query condition fragment against a row.
+
+    Recognized forms (checked in this order):
+
+    * ``fieldISNOTEMPTY``  -- true when the field has a non-empty value
+    * ``field=value``      -- string equality on the extracted value
+    * ``fieldINv1,v2,...`` -- membership in the comma-separated list
+
+    Any other fragment is treated as match-all (returns True) so queries
+    using unsupported operators never silently filter rows out.
+
+    Args:
+        row: A seeded record dict.
+        cond: One condition fragment (no ``^`` separators).
+
+    Returns:
+        True when the row satisfies the condition (or it is unrecognized).
+    """
+    if cond.endswith("ISNOTEMPTY"):
+        return _cell(row, cond.removesuffix("ISNOTEMPTY")) != ""
+    if "=" in cond:
+        field, _, value = cond.partition("=")
+        return _cell(row, field) == value
+    if "IN" in cond:
+        field, _, csv = cond.partition("IN")
+        return _cell(row, field) in csv.split(",")
+    return True
+
+
+def _row_matches(row: Mapping[str, object], query: str) -> bool:
+    """Evaluate a minimal ServiceNow encoded query against one row.
+
+    Supported grammar: ``^OR`` splits the query into alternatives and ``^``
+    joins conditions inside an alternative (see ``_condition_matches`` for
+    the condition forms). A row matches when ANY alternative has ALL of its
+    conditions true. An empty query matches every row.
+
+    Args:
+        row: A seeded record dict.
+        query: ServiceNow encoded query string.
+
+    Returns:
+        True when the row satisfies the query.
+    """
+    if not query:
+        return True
+    return any(
+        all(_condition_matches(row, cond) for cond in alternative.split("^"))
+        for alternative in query.split("^OR")
+    )
 
 
 class FakeServiceNowClient:
@@ -25,6 +99,8 @@ class FakeServiceNowClient:
         self._tables: dict[str, list[dict[str, Any]]] = {}
         for table, records in (initial_records or {}).items():
             self._tables[table] = [dict(r) for r in records]
+        # (table, query) tuples recorded by list_records for test inspection.
+        self.calls: list[tuple[str, str]] = []
         # Canned responses for the appmanager / progress endpoints (Task 7).
         self._dependency_responses: dict[str, list[dict[str, Any]]] = {}
         self._install_responses: list[dict[str, Any]] = []
@@ -185,21 +261,27 @@ class FakeServiceNowClient:
         fields: str = "",
         display_value: str = "false",
     ) -> list[dict[str, Any]]:
-        """Return a page of records from the in-memory table.
+        """Return a filtered page of records from the in-memory table.
+
+        The encoded query is interpreted with a minimal grammar (see
+        ``_row_matches``); unrecognized condition fragments match all rows.
+        Offset/limit slicing is applied AFTER filtering, mirroring the real
+        Table API. Each call appends a (table, query) tuple to ``calls``.
 
         Args:
             table: Table name.
-            query: Ignored in fake -- returns all records in page window.
+            query: ServiceNow encoded query (minimal grammar; "" matches all).
             limit: Maximum records to return.
-            offset: Starting record index.
+            offset: Starting record index within the filtered result.
             fields: Ignored in fake.
             display_value: Ignored in fake.
 
         Returns:
             List of record dicts for the requested page.
         """
-        all_records = self._tables.get(table, [])
-        return all_records[offset : offset + limit]
+        self.calls.append((table, query))
+        matched = [r for r in self._tables.get(table, []) if _row_matches(r, query)]
+        return matched[offset : offset + limit]
 
     async def count_records(self, table: str, query: str = "") -> int:
         """Return the total count of records in the table.

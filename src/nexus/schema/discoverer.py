@@ -29,7 +29,9 @@ log = logging.getLogger(__name__)
 __all__ = ["SchemaDiscoverer", "cell"]
 
 _IN_BATCH = 40
+_PAGE_LIMIT = 5000
 _OUT = "__out"  # sentinel scope for out-of-area tables; never a real scope key
+_REL_FIELDS = "name,apply_to,query_from"
 
 
 def cell(row: Mapping[str, object], key: str) -> str:
@@ -191,19 +193,22 @@ class SchemaDiscoverer:
             for nb in sorted(neighbors)
         )
 
-        rel_rows = await self._client.list_records(
-            "sys_relationship",
-            query=f"apply_toIN{','.join(in_scope)}^ORquery_fromIN{','.join(in_scope)}",
-            fields="name,apply_to,query_from",
-            limit=2000,
-        )
-        rel_edges = [
-            RelationshipEdge(
-                name=cell(r, "name"), apply_to=cell(r, "apply_to"), query_from=cell(r, "query_from")
+        # Two batched passes (URL-length safe); dedupe rows matching both halves.
+        rel_edges: list[RelationshipEdge] = []
+        if in_scope:
+            rel_rows = await self._batched_in(
+                "sys_relationship", "apply_to", in_scope, fields=_REL_FIELDS
             )
-            for r in rel_rows
-            if cell(r, "name")
-        ]
+            rel_rows += await self._batched_in(
+                "sys_relationship", "query_from", in_scope, fields=_REL_FIELDS
+            )
+            seen: set[tuple[str, str, str]] = set()
+            for r in rel_rows:
+                key = (cell(r, "name"), cell(r, "apply_to"), cell(r, "query_from"))
+                if not key[0] or key in seen:
+                    continue
+                seen.add(key)
+                rel_edges.append(RelationshipEdge(name=key[0], apply_to=key[1], query_from=key[2]))
 
         graph = SchemaGraph(
             instance_id=instance_id,
@@ -230,6 +235,10 @@ class SchemaDiscoverer:
     ) -> list[dict[str, object]]:
         """Run ``{field}IN{batch}`` queries in batches of _IN_BATCH.
 
+        Each batch query is paginated: pages of _PAGE_LIMIT rows are fetched
+        until a short page signals the last page (same loop as
+        ``nexus.capture.fetcher``), so overflow rows are never dropped.
+
         Args:
             table: Table to query.
             field: Field for the IN clause.
@@ -238,15 +247,20 @@ class SchemaDiscoverer:
             suffix: Extra encoded-query fragment appended to each batch query.
 
         Returns:
-            Concatenated rows across all batches.
+            Concatenated rows across all batches and pages.
         """
         rows: list[dict[str, object]] = []
         uniq = sorted({v for v in values if v})
         for i in range(0, len(uniq), _IN_BATCH):
             batch = uniq[i : i + _IN_BATCH]
-            rows.extend(
-                await self._client.list_records(
-                    table, query=f"{field}IN{','.join(batch)}{suffix}", fields=fields, limit=5000
+            query = f"{field}IN{','.join(batch)}{suffix}"
+            offset = 0
+            while True:
+                page = await self._client.list_records(
+                    table, query=query, fields=fields, limit=_PAGE_LIMIT, offset=offset
                 )
-            )
+                rows.extend(page)
+                if len(page) < _PAGE_LIMIT:
+                    break
+                offset += _PAGE_LIMIT
         return rows
