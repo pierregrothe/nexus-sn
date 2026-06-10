@@ -96,6 +96,7 @@ class FakeServiceNowClient:
     """
 
     def __init__(self, initial_records: dict[str, list[dict[str, Any]]] | None = None) -> None:
+        """Initialize the in-memory store with optional seed records."""
         self._tables: dict[str, list[dict[str, Any]]] = {}
         for table, records in (initial_records or {}).items():
             self._tables[table] = [dict(r) for r in records]
