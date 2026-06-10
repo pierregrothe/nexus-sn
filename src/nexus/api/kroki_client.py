@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import logging
+from enum import StrEnum
 from typing import Protocol
 
 import httpx
@@ -15,21 +16,30 @@ from nexus.api.errors import KrokiError
 
 log = logging.getLogger(__name__)
 
-__all__ = ["KrokiClient", "KrokiClientProtocol"]
+__all__ = ["ImageFormat", "KrokiClient", "KrokiClientProtocol"]
 
 _DEFAULT_TIMEOUT = 60.0
 _ERR_BODY_CHARS = 500
 
 
+class ImageFormat(StrEnum):
+    """Supported diagram image formats for Kroki rendering."""
+
+    svg = "svg"
+    png = "png"
+
+
 class KrokiClientProtocol(Protocol):
     """Renders diagram source text to image bytes via a Kroki service."""
 
-    async def render(self, source: str, *, fmt: str, diagram_type: str = "mermaid") -> bytes:
+    async def render(
+        self, source: str, *, fmt: ImageFormat, diagram_type: str = "mermaid"
+    ) -> bytes:
         """Render diagram source to image bytes.
 
         Args:
             source: Diagram source text (e.g. a Mermaid block body).
-            fmt: Output format, e.g. "svg" or "png".
+            fmt: Output image format.
             diagram_type: Kroki diagram type. Defaults to "mermaid".
 
         Returns:
@@ -64,12 +74,14 @@ class KrokiClient:
         self._timeout = timeout
         self._transport = transport
 
-    async def render(self, source: str, *, fmt: str, diagram_type: str = "mermaid") -> bytes:
+    async def render(
+        self, source: str, *, fmt: ImageFormat, diagram_type: str = "mermaid"
+    ) -> bytes:
         """Render diagram source to image bytes via POST.
 
         Args:
             source: Diagram source text.
-            fmt: Output format ("svg" or "png").
+            fmt: Output image format.
             diagram_type: Kroki diagram type. Defaults to "mermaid".
 
         Returns:

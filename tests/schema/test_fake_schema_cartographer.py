@@ -9,6 +9,7 @@ from pathlib import Path
 
 import pytest
 
+from nexus.api.kroki_client import ImageFormat
 from nexus.schema.models import SchemaGraph, TableDef
 from tests.schema.fakes.fake_schema_cartographer import FakeSchemaCartographer
 
@@ -46,4 +47,4 @@ def test_fake_save_and_load_roundtrips(tmp_path: Path) -> None:
 @pytest.mark.asyncio
 async def test_fake_render_erd_image_returns_canned_bytes() -> None:
     fake = FakeSchemaCartographer(_graph(), image=b"PNG")
-    assert await fake.render_erd_image(_graph(), fmt="png") == b"PNG"
+    assert await fake.render_erd_image(_graph(), fmt=ImageFormat.png) == b"PNG"

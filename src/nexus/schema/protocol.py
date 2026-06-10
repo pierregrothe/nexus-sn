@@ -9,6 +9,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Protocol
 
+from nexus.api.kroki_client import ImageFormat
 from nexus.schema.models import SchemaGraph
 
 __all__ = ["SchemaProtocol"]
@@ -31,4 +32,8 @@ class SchemaProtocol(Protocol):
 
     def render_erd(self, graph: SchemaGraph) -> str:
         """Render a graph to Markdown + Mermaid."""
+        ...
+
+    async def render_erd_image(self, graph: SchemaGraph, *, fmt: ImageFormat) -> bytes:
+        """Render a graph's ERD to image bytes via the Kroki service."""
         ...

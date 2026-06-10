@@ -7,13 +7,13 @@
 from __future__ import annotations
 
 import asyncio
-from enum import StrEnum
 from pathlib import Path
 from typing import Annotated
 
 import typer
 
 from nexus.api.errors import KrokiError
+from nexus.api.kroki_client import ImageFormat
 from nexus.cli.apps import schema_app
 from nexus.cli.auth import config_default as _config_default
 from nexus.cli.console import console
@@ -24,14 +24,6 @@ from nexus.schema.errors import SchemaError
 from nexus.ui import CommandGuide, CommandHelp, Hint, Notice, nexus_progress
 
 __all__: list[str] = []
-
-
-class ImageFormat(StrEnum):
-    """Supported diagram image formats for Kroki rendering."""
-
-    svg = "svg"
-    png = "png"
-
 
 _KROKI_DEFAULT = "https://kroki.io"
 _KROKI_TIMEOUT_DEFAULT = 60.0
@@ -116,9 +108,9 @@ def schema_erd(
             dest.write_text(markdown, encoding="utf-8")
             console.print(f"Wrote ERD to {dest}")
             if image is not None:
-                progress.add_task(f"Rendering {image.value} via {kroki_url}...", total=None)
-                data = await cartographer.render_erd_image(graph, fmt=image.value)
-                img_dest = dest.with_suffix(f".{image.value}")
+                progress.add_task(f"Rendering {image} via {kroki_url}...", total=None)
+                data = await cartographer.render_erd_image(graph, fmt=image)
+                img_dest = dest.with_suffix(f".{image}")
                 img_dest.write_bytes(data)
                 console.print(f"Wrote image to {img_dest}")
 
@@ -135,9 +127,9 @@ def schema_erd(
         console.print(f"Wrote ERD to {dest}")
         if image is not None:
             with nexus_progress(console) as progress:
-                progress.add_task(f"Rendering {image.value} via {kroki_url}...", total=None)
-                data = await kroki.render(emitter.diagram(graph), fmt=image.value)
-            img_dest = dest.with_suffix(f".{image.value}")
+                progress.add_task(f"Rendering {image} via {kroki_url}...", total=None)
+                data = await kroki.render(emitter.diagram(graph), fmt=image)
+            img_dest = dest.with_suffix(f".{image}")
             img_dest.write_bytes(data)
             console.print(f"Wrote image to {img_dest}")
 

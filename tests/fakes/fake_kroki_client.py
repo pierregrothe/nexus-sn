@@ -6,6 +6,8 @@
 
 from dataclasses import dataclass, field
 
+from nexus.api.kroki_client import ImageFormat
+
 
 def _make_calls() -> list[dict[str, object]]:
     return []
@@ -30,12 +32,14 @@ class FakeKrokiClient:
     canned: bytes = b"<svg/>"
     side_effect: BaseException | None = None
 
-    async def render(self, source: str, *, fmt: str, diagram_type: str = "mermaid") -> bytes:
+    async def render(
+        self, source: str, *, fmt: ImageFormat, diagram_type: str = "mermaid"
+    ) -> bytes:
         """Record the call and return canned bytes (or raise side_effect).
 
         Args:
             source: Diagram source text.
-            fmt: Output format.
+            fmt: Output image format.
             diagram_type: Kroki diagram type.
 
         Returns:

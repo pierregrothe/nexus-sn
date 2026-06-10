@@ -6,13 +6,14 @@
 
 import pytest
 
+from nexus.api.kroki_client import ImageFormat
 from tests.fakes.fake_kroki_client import FakeKrokiClient
 
 
 @pytest.mark.asyncio
 async def test_render_records_call_and_returns_canned_bytes() -> None:
     fake = FakeKrokiClient(canned=b"<svg/>")
-    out = await fake.render("erDiagram", fmt="svg")
+    out = await fake.render("erDiagram", fmt=ImageFormat.svg)
     assert out == b"<svg/>"
     assert fake.calls == [{"source": "erDiagram", "fmt": "svg", "diagram_type": "mermaid"}]
 
@@ -21,4 +22,4 @@ async def test_render_records_call_and_returns_canned_bytes() -> None:
 async def test_render_raises_side_effect() -> None:
     fake = FakeKrokiClient(side_effect=RuntimeError("boom"))
     with pytest.raises(RuntimeError):
-        await fake.render("x", fmt="png")
+        await fake.render("x", fmt=ImageFormat.png)

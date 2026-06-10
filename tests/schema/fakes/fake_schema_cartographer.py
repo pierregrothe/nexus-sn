@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from nexus.api.kroki_client import ImageFormat
 from nexus.schema.models import SchemaGraph
 
 __all__ = ["FakeSchemaCartographer"]
@@ -101,7 +102,7 @@ class FakeSchemaCartographer:
         """
         return f"# {graph.area_key}\n\nerDiagram"
 
-    async def render_erd_image(self, graph: SchemaGraph, *, fmt: str) -> bytes:
+    async def render_erd_image(self, graph: SchemaGraph, *, fmt: ImageFormat) -> bytes:
         """Return canned image bytes (ignores inputs).
 
         Args:

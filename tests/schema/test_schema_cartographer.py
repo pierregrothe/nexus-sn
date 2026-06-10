@@ -10,6 +10,7 @@ from pathlib import Path
 import pytest
 
 from nexus.api.errors import KrokiError
+from nexus.api.kroki_client import ImageFormat
 from nexus.schema.areas import SchemaArea, ScopeRef
 from nexus.schema.engine import SchemaCartographer
 from tests.fakes.fake_kroki_client import FakeKrokiClient
@@ -79,7 +80,7 @@ async def test_render_erd_image_renders_via_kroki(tmp_path: Path) -> None:
         clock=lambda: datetime(2026, 6, 8, tzinfo=UTC),
     )
     graph = await engine.discover("alectri", "dd")
-    assert await engine.render_erd_image(graph, fmt="svg") == b"IMG"
+    assert await engine.render_erd_image(graph, fmt=ImageFormat.svg) == b"IMG"
     assert kroki.calls[0]["fmt"] == "svg"
     source = kroki.calls[0]["source"]
     assert isinstance(source, str)
@@ -100,4 +101,4 @@ async def test_render_erd_image_kroki_error_propagates(tmp_path: Path) -> None:
     )
     graph = await engine.discover("alectri", "dd")
     with pytest.raises(KrokiError):
-        await engine.render_erd_image(graph, fmt="svg")
+        await engine.render_erd_image(graph, fmt=ImageFormat.svg)

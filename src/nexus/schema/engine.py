@@ -10,7 +10,7 @@ from collections.abc import Callable, Mapping
 from datetime import UTC, datetime
 from pathlib import Path
 
-from nexus.api.kroki_client import KrokiClientProtocol
+from nexus.api.kroki_client import ImageFormat, KrokiClientProtocol
 from nexus.connectors.servicenow.protocol import ServiceNowClientProtocol
 from nexus.schema.archive import SchemaArchiveReader, SchemaArchiveWriter
 from nexus.schema.areas import DEFAULT_AREAS, SchemaArea
@@ -95,12 +95,12 @@ class SchemaCartographer:
         """
         return self._emitter.render(graph)
 
-    async def render_erd_image(self, graph: SchemaGraph, *, fmt: str) -> bytes:
+    async def render_erd_image(self, graph: SchemaGraph, *, fmt: ImageFormat) -> bytes:
         """Render a graph's ERD to image bytes via the Kroki service.
 
         Args:
             graph: The graph to render.
-            fmt: Output format ("svg" or "png").
+            fmt: Output image format.
 
         Returns:
             The rendered image bytes.
