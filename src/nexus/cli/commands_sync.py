@@ -14,6 +14,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import typer
@@ -25,6 +26,7 @@ from nexus.cli.console import console, err_console
 from nexus.cli.utils import humanize_age
 from nexus.config.manager import ConfigManager
 from nexus.config.paths import NexusPaths
+from nexus.schema.sync import GitHubProductCatalogClient
 from nexus.templates.registry import TemplateRegistry
 from nexus.templates.sync import GitHubSync, GitHubTemplateClient, SyncReport
 from nexus.ui import DataColumn, DataTable, Hint, Notice
@@ -35,6 +37,7 @@ if TYPE_CHECKING:
 __all__: list[str] = []
 
 _DEFAULT_MANIFEST_PATH = "templates/manifest.json"
+_DEFAULT_CATALOG_PATH = "schema/products.json"
 
 
 @app.command()
@@ -78,22 +81,24 @@ def _sync_main(
     console_out: Console,
     console_err: Console,
     manifest_path: str = _DEFAULT_MANIFEST_PATH,
+    catalog_path: str = _DEFAULT_CATALOG_PATH,
+    catalog_client: GitHubProductCatalogClient | None = None,
 ) -> int:
     """Core sync logic; returns exit code (0 success, 1 error).
 
     Args:
-        paths: ``NexusPaths`` rooted at the runtime ``.nexus/`` dir.
-        config_manager: ``ConfigManager`` to load ``github_repo`` /
-            ``github_branch``.
-        client: ``GitHubTemplateClient`` for the HTTP fetch.
+        paths: NexusPaths rooted at the runtime .nexus/ dir.
+        config_manager: ConfigManager to load github_repo / github_branch.
+        client: GitHubTemplateClient for the template manifest HTTP fetch.
         console_out: Rich console for user-facing status.
         console_err: Rich console for errors.
-        manifest_path: Path to the manifest within the repo. Defaults
-            to ``"templates/manifest.json"``.
+        manifest_path: Path to the template manifest within the repo.
+        catalog_path: Path to the schema product catalog within the repo.
+        catalog_client: GitHubProductCatalogClient (injectable for tests).
 
     Returns:
-        0 on success; 1 on any failure path (no-config / invalid-repo /
-        fetch-failed). The cache is only written on success.
+        0 on success; 1 if the template sync fails (catalog failure is
+        non-fatal and never causes a non-zero exit).
     """
     preferences = config_manager.load().preferences
     registry = TemplateRegistry(paths.templates_dir)
@@ -103,7 +108,63 @@ def _sync_main(
         branch=preferences.github_branch,
         path=manifest_path,
     )
-    return _render_sync_report(report, console_out, console_err)
+    exit_code = _render_sync_report(report, console_out, console_err)
+    if exit_code != 0:
+        return exit_code
+
+    # Schema product catalog sync -- best-effort, never blocks template sync.
+    _sync_schema_catalog(
+        repo=preferences.github_repo,
+        branch=preferences.github_branch,
+        path=catalog_path,
+        schema_dir=paths.schema_dir,
+        catalog_client=catalog_client or GitHubProductCatalogClient(),
+        console_out=console_out,
+        console_err=console_err,
+    )
+    return 0
+
+
+def _sync_schema_catalog(
+    *,
+    repo: str,
+    branch: str,
+    path: str,
+    schema_dir: Path,
+    catalog_client: GitHubProductCatalogClient,
+    console_out: Console,
+    console_err: Console,
+) -> None:
+    """Run SchemaSync and print a one-line result. Never raises.
+
+    Args:
+        repo: GitHub owner/name slug.
+        branch: GitHub branch name.
+        path: Path to the catalog within the repo.
+        schema_dir: Local cache directory.
+        catalog_client: HTTP client for the fetch.
+        console_out: Rich console for success output.
+        console_err: Rich console for warnings.
+    """
+    from nexus.schema.product_registry import ProductRegistry  # noqa: PLC0415
+    from nexus.schema.sync import SchemaSync  # noqa: PLC0415
+
+    schema_registry = ProductRegistry(schema_dir)
+    schema_report = SchemaSync(client=catalog_client, registry=schema_registry).run(
+        repo=repo, branch=branch, path=path
+    )
+    if schema_report.outcome == "ok" and schema_report.cached is not None:
+        count = len(schema_report.cached.catalog.products)
+        console_out.print(
+            Notice.info(f"Synced {count} schema products from {repo}@{branch}.")
+        )
+    else:
+        console_err.print(
+            Notice.warn(
+                "Schema product catalog sync failed (see log). "
+                "Using cached or bundled catalog."
+            )
+        )
 
 
 def _render_sync_report(report: SyncReport, console_out: Console, console_err: Console) -> int:
