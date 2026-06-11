@@ -149,7 +149,10 @@ def schema_erd(
     ] = None,
     image: Annotated[
         ImageFormat | None,
-        typer.Option("--image", help="Diagram image format via Kroki (default: svg; use --image png to change, --no-image to skip)"),
+        typer.Option(
+            "--image",
+            help="Diagram image format via Kroki (default: svg; use --image png to change, --no-image to skip)",
+        ),
     ] = ImageFormat.svg,
     grouped: Annotated[
         bool,
