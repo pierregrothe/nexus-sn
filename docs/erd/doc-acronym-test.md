@@ -1,7 +1,7 @@
 # Schema ERD: doc-designer
 
 Instance: `alectri`  |  scopes: sn_grc_doc_design, sn_grc_rel_config
-Discovered: 2026-06-11T15:11:22.581523+00:00
+Discovered: 2026-06-11T14:58:35.325287+00:00
 
 ```mermaid
 erDiagram

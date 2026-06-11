@@ -149,8 +149,8 @@ def schema_erd(
     ] = None,
     image: Annotated[
         ImageFormat | None,
-        typer.Option("--image", help="Also render a shareable image (svg or png) via Kroki"),
-    ] = None,
+        typer.Option("--image", help="Diagram image format via Kroki (default: svg; use --image png to change, --no-image to skip)"),
+    ] = ImageFormat.svg,
     grouped: Annotated[
         bool,
         typer.Option("--grouped", help="Split the ERD into one Mermaid diagram per scope"),

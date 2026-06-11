@@ -1,219 +1,219 @@
 # Schema ERD: bcm
 
 Instance: `alectri`  |  scopes: sn_bcm, sn_bcm_lite, sn_bcm_map, sn_bcp
-Discovered: 2026-06-08T16:20:16.073374+00:00
+Discovered: 2026-06-11T14:56:43.853981+00:00
 
 ```mermaid
 erDiagram
     sn_bcm_choice {
-        field sys_id PK
-        field active
-        field choice_category
-        field label
-        field name
+        GUID sys_id PK
+        boolean active
+        string choice_category
+        translated_text label
+        string name
     }
     sn_bcm_dependency_snapshot {
-        field sys_id PK
-        field last_synced_on
-        field notification_status
-        field number
-        field state
+        GUID sys_id PK
+        glide_date_time last_synced_on
+        string notification_status
+        string number
+        string state
         reference config_used FK
-        reference user_list FK
+        glide_list user_list FK
     }
     sn_bcm_dependency_update {
-        field sys_id PK
-        field additional_data
-        field asset_id
-        field asset_table
-        field parent_id
-        field parent_table
-        field relationship_source
-        field relationship_source_table
-        field source
-        field state
+        GUID sys_id PK
+        json additional_data
+        document_id asset_id
+        table_name asset_table
+        document_id parent_id
+        table_name parent_table
+        document_id relationship_source
+        table_name relationship_source_table
+        string source
+        string state
         reference snapshot FK
     }
     sn_bcm_dependency_update_config {
-        field sys_id PK
-        field active
-        field auto_update_dependencies
-        field condition
-        field name
-        field order
-        field send_notification
-        field source_records
-        field table
-        field template
-        field user_fields
-        reference sources FK
+        GUID sys_id PK
+        boolean active
+        boolean auto_update_dependencies
+        conditions condition
+        string name
+        integer order
+        boolean send_notification
+        string source_records
+        table_name table
+        template_value template
+        field_list user_fields
+        glide_list sources FK
     }
     sn_bcm_document {
-        field sys_id PK
-        field default_text
-        field description
-        field name
-        field title
+        GUID sys_id PK
+        translated_html default_text
+        string description
+        string name
+        string title
     }
     sn_bcm_element_definition {
-        field sys_id PK
-        field description
-        field filter
-        field name
-        field requires_data_backup
-        field source_table
-        field source_table_fields
+        GUID sys_id PK
+        string description
+        conditions filter
+        translated_text name
+        string requires_data_backup
+        table_name source_table
+        field_list source_table_fields
         reference resource_configuration FK
     }
     sn_bcm_element_variable {
-        field sys_id PK
-        field enable_reporting
+        GUID sys_id PK
+        boolean enable_reporting
         reference model FK
     }
     sn_bcm_grid_category {
-        field sys_id PK
-        field code
-        field enable_element_context
-        field name
+        GUID sys_id PK
+        string code
+        boolean enable_element_context
+        string name
     }
     sn_bcm_grid_column_configuration {
-        field sys_id PK
-        field enable_filter
-        field enable_group
-        field enable_sort
-        field field
-        field field_source
-        field order
-        field source_table
+        GUID sys_id PK
+        boolean enable_filter
+        boolean enable_group
+        boolean enable_sort
+        field_name field
+        string field_source
+        integer order
+        table_name source_table
         reference grid_configuration FK
     }
     sn_bcm_grid_configuration {
-        field sys_id PK
-        field active
-        field name
+        GUID sys_id PK
+        boolean active
+        string name
         reference element_definition FK
         reference grid_category FK
     }
     sn_bcm_impact_analysis_question {
-        field sys_id PK
-        field description
-        field order
-        field question
+        GUID sys_id PK
+        string description
+        integer order
+        string question
         reference impact_category FK
     }
     sn_bcm_impact_category {
-        field sys_id PK
-        field contributes_to
-        field description
-        field helper_text
-        field name
-        reference applicable_timeframes FK
+        GUID sys_id PK
+        string contributes_to
+        string description
+        string helper_text
+        string name
+        glide_list applicable_timeframes FK
         reference max_rto_value FK
     }
     sn_bcm_impact_rating {
-        field sys_id PK
-        field description
-        field name
-        field question_text
-        field tolerable
-        field value
+        GUID sys_id PK
+        string description
+        string name
+        string question_text
+        boolean tolerable
+        integer value
         reference impact_analysis_question FK
         reference impact_category FK
     }
     sn_bcm_loss_scenario {
-        field sys_id PK
-        field description
-        field scenario_name
+        GUID sys_id PK
+        string description
+        string scenario_name
         reference elements_impacted FK
     }
     sn_bcm_phase {
-        field sys_id PK
-        field active
-        field name
-        field order
+        GUID sys_id PK
+        boolean active
+        string name
+        integer order
     }
     sn_bcm_progress_tracker {
-        field sys_id PK
+        GUID sys_id PK
     }
     sn_bcm_recovery_tier {
-        field sys_id PK
-        field name
-        reference recovery_time_objectives FK
+        GUID sys_id PK
+        string name
+        glide_list recovery_time_objectives FK
     }
     sn_bcm_timeframe {
-        field sys_id PK
-        field name
-        field starts_at
+        GUID sys_id PK
+        string name
+        glide_duration starts_at
     }
     sn_bcm_unique_user_usage {
-        field sys_id PK
-        field accrual_period
+        GUID sys_id PK
+        string accrual_period
         reference user FK
     }
     sn_bcp_approval {
-        field sys_id PK
+        GUID sys_id PK
         reference plan FK
     }
     sn_bcp_dependency_snapshot {
-        field sys_id PK
+        GUID sys_id PK
         reference plan FK
     }
     sn_bcp_dependency_update {
-        field sys_id PK
+        GUID sys_id PK
         reference impact_analysis FK
     }
     sn_bcp_dependency_update_config {
-        field sys_id PK
+        GUID sys_id PK
     }
     sn_bcp_document {
-        field sys_id PK
-        field contents
-        field description
-        field order
-        field status
-        field title
+        GUID sys_id PK
+        html contents
+        string description
+        integer order
+        string status
+        string title
         reference plan FK
         reference template FK
     }
     sn_bcp_m2m_plan_asset_plan_asset {
-        field sys_id PK
-        field relationship_source
-        field relationship_source_table
-        field source
+        GUID sys_id PK
+        document_id relationship_source
+        table_name relationship_source_table
+        string source
         reference dependency FK
         reference primary_asset FK
         reference related_asset FK
     }
     sn_bcp_plan {
-        field sys_id PK
-        field actions_blocked
-        field actions_blocked_on
-        field comments
-        field description
-        field expires
-        field name
-        field refresh_task_order
-        field state
-        field tasks_count
-        field type
-        field word_report
+        GUID sys_id PK
+        boolean actions_blocked
+        glide_date_time actions_blocked_on
+        journal_input comments
+        string description
+        glide_date expires
+        string name
+        boolean refresh_task_order
+        string state
+        integer tasks_count
+        string type
+        file_attachment word_report
         reference bcm_lead FK
         reference business_unit FK
-        reference contributors FK
+        glide_list contributors FK
         reference department FK
         reference plan_owner FK
         reference template FK
     }
     sn_bcp_plan_asset {
-        field sys_id PK
-        field item
-        field item_table
-        field name
-        field recovery_time_objective_gap
-        field status_in_source
-        field synchronized_on
-        field type
-        field types
+        GUID sys_id PK
+        document_id item
+        table_name item_table
+        string name
+        glide_duration recovery_time_objective_gap
+        string status_in_source
+        glide_date_time synchronized_on
+        string type
+        glide_list types
         reference element_definition FK
         reference impact_analysis FK
         reference plan FK
@@ -223,65 +223,65 @@ erDiagram
         reference recovery_time_objective FK
     }
     sn_bcp_plan_asset_dependency {
-        field sys_id PK
-        field item
-        field item_table
+        GUID sys_id PK
+        document_id item
+        table_name item_table
         reference plan_loss_scenario FK
     }
     sn_bcp_plan_loss_scenario {
-        field sys_id PK
-        field name
+        GUID sys_id PK
+        string name
         reference loss_scenario FK
         reference plan FK
     }
     sn_bcp_plan_plan {
-        field sys_id PK
-        field assets_in_plan
-        field is_associated_to_task
-        field relationship
-        field source
-        field tasks
+        GUID sys_id PK
+        string assets_in_plan
+        boolean is_associated_to_task
+        string relationship
+        string source
+        integer tasks
         reference plan FK
         reference related_plan FK
     }
     sn_bcp_plan_task {
-        field sys_id PK
+        GUID sys_id PK
         reference plan FK
     }
     sn_bcp_recovery_strategy {
-        field sys_id PK
-        field comments
-        field description
-        field name
-        field operations_achieved_percentage
-        reference dependencies_covered FK
+        GUID sys_id PK
+        html comments
+        string description
+        string name
+        percent_complete operations_achieved_percentage
+        glide_list dependencies_covered FK
         reference duration_of_use FK
         reference plan_loss_scenario FK
         reference time_to_implement FK
     }
     sn_bcp_recovery_task {
-        field sys_id PK
-        field asset_recovery_level
-        field description
-        field exclude_calculation
-        field include_task_in
-        field order
-        field planned_duration
-        field short_description
-        field tag_assets
-        field task_classification
-        field task_group
-        field task_id
-        field use_external_dependency
-        reference additional_assignees FK
-        reference asset_scope FK
+        GUID sys_id PK
+        string asset_recovery_level
+        string description
+        boolean exclude_calculation
+        string include_task_in
+        integer order
+        glide_duration planned_duration
+        string short_description
+        string tag_assets
+        string task_classification
+        string task_group
+        decimal task_id
+        boolean use_external_dependency
+        glide_list additional_assignees FK
+        glide_list asset_scope FK
         reference assignment_group FK
         reference automated_flow FK
         reference completion_deadline FK
         reference configuration_item FK
-        reference dependencies FK
+        glide_list dependencies FK
         reference documentation FK
-        reference flow_variables FK
+        glide_var flow_variables FK
         reference owner FK
         reference phase FK
         reference plan FK
@@ -292,46 +292,46 @@ erDiagram
         reference tag FK
     }
     sn_bcp_recovery_tasks_dependency_graph {
-        field sys_id PK
-        field active
-        field dependency_graph
+        GUID sys_id PK
+        boolean active
+        json dependency_graph
         reference plan FK
     }
     sn_bcp_recovery_team {
-        field sys_id PK
-        field description
-        field name
-        reference group FK
+        GUID sys_id PK
+        string description
+        string name
+        glide_list group FK
         reference plan FK
-        reference user FK
+        glide_list user FK
     }
     sn_bcp_template {
-        field sys_id PK
-        field description
-        field group_by
-        field group_recovery_tasks
-        field name
-        field plan_authoring_type
-        reference document_sections FK
-        reference loss_scenarios FK
+        GUID sys_id PK
+        string description
+        field_name group_by
+        boolean group_recovery_tasks
+        string name
+        string plan_authoring_type
+        glide_list document_sections FK
+        glide_list loss_scenarios FK
         reference primary_element_recovered FK
     }
     sn_bcm_dependency_snapshot }o--|| sn_bcm_dependency_update_config : "config_used"
-    sn_bcm_dependency_snapshot }o--|| sys_user : "user_list"
+    sn_bcm_dependency_snapshot }o--o{ sys_user : "user_list"
     sn_bcm_dependency_update }o--|| sn_bcm_dependency_snapshot : "snapshot"
-    sn_bcm_dependency_update_config }o--|| sn_grc_rel_config_main_node_config : "sources"
+    sn_bcm_dependency_update_config }o--o{ sn_grc_rel_config_main_node_config : "sources"
     sn_bcm_element_definition }o--|| sn_fam_resource_config : "resource_configuration"
     sn_bcm_element_variable }o--|| sn_bcm_element_definition : "model"
     sn_bcm_grid_column_configuration }o--|| sn_bcm_grid_configuration : "grid_configuration"
     sn_bcm_grid_configuration }o--|| sn_bcm_element_definition : "element_definition"
     sn_bcm_grid_configuration }o--|| sn_bcm_grid_category : "grid_category"
     sn_bcm_impact_analysis_question }o--|| sn_bcm_impact_category : "impact_category"
-    sn_bcm_impact_category }o--|| sn_bcm_timeframe : "applicable_timeframes"
+    sn_bcm_impact_category }o--o{ sn_bcm_timeframe : "applicable_timeframes"
     sn_bcm_impact_category }o--|| sn_bcm_timeframe : "max_rto_value"
     sn_bcm_impact_rating }o--|| sn_bcm_impact_analysis_question : "impact_analysis_question"
     sn_bcm_impact_rating }o--|| sn_bcm_impact_category : "impact_category"
     sn_bcm_loss_scenario }o--|| sn_bcm_element_definition : "elements_impacted"
-    sn_bcm_recovery_tier }o--|| sn_bcm_timeframe : "recovery_time_objectives"
+    sn_bcm_recovery_tier }o--o{ sn_bcm_timeframe : "recovery_time_objectives"
     sn_bcm_unique_user_usage }o--|| sys_user : "user"
     sn_bcp_approval }o--|| sn_bcp_plan : "plan"
     sn_bcp_dependency_snapshot }o--|| sn_bcp_plan : "plan"
@@ -343,7 +343,7 @@ erDiagram
     sn_bcp_m2m_plan_asset_plan_asset }o--|| sn_bcp_plan_asset : "related_asset"
     sn_bcp_plan }o--|| sys_user : "bcm_lead"
     sn_bcp_plan }o--|| business_unit : "business_unit"
-    sn_bcp_plan }o--|| sys_user : "contributors"
+    sn_bcp_plan }o--o{ sys_user : "contributors"
     sn_bcp_plan }o--|| cmn_department : "department"
     sn_bcp_plan }o--|| sys_user : "plan_owner"
     sn_bcp_plan }o--|| sn_bcp_template : "template"
@@ -360,17 +360,17 @@ erDiagram
     sn_bcp_plan_plan }o--|| sn_bcp_plan : "plan"
     sn_bcp_plan_plan }o--|| sn_bcp_plan : "related_plan"
     sn_bcp_plan_task }o--|| sn_bcp_plan : "plan"
-    sn_bcp_recovery_strategy }o--|| sn_bcp_plan_asset_dependency : "dependencies_covered"
+    sn_bcp_recovery_strategy }o--o{ sn_bcp_plan_asset_dependency : "dependencies_covered"
     sn_bcp_recovery_strategy }o--|| sn_bcm_timeframe : "duration_of_use"
     sn_bcp_recovery_strategy }o--|| sn_bcp_plan_loss_scenario : "plan_loss_scenario"
     sn_bcp_recovery_strategy }o--|| sn_bcm_timeframe : "time_to_implement"
-    sn_bcp_recovery_task }o--|| sys_user : "additional_assignees"
-    sn_bcp_recovery_task }o--|| sn_bcp_plan_asset : "asset_scope"
+    sn_bcp_recovery_task }o--o{ sys_user : "additional_assignees"
+    sn_bcp_recovery_task }o--o{ sn_bcp_plan_asset : "asset_scope"
     sn_bcp_recovery_task }o--|| sys_user_group : "assignment_group"
     sn_bcp_recovery_task }o--|| sys_hub_flow : "automated_flow"
     sn_bcp_recovery_task }o--|| sn_bcm_timeframe : "completion_deadline"
     sn_bcp_recovery_task }o--|| cmdb_ci : "configuration_item"
-    sn_bcp_recovery_task }o--|| sn_bcp_recovery_task : "dependencies"
+    sn_bcp_recovery_task }o--o{ sn_bcp_recovery_task : "dependencies"
     sn_bcp_recovery_task }o--|| sn_bcp_document : "documentation"
     sn_bcp_recovery_task }o--|| sys_hub_flow_input : "flow_variables"
     sn_bcp_recovery_task }o--|| sys_user : "owner"
@@ -382,29 +382,29 @@ erDiagram
     sn_bcp_recovery_task }o--|| sn_bcp_plan_asset : "scope"
     sn_bcp_recovery_task }o--|| sn_bcm_choice : "tag"
     sn_bcp_recovery_tasks_dependency_graph }o--|| sn_bcp_plan : "plan"
-    sn_bcp_recovery_team }o--|| sys_user_group : "group"
+    sn_bcp_recovery_team }o--o{ sys_user_group : "group"
     sn_bcp_recovery_team }o--|| sn_bcp_plan : "plan"
-    sn_bcp_recovery_team }o--|| sys_user : "user"
-    sn_bcp_template }o--|| sn_bcm_document : "document_sections"
-    sn_bcp_template }o--|| sn_bcm_loss_scenario : "loss_scenarios"
+    sn_bcp_recovery_team }o--o{ sys_user : "user"
+    sn_bcp_template }o--o{ sn_bcm_document : "document_sections"
+    sn_bcp_template }o--o{ sn_bcm_loss_scenario : "loss_scenarios"
     sn_bcp_template }o--|| sn_bcm_element_definition : "primary_element_recovered"
     sn_bcm_dependency_snapshot ||--|| sn_bcp_dependency_snapshot : "extends"
-    sn_bcm_dependency_update ||--|| sn_bcp_dependency_update : "extends"
-    sn_bcm_dependency_update_config ||--|| sn_bcp_dependency_update_config : "extends"
-    sn_grc_appr_approval ||--|| sn_bcp_approval : "extends"
-    sn_irm_shared_cmn_progress_tracker ||--|| sn_bcm_progress_tracker : "extends"
-    sys_metadata ||--|| sn_bcm_dependency_update_config : "extends"
-    sys_metadata ||--|| sn_bcm_document : "extends"
-    sys_metadata ||--|| sn_bcm_element_definition : "extends"
-    sys_metadata ||--|| sn_bcm_impact_analysis_question : "extends"
-    sys_metadata ||--|| sn_bcm_impact_category : "extends"
-    sys_metadata ||--|| sn_bcm_impact_rating : "extends"
-    sys_metadata ||--|| sn_bcm_loss_scenario : "extends"
-    sys_metadata ||--|| sn_bcm_recovery_tier : "extends"
     sys_metadata ||--|| sn_bcm_timeframe : "extends"
+    sys_metadata ||--|| sn_bcm_impact_rating : "extends"
+    sys_metadata ||--|| sn_bcm_dependency_update_config : "extends"
+    sys_metadata ||--|| sn_bcm_element_definition : "extends"
+    sn_bcm_dependency_update_config ||--|| sn_bcp_dependency_update_config : "extends"
+    sys_metadata ||--|| sn_bcm_loss_scenario : "extends"
+    sn_grc_appr_approval ||--|| sn_bcp_approval : "extends"
+    sn_bcm_dependency_update ||--|| sn_bcp_dependency_update : "extends"
+    sys_metadata ||--|| sn_bcm_document : "extends"
+    sn_irm_shared_cmn_progress_tracker ||--|| sn_bcm_progress_tracker : "extends"
+    var_dictionary ||--|| sn_bcm_element_variable : "extends"
+    sys_metadata ||--|| sn_bcm_recovery_tier : "extends"
+    sys_metadata ||--|| sn_bcm_impact_analysis_question : "extends"
     sys_metadata ||--|| sn_bcp_template : "extends"
     task ||--|| sn_bcp_plan_task : "extends"
-    var_dictionary ||--|| sn_bcm_element_variable : "extends"
+    sys_metadata ||--|| sn_bcm_impact_category : "extends"
 ```
 
 ## Cross-scope bridges
@@ -451,279 +451,279 @@ erDiagram
 
 | Field | Type | References |
 | --- | --- | --- |
-| active | field |  |
-| choice_category | field |  |
-| label | field |  |
-| name | field |  |
-| sys_created_by | field |  |
-| sys_created_on | field |  |
-| sys_domain | field |  |
-| sys_domain_path | field |  |
-| sys_id | field |  |
-| sys_mod_count | field |  |
-| sys_updated_by | field |  |
-| sys_updated_on | field |  |
+| active | boolean |  |
+| choice_category | string |  |
+| label | translated_text |  |
+| name | string |  |
+| sys_created_by | string |  |
+| sys_created_on | glide_date_time |  |
+| sys_domain | domain_id |  |
+| sys_domain_path | domain_path |  |
+| sys_id | GUID |  |
+| sys_mod_count | integer |  |
+| sys_updated_by | string |  |
+| sys_updated_on | glide_date_time |  |
 
 ### sn_bcm_dependency_snapshot -- Dependency delta snapshot
 
 | Field | Type | References |
 | --- | --- | --- |
 | config_used | reference | sn_bcm_dependency_update_config |
-| last_synced_on | field |  |
-| notification_status | field |  |
-| number | field |  |
-| state | field |  |
-| sys_class_name | field |  |
-| sys_created_by | field |  |
-| sys_created_on | field |  |
-| sys_domain | field |  |
-| sys_domain_path | field |  |
-| sys_id | field |  |
-| sys_mod_count | field |  |
-| sys_updated_by | field |  |
-| sys_updated_on | field |  |
-| user_list | reference | sys_user |
+| last_synced_on | glide_date_time |  |
+| notification_status | string |  |
+| number | string |  |
+| state | string |  |
+| sys_class_name | sys_class_name |  |
+| sys_created_by | string |  |
+| sys_created_on | glide_date_time |  |
+| sys_domain | domain_id |  |
+| sys_domain_path | domain_path |  |
+| sys_id | GUID |  |
+| sys_mod_count | integer |  |
+| sys_updated_by | string |  |
+| sys_updated_on | glide_date_time |  |
+| user_list | glide_list | sys_user |
 
 ### sn_bcm_dependency_update -- Dependency update
 
 | Field | Type | References |
 | --- | --- | --- |
-| additional_data | field |  |
-| asset_id | field |  |
-| asset_table | field |  |
-| parent_id | field |  |
-| parent_table | field |  |
-| relationship_source | field |  |
-| relationship_source_table | field |  |
+| additional_data | json |  |
+| asset_id | document_id |  |
+| asset_table | table_name |  |
+| parent_id | document_id |  |
+| parent_table | table_name |  |
+| relationship_source | document_id |  |
+| relationship_source_table | table_name |  |
 | snapshot | reference | sn_bcm_dependency_snapshot |
-| source | field |  |
-| state | field |  |
-| sys_created_by | field |  |
-| sys_created_on | field |  |
-| sys_domain | field |  |
-| sys_domain_path | field |  |
-| sys_id | field |  |
-| sys_mod_count | field |  |
-| sys_updated_by | field |  |
-| sys_updated_on | field |  |
+| source | string |  |
+| state | string |  |
+| sys_created_by | string |  |
+| sys_created_on | glide_date_time |  |
+| sys_domain | domain_id |  |
+| sys_domain_path | domain_path |  |
+| sys_id | GUID |  |
+| sys_mod_count | integer |  |
+| sys_updated_by | string |  |
+| sys_updated_on | glide_date_time |  |
 
 ### sn_bcm_dependency_update_config -- Dependency update configuration
 
 | Field | Type | References |
 | --- | --- | --- |
-| active | field |  |
-| auto_update_dependencies | field |  |
-| condition | field |  |
-| name | field |  |
-| order | field |  |
-| send_notification | field |  |
-| source_records | field |  |
-| sources | reference | sn_grc_rel_config_main_node_config |
-| sys_domain | field |  |
-| sys_domain_path | field |  |
-| sys_id | field |  |
-| table | field |  |
-| template | field |  |
-| user_fields | field |  |
+| active | boolean |  |
+| auto_update_dependencies | boolean |  |
+| condition | conditions |  |
+| name | string |  |
+| order | integer |  |
+| send_notification | boolean |  |
+| source_records | string |  |
+| sources | glide_list | sn_grc_rel_config_main_node_config |
+| sys_domain | domain_id |  |
+| sys_domain_path | domain_path |  |
+| sys_id | GUID |  |
+| table | table_name |  |
+| template | template_value |  |
+| user_fields | field_list |  |
 
 ### sn_bcm_document -- Documentation Section
 
 | Field | Type | References |
 | --- | --- | --- |
-| default_text | field |  |
-| description | field |  |
-| name | field |  |
-| sys_domain | field |  |
-| sys_domain_path | field |  |
-| sys_id | field |  |
-| title | field |  |
+| default_text | translated_html |  |
+| description | string |  |
+| name | string |  |
+| sys_domain | domain_id |  |
+| sys_domain_path | domain_path |  |
+| sys_id | GUID |  |
+| title | string |  |
 
 ### sn_bcm_element_definition -- Element Definition
 
 | Field | Type | References |
 | --- | --- | --- |
-| description | field |  |
-| filter | field |  |
-| name | field |  |
-| requires_data_backup | field |  |
+| description | string |  |
+| filter | conditions |  |
+| name | translated_text |  |
+| requires_data_backup | string |  |
 | resource_configuration | reference | sn_fam_resource_config |
-| source_table | field |  |
-| source_table_fields | field |  |
-| sys_domain | field |  |
-| sys_domain_path | field |  |
-| sys_id | field |  |
+| source_table | table_name |  |
+| source_table_fields | field_list |  |
+| sys_domain | domain_id |  |
+| sys_domain_path | domain_path |  |
+| sys_id | GUID |  |
 
 ### sn_bcm_element_variable -- Element variable
 
 | Field | Type | References |
 | --- | --- | --- |
-| enable_reporting | field |  |
+| enable_reporting | boolean |  |
 | model | reference | sn_bcm_element_definition |
-| sys_domain | field |  |
-| sys_domain_path | field |  |
-| sys_id | field |  |
+| sys_domain | domain_id |  |
+| sys_domain_path | domain_path |  |
+| sys_id | GUID |  |
 
 ### sn_bcm_grid_category -- Grid category
 
 | Field | Type | References |
 | --- | --- | --- |
-| code | field |  |
-| enable_element_context | field |  |
-| name | field |  |
-| sys_created_by | field |  |
-| sys_created_on | field |  |
-| sys_domain | field |  |
-| sys_domain_path | field |  |
-| sys_id | field |  |
-| sys_mod_count | field |  |
-| sys_updated_by | field |  |
-| sys_updated_on | field |  |
+| code | string |  |
+| enable_element_context | boolean |  |
+| name | string |  |
+| sys_created_by | string |  |
+| sys_created_on | glide_date_time |  |
+| sys_domain | domain_id |  |
+| sys_domain_path | domain_path |  |
+| sys_id | GUID |  |
+| sys_mod_count | integer |  |
+| sys_updated_by | string |  |
+| sys_updated_on | glide_date_time |  |
 
 ### sn_bcm_grid_column_configuration -- Grid column configuration
 
 | Field | Type | References |
 | --- | --- | --- |
-| enable_filter | field |  |
-| enable_group | field |  |
-| enable_sort | field |  |
-| field | field |  |
-| field_source | field |  |
+| enable_filter | boolean |  |
+| enable_group | boolean |  |
+| enable_sort | boolean |  |
+| field | field_name |  |
+| field_source | string |  |
 | grid_configuration | reference | sn_bcm_grid_configuration |
-| order | field |  |
-| source_table | field |  |
-| sys_created_by | field |  |
-| sys_created_on | field |  |
-| sys_domain | field |  |
-| sys_domain_path | field |  |
-| sys_id | field |  |
-| sys_mod_count | field |  |
-| sys_updated_by | field |  |
-| sys_updated_on | field |  |
+| order | integer |  |
+| source_table | table_name |  |
+| sys_created_by | string |  |
+| sys_created_on | glide_date_time |  |
+| sys_domain | domain_id |  |
+| sys_domain_path | domain_path |  |
+| sys_id | GUID |  |
+| sys_mod_count | integer |  |
+| sys_updated_by | string |  |
+| sys_updated_on | glide_date_time |  |
 
 ### sn_bcm_grid_configuration -- Grid configuration
 
 | Field | Type | References |
 | --- | --- | --- |
-| active | field |  |
+| active | boolean |  |
 | element_definition | reference | sn_bcm_element_definition |
 | grid_category | reference | sn_bcm_grid_category |
-| name | field |  |
-| sys_created_by | field |  |
-| sys_created_on | field |  |
-| sys_domain | field |  |
-| sys_domain_path | field |  |
-| sys_id | field |  |
-| sys_mod_count | field |  |
-| sys_updated_by | field |  |
-| sys_updated_on | field |  |
+| name | string |  |
+| sys_created_by | string |  |
+| sys_created_on | glide_date_time |  |
+| sys_domain | domain_id |  |
+| sys_domain_path | domain_path |  |
+| sys_id | GUID |  |
+| sys_mod_count | integer |  |
+| sys_updated_by | string |  |
+| sys_updated_on | glide_date_time |  |
 
 ### sn_bcm_impact_analysis_question -- Impact analysis question
 
 | Field | Type | References |
 | --- | --- | --- |
-| description | field |  |
+| description | string |  |
 | impact_category | reference | sn_bcm_impact_category |
-| order | field |  |
-| question | field |  |
-| sys_domain | field |  |
-| sys_domain_path | field |  |
-| sys_id | field |  |
+| order | integer |  |
+| question | string |  |
+| sys_domain | domain_id |  |
+| sys_domain_path | domain_path |  |
+| sys_id | GUID |  |
 
 ### sn_bcm_impact_category -- Impact Category
 
 | Field | Type | References |
 | --- | --- | --- |
-| applicable_timeframes | reference | sn_bcm_timeframe |
-| contributes_to | field |  |
-| description | field |  |
-| helper_text | field |  |
+| applicable_timeframes | glide_list | sn_bcm_timeframe |
+| contributes_to | string |  |
+| description | string |  |
+| helper_text | string |  |
 | max_rto_value | reference | sn_bcm_timeframe |
-| name | field |  |
-| sys_domain | field |  |
-| sys_domain_path | field |  |
-| sys_id | field |  |
+| name | string |  |
+| sys_domain | domain_id |  |
+| sys_domain_path | domain_path |  |
+| sys_id | GUID |  |
 
 ### sn_bcm_impact_rating -- Impact Rating
 
 | Field | Type | References |
 | --- | --- | --- |
-| description | field |  |
+| description | string |  |
 | impact_analysis_question | reference | sn_bcm_impact_analysis_question |
 | impact_category | reference | sn_bcm_impact_category |
-| name | field |  |
-| question_text | field |  |
-| sys_domain | field |  |
-| sys_domain_path | field |  |
-| sys_id | field |  |
-| tolerable | field |  |
-| value | field |  |
+| name | string |  |
+| question_text | string |  |
+| sys_domain | domain_id |  |
+| sys_domain_path | domain_path |  |
+| sys_id | GUID |  |
+| tolerable | boolean |  |
+| value | integer |  |
 
 ### sn_bcm_loss_scenario -- Loss Scenario
 
 | Field | Type | References |
 | --- | --- | --- |
-| description | field |  |
+| description | string |  |
 | elements_impacted | reference | sn_bcm_element_definition |
-| scenario_name | field |  |
-| sys_domain | field |  |
-| sys_domain_path | field |  |
-| sys_id | field |  |
+| scenario_name | string |  |
+| sys_domain | domain_id |  |
+| sys_domain_path | domain_path |  |
+| sys_id | GUID |  |
 
 ### sn_bcm_phase -- Phase
 
 | Field | Type | References |
 | --- | --- | --- |
-| active | field |  |
-| name | field |  |
-| order | field |  |
-| sys_created_by | field |  |
-| sys_created_on | field |  |
-| sys_domain | field |  |
-| sys_domain_path | field |  |
-| sys_id | field |  |
-| sys_mod_count | field |  |
-| sys_updated_by | field |  |
-| sys_updated_on | field |  |
+| active | boolean |  |
+| name | string |  |
+| order | integer |  |
+| sys_created_by | string |  |
+| sys_created_on | glide_date_time |  |
+| sys_domain | domain_id |  |
+| sys_domain_path | domain_path |  |
+| sys_id | GUID |  |
+| sys_mod_count | integer |  |
+| sys_updated_by | string |  |
+| sys_updated_on | glide_date_time |  |
 
 ### sn_bcm_progress_tracker -- Progress tracker
 
 | Field | Type | References |
 | --- | --- | --- |
-| sys_id | field |  |
+| sys_id | GUID |  |
 
 ### sn_bcm_recovery_tier -- Recovery Tier
 
 | Field | Type | References |
 | --- | --- | --- |
-| name | field |  |
-| recovery_time_objectives | reference | sn_bcm_timeframe |
-| sys_domain | field |  |
-| sys_domain_path | field |  |
-| sys_id | field |  |
+| name | string |  |
+| recovery_time_objectives | glide_list | sn_bcm_timeframe |
+| sys_domain | domain_id |  |
+| sys_domain_path | domain_path |  |
+| sys_id | GUID |  |
 
 ### sn_bcm_timeframe -- Recovery Timeframe
 
 | Field | Type | References |
 | --- | --- | --- |
-| name | field |  |
-| starts_at | field |  |
-| sys_domain | field |  |
-| sys_domain_path | field |  |
-| sys_id | field |  |
+| name | string |  |
+| starts_at | glide_duration |  |
+| sys_domain | domain_id |  |
+| sys_domain_path | domain_path |  |
+| sys_id | GUID |  |
 
 ### sn_bcm_unique_user_usage -- Unique User Usage
 
 | Field | Type | References |
 | --- | --- | --- |
-| accrual_period | field |  |
-| sys_created_by | field |  |
-| sys_created_on | field |  |
-| sys_domain | field |  |
-| sys_domain_path | field |  |
-| sys_id | field |  |
-| sys_mod_count | field |  |
-| sys_updated_by | field |  |
-| sys_updated_on | field |  |
+| accrual_period | string |  |
+| sys_created_by | string |  |
+| sys_created_on | glide_date_time |  |
+| sys_domain | domain_id |  |
+| sys_domain_path | domain_path |  |
+| sys_id | GUID |  |
+| sys_mod_count | integer |  |
+| sys_updated_by | string |  |
+| sys_updated_on | glide_date_time |  |
 | user | reference | sys_user |
 
 ### sn_bcp_approval -- Approval levels
@@ -731,47 +731,47 @@ erDiagram
 | Field | Type | References |
 | --- | --- | --- |
 | plan | reference | sn_bcp_plan |
-| sys_id | field |  |
+| sys_id | GUID |  |
 
 ### sn_bcp_dependency_snapshot -- Plan dependency delta snapshot
 
 | Field | Type | References |
 | --- | --- | --- |
 | plan | reference | sn_bcp_plan |
-| sys_id | field |  |
+| sys_id | GUID |  |
 
 ### sn_bcp_dependency_update -- Plan dependency update
 
 | Field | Type | References |
 | --- | --- | --- |
 | impact_analysis | reference | sn_bia_analysis |
-| sys_id | field |  |
+| sys_id | GUID |  |
 
 ### sn_bcp_dependency_update_config -- Planning dependency update configuration
 
 | Field | Type | References |
 | --- | --- | --- |
-| sys_id | field |  |
+| sys_id | GUID |  |
 
 ### sn_bcp_document -- Plan documentation
 
 | Field | Type | References |
 | --- | --- | --- |
-| contents | field |  |
-| description | field |  |
-| order | field |  |
+| contents | html |  |
+| description | string |  |
+| order | integer |  |
 | plan | reference | sn_bcp_plan |
-| status | field |  |
-| sys_created_by | field |  |
-| sys_created_on | field |  |
-| sys_domain | field |  |
-| sys_domain_path | field |  |
-| sys_id | field |  |
-| sys_mod_count | field |  |
-| sys_updated_by | field |  |
-| sys_updated_on | field |  |
+| status | string |  |
+| sys_created_by | string |  |
+| sys_created_on | glide_date_time |  |
+| sys_domain | domain_id |  |
+| sys_domain_path | domain_path |  |
+| sys_id | GUID |  |
+| sys_mod_count | integer |  |
+| sys_updated_by | string |  |
+| sys_updated_on | glide_date_time |  |
 | template | reference | sn_bcm_document |
-| title | field |  |
+| title | string |  |
 
 ### sn_bcp_m2m_plan_asset_plan_asset -- Plan asset relationship
 
@@ -780,47 +780,47 @@ erDiagram
 | dependency | reference | sn_bia_dependency |
 | primary_asset | reference | sn_bcp_plan_asset |
 | related_asset | reference | sn_bcp_plan_asset |
-| relationship_source | field |  |
-| relationship_source_table | field |  |
-| source | field |  |
-| sys_created_by | field |  |
-| sys_created_on | field |  |
-| sys_domain | field |  |
-| sys_domain_path | field |  |
-| sys_id | field |  |
-| sys_mod_count | field |  |
-| sys_updated_by | field |  |
-| sys_updated_on | field |  |
+| relationship_source | document_id |  |
+| relationship_source_table | table_name |  |
+| source | string |  |
+| sys_created_by | string |  |
+| sys_created_on | glide_date_time |  |
+| sys_domain | domain_id |  |
+| sys_domain_path | domain_path |  |
+| sys_id | GUID |  |
+| sys_mod_count | integer |  |
+| sys_updated_by | string |  |
+| sys_updated_on | glide_date_time |  |
 
 ### sn_bcp_plan -- Plan
 
 | Field | Type | References |
 | --- | --- | --- |
-| actions_blocked | field |  |
-| actions_blocked_on | field |  |
+| actions_blocked | boolean |  |
+| actions_blocked_on | glide_date_time |  |
 | bcm_lead | reference | sys_user |
 | business_unit | reference | business_unit |
-| comments | field |  |
-| contributors | reference | sys_user |
+| comments | journal_input |  |
+| contributors | glide_list | sys_user |
 | department | reference | cmn_department |
-| description | field |  |
-| expires | field |  |
-| name | field |  |
+| description | string |  |
+| expires | glide_date |  |
+| name | string |  |
 | plan_owner | reference | sys_user |
-| refresh_task_order | field |  |
-| state | field |  |
-| sys_created_by | field |  |
-| sys_created_on | field |  |
-| sys_domain | field |  |
-| sys_domain_path | field |  |
-| sys_id | field |  |
-| sys_mod_count | field |  |
-| sys_updated_by | field |  |
-| sys_updated_on | field |  |
-| tasks_count | field |  |
+| refresh_task_order | boolean |  |
+| state | string |  |
+| sys_created_by | string |  |
+| sys_created_on | glide_date_time |  |
+| sys_domain | domain_id |  |
+| sys_domain_path | domain_path |  |
+| sys_id | GUID |  |
+| sys_mod_count | integer |  |
+| sys_updated_by | string |  |
+| sys_updated_on | glide_date_time |  |
+| tasks_count | integer |  |
 | template | reference | sn_bcp_template |
-| type | field |  |
-| word_report | field |  |
+| type | string |  |
+| word_report | file_attachment |  |
 
 ### sn_bcp_plan_asset -- Plan asset
 
@@ -828,196 +828,196 @@ erDiagram
 | --- | --- | --- |
 | element_definition | reference | sn_bcm_element_definition |
 | impact_analysis | reference | sn_bia_analysis |
-| item | field |  |
-| item_table | field |  |
-| name | field |  |
+| item | document_id |  |
+| item_table | table_name |  |
+| name | string |  |
 | plan | reference | sn_bcp_plan |
 | recovery_point_objective | reference | sn_bcm_timeframe |
 | recovery_tier | reference | sn_bcm_recovery_tier |
 | recovery_time_achievable | reference | sn_bcm_timeframe |
 | recovery_time_objective | reference | sn_bcm_timeframe |
-| recovery_time_objective_gap | field |  |
-| status_in_source | field |  |
-| synchronized_on | field |  |
-| sys_created_by | field |  |
-| sys_created_on | field |  |
-| sys_domain | field |  |
-| sys_domain_path | field |  |
-| sys_id | field |  |
-| sys_mod_count | field |  |
-| sys_updated_by | field |  |
-| sys_updated_on | field |  |
-| type | field |  |
-| types | field |  |
+| recovery_time_objective_gap | glide_duration |  |
+| status_in_source | string |  |
+| synchronized_on | glide_date_time |  |
+| sys_created_by | string |  |
+| sys_created_on | glide_date_time |  |
+| sys_domain | domain_id |  |
+| sys_domain_path | domain_path |  |
+| sys_id | GUID |  |
+| sys_mod_count | integer |  |
+| sys_updated_by | string |  |
+| sys_updated_on | glide_date_time |  |
+| type | string |  |
+| types | glide_list |  |
 
 ### sn_bcp_plan_asset_dependency -- Related asset dependency
 
 | Field | Type | References |
 | --- | --- | --- |
-| item | field |  |
-| item_table | field |  |
+| item | document_id |  |
+| item_table | table_name |  |
 | plan_loss_scenario | reference | sn_bcp_plan_loss_scenario |
-| sys_created_by | field |  |
-| sys_created_on | field |  |
-| sys_domain | field |  |
-| sys_domain_path | field |  |
-| sys_id | field |  |
-| sys_mod_count | field |  |
-| sys_updated_by | field |  |
-| sys_updated_on | field |  |
+| sys_created_by | string |  |
+| sys_created_on | glide_date_time |  |
+| sys_domain | domain_id |  |
+| sys_domain_path | domain_path |  |
+| sys_id | GUID |  |
+| sys_mod_count | integer |  |
+| sys_updated_by | string |  |
+| sys_updated_on | glide_date_time |  |
 
 ### sn_bcp_plan_loss_scenario -- Plan loss scenario
 
 | Field | Type | References |
 | --- | --- | --- |
 | loss_scenario | reference | sn_bcm_loss_scenario |
-| name | field |  |
+| name | string |  |
 | plan | reference | sn_bcp_plan |
-| sys_created_by | field |  |
-| sys_created_on | field |  |
-| sys_domain | field |  |
-| sys_domain_path | field |  |
-| sys_id | field |  |
-| sys_mod_count | field |  |
-| sys_updated_by | field |  |
-| sys_updated_on | field |  |
+| sys_created_by | string |  |
+| sys_created_on | glide_date_time |  |
+| sys_domain | domain_id |  |
+| sys_domain_path | domain_path |  |
+| sys_id | GUID |  |
+| sys_mod_count | integer |  |
+| sys_updated_by | string |  |
+| sys_updated_on | glide_date_time |  |
 
 ### sn_bcp_plan_plan -- Related plan
 
 | Field | Type | References |
 | --- | --- | --- |
-| assets_in_plan | field |  |
-| is_associated_to_task | field |  |
+| assets_in_plan | string |  |
+| is_associated_to_task | boolean |  |
 | plan | reference | sn_bcp_plan |
 | related_plan | reference | sn_bcp_plan |
-| relationship | field |  |
-| source | field |  |
-| sys_created_by | field |  |
-| sys_created_on | field |  |
-| sys_domain | field |  |
-| sys_domain_path | field |  |
-| sys_id | field |  |
-| sys_mod_count | field |  |
-| sys_updated_by | field |  |
-| sys_updated_on | field |  |
-| tasks | field |  |
+| relationship | string |  |
+| source | string |  |
+| sys_created_by | string |  |
+| sys_created_on | glide_date_time |  |
+| sys_domain | domain_id |  |
+| sys_domain_path | domain_path |  |
+| sys_id | GUID |  |
+| sys_mod_count | integer |  |
+| sys_updated_by | string |  |
+| sys_updated_on | glide_date_time |  |
+| tasks | integer |  |
 
 ### sn_bcp_plan_task -- Plan task
 
 | Field | Type | References |
 | --- | --- | --- |
 | plan | reference | sn_bcp_plan |
-| sys_id | field |  |
+| sys_id | GUID |  |
 
 ### sn_bcp_recovery_strategy -- Recovery strategy
 
 | Field | Type | References |
 | --- | --- | --- |
-| comments | field |  |
-| dependencies_covered | reference | sn_bcp_plan_asset_dependency |
-| description | field |  |
+| comments | html |  |
+| dependencies_covered | glide_list | sn_bcp_plan_asset_dependency |
+| description | string |  |
 | duration_of_use | reference | sn_bcm_timeframe |
-| name | field |  |
-| operations_achieved_percentage | field |  |
+| name | string |  |
+| operations_achieved_percentage | percent_complete |  |
 | plan_loss_scenario | reference | sn_bcp_plan_loss_scenario |
-| sys_created_by | field |  |
-| sys_created_on | field |  |
-| sys_domain | field |  |
-| sys_domain_path | field |  |
-| sys_id | field |  |
-| sys_mod_count | field |  |
-| sys_updated_by | field |  |
-| sys_updated_on | field |  |
+| sys_created_by | string |  |
+| sys_created_on | glide_date_time |  |
+| sys_domain | domain_id |  |
+| sys_domain_path | domain_path |  |
+| sys_id | GUID |  |
+| sys_mod_count | integer |  |
+| sys_updated_by | string |  |
+| sys_updated_on | glide_date_time |  |
 | time_to_implement | reference | sn_bcm_timeframe |
 
 ### sn_bcp_recovery_task -- Recovery task
 
 | Field | Type | References |
 | --- | --- | --- |
-| additional_assignees | reference | sys_user |
-| asset_recovery_level | field |  |
-| asset_scope | reference | sn_bcp_plan_asset |
+| additional_assignees | glide_list | sys_user |
+| asset_recovery_level | string |  |
+| asset_scope | glide_list | sn_bcp_plan_asset |
 | assignment_group | reference | sys_user_group |
 | automated_flow | reference | sys_hub_flow |
 | completion_deadline | reference | sn_bcm_timeframe |
 | configuration_item | reference | cmdb_ci |
-| dependencies | reference | sn_bcp_recovery_task |
-| description | field |  |
+| dependencies | glide_list | sn_bcp_recovery_task |
+| description | string |  |
 | documentation | reference | sn_bcp_document |
-| exclude_calculation | field |  |
-| flow_variables | reference | sys_hub_flow_input |
-| include_task_in | field |  |
-| order | field |  |
+| exclude_calculation | boolean |  |
+| flow_variables | glide_var | sys_hub_flow_input |
+| include_task_in | string |  |
+| order | integer |  |
 | owner | reference | sys_user |
 | phase | reference | sn_bcm_phase |
 | plan | reference | sn_bcp_plan |
 | plan_dependency | reference | sn_bcp_plan |
-| planned_duration | field |  |
+| planned_duration | glide_duration |  |
 | recovery_strategy | reference | sn_bcp_recovery_strategy |
 | recovery_team | reference | sn_bcp_recovery_team |
 | scope | reference | sn_bcp_plan_asset |
-| short_description | field |  |
-| sys_created_by | field |  |
-| sys_created_on | field |  |
-| sys_domain | field |  |
-| sys_domain_path | field |  |
-| sys_id | field |  |
-| sys_mod_count | field |  |
-| sys_updated_by | field |  |
-| sys_updated_on | field |  |
+| short_description | string |  |
+| sys_created_by | string |  |
+| sys_created_on | glide_date_time |  |
+| sys_domain | domain_id |  |
+| sys_domain_path | domain_path |  |
+| sys_id | GUID |  |
+| sys_mod_count | integer |  |
+| sys_updated_by | string |  |
+| sys_updated_on | glide_date_time |  |
 | tag | reference | sn_bcm_choice |
-| tag_assets | field |  |
-| task_classification | field |  |
-| task_group | field |  |
-| task_id | field |  |
-| use_external_dependency | field |  |
+| tag_assets | string |  |
+| task_classification | string |  |
+| task_group | string |  |
+| task_id | decimal |  |
+| use_external_dependency | boolean |  |
 
 ### sn_bcp_recovery_tasks_dependency_graph -- Recovery tasks dependency graph
 
 | Field | Type | References |
 | --- | --- | --- |
-| active | field |  |
-| dependency_graph | field |  |
+| active | boolean |  |
+| dependency_graph | json |  |
 | plan | reference | sn_bcp_plan |
-| sys_created_by | field |  |
-| sys_created_on | field |  |
-| sys_domain | field |  |
-| sys_domain_path | field |  |
-| sys_id | field |  |
-| sys_mod_count | field |  |
-| sys_updated_by | field |  |
-| sys_updated_on | field |  |
+| sys_created_by | string |  |
+| sys_created_on | glide_date_time |  |
+| sys_domain | domain_id |  |
+| sys_domain_path | domain_path |  |
+| sys_id | GUID |  |
+| sys_mod_count | integer |  |
+| sys_updated_by | string |  |
+| sys_updated_on | glide_date_time |  |
 
 ### sn_bcp_recovery_team -- Recovery team
 
 | Field | Type | References |
 | --- | --- | --- |
-| description | field |  |
-| group | reference | sys_user_group |
-| name | field |  |
+| description | string |  |
+| group | glide_list | sys_user_group |
+| name | string |  |
 | plan | reference | sn_bcp_plan |
-| sys_created_by | field |  |
-| sys_created_on | field |  |
-| sys_domain | field |  |
-| sys_domain_path | field |  |
-| sys_id | field |  |
-| sys_mod_count | field |  |
-| sys_updated_by | field |  |
-| sys_updated_on | field |  |
-| user | reference | sys_user |
+| sys_created_by | string |  |
+| sys_created_on | glide_date_time |  |
+| sys_domain | domain_id |  |
+| sys_domain_path | domain_path |  |
+| sys_id | GUID |  |
+| sys_mod_count | integer |  |
+| sys_updated_by | string |  |
+| sys_updated_on | glide_date_time |  |
+| user | glide_list | sys_user |
 
 ### sn_bcp_template -- Plan template
 
 | Field | Type | References |
 | --- | --- | --- |
-| description | field |  |
-| document_sections | reference | sn_bcm_document |
-| group_by | field |  |
-| group_recovery_tasks | field |  |
-| loss_scenarios | reference | sn_bcm_loss_scenario |
-| name | field |  |
-| plan_authoring_type | field |  |
+| description | string |  |
+| document_sections | glide_list | sn_bcm_document |
+| group_by | field_name |  |
+| group_recovery_tasks | boolean |  |
+| loss_scenarios | glide_list | sn_bcm_loss_scenario |
+| name | string |  |
+| plan_authoring_type | string |  |
 | primary_element_recovered | reference | sn_bcm_element_definition |
-| sys_domain | field |  |
-| sys_domain_path | field |  |
-| sys_id | field |  |
+| sys_domain | domain_id |  |
+| sys_domain_path | domain_path |  |
+| sys_id | GUID |  |
