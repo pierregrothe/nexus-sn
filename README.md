@@ -113,8 +113,8 @@ gantt
         Agent Specialists            : 2026-07, 2026-08
     section Distribution
         Distribution                 : 2026-08, 2026-09
-    section GRC Licensing
-        GRC Licensing                : 2026-09, 2026-10
+    section License Audit
+        License Audit                : 2026-09, 2026-10
 ```
 <!-- /gantt -->
 
