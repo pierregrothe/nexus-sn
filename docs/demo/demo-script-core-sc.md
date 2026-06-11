@@ -129,10 +129,10 @@ Scene: The integration team wants to know which tables are involved when
 a hardware asset in HAM drives an ITSM workflow -- incident, change,
 configuration item.
 
-  # What schema areas are available for reverse engineering?
-  nexus schema areas
+  # What schema products are available for reverse engineering?
+  nexus schema products
 
-  [PAUSE] "I have schema snapshots pre-registered for the product areas I
+  [PAUSE] "I have schema snapshots pre-registered for the products I
   demo most often. Let me pull the HAM to ITSM bridge -- the exact tables
   and fields where Hardware Asset Management connects to the configuration
   item backbone."
@@ -199,7 +199,7 @@ one ERD and one AI roadmap in the follow-up email. That is what NEXUS is for."
   nexus plugins orphans
   nexus plugins outdated
   nexus plugins recommend
-  nexus schema areas
+  nexus schema products
   nexus schema erd ham-itsm
   nexus schema erd ham-itsm --image svg
   nexus plugins export --format yaml
