@@ -13,7 +13,6 @@ from typing import cast
 
 from nexus.connectors.servicenow.protocol import ServiceNowClientProtocol
 from nexus.schema.areas import DEFAULT_AREAS
-from nexus.schema.models import SchemaArea
 from nexus.schema.bridge import bridge_subgraph
 from nexus.schema.errors import AreaNotFoundError, ScopeNotFoundError
 from nexus.schema.models import (
@@ -21,6 +20,7 @@ from nexus.schema.models import (
     InheritanceEdge,
     ReferenceEdge,
     RelationshipEdge,
+    SchemaArea,
     SchemaGraph,
     TableDef,
 )

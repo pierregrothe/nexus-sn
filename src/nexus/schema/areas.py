@@ -16,6 +16,7 @@ __all__ = [
     "DOC_DESIGNER",
     "HAM_ITSM",
     "SchemaArea",
+    "ScopeEntry",
     "ScopeRef",
 ]
 
