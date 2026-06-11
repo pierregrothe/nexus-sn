@@ -107,16 +107,20 @@ gantt
         Template Library             :done, 2026-06, 2026-07
     section Schema Cartographer
         Schema Cartographer          :done, 2026-06, 2026-07
+    section Schema Product Catalog
+        Schema Product Catalog       :done, 2026-06, 2026-07
     section Agent Specialists
         Agent Specialists            : 2026-07, 2026-08
     section Distribution
         Distribution                 : 2026-08, 2026-09
+    section GRC Licensing
+        GRC Licensing                : 2026-09, 2026-10
 ```
 <!-- /gantt -->
 
 ## What is implemented
 
-<!-- tests -->1757 tests passing, all real fakes, no mocks.<!-- /tests -->
+<!-- tests -->1775 tests passing, all real fakes, no mocks.<!-- /tests -->
 
 NEXUS picks one of four render profiles at startup -- **RICH**, **BASIC**,
 **LEGACY**, **PLAIN** -- by inspecting the terminal once (TTY status, color
@@ -135,9 +139,10 @@ The following commands are fully functional:
   updates, drift, baselines, recommend, export, promote, install, activate,
   upgrade, apply (full lifecycle including PromotionPlan execution against
   ServiceNow's discovered sn_appclient endpoints)
-- `nexus schema` -- areas, erd (reverse-engineer ServiceNow tables into
-  Mermaid ERDs; deterministic, `--grouped` per-scope, `--image` svg/png via
-  Kroki, offline archive round-trip)
+- `nexus schema` -- products, erd (reverse-engineer ServiceNow tables into
+  Mermaid ERDs; product catalog synced from GitHub; accepts product name,
+  acronym, or key; 1-2 products per ERD; deterministic, `--grouped` per-scope,
+  SVG rendered by default via Kroki, offline archive round-trip)
 - `nexus reauth` -- OAuth token refresh helper
 - `nexus update` -- manual update check
 
@@ -220,19 +225,23 @@ derived deterministically from `sys_dictionary` reference columns and
 across runs.
 
 ```bash
-nexus schema areas                          # list registered areas + scopes
-nexus schema erd doc-designer               # write a Markdown ERD
+nexus schema products                       # list available products and scopes
+nexus schema erd HAM                        # HAM -> ITSM bridge ERD (SVG by default)
+nexus schema erd "Document Designer"        # resolve by full name
+nexus schema erd DOC                        # resolve by acronym
+nexus schema erd bcm itsm                   # combine two products into one ERD
 nexus schema erd bcm --grouped              # one diagram per scope
-nexus schema erd cmdb-bcm --image png       # also render a PNG via Kroki
+nexus schema erd bcm --image png            # render PNG instead of SVG
 nexus schema erd bcm --save-archive         # persist the discovered graph as JSON
-nexus schema erd bcm --from-archive bcm.json --image svg  # re-render offline
+nexus schema erd bcm --from-archive bcm.json  # re-render offline
 ```
 
-Three areas ship out of the box: `doc-designer` (Document Designer Fields /
-Data Relationships / Content Configuration), `bcm` (Business Continuity
-Management), and `cmdb-bcm` (the CMDB<->BCM bridge view). Image export uses
+Four products ship out of the box: `ham` (Hardware Asset Management),
+`itsm` (IT Service Management bridge targets), `doc-designer` (Document
+Designer), and `bcm` (Business Continuity Management). The catalog is bundled
+in the package and updated via `nexus sync`. SVG is rendered by default using
 [Kroki](https://kroki.io) -- point `--kroki-url` at a self-hosted instance for
-dense diagrams. See `docs/schema-image-export.md`.
+air-gapped environments. See `docs/schema-image-export.md`.
 
 ## Requirements
 
