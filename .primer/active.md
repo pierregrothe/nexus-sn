@@ -67,6 +67,11 @@ Next major capability target candidates (unchanged from prior session):
 * Schema fast-follows -- record-level config-trace (walk a real OOB template's
   Fields/Data Rel/Content Config records); `nexus schema diff`; per-scope ERD
   splitting for large areas; more areas (CSM/ITSM/HRSD).
+* Schema local rendering -- replace Kroki with a local graphviz renderer
+  (Python graphviz package + binary, DOT format). Requires rewriting
+  MermaidErdEmitter to a GraphvizErdEmitter behind the same KrokiClientProtocol
+  interface; SVG produced offline with no network dependency. User preference:
+  graphviz over mmdc (avoids Node.js).
 
 ## Recent Changes
 

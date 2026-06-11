@@ -8,9 +8,10 @@ from datetime import UTC, datetime
 
 import pytest
 
-from nexus.schema.areas import SchemaArea, ScopeRef
 from nexus.schema.discoverer import SchemaDiscoverer, _cell
 from nexus.schema.errors import AreaNotFoundError, ScopeNotFoundError
+from nexus.schema.models import SchemaArea
+from nexus.schema.models import ScopeEntry as ScopeRef
 from tests.fakes.fake_sn_client import FakeServiceNowClient
 
 _AREA = SchemaArea(key="dd", display="DD", scopes=(ScopeRef("sn_grc_doc_design", "DD"),))

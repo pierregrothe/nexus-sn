@@ -96,6 +96,13 @@
       Doc: docs/schema-image-export.md
 - [x] Three seeded areas (doc-designer, bcm, cmdb-bcm) including the
       CMDB<->BCM bridge view
+- [x] Schema product catalog -- replaced hardcoded areas.py with
+      GitHub-synced products.json bundled in the package; nexus schema erd
+      now accepts product names / acronyms / keys (1 or 2 products);
+      nexus sync fetches catalog; nexus schema products command
+      Spec: specs/2026-06-11-schema-product-catalog-design.md
+      Plan: plans/2026-06-11-schema-product-catalog.md
+      PR: #54
 
 ## 2026.07 -- Agent Specialists [planned]
 - [ ] 8 domain specialist agents implemented
@@ -109,6 +116,49 @@
 - [ ] PyPI publish (nexus-sn)
 
 ## Backlog
+
+### GRC License Management (nexus.licenses)
+
+Driver: recurring customer support questions (e.g. Sergio) on GRC module
+role classification -- which roles count as Operator / Lite Operator / Shared,
+how many users are exposed, and whether the deployment is audit-ready.
+
+- [ ] nexus licenses role-check <role_name> -- query
+      sn_irm_shared_cmn_role_types directly and display the license class
+      (Operator / Lite Operator / Shared) for any given role. Product-agnostic:
+      works for any role on the instance, not restricted to a specific module.
+- [ ] nexus licenses user-exposure [--role <name>] [--scope <scope_key>] --
+      count active users who hold a given role (or group of roles) and group
+      the results by owning application scope. Product-agnostic: the scope
+      grouping is derived live from sys_scope on the instance rather than
+      hardcoded to any product family. Useful for impact analysis before any
+      deployment or role reassignment, regardless of the product involved.
+- [ ] nexus assess grc-licensing -- walk all roles assigned on the instance
+      (filtered by the GRC role classification table), cross-reference each
+      with sn_irm_shared_cmn_role_types, and produce an exposure report:
+      per-scope Operator / Lite Operator / Shared counts + affected user list.
+      Scope grouping is dynamic from the instance, not hardcoded to any
+      product. Proactive license audit surface before ServiceNow runs one.
+- [ ] SSC integration for license validation -- when nexus detects a license
+      question on instance data, automatically cross-reference against the SSC
+      "Risk Pricing & Packaging" document via the existing MCP SSC server to
+      validate the applicable rule and cite the source. Depends on MCPProbe
+      real endpoint URLs (see below).
+
+### Schema Fast-follows
+
+- [ ] Local SVG rendering via graphviz -- replace Kroki dependency with a
+      local graphviz renderer (Python graphviz package + binary). Requires
+      rewriting MermaidErdEmitter to a GraphvizErdEmitter behind the same
+      KrokiClientProtocol interface. Fully offline, no network dependency.
+      (User preference: graphviz over mmdc -- avoids Node.js.)
+- [ ] record-level config-trace -- walk a real OOB template's Fields /
+      Data Rel / Content Config records to confirm the exact table chain
+- [ ] nexus schema diff -- delta between two schema snapshots of the same area
+- [ ] per-scope ERD splitting for large areas (separate file per scope)
+- [ ] more areas: CSM, ITSM (scoped tables), HRSD
+
+### Other Backlog
 - [ ] NiceGUI web interface (nexus[ui] optional extra)
 - [ ] Knowledge mastery KB (206 ServiceNow product docs)
 - [ ] MCPProbe real endpoint URLs

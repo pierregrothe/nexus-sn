@@ -13,10 +13,9 @@ from pathlib import Path
 from nexus.api.kroki_client import ImageFormat, KrokiClientProtocol
 from nexus.connectors.servicenow.protocol import ServiceNowClientProtocol
 from nexus.schema.archive import SchemaArchiveReader, SchemaArchiveWriter
-from nexus.schema.areas import DEFAULT_AREAS, SchemaArea
 from nexus.schema.discoverer import SchemaDiscoverer
 from nexus.schema.erd import MermaidErdEmitter
-from nexus.schema.models import SchemaGraph
+from nexus.schema.models import SchemaArea, SchemaGraph
 
 __all__ = ["SchemaCartographer"]
 
@@ -35,7 +34,7 @@ class SchemaCartographer:
     def __init__(
         self,
         client: ServiceNowClientProtocol,
-        areas: Mapping[str, SchemaArea] = DEFAULT_AREAS,
+        areas: Mapping[str, SchemaArea],
         *,
         archive_root: Path,
         kroki: KrokiClientProtocol,

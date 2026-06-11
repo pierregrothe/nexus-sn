@@ -2,8 +2,11 @@
 # Frozen Pydantic models for the schema cartography graph.
 # Author: Pierre Grothe
 # Date: 2026-06-08
-"""TableDef, FieldDef, edge models, and the SchemaGraph aggregate."""
+"""TableDef, FieldDef, edge models, SchemaGraph, ScopeEntry, SchemaArea."""
 
+from __future__ import annotations
+
+from dataclasses import dataclass
 from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict
@@ -13,11 +16,45 @@ __all__ = [
     "InheritanceEdge",
     "ReferenceEdge",
     "RelationshipEdge",
+    "SchemaArea",
     "SchemaGraph",
+    "ScopeEntry",
     "TableDef",
 ]
 
 _CONFIG = ConfigDict(frozen=True, strict=True, extra="forbid")
+
+
+@dataclass(slots=True, frozen=True)
+class ScopeEntry:
+    """One application scope included in a schema area.
+
+    Args:
+        key: The sys_scope.scope key, e.g. "sn_grc_doc_design".
+        label: Human-readable product label.
+    """
+
+    key: str
+    label: str
+
+
+@dataclass(slots=True, frozen=True)
+class SchemaArea:
+    """A named group of scopes to reverse-engineer together.
+
+    Args:
+        key: Machine-readable area key used in CLI and archives.
+        display: Human-readable label.
+        scopes: Scopes whose tables form the area.
+        bridge_targets: When set, narrow the discovered graph to the bridge
+            neighborhood around these target tables (e.g. ("cmdb_ci",)).
+            Empty means keep the whole area.
+    """
+
+    key: str
+    display: str
+    scopes: tuple[ScopeEntry, ...]
+    bridge_targets: tuple[str, ...] = ()
 
 
 class FieldDef(BaseModel):
