@@ -12,6 +12,7 @@ needs it.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import TYPE_CHECKING, cast
 
 import typer
@@ -36,6 +37,7 @@ from nexus.plugins import PluginInventory, PluginScanner
 from nexus.schema import SchemaCartographer
 from nexus.schema.archive import SchemaArchiveReader
 from nexus.schema.erd import MermaidErdEmitter
+from nexus.schema.models import SchemaArea
 from nexus.ui import CommandGuide, CommandHelp, DataColumn, DataTable, Hint, Notice
 from nexus.ui.capabilities import RenderProfile
 from nexus.ui.components.framed_viewer import FramedViewer, RefreshCallback
@@ -81,7 +83,10 @@ def _build_capture_engine(profile: str) -> tuple[CaptureEngine, ServiceNowClient
 
 
 def _build_schema_cartographer(
-    profile: str, kroki_url: str, kroki_timeout: float
+    profile: str,
+    kroki_url: str,
+    kroki_timeout: float,
+    areas: Mapping[str, SchemaArea] | None = None,
 ) -> tuple[SchemaCartographer, ServiceNowClient]:
     """Build a SchemaCartographer for the given registered instance profile.
 
@@ -89,6 +94,7 @@ def _build_schema_cartographer(
         profile: Instance profile name from InstanceRegistry.
         kroki_url: Kroki render endpoint for diagram image export.
         kroki_timeout: Per-request Kroki timeout in seconds.
+        areas: Area registry to inject. Uses DEFAULT_AREAS when None.
 
     Returns:
         Tuple of (SchemaCartographer, ServiceNowClient) for the caller to use.
@@ -96,10 +102,13 @@ def _build_schema_cartographer(
     Raises:
         typer.Exit: With code 1 if the profile is not registered or expired.
     """
+    from nexus.schema.areas import DEFAULT_AREAS  # noqa: PLC0415
+
     _, meta, token, _ = _acquire_token(profile)
     client = ServiceNowClient(instance_url=meta.url, token=token)
     cartographer = SchemaCartographer(
         client=client,
+        areas=areas if areas is not None else DEFAULT_AREAS,
         archive_root=NexusPaths.from_env().schema_dir,
         kroki=KrokiClient(kroki_url, timeout=kroki_timeout),
     )
