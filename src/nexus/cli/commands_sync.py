@@ -26,7 +26,8 @@ from nexus.cli.console import console, err_console
 from nexus.cli.utils import humanize_age
 from nexus.config.manager import ConfigManager
 from nexus.config.paths import NexusPaths
-from nexus.schema.sync import GitHubProductCatalogClient
+from nexus.schema.product_registry import ProductRegistry
+from nexus.schema.sync import GitHubProductCatalogClient, SchemaSync
 from nexus.templates.registry import TemplateRegistry
 from nexus.templates.sync import GitHubSync, GitHubTemplateClient, SyncReport
 from nexus.ui import DataColumn, DataTable, Hint, Notice
@@ -146,9 +147,6 @@ def _sync_schema_catalog(
         console_out: Rich console for success output.
         console_err: Rich console for warnings.
     """
-    from nexus.schema.product_registry import ProductRegistry  # noqa: PLC0415
-    from nexus.schema.sync import SchemaSync  # noqa: PLC0415
-
     schema_registry = ProductRegistry(schema_dir)
     schema_report = SchemaSync(client=catalog_client, registry=schema_registry).run(
         repo=repo, branch=branch, path=path
