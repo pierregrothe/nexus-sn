@@ -6,6 +6,7 @@ authors = ["Pierre Grothe <pierre.grothe@servicenow.com>"]
 readme = "README.md"
 license = "MIT"
 packages = [{ include = "nexus", from = "src" }]
+include = ["src/nexus/schema/products.json"]
 
 [tool.poetry.scripts]
 nexus = "nexus.cli:app"

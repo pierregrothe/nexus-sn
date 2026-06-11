@@ -76,9 +76,9 @@ CAPTURE_PARENT = help_entry(
 
 SCHEMA_PARENT = help_entry(
     "schema",
-    "Reverse-engineer ServiceNow table schemas: list curated areas, then "
-    "map one area into a Markdown ERD with an optional shareable image.",
-    "nexus schema erd doc-designer --image svg",
+    "Reverse-engineer ServiceNow table schemas: list available products, then "
+    "generate an ERD -- optionally as an SVG or PNG image via Kroki.",
+    "nexus schema erd HAM --image svg",
 )
 
 PLUGINS_RECOMMEND_PARENT = help_entry(
@@ -294,16 +294,16 @@ CAPTURE_HELP: list[CommandHelpEntry] = [
 
 SCHEMA_HELP: list[CommandHelpEntry] = [
     help_entry(
-        "areas",
-        "List the registered schema areas and the ServiceNow scopes each "
-        "covers. Area keys are the argument to 'erd'.",
-        "nexus schema areas",
+        "products",
+        "List the available schema products and the ServiceNow scopes each "
+        "covers. Product keys, acronyms, and full names are all accepted by 'erd'.",
+        "nexus schema products",
     ),
     help_entry(
-        "erd <area>",
-        "Reverse-engineer one area into a Markdown ERD (Mermaid). Pass "
-        "--image svg|png to also render a shareable diagram via Kroki.",
-        "nexus schema erd doc-designer --profile prod --image svg",
+        "erd <product> [product2]",
+        "Reverse-engineer one or two products into a Mermaid ERD. Accepts key, "
+        "acronym, or full name. Pass --image svg|png to also export a diagram image.",
+        "nexus schema erd HAM ITSM --image svg",
     ),
 ]
 

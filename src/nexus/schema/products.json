@@ -1,0 +1,43 @@
+{
+  "version": "1.0",
+  "products": [
+    {
+      "key": "ham",
+      "acronym": "HAM",
+      "name": "Hardware Asset Management",
+      "scopes": [
+        {"key": "sn_hamp", "label": "Hardware Asset Management Pro"}
+      ],
+      "bridge_targets": ["cmdb_ci"]
+    },
+    {
+      "key": "itsm",
+      "acronym": "ITSM",
+      "name": "IT Service Management",
+      "scopes": [],
+      "bridge_targets": ["incident", "task", "change_request", "cmdb_ci"]
+    },
+    {
+      "key": "doc-designer",
+      "acronym": "DOC",
+      "name": "Document Designer",
+      "scopes": [
+        {"key": "sn_grc_doc_design", "label": "Document Designer with Word"},
+        {"key": "sn_grc_rel_config", "label": "Data Relationships Framework"}
+      ],
+      "bridge_targets": []
+    },
+    {
+      "key": "bcm",
+      "acronym": "BCM",
+      "name": "Business Continuity Management",
+      "scopes": [
+        {"key": "sn_bcm", "label": "BCM Core"},
+        {"key": "sn_bcm_lite", "label": "BCM User Lite"},
+        {"key": "sn_bcm_map", "label": "Crisis Map"},
+        {"key": "sn_bcp", "label": "Business Continuity Planning"}
+      ],
+      "bridge_targets": []
+    }
+  ]
+}
