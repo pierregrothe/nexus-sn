@@ -4,6 +4,8 @@
 # Date: 2026-06-11
 """SchemaProduct model validation and catalog resolution."""
 
+import importlib.resources
+
 import pytest
 from pydantic import ValidationError
 
@@ -78,3 +80,10 @@ def test_schema_product_catalog_extra_fields_rejected() -> None:
             bridge_targets=(),
             unknown_field="bad",  # type: ignore[call-arg]
         )
+
+
+def test_bundled_catalog_parses_and_contains_required_products() -> None:
+    data = importlib.resources.files("nexus.schema").joinpath("products.json").read_text(encoding="utf-8")
+    catalog = SchemaProductCatalog.model_validate_json(data)
+    keys = {p.key for p in catalog.products}
+    assert {"ham", "itsm", "doc-designer", "bcm"} <= keys
