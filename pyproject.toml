@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "nexus-sn"
-version = "2026.05.2"
+version = "2026.06.0"
 description = "ServiceNow AI architect agent -- standalone CLI with template sync and assessment"
 authors = ["Pierre Grothe <pierre.grothe@servicenow.com>"]
 readme = "README.md"

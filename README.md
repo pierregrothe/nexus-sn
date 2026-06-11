@@ -57,7 +57,7 @@ Not yet on PyPI. Install from the latest GitHub release wheel or from source.
 **From the latest release wheel (recommended):**
 
 ```bash
-pip install https://github.com/pierregrothe/nexus-sn/releases/download/2026.05.2/nexus_sn-2026.5.2-py3-none-any.whl
+pip install https://github.com/pierregrothe/nexus-sn/releases/download/2026.06.0/nexus_sn-2026.6.0-py3-none-any.whl
 ```
 
 **From source:**
@@ -256,7 +256,7 @@ See `docs/CONTRIBUTING.md`.
 
 ## Version
 
-CalVer: 2026.05.2
+CalVer: 2026.06.0
 
 ## License
 

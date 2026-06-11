@@ -215,11 +215,10 @@ Infrastructure:
     progressive levels plus live SPM family run (6 fresh + 3 already-
     installed treated as success, 1 timeout).
 
-Tests: 1680 passing. All real fakes (incl. httpx.MockTransport,
+Tests: 1778 passing. All real fakes (incl. httpx.MockTransport,
 FakeBatchProgress, FakeServiceNowClient, FakeSchemaCartographer,
-FakeAgentClient, no
-unittest.mock). mypy strict + pyright strict report 0 errors across
-src/. ruff + black clean. GitHub:
+FakeAgentClient, no unittest.mock). mypy strict + pyright strict
+report 0 errors across src/. ruff + black clean. GitHub:
 https://github.com/pierregrothe/nexus-sn (public).
 
 CLI UX batch-progress layer (adaptive plugin upgrade display):
@@ -403,14 +402,24 @@ Templates layer (catalog sync + cache):
     outcome in {"ok", "no-config", "invalid-repo", "fetch-failed"},
     manifest, reason. Command layer renders the report.
 
-Schema Cartographer layer (2026.06-schema-cartographer, branch not yet merged):
+Schema Cartographer layer (merged: PRs #51, #53, #54):
   Read-only layer 5 that reverse-engineers a live SN data dictionary into
   Mermaid ERDs. Driver: case CS9240769 (RONA) -- Document Designer
   Fields/Data Relationships/Content Configuration relationship + reusable
   BCM and CMDB<->BCM table maps.
-  SchemaArea registry (areas.py) -- pure frozen dataclasses; 3 seeded areas:
-    doc-designer (sn_grc_doc_design + sn_grc_rel_config), bcm (sn_bcm/lite/map
-    + sn_bcp), cmdb-bcm. neighbor_hops=1 pulls bridge tables 1 hop out.
+  SchemaProductCatalog (products.json, PR #54) -- community-maintained JSON
+    catalog bundled in the package; updated via `nexus sync`; accepts product
+    names, acronyms, or keys; 1-2 products per ERD; product-agnostic (scope
+    grouping live from sys_scope); SVG rendered by default. areas.py deleted.
+    ProductRegistry (load/save/resolve + bundled fallback via
+    importlib.resources). GitHubProductCatalogClient + SchemaSync mirror
+    the existing GitHubSync pattern.
+  Four products ship out of the box: ham (sn_hamp -> cmdb_ci bridge),
+    itsm (bridge-only: incident/task/change_request/cmdb_ci), doc-designer
+    (sn_grc_doc_design + sn_grc_rel_config), bcm (sn_bcm family).
+  nexus schema products -- lists catalog with sync provenance.
+  nexus schema erd <product> [product2] -- resolves by name/acronym/key;
+    combinations supported (scoped + bridge-only = filtered bridge view).
   SchemaDiscoverer -- sys_scope -> sys_db_object -> sys_dictionary /
     sys_relationship. cell() normalizes Table API reference cells (always
     dicts {link|display_value, value}); sys_dictionary.reference.value is the
