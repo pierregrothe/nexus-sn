@@ -125,17 +125,20 @@ how many users are exposed, and whether the deployment is audit-ready.
 
 - [ ] nexus licenses role-check <role_name> -- query
       sn_irm_shared_cmn_role_types directly and display the license class
-      (Operator / Lite Operator / Shared) for a given role. Answers the
-      "what license does this role require?" question in 2 seconds.
-- [ ] nexus licenses user-exposure [--role <name>] [--product irm|bcm|esg] --
+      (Operator / Lite Operator / Shared) for any given role. Product-agnostic:
+      works for any role on the instance, not restricted to a specific module.
+- [ ] nexus licenses user-exposure [--role <name>] [--scope <scope_key>] --
       count active users who hold a given role (or group of roles) and group
-      the list by affected product (IRM / BCM / ESG). Useful for impact
-      analysis before a large GRC deployment or role reassignment.
-- [ ] nexus assess grc-licensing -- walk all GRC roles assigned on the
-      instance, cross-reference each with sn_irm_shared_cmn_role_types, and
-      produce an exposure report: per-product Operator / Lite Operator / Shared
-      counts + list of affected users. Proactive license audit surface before
-      ServiceNow runs one.
+      the results by owning application scope. Product-agnostic: the scope
+      grouping is derived live from sys_scope on the instance rather than
+      hardcoded to any product family. Useful for impact analysis before any
+      deployment or role reassignment, regardless of the product involved.
+- [ ] nexus assess grc-licensing -- walk all roles assigned on the instance
+      (filtered by the GRC role classification table), cross-reference each
+      with sn_irm_shared_cmn_role_types, and produce an exposure report:
+      per-scope Operator / Lite Operator / Shared counts + affected user list.
+      Scope grouping is dynamic from the instance, not hardcoded to any
+      product. Proactive license audit surface before ServiceNow runs one.
 - [ ] SSC integration for license validation -- when nexus detects a license
       question on instance data, automatically cross-reference against the SSC
       "Risk Pricing & Packaging" document via the existing MCP SSC server to
