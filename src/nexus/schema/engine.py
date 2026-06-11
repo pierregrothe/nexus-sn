@@ -13,7 +13,8 @@ from pathlib import Path
 from nexus.api.kroki_client import ImageFormat, KrokiClientProtocol
 from nexus.connectors.servicenow.protocol import ServiceNowClientProtocol
 from nexus.schema.archive import SchemaArchiveReader, SchemaArchiveWriter
-from nexus.schema.areas import DEFAULT_AREAS, SchemaArea
+from nexus.schema.areas import DEFAULT_AREAS
+from nexus.schema.models import SchemaArea
 from nexus.schema.discoverer import SchemaDiscoverer
 from nexus.schema.erd import MermaidErdEmitter
 from nexus.schema.models import SchemaGraph

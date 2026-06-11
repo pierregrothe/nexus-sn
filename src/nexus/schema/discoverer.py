@@ -12,7 +12,8 @@ from datetime import UTC, datetime
 from typing import cast
 
 from nexus.connectors.servicenow.protocol import ServiceNowClientProtocol
-from nexus.schema.areas import DEFAULT_AREAS, SchemaArea
+from nexus.schema.areas import DEFAULT_AREAS
+from nexus.schema.models import SchemaArea
 from nexus.schema.bridge import bridge_subgraph
 from nexus.schema.errors import AreaNotFoundError, ScopeNotFoundError
 from nexus.schema.models import (
@@ -90,7 +91,7 @@ class SchemaDiscoverer:
         if area_key not in self._areas:
             raise AreaNotFoundError(area_key)
         area = self._areas[area_key]
-        scope_keys = [s.scope for s in area.scopes]
+        scope_keys = [s.key for s in area.scopes]
 
         scope_rows = await self._client.list_records(
             "sys_scope", query=f"scopeIN{','.join(scope_keys)}", fields="sys_id,scope", limit=200
