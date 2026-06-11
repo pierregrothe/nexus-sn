@@ -83,9 +83,7 @@ class GitHubProductCatalogClient:
         self._injected = httpx_client
         self._timeout = timeout_seconds
 
-    def fetch_catalog(
-        self, repo: str, branch: str, path: str
-    ) -> SchemaProductCatalog | None:
+    def fetch_catalog(self, repo: str, branch: str, path: str) -> SchemaProductCatalog | None:
         """GET the raw catalog JSON. Returns None on any failure.
 
         Args:
@@ -124,9 +122,7 @@ class SchemaSync:
         registry: ProductRegistry to receive the cached catalog.
     """
 
-    def __init__(
-        self, *, client: GitHubProductCatalogClient, registry: ProductRegistry
-    ) -> None:
+    def __init__(self, *, client: GitHubProductCatalogClient, registry: ProductRegistry) -> None:
         """See class docstring."""
         self._client = client
         self._registry = registry

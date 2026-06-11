@@ -12,7 +12,6 @@ from datetime import UTC, datetime
 from typing import cast
 
 from nexus.connectors.servicenow.protocol import ServiceNowClientProtocol
-from nexus.schema.areas import DEFAULT_AREAS
 from nexus.schema.bridge import bridge_subgraph
 from nexus.schema.errors import AreaNotFoundError, ScopeNotFoundError
 from nexus.schema.models import (
@@ -66,7 +65,7 @@ class SchemaDiscoverer:
     def __init__(
         self,
         client: ServiceNowClientProtocol,
-        areas: Mapping[str, SchemaArea] = DEFAULT_AREAS,
+        areas: Mapping[str, SchemaArea],
         clock: Callable[[], datetime] = lambda: datetime.now(UTC),
     ) -> None:
         """Initialize with a client, area registry, and clock."""

@@ -8,10 +8,11 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from nexus.schema import (
-    DEFAULT_AREAS,
+    SchemaArea,
     SchemaCartographer,
     SchemaGraph,
     SchemaProtocol,
+    ScopeEntry,
 )
 from tests.fakes.fake_kroki_client import FakeKrokiClient
 from tests.fakes.fake_sn_client import FakeServiceNowClient
@@ -35,19 +36,27 @@ def _graph() -> SchemaGraph:
     )
 
 
+def _area() -> SchemaArea:
+    return SchemaArea(
+        key="doc-designer",
+        display="Document Designer",
+        scopes=(ScopeEntry(key="sn_grc_doc_design", label="Document Designer with Word"),),
+    )
+
+
 def test_public_symbols_importable() -> None:
-    assert "doc-designer" in DEFAULT_AREAS
+    assert SchemaArea is not None
+    assert ScopeEntry is not None
     assert SchemaCartographer is not None
     assert SchemaGraph is not None
     assert SchemaProtocol is not None
 
 
 def test_schema_protocol_engine_and_fake_conform(tmp_path: Path) -> None:
-    # Type-level contract: both strict checkers reject either argument if it
-    # drifts from SchemaProtocol. No runtime semantics beyond construction.
     _conforms(
         SchemaCartographer(
             FakeServiceNowClient(),
+            areas={_area().key: _area()},
             archive_root=tmp_path,
             kroki=FakeKrokiClient(),
         )

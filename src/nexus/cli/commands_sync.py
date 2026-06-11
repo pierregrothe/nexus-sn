@@ -155,14 +155,11 @@ def _sync_schema_catalog(
     )
     if schema_report.outcome == "ok" and schema_report.cached is not None:
         count = len(schema_report.cached.catalog.products)
-        console_out.print(
-            Notice.info(f"Synced {count} schema products from {repo}@{branch}.")
-        )
+        console_out.print(Notice.info(f"Synced {count} schema products from {repo}@{branch}."))
     else:
         console_err.print(
             Notice.warn(
-                "Schema product catalog sync failed (see log). "
-                "Using cached or bundled catalog."
+                "Schema product catalog sync failed (see log). " "Using cached or bundled catalog."
             )
         )
 

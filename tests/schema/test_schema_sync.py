@@ -56,9 +56,7 @@ def test_github_product_catalog_client_returns_catalog_on_200() -> None:
 
 
 def test_github_product_catalog_client_returns_none_on_404() -> None:
-    client = GitHubProductCatalogClient(
-        httpx_client=httpx.Client(transport=_ErrorTransport(404))
-    )
+    client = GitHubProductCatalogClient(httpx_client=httpx.Client(transport=_ErrorTransport(404)))
     assert client.fetch_catalog("owner/repo", "main", "schema/products.json") is None
 
 

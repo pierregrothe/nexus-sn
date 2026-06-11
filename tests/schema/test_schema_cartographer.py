@@ -11,9 +11,9 @@ import pytest
 
 from nexus.api.errors import KrokiError
 from nexus.api.kroki_client import ImageFormat
-from nexus.schema.areas import SchemaArea, ScopeRef
 from nexus.schema.engine import SchemaCartographer
-from nexus.schema.models import FieldDef, SchemaGraph, TableDef
+from nexus.schema.models import FieldDef, SchemaArea, SchemaGraph, TableDef
+from nexus.schema.models import ScopeEntry as ScopeRef
 from tests.fakes.fake_kroki_client import FakeKrokiClient
 from tests.fakes.fake_sn_client import FakeServiceNowClient
 

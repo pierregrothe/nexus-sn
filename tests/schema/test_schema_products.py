@@ -83,7 +83,11 @@ def test_schema_product_catalog_extra_fields_rejected() -> None:
 
 
 def test_bundled_catalog_parses_and_contains_required_products() -> None:
-    data = importlib.resources.files("nexus.schema").joinpath("products.json").read_text(encoding="utf-8")
+    data = (
+        importlib.resources.files("nexus.schema")
+        .joinpath("products.json")
+        .read_text(encoding="utf-8")
+    )
     catalog = SchemaProductCatalog.model_validate_json(data)
     keys = {p.key for p in catalog.products}
     assert {"ham", "itsm", "doc-designer", "bcm"} <= keys
