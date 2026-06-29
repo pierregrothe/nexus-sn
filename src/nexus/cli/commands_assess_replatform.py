@@ -43,6 +43,9 @@ __all__ = [
     "run_migration",
 ]
 
+# Scope-key prefixes that mark a user-developed (custom) scoped app.
+_CUSTOM_PREFIXES = ("x_", "u_")
+
 
 @dataclass(frozen=True, slots=True)
 class ReplatformCollaborators:
@@ -170,7 +173,12 @@ async def _capture_live(  # pragma: no cover -- live I/O, exercised by smoke
     async with client:
         discoverer = ScopeDiscoverer(client, DEFAULT_TABLE_GROUPS)
         manifest = await discoverer.discover(resolved, AI_AUTOMATION.key)
-        scope_ids = [entry.sys_id for entry in manifest.scopes]
+        # A replatform checklist cares about CUSTOM scoped apps (the use cases
+        # built on the old instance), not the hundreds of out-of-box scopes --
+        # capturing every OOB scope is both meaningless here and prohibitively slow.
+        scope_ids = [
+            entry.sys_id for entry in manifest.scopes if entry.scope.startswith(_CUSTOM_PREFIXES)
+        ]
         capture = await engine.capture(resolved, scope_ids, AI_AUTOMATION.key)
     return manifest, capture
 
