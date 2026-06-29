@@ -203,6 +203,14 @@ Assessment depends on but does not duplicate any of the above.
   the ServiceNow sys_id of the change request? Defer to story
   level.
 
+## Amendment (2026-06-29)
+
+The "Cross-instance comparison -- one capture, one assessment" item in Out of
+Scope above remains accurate for the gate validator (bare `assess` / `--for` /
+`--job`). It is consciously LIFTED for the new `nexus assess migration`
+subcommand, which compares two instances to emit a replatform checklist. See
+PRD-004 and ADR-025. The RuleEngine gate semantics are unchanged.
+
 ## References
 
 * Brainstorming: `.primer/brainstorming/2026-05-19-nexus-assessment-rule-engine.md`

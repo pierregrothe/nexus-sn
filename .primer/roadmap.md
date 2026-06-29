@@ -110,6 +110,22 @@
 - [ ] Multi-step orchestration via Planner + Dispatcher
 - [ ] Rollback manager for failed deployments
 
+## 2026.07 -- Replatform Checklist [planned]
+- [ ] Replatform analysis layer (src/nexus/replatform/) + nexus assess
+      inventory / migration -- bi-directional use-case + workflow checklist
+      across two instances. Deterministic v1 (product-family bucketing over
+      the AI_AUTOMATION capture + plugins), natural-key matching (never
+      sys_id), advisory only. Driver: replatform onto a clean instance after
+      an acquisition (CIBC pattern).
+      PRD: prd/PRD-004-nexus-replatform-checklist.md
+      ADR: adr/ADR-025-replatform-cross-instance-analysis.md
+      Epic: epics/2026.07-nexus-replatform-checklist/
+      Brainstorm: brainstorming/2026-06-29-nexus-assess-migration.md
+      Start: epics/2026.07-nexus-replatform-checklist/01-replatform-models.story.md
+- [ ] v2: AI enrichment -- specialist-driven use-case naming + sub-clustering
+      for scopes that collapse to Uncategorized in v1 (depends on the 2026.07
+      Agent Specialists epic).
+
 ## 2026.08 -- Distribution [planned]
 - [ ] 100% line coverage, mypy strict, ruff 0 violations
 - [ ] README + getting started documentation

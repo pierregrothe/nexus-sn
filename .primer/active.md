@@ -1,22 +1,25 @@
 # NEXUS -- Active Work
 
-Last updated: 2026-06-11
-Session: shipped Schema Product Catalog (PR #54) -- replaced hardcoded
-areas.py with a community-maintained products.json bundled in the package
-and updated via `nexus sync`; `nexus schema erd` now accepts product names,
-acronyms, or keys (1-2 products); SVG rendered by default. Version bumped
-to 2026.06.0 and tagged for release. Battle-tested live against alectri.
+Last updated: 2026-06-29
+Session: scaffolded the 2026.07 Replatform Checklist milestone -- promoted the
+`nexus assess inventory` / `assess migration` feature from backlog to a full
+milestone (charter.md created, ADR-025, PRD-004, epic with 6 stories) off an
+adversarially-validated brainstorm. Spec + governance only; no code yet.
 
 ## Current Focus
 
-On branch: main (all feature work merged)
+On branch: primer/replatform-checklist-milestone
 Version: 2026.06.0 (tagged for release)
 
-Roadmap candidates for next sprint:
+Active: 2026.07 Replatform Checklist scaffolded and ready for implementation.
+  Epic: epics/2026.07-nexus-replatform-checklist/ (6 stories, all backlog)
+  Start: 01-replatform-models.story.md
+
+Other roadmap candidates:
 * `2026.07-agent-specialists` -- 8 domain specialists + ExecutionContext
-  enrichment + Planner/Dispatcher + rollback manager. Largest scope.
+  enrichment + Planner/Dispatcher + rollback manager. (Replatform v2 AI
+  enrichment depends on this.)
 * `2026.08-distribution` -- 100% line coverage push + README + PyPI publish.
-  Smallest scope; finishes the package.
 * Schema fast-follows -- local graphviz renderer (preferred over Kroki/mmdc),
   record-level config-trace, nexus schema diff, more products in catalog.
 * License Audit (nexus.licenses) -- role-check, user-exposure, assess
@@ -24,11 +27,12 @@ Roadmap candidates for next sprint:
 
 ## Recent Changes
 
+- primer: scaffold 2026.07 Replatform Checklist milestone (charter, ADR-025,
+  PRD-004, epic + 6 stories) -- uncommitted history captured on branch
 - 2026.06.0 -- version bump + release tag
 - #54 feat(schema): replace hardcoded areas.py with GitHub-synced product catalog
 - docs: rename License Audit to platform-agnostic naming in roadmap
 - docs(readme): update schema section, test count, roadmap Gantt
-- primer(roadmap): add License Audit module, schema fast-follows, product catalog shipped
 
 ## Open Blockers
 
@@ -47,12 +51,13 @@ Roadmap candidates for next sprint:
 
 ## Next Steps
 
-1. Tag and verify 2026.06.0 GitHub Release wheel builds correctly.
-2. Pick next sprint: agent-specialists (largest) or distribution (smallest).
-3. Schema fast-follow: local graphviz renderer.
-4. License Audit: nexus licenses role-check <role_name>.
+1. Implement 2026.07 Replatform Checklist: superpowers writing-plans on
+   01-replatform-models.story.md, then stories 02-06 in dependency order.
+2. Tag and verify 2026.06.0 GitHub Release wheel builds correctly.
+3. Pick a parallel sprint: agent-specialists (largest) or distribution (smallest).
+4. Schema fast-follow: local graphviz renderer.
 
 ## Branch / remote state
 
-All feature branches deleted. Only main remains.
-Latest tag: 2026.06.0
+On branch primer/replatform-checklist-milestone (milestone scaffolding).
+main is the integration target. Latest tag: 2026.06.0
