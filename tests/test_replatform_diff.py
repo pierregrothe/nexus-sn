@@ -120,6 +120,18 @@ def test_build_checklist_scope_alias_matches_renamed_scope() -> None:
     assert not any(i.status is ChecklistStatus.EXTRA for i in checklist.items)
 
 
+def test_build_checklist_zero_workflow_source_use_case_is_done() -> None:
+    source = make_use_case_inventory(
+        profile="old", use_cases=(make_use_case(key="x_app", workflows=()),)
+    )
+    target = make_use_case_inventory(profile="new", use_cases=())
+    checklist = build_checklist(source, target)
+    uc = _item(checklist.items, key="x_app", kind=ChecklistKind.USE_CASE)
+    assert uc.status is ChecklistStatus.DONE
+    assert uc.built_count == 0
+    assert uc.total_count == 0
+
+
 def test_build_checklist_coverage_is_sorted_union() -> None:
     source = make_use_case_inventory(profile="old", coverage=("ai_automation",), use_cases=())
     target = make_use_case_inventory(

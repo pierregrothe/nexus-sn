@@ -130,6 +130,20 @@ def test_classify_empty_captures_returns_no_use_cases() -> None:
     assert inv.captured_at == _TS
 
 
+def test_classify_unnamed_records_get_distinct_keys() -> None:
+    scopes = make_scope_manifest(scopes={"s1": "x_app"}, captured_at=_TS)
+    catalog = make_schema_catalog(scope_to_product={})
+    capture = make_capture_result(
+        records=(
+            make_config_record(sys_id="r1", table="sys_hub_flow", scope_sys_id="s1", fields={}),
+            make_config_record(sys_id="r2", table="sys_hub_flow", scope_sys_id="s1", fields={}),
+        ),
+    )
+    inv = classify((capture,), scopes, catalog, profile="prod")
+    keys = {wf.key for uc in inv.use_cases for wf in uc.workflows}
+    assert len(keys) == 2
+
+
 def test_classify_falls_back_to_scope_name_when_sys_id_unknown() -> None:
     scopes = make_scope_manifest(scopes={}, captured_at=_TS)
     catalog = make_schema_catalog(scope_to_product={})

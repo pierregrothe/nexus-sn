@@ -55,8 +55,11 @@ def classify(
             scope_key = sys_to_scope.get(record.scope_sys_id) or record.scope_name
             domain = scope_to_domain.get(scope_key, _UNCATEGORIZED)
             name = _display_name(record.fields.get("name", ""))
+            # Unnamed records have no stable cross-instance identity; fall back to
+            # the sys_id so the natural key stays unique (no collision/over-count).
+            key_segment = _normalize(name) or record.sys_id
             ref = WorkflowRef(
-                key=f"{scope_key}|{record.table}|{_normalize(name)}",
+                key=f"{scope_key}|{record.table}|{key_segment}",
                 name=name,
                 type=record.table,
                 scope=scope_key,

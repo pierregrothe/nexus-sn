@@ -26,7 +26,7 @@
     "nexus.assessment.schemas.ruleset": {"covered_lines": 11, "total_lines": 11},
     "nexus.assessment.schemas.scope": {"covered_lines": 12, "total_lines": 12},
     "nexus.replatform": {"covered_lines": 5, "total_lines": 5},
-    "nexus.replatform.classifier": {"covered_lines": 28, "total_lines": 28},
+    "nexus.replatform.classifier": {"covered_lines": 29, "total_lines": 29},
     "nexus.replatform.diff": {"covered_lines": 40, "total_lines": 40},
     "nexus.replatform.models": {"covered_lines": 41, "total_lines": 41},
     "nexus.replatform.reporter": {"covered_lines": 82, "total_lines": 82},

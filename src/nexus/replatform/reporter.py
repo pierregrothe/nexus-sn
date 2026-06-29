@@ -98,7 +98,7 @@ def _summary_panel(checklist: MigrationChecklist) -> KeyValuePanel:
         KvRow(label="done", value=str(done)),
         KvRow(label="partial", value=str(partial)),
         KvRow(label="todo", value=str(todo)),
-        KvRow(label="extra", value=str(extra)),
+        KvRow(label="extra workflows", value=str(extra)),
     ]
     return KeyValuePanel(title="Replatform Checklist", rows=rows)
 

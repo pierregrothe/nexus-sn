@@ -128,8 +128,12 @@ def _workflow_item(
 
 
 def _rollup_status(built: int, total: int) -> ChecklistStatus:
-    """Roll a use case up to DONE / TODO / PARTIAL from its built/total counts."""
-    if total > 0 and built == total:
+    """Roll a use case up to DONE / TODO / PARTIAL from its built/total counts.
+
+    A use case with no workflows (built == total == 0) has nothing to migrate
+    and is vacuously DONE.
+    """
+    if built == total:
         return ChecklistStatus.DONE
     if built == 0:
         return ChecklistStatus.TODO
