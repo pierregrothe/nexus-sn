@@ -4,6 +4,22 @@ Status: backlog
 Spec-Clarity: high
 Depends-On: 01
 
+## Recon corrections (2026-06-29, verified against code)
+
+- `ProductCatalog` does not exist -- the real type is `SchemaProductCatalog`
+  (`nexus.schema.products`). It has no scope->family method, so the classifier
+  builds the reverse map `{scope.key: product.name for p in catalog.products
+  for scope in p.scopes}`; `domain` is `product.name`; unknown scopes ->
+  `Uncategorized`.
+- `plugin_inventory` is DROPPED from the v1 signature: plugin `product_family`
+  ("ITSM") and catalog `domain` ("Hardware Asset Management") are different
+  taxonomies that do not align. Plugin-based enrichment is v2 (specialists).
+  Signature is `classify(captures, scopes, catalog, *, profile)`.
+- `ConfigRecord.fields["name"]` is `str | SnRefField` (a dict). Extract via
+  `raw["display_value"] if isinstance(raw, dict) else raw`.
+- Use the capture-layer `ScopeEntry` (has `.scope`); the schema-layer
+  `ScopeEntry` (has `.key`) is only read inside the catalog reverse map.
+
 ## Story
 
 As a NEXUS user inventorying an instance,

@@ -9,6 +9,7 @@ Deterministic use-case classification and a bi-directional migration checklist.
 Advisory only: this layer consumes captured data and never mutates an instance.
 """
 
+from nexus.replatform.classifier import classify
 from nexus.replatform.models import (
     ChecklistItem,
     ChecklistKind,
@@ -27,4 +28,5 @@ __all__ = [
     "UseCase",
     "UseCaseInventory",
     "WorkflowRef",
+    "classify",
 ]
