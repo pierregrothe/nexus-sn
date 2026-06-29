@@ -19,7 +19,7 @@ import httpx
 import pytest
 
 from nexus.connectors.servicenow.client import ServiceNowClient
-from nexus.connectors.servicenow.errors import SNAuthError
+from nexus.connectors.servicenow.errors import SNAuthError, SNClientError
 
 __all__: list[str] = []
 
@@ -196,3 +196,39 @@ async def test_request_does_not_refresh_when_expiry_is_far_in_future() -> None:
 
     assert refresh_calls == []
     assert request_tokens == ["Bearer healthy-token"]
+
+
+@pytest.mark.asyncio
+async def test_request_retries_transient_network_error_then_succeeds() -> None:
+    """A transient transport error (ReadError) is retried; a later success returns."""
+    calls: list[int] = []
+
+    def handler(_request: httpx.Request) -> httpx.Response:
+        calls.append(1)
+        if len(calls) == 1:
+            raise httpx.ReadError("transient connection drop")
+        return httpx.Response(200, json={"result": {"ok": True}})
+
+    async with ServiceNowClient("test.service-now.com", token="t") as c:
+        _install_transport(c, httpx.MockTransport(handler))
+        raw = await c.fetch_progress("tracker-x")
+
+    assert raw == {"ok": True}
+    assert len(calls) == 2
+
+
+@pytest.mark.asyncio
+async def test_request_raises_snclienterror_after_exhausting_transient_retries() -> None:
+    """When every attempt hits a transport error, surface SNClientError."""
+    calls: list[int] = []
+
+    def handler(_request: httpx.Request) -> httpx.Response:
+        calls.append(1)
+        raise httpx.ConnectError("connection refused")
+
+    async with ServiceNowClient("test.service-now.com", token="t") as c:
+        _install_transport(c, httpx.MockTransport(handler))
+        with pytest.raises(SNClientError):
+            await c.fetch_progress("tracker-x")
+
+    assert len(calls) == 3

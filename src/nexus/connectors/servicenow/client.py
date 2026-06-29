@@ -10,6 +10,7 @@ and exponential backoff retry (3 attempts). Maps HTTP status codes to
 typed SNClientError subclasses.
 """
 
+import asyncio
 import logging
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import UTC, datetime
@@ -29,6 +30,7 @@ log = logging.getLogger(__name__)
 __all__ = ["RefreshTokenCallback", "ServiceNowClient"]
 
 _MAX_RETRIES = 3
+_BACKOFF_BASE_SECONDS = 0.5
 _TIMEOUT_SECONDS = 30.0
 _TABLE_API_BASE = "/api/now/table"
 _STATS_API_BASE = "/api/now/stats"
@@ -464,16 +466,64 @@ class ServiceNowClient:
 
         await self._maybe_refresh_token()
         log.debug("SN %s %s params=%s", method, path, params)
-        response = await self._client.request(method, path, params=params, json=json)
+        response = await self._send_with_retry(self._client, method, path, params, json)
         # Only retry on 401 (token rejected). 403 means ACL/role denial that
         # no token refresh can fix; surfacing it immediately avoids a wasted
         # OAuth round-trip plus a misleading "auth retry" log line.
         if response.status_code == 401 and self._refresh_token_callback is not None:
             log.debug("SN %s returned 401; refreshing token and retrying once", path)
             await self._force_refresh_token()
-            response = await self._client.request(method, path, params=params, json=json)
+            response = await self._send_with_retry(self._client, method, path, params, json)
         self._raise_for_status(response)
         return response.json() if response.content else {}
+
+    async def _send_with_retry(
+        self,
+        client: httpx.AsyncClient,
+        method: str,
+        path: str,
+        params: Mapping[str, str | int] | None,
+        json: dict[str, str] | None,
+    ) -> httpx.Response:
+        """Send one request, retrying transient transport errors with backoff.
+
+        Args:
+            client: The open httpx client to send through.
+            method: HTTP method.
+            path: Request path.
+            params: Query parameters.
+            json: JSON request body.
+
+        Returns:
+            The httpx.Response, regardless of status code (status handling is
+            the caller's responsibility).
+
+        Raises:
+            SNClientError: When every attempt fails with a transient transport
+                error (connection drop, read/connect timeout, protocol error).
+        """
+        last_exc: httpx.TransportError | None = None
+        for attempt in range(_MAX_RETRIES):
+            try:
+                return await client.request(method, path, params=params, json=json)
+            except httpx.TransportError as exc:
+                last_exc = exc
+                if attempt + 1 >= _MAX_RETRIES:
+                    break
+                delay = _BACKOFF_BASE_SECONDS * (2**attempt)
+                log.warning(
+                    "SN %s %s transient error %s; retry %d/%d in %.1fs",
+                    method,
+                    path,
+                    type(exc).__name__,
+                    attempt + 1,
+                    _MAX_RETRIES,
+                    delay,
+                )
+                await asyncio.sleep(delay)
+        raise SNClientError(
+            f"Network error after {_MAX_RETRIES} attempts: {last_exc}"
+        ) from last_exc
 
     @staticmethod
     def _raise_for_status(response: httpx.Response) -> None:
