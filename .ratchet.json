@@ -25,6 +25,8 @@
     "nexus.assessment.schemas.rule": {"covered_lines": 31, "total_lines": 31},
     "nexus.assessment.schemas.ruleset": {"covered_lines": 11, "total_lines": 11},
     "nexus.assessment.schemas.scope": {"covered_lines": 12, "total_lines": 12},
+    "nexus.replatform": {"covered_lines": 2, "total_lines": 2},
+    "nexus.replatform.models": {"covered_lines": 41, "total_lines": 41},
     "nexus.schema": {"covered_lines": 5, "total_lines": 5},
     "nexus.schema.archive": {"covered_lines": 26, "total_lines": 26},
     "nexus.schema.areas": {"covered_lines": 11, "total_lines": 11},

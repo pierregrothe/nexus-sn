@@ -39,13 +39,26 @@ AC4 (enums):
 **Then** both are `StrEnum`; `ChecklistStatus = TODO | DONE | PARTIAL | EXTRA`,
 `ChecklistKind = USE_CASE | WORKFLOW`.
 
-AC5 (ChecklistItem with count invariant):
+AC5 (ChecklistItem fields):
+**Given** a `ChecklistItem`
+**When** loaded
+**Then** frozen+strict+extra=forbid with fields `key: str`, `name: str`,
+`domain: str`, `use_case_key: str`, `kind: ChecklistKind`,
+`status: ChecklistStatus`, `built_count: int | None = None`,
+`total_count: int | None = None`, `evidence: tuple[str, ...] = ()`.
+(`domain`/`use_case_key`/`status` are required by the Story 03 sort key
+`(domain, use_case_key, kind, key)`; recon-confirmed against drift.py.)
+
+AC5b (ChecklistItem count invariant):
 **Given** a `ChecklistItem`
 **When** constructed with `kind=WORKFLOW`
 **Then** `built_count is None and total_count is None`; **and when**
 constructed with `kind=USE_CASE` **then** both counts are non-negative
 `int` with `built_count <= total_count`. A `@model_validator(mode="after")`
 enforces this and returns `Self`; violations raise `ValidationError`.
+(`built_count`/`total_count` are declared `int | None` with no `Field`
+constraint; ge=0 and the `<=` relation are enforced in the validator body,
+not the annotation -- recon CONCERN on nullable+Field interaction.)
 
 AC6 (MigrationChecklist):
 **Given** `MigrationChecklist`
