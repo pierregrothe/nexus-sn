@@ -27,6 +27,7 @@ from nexus.capture.scope import ScopeDiscoverer
 from nexus.capture.tables import AI_AUTOMATION, DEFAULT_TABLE_GROUPS
 from nexus.cli.apps import assess_app
 from nexus.cli.auth import acquire_token as _acquire_token
+from nexus.cli.console import console
 from nexus.cli.console import render_context as _render_context
 from nexus.config.paths import NexusPaths
 from nexus.connectors.servicenow.client import ServiceNowClient
@@ -35,6 +36,7 @@ from nexus.replatform.diff import build_checklist
 from nexus.replatform.models import UseCaseInventory
 from nexus.replatform.reporter import render_checklist, write_markdown
 from nexus.schema.product_registry import ProductRegistry
+from nexus.ui import nexus_progress
 from nexus.ui.render_context import RenderContext
 
 __all__ = [
@@ -187,14 +189,31 @@ async def _capture_live(  # pragma: no cover -- live I/O, exercised by smoke
     ) as client:
         engine = CaptureEngine(client=client, archive_root=NexusPaths.from_env().archives_dir)
         discoverer = ScopeDiscoverer(client, DEFAULT_TABLE_GROUPS)
-        manifest = await discoverer.discover(profile, AI_AUTOMATION.key)
-        # A replatform checklist cares about CUSTOM scoped apps (the use cases
-        # built on the old instance), not the hundreds of out-of-box scopes --
-        # capturing every OOB scope is both meaningless here and prohibitively slow.
-        scope_ids = [
-            entry.sys_id for entry in manifest.scopes if entry.scope.startswith(_CUSTOM_PREFIXES)
-        ]
-        capture = await engine.capture(profile, scope_ids, AI_AUTOMATION.key)
+        with nexus_progress(console) as progress:
+            task = progress.add_task("Discovering scopes...", total=None)
+
+            def on_progress(completed: int, total: int, message: str) -> None:
+                progress.update(
+                    task,
+                    description=message,
+                    total=total if total > 0 else None,
+                    completed=completed,
+                )
+
+            manifest = await discoverer.discover(
+                profile, AI_AUTOMATION.key, on_progress=on_progress
+            )
+            # A replatform checklist cares about CUSTOM scoped apps (the use cases
+            # built on the old instance), not the hundreds of out-of-box scopes --
+            # capturing every OOB scope is both meaningless here and prohibitively slow.
+            scope_ids = [
+                entry.sys_id
+                for entry in manifest.scopes
+                if entry.scope.startswith(_CUSTOM_PREFIXES)
+            ]
+            capture = await engine.capture(
+                profile, scope_ids, AI_AUTOMATION.key, on_progress=on_progress
+            )
     return manifest, capture
 
 
