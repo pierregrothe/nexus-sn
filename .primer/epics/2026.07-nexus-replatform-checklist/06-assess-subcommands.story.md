@@ -4,6 +4,22 @@ Status: backlog
 Spec-Clarity: high
 Depends-On: 02, 03, 04, 05
 
+## Recon corrections (2026-06-29, verified against code)
+
+- NO `ctx.obj` for collaborators: the root callback sets `ctx.obj = RenderContext`
+  and `get_render_context()` asserts that type. Instead the subcommands mirror the
+  shipped `run_assess` pattern -- thin Typer wrappers call `run_inventory` /
+  `run_migration(*, ..., collaborators)`, tested directly with a fake
+  `build_inventory`. Code lives in a new `cli/commands_assess_replatform.py`
+  (keeps `commands_assess.py` cohesive + under the ADR-023 cap).
+- `inventory` is inherently LIVE: a capture archive does not store a
+  `ScopeManifest`, so the production builder runs `ScopeDiscoverer.discover` +
+  `CaptureEngine.capture` + `ProductRegistry.load_catalog` + `classify`. That live
+  I/O is `# pragma: no cover` (no-mocks rule; validated by the two-instance smoke);
+  the `run_*` logic is 100% unit-tested via the injectable seam.
+- Tests live in `tests/cli/`. `--from-archive` is deferred (archives lack a
+  manifest); v1 inventory is profile-based + live.
+
 ## Story
 
 As a Solution Consultant driving a replatform,
