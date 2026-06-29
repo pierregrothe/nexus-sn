@@ -15,19 +15,21 @@ no ctx.obj, which would clash with the RenderContext set by the root callback.
 import asyncio
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import Annotated
 
 import typer
 
+from nexus.capture.engine import CaptureEngine
 from nexus.capture.models import CaptureResult, ScopeManifest
 from nexus.capture.scope import ScopeDiscoverer
 from nexus.capture.tables import AI_AUTOMATION, DEFAULT_TABLE_GROUPS
 from nexus.cli.apps import assess_app
-from nexus.cli.auth import config_default as _config_default
+from nexus.cli.auth import acquire_token as _acquire_token
 from nexus.cli.console import render_context as _render_context
-from nexus.cli.views import _build_capture_engine
 from nexus.config.paths import NexusPaths
+from nexus.connectors.servicenow.client import ServiceNowClient
 from nexus.replatform.classifier import classify
 from nexus.replatform.diff import build_checklist
 from nexus.replatform.models import UseCaseInventory
@@ -167,19 +169,32 @@ def _build_live_inventory(  # pragma: no cover -- live I/O, exercised by smoke
 async def _capture_live(  # pragma: no cover -- live I/O, exercised by smoke
     profile: str,
 ) -> tuple[ScopeManifest, CaptureResult]:
-    """Run live scope discovery + config capture for the AI_AUTOMATION group."""
-    engine, client = _build_capture_engine(profile)
-    resolved = profile or _config_default()
-    async with client:
+    """Run live scope discovery + config capture for the AI_AUTOMATION group.
+
+    Builds the client with a token refresh callback so the (often multi-minute)
+    capture survives ServiceNow's ~30-minute OAuth token cap -- mirroring the
+    plugin-executor long-operation pattern. Without it, a full capture dies with
+    HTTP 401 mid-run.
+    """
+    _registry, meta, token, _expiry = _acquire_token(profile)
+
+    async def _refresh() -> tuple[str, datetime]:
+        _r, _m, new_token, new_expiry = _acquire_token(profile)
+        return new_token, new_expiry
+
+    async with ServiceNowClient(
+        instance_url=meta.url, token=token, refresh_token_callback=_refresh
+    ) as client:
+        engine = CaptureEngine(client=client, archive_root=NexusPaths.from_env().archives_dir)
         discoverer = ScopeDiscoverer(client, DEFAULT_TABLE_GROUPS)
-        manifest = await discoverer.discover(resolved, AI_AUTOMATION.key)
+        manifest = await discoverer.discover(profile, AI_AUTOMATION.key)
         # A replatform checklist cares about CUSTOM scoped apps (the use cases
         # built on the old instance), not the hundreds of out-of-box scopes --
         # capturing every OOB scope is both meaningless here and prohibitively slow.
         scope_ids = [
             entry.sys_id for entry in manifest.scopes if entry.scope.startswith(_CUSTOM_PREFIXES)
         ]
-        capture = await engine.capture(resolved, scope_ids, AI_AUTOMATION.key)
+        capture = await engine.capture(profile, scope_ids, AI_AUTOMATION.key)
     return manifest, capture
 
 
