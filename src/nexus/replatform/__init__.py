@@ -20,6 +20,7 @@ from nexus.replatform.models import (
     UseCaseInventory,
     WorkflowRef,
 )
+from nexus.replatform.reporter import render_checklist, write_markdown
 
 __all__ = [
     "ChecklistItem",
@@ -31,4 +32,6 @@ __all__ = [
     "WorkflowRef",
     "build_checklist",
     "classify",
+    "render_checklist",
+    "write_markdown",
 ]
