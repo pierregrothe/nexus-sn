@@ -9,8 +9,8 @@
 [![CI](https://github.com/pierregrothe/nexus-sn/actions/workflows/ci.yml/badge.svg)](https://github.com/pierregrothe/nexus-sn/actions/workflows/ci.yml)
 [![License: Source Available](https://img.shields.io/badge/license-Source%20Available-orange)](LICENSE)
 [![Python 3.14+](https://img.shields.io/badge/python-3.14%2B-blue)](https://www.python.org/downloads/)
-[![Tests](https://img.shields.io/badge/tests-1757%20passing-brightgreen)](https://github.com/pierregrothe/nexus-sn/actions)
-[![LOC](https://img.shields.io/badge/LOC-26%2C021-blue)](https://github.com/pierregrothe/nexus-sn/tree/main/src)
+[![Tests](https://img.shields.io/badge/tests-1778%20passing-brightgreen)](https://github.com/pierregrothe/nexus-sn/actions)
+[![LOC](https://img.shields.io/badge/LOC-26%2C513-blue)](https://github.com/pierregrothe/nexus-sn/tree/main/src)
 <!-- /badges -->
 
 ServiceNow AI architect agent -- standalone CLI and optional web dashboard.
@@ -107,20 +107,18 @@ gantt
         Template Library             :done, 2026-06, 2026-07
     section Schema Cartographer
         Schema Cartographer          :done, 2026-06, 2026-07
-    section Schema Product Catalog
-        Schema Product Catalog       :done, 2026-06, 2026-07
     section Agent Specialists
         Agent Specialists            : 2026-07, 2026-08
+    section Replatform Checklist
+        Replatform Checklist         : 2026-07, 2026-08
     section Distribution
         Distribution                 : 2026-08, 2026-09
-    section License Audit
-        License Audit                : 2026-09, 2026-10
 ```
 <!-- /gantt -->
 
 ## What is implemented
 
-<!-- tests -->1775 tests passing, all real fakes, no mocks.<!-- /tests -->
+<!-- tests -->1778 tests passing, all real fakes, no mocks.<!-- /tests -->
 
 NEXUS picks one of four render profiles at startup -- **RICH**, **BASIC**,
 **LEGACY**, **PLAIN** -- by inspecting the terminal once (TTY status, color
