@@ -129,47 +129,6 @@ def update(
 
 
 @app.command()
-def assess(
-    for_template: Annotated[
-        str, typer.Option("--for", help="Check readiness for a specific template")
-    ] = "",
-    job: Annotated[str, typer.Option("--job", help="Validate a past deployment by job ID")] = "",
-    live: Annotated[
-        bool, typer.Option("--live", help="Re-capture from the live instance instead of an archive")
-    ] = False,
-    archive: Annotated[
-        str, typer.Option("--archive", help="Path to a capture-archive manifest.yaml")
-    ] = "",
-    skip_gate2: Annotated[
-        bool,
-        typer.Option("--skip-gate2", help="Acknowledge that Gate 2 verification is being skipped"),
-    ] = False,
-) -> None:
-    """Run an instance health scan or targeted assessment."""
-    from pathlib import Path  # noqa: PLC0415 -- ADR-022 CLI deferred imports
-
-    from nexus.cli.commands_assess import (  # noqa: PLC0415
-        default_collaborators,
-        run_assess,
-    )
-    from nexus.config.paths import NexusPaths  # noqa: PLC0415
-
-    paths = NexusPaths.from_env()
-    archive_path = Path(archive) if archive else None
-    exit_code = run_assess(
-        for_template=for_template,
-        job=job,
-        live=live,
-        archive_path=archive_path,
-        skip_gate2=skip_gate2,
-        render_context=_render_context,
-        paths=paths,
-        collaborators=default_collaborators(paths),
-    )
-    raise typer.Exit(exit_code)
-
-
-@app.command()
 def apply(
     template: Annotated[str, typer.Argument(help="Template name to deploy")],
     scope: Annotated[

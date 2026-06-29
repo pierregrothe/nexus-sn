@@ -20,6 +20,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from pathlib import Path
+from typing import Annotated
 
 import typer
 
@@ -34,6 +35,8 @@ from nexus.assessment.schemas.ruleset import Ruleset
 from nexus.assessment.verdict import GateVerdict
 from nexus.capture.archive import ArchiveReader
 from nexus.capture.models import CaptureResult
+from nexus.cli.apps import assess_app
+from nexus.cli.console import render_context as _render_context
 from nexus.config.paths import NexusPaths
 from nexus.ui.components import Notice
 from nexus.ui.render_context import RenderContext
@@ -350,3 +353,43 @@ def _apply_result_loader_not_implemented(job_id: str) -> tuple[ApplyResult, str]
     raise NotImplementedError(
         "apply-job log reader is not wired yet; ApplyEngine ships in 2026.06-template-library"
     )
+
+
+@assess_app.callback(invoke_without_command=True)
+def assess_callback(
+    ctx: typer.Context,
+    for_template: Annotated[
+        str, typer.Option("--for", help="Check readiness for a specific template")
+    ] = "",
+    job: Annotated[str, typer.Option("--job", help="Validate a past deployment by job ID")] = "",
+    live: Annotated[
+        bool, typer.Option("--live", help="Re-capture from the live instance instead of an archive")
+    ] = False,
+    archive: Annotated[
+        str, typer.Option("--archive", help="Path to a capture-archive manifest.yaml")
+    ] = "",
+    skip_gate2: Annotated[
+        bool,
+        typer.Option("--skip-gate2", help="Acknowledge that Gate 2 verification is being skipped"),
+    ] = False,
+) -> None:
+    """Run an instance health scan or targeted assessment.
+
+    With no subcommand this runs the gate/health path; subcommands (inventory,
+    migration) short-circuit it via the ``invoked_subcommand`` guard.
+    """
+    if ctx.invoked_subcommand is not None:
+        return
+    paths = NexusPaths.from_env()
+    archive_path = Path(archive) if archive else None
+    exit_code = run_assess(
+        for_template=for_template,
+        job=job,
+        live=live,
+        archive_path=archive_path,
+        skip_gate2=skip_gate2,
+        render_context=_render_context,
+        paths=paths,
+        collaborators=default_collaborators(paths),
+    )
+    raise typer.Exit(exit_code)

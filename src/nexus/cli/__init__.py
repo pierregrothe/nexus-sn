@@ -16,6 +16,7 @@ from typing import Annotated
 
 import typer
 
+from nexus.cli import commands_assess as commands_assess
 from nexus.cli import commands_capture as commands_capture
 from nexus.cli import commands_instance as commands_instance
 from nexus.cli import commands_plugins_advisories as commands_plugins_advisories
@@ -42,6 +43,7 @@ __all__ = [
     "ServiceNowClient",
     "_acquire_token",
     "app",
+    "commands_assess",
     "commands_capture",
     "commands_instance",
     "commands_plugins_advisories",
