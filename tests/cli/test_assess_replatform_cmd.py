@@ -13,7 +13,10 @@ from pathlib import Path
 import pytest
 import typer
 from rich.console import Console
+from typer.testing import CliRunner
 
+from nexus.cli import commands_assess_replatform
+from nexus.cli.apps import app
 from nexus.cli.commands_assess_replatform import (
     ReplatformCollaborators,
     _ref_value,
@@ -156,3 +159,80 @@ def test_ref_value_passes_through_plain_string() -> None:
 
 def test_ref_value_handles_none() -> None:
     assert _ref_value(None) == ""
+
+
+def test_assess_inventory_command_routes_profile_and_writes_json(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("NEXUS_AUTO_UPDATE", "0")
+    seen: list[str] = []
+    inv = _itsm_inventory("prod", ("Alpha",))
+
+    def fake_factory(_paths: object) -> ReplatformCollaborators:
+        def build(profile: str) -> UseCaseInventory:
+            seen.append(profile)
+            return inv
+
+        return ReplatformCollaborators(build_inventory=build)
+
+    monkeypatch.setattr(
+        commands_assess_replatform, "default_replatform_collaborators", fake_factory
+    )
+    out = tmp_path / "inv.json"
+    result = CliRunner().invoke(app, ["assess", "inventory", "prod", "--out", str(out)])
+    assert result.exit_code == 0
+    # The positional `profile` argument routed through to the inventory builder.
+    assert seen == ["prod"]
+    data = json.loads(out.read_text(encoding="utf-8"))
+    assert data["profile"] == "prod"
+
+
+def test_assess_migration_command_routes_options_and_writes_markdown(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("NEXUS_AUTO_UPDATE", "0")
+    seen: list[str] = []
+    src_wf = make_workflow_ref(scope="x_oldcorp", name="Intake")
+    tgt_wf = make_workflow_ref(scope="x_newcorp", name="Intake")
+    source = make_use_case_inventory(
+        profile="old", use_cases=(make_use_case(key="x_oldcorp", workflows=(src_wf,)),)
+    )
+    target = make_use_case_inventory(
+        profile="new", use_cases=(make_use_case(key="x_newcorp", workflows=(tgt_wf,)),)
+    )
+    by_profile = {"old": source, "new": target}
+
+    def fake_factory(_paths: object) -> ReplatformCollaborators:
+        def build(profile: str) -> UseCaseInventory:
+            seen.append(profile)
+            return by_profile[profile]
+
+        return ReplatformCollaborators(build_inventory=build)
+
+    monkeypatch.setattr(
+        commands_assess_replatform, "default_replatform_collaborators", fake_factory
+    )
+    out = tmp_path / "checklist.md"
+    result = CliRunner().invoke(
+        app,
+        [
+            "assess",
+            "migration",
+            "--from",
+            "old",
+            "--to",
+            "new",
+            "--scope-alias",
+            "x_oldcorp=x_newcorp",
+            "--out",
+            str(out),
+        ],
+    )
+    assert result.exit_code == 0
+    # `--from`/`--to` bound in order; the source is diffed against the target.
+    assert seen == ["old", "new"]
+    content = out.read_text(encoding="utf-8")
+    # `--scope-alias` bound: the renamed target workflow matches the source, so it
+    # reads DONE (checked box) with nothing left over as EXTRA.
+    assert "- [x]" in content
+    assert "EXTRA" not in content
