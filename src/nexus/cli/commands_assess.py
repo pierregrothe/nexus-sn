@@ -5,10 +5,10 @@
 
 """`nexus assess` -- Gate 1 readiness, Gate 2 validation, or standalone health scan.
 
-The Typer command body in `commands_top.py` calls `_main(...)` with collaborators
-that production resolves to real modules. Tests inject fakes for everything that
-crosses an I/O boundary (ruleset loader, archive reader, capture runner, apply-
-result loader).
+The `assess_callback` group callback in this module calls `run_assess(...)` with
+collaborators that production resolves to real modules (only when no subcommand
+is invoked). Tests inject fakes for everything that crosses an I/O boundary
+(ruleset loader, archive reader, capture runner, apply-result loader).
 
 Verdict-to-exit-code mapping:
     PASS  -> 0

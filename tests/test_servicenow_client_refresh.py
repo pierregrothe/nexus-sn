@@ -232,3 +232,24 @@ async def test_request_raises_snclienterror_after_exhausting_transient_retries()
             await c.fetch_progress("tracker-x")
 
     assert len(calls) == 3
+
+
+@pytest.mark.asyncio
+async def test_request_does_not_retry_non_idempotent_post_on_transient_error() -> None:
+    """A POST (create_record) is attempted once on a transport error, never retried.
+
+    Retrying a POST whose response was lost after the server committed would
+    duplicate the write, so non-idempotent methods get a single attempt.
+    """
+    calls: list[int] = []
+
+    def handler(_request: httpx.Request) -> httpx.Response:
+        calls.append(1)
+        raise httpx.ConnectError("connection refused")
+
+    async with ServiceNowClient("test.service-now.com", token="t") as c:
+        _install_transport(c, httpx.MockTransport(handler))
+        with pytest.raises(SNClientError):
+            await c.create_record("incident", {"short_description": "x"})
+
+    assert len(calls) == 1

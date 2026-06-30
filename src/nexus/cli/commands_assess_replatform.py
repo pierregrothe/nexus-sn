@@ -248,8 +248,12 @@ async def _list_artifacts_live(  # pragma: no cover -- live I/O, exercised by sm
                             offset += _PAGE_SIZE
                     except SNClientError as exc:
                         # A table absent on this instance (e.g. ai_skill without
-                        # NowAssist) returns HTTP 400 "Invalid table" -- skip it.
-                        log.debug("replatform: skipping table %s: %s", spec.name, exc)
+                        # NowAssist) returns HTTP 400/404 -- skip just those. Auth
+                        # (401/403), rate-limit (429), and any other error must
+                        # raise so a partial listing is never shown as complete.
+                        if exc.status_code not in (400, 404):
+                            raise
+                        log.debug("replatform: skipping absent table %s: %s", spec.name, exc)
     capture = CaptureResult(
         instance_id=profile,
         captured_at=now,

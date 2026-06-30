@@ -219,4 +219,4 @@ def test_migration_checklist_is_frozen() -> None:
         items=(),
     )
     with pytest.raises(ValidationError):
-        checklist.source_profile = "x"  # type: ignore[misc]
+        setattr(checklist, "source_profile", "x")

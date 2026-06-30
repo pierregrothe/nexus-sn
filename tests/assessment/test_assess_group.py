@@ -34,7 +34,7 @@ class _RecordingAssess:
         return self.exit_code
 
 
-def test_assess_routes_options_to_run_assess(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_assess_callback_routes_options_to_run_assess(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("NEXUS_AUTO_UPDATE", "0")
     fake = _RecordingAssess(0)
     monkeypatch.setattr(commands_assess, "run_assess", fake)
@@ -44,7 +44,7 @@ def test_assess_routes_options_to_run_assess(monkeypatch: pytest.MonkeyPatch) ->
     assert fake.calls[0]["for_template"] == "acme"
 
 
-def test_assess_maps_block_exit_code(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_assess_callback_maps_block_exit_code(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("NEXUS_AUTO_UPDATE", "0")
     fake = _RecordingAssess(2)
     monkeypatch.setattr(commands_assess, "run_assess", fake)

@@ -31,6 +31,10 @@ __all__ = ["RefreshTokenCallback", "ServiceNowClient"]
 
 _MAX_RETRIES = 3
 _BACKOFF_BASE_SECONDS = 0.5
+# Transport errors are only retried on side-effect-free methods. Retrying a
+# POST/PATCH whose response was lost after the server committed the change would
+# duplicate the write (e.g. a second sys_update_xml row or update set).
+_IDEMPOTENT_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
 _TIMEOUT_SECONDS = 30.0
 _TABLE_API_BASE = "/api/now/table"
 _STATS_API_BASE = "/api/now/stats"
@@ -501,14 +505,18 @@ class ServiceNowClient:
         Raises:
             SNClientError: When every attempt fails with a transient transport
                 error (connection drop, read/connect timeout, protocol error).
+                Idempotent methods get up to ``_MAX_RETRIES`` attempts; other
+                methods get a single attempt so a lost response cannot duplicate
+                a write.
         """
+        attempts = _MAX_RETRIES if method.upper() in _IDEMPOTENT_METHODS else 1
         last_exc: httpx.TransportError | None = None
-        for attempt in range(_MAX_RETRIES):
+        for attempt in range(attempts):
             try:
                 return await client.request(method, path, params=params, json=json)
             except httpx.TransportError as exc:
                 last_exc = exc
-                if attempt + 1 >= _MAX_RETRIES:
+                if attempt + 1 >= attempts:
                     break
                 delay = _BACKOFF_BASE_SECONDS * (2**attempt)
                 log.warning(
@@ -517,7 +525,7 @@ class ServiceNowClient:
                     path,
                     type(exc).__name__,
                     attempt + 1,
-                    _MAX_RETRIES,
+                    attempts,
                     delay,
                 )
                 await asyncio.sleep(delay)

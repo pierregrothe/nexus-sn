@@ -28,7 +28,7 @@ from nexus.ui.theme import NEXUS_THEME
 from tests.fakes.replatform import make_use_case, make_use_case_inventory, make_workflow_ref
 
 
-@dataclass
+@dataclass(slots=True)
 class _FixedInventory:
     by_profile: dict[str, UseCaseInventory]
 
