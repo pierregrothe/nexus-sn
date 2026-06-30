@@ -16,6 +16,7 @@ from rich.console import Console
 
 from nexus.cli.commands_assess_replatform import (
     ReplatformCollaborators,
+    _ref_value,
     parse_scope_aliases,
     run_inventory,
     run_migration,
@@ -143,3 +144,15 @@ def test_parse_scope_aliases_parses_pairs() -> None:
 def test_parse_scope_aliases_rejects_missing_equals() -> None:
     with pytest.raises(typer.BadParameter):
         parse_scope_aliases(["nope"])
+
+
+def test_ref_value_extracts_value_from_reference_dict() -> None:
+    assert _ref_value({"value": "abc123", "link": "https://x"}) == "abc123"
+
+
+def test_ref_value_passes_through_plain_string() -> None:
+    assert _ref_value("plain") == "plain"
+
+
+def test_ref_value_handles_none() -> None:
+    assert _ref_value(None) == ""

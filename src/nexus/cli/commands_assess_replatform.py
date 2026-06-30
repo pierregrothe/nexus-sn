@@ -13,16 +13,16 @@ no ctx.obj, which would clash with the RenderContext set by the root callback.
 """
 
 import asyncio
+import logging
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, cast
 
 import typer
 
-from nexus.capture.engine import CaptureEngine
-from nexus.capture.models import CaptureResult, ScopeManifest
+from nexus.capture.models import CaptureResult, ConfigRecord, ScopeManifest
 from nexus.capture.scope import ScopeDiscoverer
 from nexus.capture.tables import AI_AUTOMATION, DEFAULT_TABLE_GROUPS
 from nexus.cli.apps import assess_app
@@ -31,6 +31,7 @@ from nexus.cli.console import console
 from nexus.cli.console import render_context as _render_context
 from nexus.config.paths import NexusPaths
 from nexus.connectors.servicenow.client import ServiceNowClient
+from nexus.connectors.servicenow.errors import SNClientError
 from nexus.replatform.classifier import classify
 from nexus.replatform.diff import build_checklist
 from nexus.replatform.models import UseCaseInventory
@@ -47,8 +48,12 @@ __all__ = [
     "run_migration",
 ]
 
+log = logging.getLogger(__name__)
+
 # Scope-key prefixes that mark a user-developed (custom) scoped app.
 _CUSTOM_PREFIXES = ("x_", "u_")
+# Page size for listing artifacts per AI_AUTOMATION table.
+_PAGE_SIZE = 1000
 
 
 @dataclass(frozen=True, slots=True)
@@ -162,21 +167,22 @@ def default_replatform_collaborators(  # pragma: no cover -- production wiring
 def _build_live_inventory(  # pragma: no cover -- live I/O, exercised by smoke
     profile: str, paths: NexusPaths
 ) -> UseCaseInventory:
-    """Discover + capture the instance live, then classify it."""
-    manifest, capture = asyncio.run(_capture_live(profile))
+    """List the instance's custom AI/automation artifacts live, then classify."""
+    manifest, capture = asyncio.run(_list_artifacts_live(profile))
     catalog = ProductRegistry(paths.schema_dir).load_catalog()
     return classify((capture,), manifest, catalog, profile=profile)
 
 
-async def _capture_live(  # pragma: no cover -- live I/O, exercised by smoke
+async def _list_artifacts_live(  # pragma: no cover -- live I/O, exercised by smoke
     profile: str,
 ) -> tuple[ScopeManifest, CaptureResult]:
-    """Run live scope discovery + config capture for the AI_AUTOMATION group.
+    """List AI_AUTOMATION artifact names for custom scopes -- NOT a full capture.
 
-    Builds the client with a token refresh callback so the (often multi-minute)
-    capture survives ServiceNow's ~30-minute OAuth token cap -- mirroring the
-    plugin-executor long-operation pattern. Without it, a full capture dies with
-    HTTP 401 mid-run.
+    The checklist only needs each artifact's name/type/scope, so this issues one
+    lightweight ``list_records`` per table (sys_id, name, sys_scope) instead of a
+    full config capture (every flow's inputs/logic, every topic's blocks, all
+    child records) -- orders of magnitude faster. The client carries a token
+    refresh callback to survive the ~30-minute OAuth cap.
     """
     _registry, meta, token, _expiry = _acquire_token(profile)
 
@@ -184,11 +190,11 @@ async def _capture_live(  # pragma: no cover -- live I/O, exercised by smoke
         _r, _m, new_token, new_expiry = _acquire_token(profile)
         return new_token, new_expiry
 
+    now = datetime.now(UTC)
+    records: list[ConfigRecord] = []
     async with ServiceNowClient(
         instance_url=meta.url, token=token, refresh_token_callback=_refresh
     ) as client:
-        engine = CaptureEngine(client=client, archive_root=NexusPaths.from_env().archives_dir)
-        discoverer = ScopeDiscoverer(client, DEFAULT_TABLE_GROUPS)
         with nexus_progress(console) as progress:
             task = progress.add_task("Discovering scopes...", total=None)
 
@@ -200,21 +206,78 @@ async def _capture_live(  # pragma: no cover -- live I/O, exercised by smoke
                     completed=completed,
                 )
 
-            manifest = await discoverer.discover(
+            manifest = await ScopeDiscoverer(client, DEFAULT_TABLE_GROUPS).discover(
                 profile, AI_AUTOMATION.key, on_progress=on_progress
             )
-            # A replatform checklist cares about CUSTOM scoped apps (the use cases
-            # built on the old instance), not the hundreds of out-of-box scopes --
-            # capturing every OOB scope is both meaningless here and prohibitively slow.
+            # A replatform checklist cares about CUSTOM scoped apps, not the
+            # hundreds of out-of-box scopes.
             scope_ids = [
                 entry.sys_id
                 for entry in manifest.scopes
                 if entry.scope.startswith(_CUSTOM_PREFIXES)
             ]
-            capture = await engine.capture(
-                profile, scope_ids, AI_AUTOMATION.key, on_progress=on_progress
-            )
+            if scope_ids:
+                scope_csv = ",".join(scope_ids)
+                for spec in AI_AUTOMATION.tables:
+                    progress.update(task, description=f"Listing {spec.display}...", total=None)
+                    query = f"{spec.scope_field}IN{scope_csv}"
+                    try:
+                        offset = 0
+                        while True:
+                            batch = await client.list_records(
+                                spec.name,
+                                query=query,
+                                limit=_PAGE_SIZE,
+                                offset=offset,
+                                fields=f"sys_id,name,{spec.scope_field}",
+                            )
+                            records.extend(
+                                ConfigRecord(
+                                    sys_id=_ref_value(row.get("sys_id")),
+                                    table=spec.name,
+                                    scope_sys_id=_ref_value(row.get(spec.scope_field)),
+                                    scope_name="",
+                                    captured_at=now,
+                                    fields={"name": _ref_value(row.get("name"))},
+                                    parent_sys_id=None,
+                                )
+                                for row in batch
+                            )
+                            if len(batch) < _PAGE_SIZE:
+                                break
+                            offset += _PAGE_SIZE
+                    except SNClientError as exc:
+                        # A table absent on this instance (e.g. ai_skill without
+                        # NowAssist) returns HTTP 400 "Invalid table" -- skip it.
+                        log.debug("replatform: skipping table %s: %s", spec.name, exc)
+    capture = CaptureResult(
+        instance_id=profile,
+        captured_at=now,
+        scope_ids=tuple(scope_ids),
+        table_group=AI_AUTOMATION.key,
+        records=tuple(records),
+    )
     return manifest, capture
+
+
+def _ref_value(raw: object) -> str:
+    """Extract a string from a Table API field value (handles reference dicts).
+
+    With ``sysparm_display_value=false`` a reference field (e.g. ``sys_scope``)
+    arrives as ``{"link": ..., "value": "<sys_id>"}``; plain fields arrive as
+    strings. This returns the underlying string in both cases.
+
+    Args:
+        raw: A raw field value from a Table API row.
+
+    Returns:
+        The field's string value, or "" when absent.
+    """
+    if isinstance(raw, dict):
+        return str(cast("dict[str, object]", raw).get("value", ""))
+    if raw is None:
+        return ""
+    return str(raw)
 
 
 @assess_app.command("inventory")
