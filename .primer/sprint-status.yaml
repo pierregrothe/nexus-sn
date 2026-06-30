@@ -96,6 +96,17 @@ phases:
       multi-step-orchestration: backlog
       rollback-manager-for-failed-deployments: backlog
 
+  2026.07-replatform-checklist:
+    status: planned
+    items:
+      replatform-checklist-epic: backlog  # PRD-004, ADR-025
+      replatform-checklist-01-models: backlog
+      replatform-checklist-02-classifier: backlog
+      replatform-checklist-03-checklist-diff: backlog
+      replatform-checklist-04-reporter: backlog
+      replatform-checklist-05-assess-group-restructure: backlog
+      replatform-checklist-06-assess-subcommands: backlog
+
   2026.08-distribution:
     status: planned
     items:

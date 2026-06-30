@@ -704,3 +704,55 @@ Live smoke artefact: `sys_update_set` named
 `NEXUS-apply-nowassist-tier1-rephrase-20260519T212449Z`
 (sys_id `e23057c43b0503946c7dfa9aa4e45a6d`) remains on alectri as
 audit-trail evidence; delete via SN UI when ready.
+
+---
+
+### 2026-06-29 -- Project charter created (charter.md)
+
+**Status:** accepted
+
+**Context:** PRD-002 and PRD-003 carried `charter_link: charter.md` but no
+charter file ever existed -- a dangling governance reference. Promoting the
+replatform-checklist feature to a milestone surfaced the gap (the primer PRD
+flow guards on a charter).
+
+**Decision:** Author `.primer/charter.md` from brief.md / product.md / CLAUDE.md
+and the fences already implied by the ADRs/PRDs. Seven Hard Product Limits
+(NEVER) confirmed by the user: no Claude Code/Desktop/Node.js dependency; never
+hosts an MCP server; no secrets in config files; no instance mutation without a
+human approval checkpoint (assessment/diff/analysis layers are advisory); no
+self-modification without a validation gate; no install-time static knowledge;
+no hardcoded product/license/scope specifics.
+
+**Consequences:** Every future PRD anchors to a real charter section. The
+dangling `charter_link` references in PRD-002/003 now resolve. Charter is
+user-owned; sync never overwrites it.
+
+---
+
+### 2026-06-29 -- Replatform checklist promoted to 2026.07 (ADR-025, PRD-004)
+
+**Status:** accepted
+
+**Context:** A customer replatform (acquisition onto a clean instance) needs a
+bi-directional use-case/workflow checklist comparing two instances. The shipped
+`nexus assess` is a single-instance gate validator and PRD-002 explicitly fences
+out cross-instance comparison, so this is a new capability, not a stub fill-in.
+Scoped in `.primer/brainstorming/2026-06-29-nexus-assess-migration.md` and
+hardened by a 2x adversarial pass (which overturned one false blocker about
+CaptureResult.table_group and pinned the ScopeManifest requirement + natural-key
+normalization).
+
+**Decision:** New `src/nexus/replatform/` package (separate from the rule-engine),
+consuming CaptureResult + ScopeManifest + PluginInventory. Cross-instance identity
+uses a normalized `(scope, type, name)` natural key, never sys_id. Surfaced under
+`nexus assess` (converted leaf->group, gate behavior preserved) as `inventory` +
+`migration` subcommands. Advisory only; deterministic v1; AI enrichment is v2 on
+the 2026.07 specialists. Recorded as ADR-025 + PRD-004 + epic
+`2026.07-nexus-replatform-checklist` (6 stories). PRD-002's cross-instance fence
+is consciously lifted for `assess migration` only (gate semantics unchanged).
+
+**Consequences:** assess now spans single-instance gates AND cross-instance
+migration. Fidelity is bounded by current capture coverage (AI_AUTOMATION group);
+the reporter flags empty/thin coverage so a clean checklist is never misread.
+First story: `01-replatform-models`.

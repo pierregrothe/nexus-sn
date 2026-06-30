@@ -20,6 +20,7 @@ import typer
 
 __all__ = [
     "app",
+    "assess_app",
     "baselines_app",
     "capture_app",
     "instance_app",
@@ -41,6 +42,9 @@ app.add_typer(capture_app)
 
 schema_app = typer.Typer(name="schema", help="Reverse-engineer SN table schemas into ERDs.")
 app.add_typer(schema_app)
+
+assess_app = typer.Typer(name="assess", help="Assess instances and plan replatform migrations.")
+app.add_typer(assess_app)
 
 plugins_app = typer.Typer(
     name="plugins", help="Inspect the plugin inventory of registered instances."
