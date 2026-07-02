@@ -192,13 +192,18 @@ async def test_run_preflight_sn_cicd_role_pass_on_200() -> None:
 
 
 @pytest.mark.asyncio
-async def test_run_preflight_sn_cicd_role_fail_on_403() -> None:
+async def test_run_preflight_sn_cicd_role_unknown_on_403() -> None:
+    # AC1 per-item override of AC2's default 403 -> FAIL: a 403 reading
+    # sys_user_role means the probe could not look at the role table at
+    # all -- zero evidence about the role itself, so unknown, not fail.
     handler = _handler(sys_user_role=_sn_error(403, "User Not Authorized", "needs admin"))
     async with _client(handler) as old, _healthy_client() as new:
         report = await run_preflight(old, new, auth_mode_old="oauth", auth_mode_new="oauth")
     row = _find(report, instance="old", item="sn-cicd-role")
-    assert row.status is PreflightStatus.FAIL
-    assert "needs admin" in row.detail
+    assert row.status is PreflightStatus.UNKNOWN
+    assert "could not read sys_user_role" in row.detail
+    assert "manually" in row.detail
+    assert "needs admin" in row.detail  # SN-side detail is still appended
 
 
 @pytest.mark.asyncio
@@ -234,6 +239,21 @@ async def test_run_preflight_app_repo_entitlement_unknown_on_404() -> None:
         report = await run_preflight(old, new, auth_mode_old="oauth", auth_mode_new="oauth")
     row = _find(report, instance="old", item="app-repo-entitlement")
     assert row.status is PreflightStatus.UNKNOWN
+
+
+@pytest.mark.asyncio
+async def test_run_preflight_403_asymmetry_sn_cicd_unknown_app_repo_fail() -> None:
+    # The asymmetry is the point (AC1 rows govern AC2's default): the SAME
+    # 403 response maps to UNKNOWN on the sn_cicd-role item (unreadable
+    # sys_user_role = the probe could not look) and to FAIL on the
+    # app-repo item (a 403 on sys_app IS the entitlement signal).
+    handler = _handler(sys_user_role=_sn_error(403), sys_app=_sn_error(403))
+    async with _client(handler) as old, _healthy_client() as new:
+        report = await run_preflight(old, new, auth_mode_old="oauth", auth_mode_new="oauth")
+    role_row = _find(report, instance="old", item="sn-cicd-role")
+    repo_row = _find(report, instance="old", item="app-repo-entitlement")
+    assert role_row.status is PreflightStatus.UNKNOWN
+    assert repo_row.status is PreflightStatus.FAIL
 
 
 # -- AC1: auth mode -- always reported, never FAIL ---------------------------

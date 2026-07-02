@@ -15,6 +15,16 @@ network-error-as-status-0 pattern is the model every probe here follows,
 and the sn_cicd-role/App-Repo probes reuse that primitive verbatim rather
 than reimplementing GET + error-body parsing.
 
+Status mapping: AC2's GWT (200 -> PASS; 403 -> FAIL; 404/other ->
+UNKNOWN) is the DEFAULT, and AC1's per-item rows override it. The one
+override is the sn_cicd-role item: a 403 reading sys_user_role means
+the probing user cannot read the role table at all, which is zero
+evidence about whether the role exists or is grantable -- so that item
+maps 403 -> UNKNOWN (AC1: "a 403 is reported unknown, not fail"). The
+app-repo item keeps 403 -> FAIL: there a 403 on sys_app IS the
+entitlement signal. Each table probe's 403 semantics are stated
+explicitly at its run_preflight call site via ``status_on_403``.
+
 `run_preflight` is pure over two already-open httpx.AsyncClient instances
 (the CLI wiring in cli/migrate_wiring.py owns client construction and the
 instance-registry auth-mode lookup); nothing here ever issues a
@@ -52,15 +62,31 @@ MIGRATE_PREFLIGHT_PROBES: tuple[TableProbe, ...] = (_SN_CICD_ROLE_PROBE, _APP_RE
 """The role_probe.TableProbe definitions reused for the table-read probe items."""
 
 
-def _status_from_table_probe(status_code: int) -> PreflightStatus:
-    """Map a TableProbeResult status code to PreflightStatus (AC2, exact).
+# AC1 override detail for the sn_cicd-role item on 403: an unreadable role
+# table is zero evidence about the role itself, so tell the user exactly what
+# could not be verified and that it needs a manual check.
+_SN_CICD_ROLE_403_DETAIL = (
+    "probe could not read sys_user_role (HTTP 403); verify the "
+    "sn_cicd.sys_ci_automation role manually on this instance"
+)
 
-    200 -> PASS; 403 -> FAIL; everything else (404, the synthetic status 0
-    role_probe.probe_table_access reports for a network error, or a 5xx)
-    -> UNKNOWN. Applies uniformly to every table-read probe in this module.
+
+def _status_from_table_probe(
+    status_code: int, *, status_on_403: PreflightStatus
+) -> PreflightStatus:
+    """Map a TableProbeResult status code to PreflightStatus.
+
+    AC2's default mapping (200 -> PASS; 403 -> FAIL; 404, the synthetic
+    status 0 role_probe.probe_table_access reports for a network error,
+    or a 5xx -> UNKNOWN), with the 403 outcome supplied per probe item so
+    AC1's per-item rows can override it (sn_cicd-role: 403 -> UNKNOWN).
 
     Args:
         status_code: HTTP status code from a TableProbeResult.
+        status_on_403: The status this probe item reports on a 403 --
+            FAIL when a 403 is itself the probed signal (app-repo),
+            UNKNOWN when a 403 only proves the probe could not look
+            (sn_cicd-role).
 
     Returns:
         The mapped PreflightStatus.
@@ -68,7 +94,7 @@ def _status_from_table_probe(status_code: int) -> PreflightStatus:
     if status_code == 200:
         return PreflightStatus.PASS
     if status_code == 403:
-        return PreflightStatus.FAIL
+        return status_on_403
     return PreflightStatus.UNKNOWN
 
 
@@ -79,6 +105,8 @@ async def _probe_table_item(
     item: str,
     instance: str,
     remediation: str,
+    status_on_403: PreflightStatus,
+    detail_on_403: str = "",
 ) -> PreflightItemResult:
     """Run one role_probe.TableProbe and translate it into a PreflightItemResult.
 
@@ -88,18 +116,28 @@ async def _probe_table_item(
         item: Preflight item id for the resulting row.
         instance: Which side ("old"/"new") this probe targets.
         remediation: Suggested remediation text shown in the rendered row.
+        status_on_403: This item's 403 outcome (AC1 per-item override of
+            AC2's default FAIL); required so every call site states its
+            403 semantics explicitly.
+        detail_on_403: Actionable detail prefix used when the probe
+            returns 403; the SN-side detail is appended when present.
+            Empty means the SN-side detail is used as-is.
 
     Returns:
-        A PreflightItemResult with status mapped per AC2 (exact).
+        A PreflightItemResult with status mapped per AC2's default and
+        this item's AC1 override.
     """
     result = await probe_table_access(client, probe)
+    detail = result.detail or result.message
+    if result.status_code == 403 and detail_on_403:
+        detail = f"{detail_on_403} -- {detail}" if detail else detail_on_403
     return PreflightItemResult(
         item=item,
         instance=instance,
-        status=_status_from_table_probe(result.status_code),
+        status=_status_from_table_probe(result.status_code, status_on_403=status_on_403),
         purpose=probe.purpose,
         remediation=remediation,
-        detail=result.detail or result.message,
+        detail=detail,
     )
 
 
@@ -273,6 +311,10 @@ async def run_preflight(
                 item=_ITEM_SN_CICD_ROLE,
                 instance=instance,
                 remediation="Grant sn_cicd.sys_ci_automation to the OAuth application user",
+                # AC1 override: a 403 reading sys_user_role proves nothing
+                # about the role's existence/grantability -- unknown, not fail.
+                status_on_403=PreflightStatus.UNKNOWN,
+                detail_on_403=_SN_CICD_ROLE_403_DETAIL,
             )
         )
         results.append(
@@ -282,6 +324,8 @@ async def run_preflight(
                 item=_ITEM_APP_REPO,
                 instance=instance,
                 remediation="Grant App Repository publish entitlement (admin or app_creator)",
+                # AC1: a 403 on sys_app IS the entitlement signal -- fail.
+                status_on_403=PreflightStatus.FAIL,
             )
         )
         results.append(_auth_mode_result(instance, auth_mode))

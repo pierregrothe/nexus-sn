@@ -45,13 +45,20 @@ def _mixed_report() -> PreflightReport:
         sorted(
             (
                 _row(item="cicd-plugin", instance="old", status=PreflightStatus.PASS),
+                # sn-cicd-role maps 403 -> UNKNOWN (AC1 override), so its only
+                # reachable statuses are PASS/UNKNOWN; FAIL lives on app-repo.
                 _row(
                     item="sn-cicd-role",
+                    instance="old",
+                    status=PreflightStatus.UNKNOWN,
+                    detail="verify manually",
+                ),
+                _row(
+                    item="app-repo-entitlement",
                     instance="old",
                     status=PreflightStatus.FAIL,
                     detail="needs admin",
                 ),
-                _row(item="app-repo-entitlement", instance="old", status=PreflightStatus.UNKNOWN),
                 _row(item="auth-mode", instance="old", status=PreflightStatus.PASS, detail="oauth"),
                 _row(item="cicd-plugin", instance="new", status=PreflightStatus.PASS),
                 _row(item="sn-cicd-role", instance="new", status=PreflightStatus.PASS),
