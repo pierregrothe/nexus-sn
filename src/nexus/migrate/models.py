@@ -23,6 +23,8 @@ from nexus.config.types import UtcDatetime
 
 __all__ = [
     "Acknowledgment",
+    "BaselineEntry",
+    "DriftReport",
     "FindingKind",
     "IntegrityFinding",
     "MigrationPlan",
@@ -208,6 +210,67 @@ class IntegrityFinding(BaseModel):
     acknowledgment: Acknowledgment | None = None
 
 
+class BaselineEntry(BaseModel):
+    """One natural-key/fingerprint pair from an instance-wide baseline listing.
+
+    Populated at plan-assembly time from a lightweight, instance-wide
+    re-inventory (Story 06 Resolution 2: the baseline must cover the same
+    universe a later ``--recheck`` re-inventory covers, not just the
+    plan's selection-scoped items -- otherwise every artifact outside the
+    selection would spuriously report as "added"). Duplicate keys are
+    expected (e.g. same-named ``sys_security_acl`` rows across operations)
+    and are handled as a multiset by ``nexus.migrate.recheck``.
+
+    Attributes:
+        key: Natural key, e.g. ``{scope}|{table}|{name}``.
+        fingerprint: The artifact's ``sys_updated_on`` value at listing
+            time; empty when unavailable.
+    """
+
+    model_config = _FROZEN
+
+    key: str
+    fingerprint: str = ""
+
+
+class DriftReport(BaseModel):
+    """Drift between a MigrationPlan's baselines and a fresh re-inventory (Story 06).
+
+    Built by the pure ``nexus.migrate.recheck.compute_drift``. Each field is
+    a sorted tuple of natural keys, grouped by instance and change kind
+    (AC2, AC4).
+
+    Attributes:
+        source_added: Keys in the fresh source listing but not the baseline.
+        source_removed: Keys in the source baseline but not the fresh listing.
+        source_changed: Keys in both with a differing fingerprint multiset.
+        target_added: Keys in the fresh target listing but not the baseline.
+        target_removed: Keys in the target baseline but not the fresh listing.
+        target_changed: Keys in both with a differing fingerprint multiset.
+    """
+
+    model_config = _FROZEN
+
+    source_added: tuple[str, ...] = ()
+    source_removed: tuple[str, ...] = ()
+    source_changed: tuple[str, ...] = ()
+    target_added: tuple[str, ...] = ()
+    target_removed: tuple[str, ...] = ()
+    target_changed: tuple[str, ...] = ()
+
+    @property
+    def has_drift(self) -> bool:
+        """Whether any instance reports an added, removed, or changed artifact."""
+        return bool(
+            self.source_added
+            or self.source_removed
+            or self.source_changed
+            or self.target_added
+            or self.target_removed
+            or self.target_changed
+        )
+
+
 class MigrationPlan(BaseModel):
     """The schema-versioned plan file -- the auditable artifact of record.
 
@@ -223,6 +286,11 @@ class MigrationPlan(BaseModel):
         approved_at: When the plan was approved (UTC), or None.
         target_chain: Reserved promotion-chain field (PRD-005 Open
             Questions); v1 never populates more than one entry.
+        source_baseline: Instance-wide natural-key/fingerprint listing of the
+            source instance at plan-assembly time (Story 06); empty for
+            plans predating Story 06 or for a legitimately-empty instance --
+            ``--recheck`` treats both baselines empty as unusable.
+        target_baseline: Same, for the target instance.
     """
 
     model_config = _FROZEN
@@ -237,6 +305,8 @@ class MigrationPlan(BaseModel):
     approved_by: str = ""
     approved_at: UtcDatetime | None = None
     target_chain: tuple[str, ...] = ()
+    source_baseline: tuple[BaselineEntry, ...] = ()
+    target_baseline: tuple[BaselineEntry, ...] = ()
 
 
 def _emit_yaml(model: BaseModel) -> str:

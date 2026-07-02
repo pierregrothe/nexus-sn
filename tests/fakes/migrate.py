@@ -19,6 +19,7 @@ from typing import Literal
 
 from nexus.migrate.models import (
     Acknowledgment,
+    BaselineEntry,
     FindingKind,
     IntegrityFinding,
     MigrationPlan,
@@ -32,6 +33,7 @@ from nexus.migrate.models import (
 
 __all__ = [
     "make_acknowledgment",
+    "make_baseline_entry",
     "make_integrity_finding",
     "make_migration_plan",
     "make_plan_item",
@@ -137,6 +139,15 @@ def make_integrity_finding(
     )
 
 
+def make_baseline_entry(
+    *,
+    key: str = "x_alectri_core|sys_hub_flow|approve po",
+    fingerprint: str = "2026-07-01 10:00:00",
+) -> BaselineEntry:
+    """Build a BaselineEntry with a realistic natural key and sys_updated_on fingerprint."""
+    return BaselineEntry(key=key, fingerprint=fingerprint)
+
+
 def make_migration_plan(
     *,
     schema_version: str = "1.0",
@@ -149,6 +160,8 @@ def make_migration_plan(
     approved_by: str = "",
     approved_at: datetime | None = None,
     target_chain: tuple[str, ...] = (),
+    source_baseline: tuple[BaselineEntry, ...] = (),
+    target_baseline: tuple[BaselineEntry, ...] = (),
 ) -> MigrationPlan:
     """Build a MigrationPlan with a default waived and a default acknowledged finding."""
     plan_waves = waves if waves is not None else (make_wave(),)
@@ -176,4 +189,6 @@ def make_migration_plan(
         approved_by=approved_by,
         approved_at=approved_at,
         target_chain=target_chain,
+        source_baseline=source_baseline,
+        target_baseline=target_baseline,
     )
