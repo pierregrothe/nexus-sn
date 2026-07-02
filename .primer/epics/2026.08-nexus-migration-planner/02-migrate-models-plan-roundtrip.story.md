@@ -1,6 +1,6 @@
 # Story 02: migrate models + plan round-trip
 
-Status: backlog
+Status: done
 Spec-Clarity: high
 Depends-On: none
 
@@ -109,17 +109,17 @@ AC11 (exports + purity):
 
 ## Tasks / Subtasks
 
-- [ ] Create `src/nexus/migrate/models.py` -- PlanLane, FindingKind,
+- [x] Create `src/nexus/migrate/models.py` -- PlanLane, FindingKind,
       SelectionItem, Selection, PlanItem, Wave, Waiver, Acknowledgment,
       IntegrityFinding, MigrationPlan (AC1-AC9)
-- [ ] Add `@model_validator(mode="after")` author!=approver check on Waiver
+- [x] Add `@model_validator(mode="after")` author!=approver check on Waiver
       (AC6)
-- [ ] Implement `emit_plan_yaml` / `load_plan_yaml` with
+- [x] Implement `emit_plan_yaml` / `load_plan_yaml` with
       `yaml.safe_dump(..., sort_keys=False, default_flow_style=False)` +
       explicit LF normalization for byte-stability (AC10)
-- [ ] Create `tests/fakes/migrate.py` -- canned Selection/MigrationPlan/
+- [x] Create `tests/fakes/migrate.py` -- canned Selection/MigrationPlan/
       Waiver/Acknowledgment fixtures
-- [ ] Create `tests/test_migrate_models.py` (AC1-AC11)
+- [x] Create `tests/test_migrate_models.py` (AC1-AC11)
 
 ## Existing Code
 

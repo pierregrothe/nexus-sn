@@ -114,7 +114,7 @@ phases:
     items:
       migration-planner-00-s0-closure-scale-spike: done  # S0 measured 2026-07-02; results in epic s0-spike-results.md
       migration-planner-01-full-fidelity-selective-capture: backlog
-      migration-planner-02-migrate-models-plan-roundtrip: backlog
+      migration-planner-02-migrate-models-plan-roundtrip: done  # shipped 2026-07-02; delivered before story 01 (Selection dependency)
       migration-planner-03-migrate-select-cli: backlog
       migration-planner-04-plan-builder-closure-waves: backlog
       migration-planner-05-runbook-plan-cli: backlog
