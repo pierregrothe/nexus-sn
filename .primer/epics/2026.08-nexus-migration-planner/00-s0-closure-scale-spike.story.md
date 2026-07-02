@@ -1,6 +1,6 @@
 # Story 00: S0 closure-scale spike
 
-Status: backlog
+Status: done
 Spec-Clarity: high
 Depends-On: none
 
@@ -67,16 +67,16 @@ committed/regenerated JSON files.
 
 ## Tasks / Subtasks
 
-- [ ] Regenerate (or reuse locally) `inventory-alectri-v2.json` /
+- [x] Regenerate (or reuse locally) `inventory-alectri-v2.json` /
       `inventory-retail-v2.json` per the documented commands (AC1)
-- [ ] Write `scripts/spike_s0_closure_scale.py`: load JSON, build a
+- [x] Write `scripts/spike_s0_closure_scale.py`: load JSON, build a
       candidate closure walk over `plugins.impact`-shaped edges + a schema
       graph archive, time it with `time.perf_counter()` (AC1, AC2)
-- [ ] Implement stop-list on/off measurement pass (AC2)
-- [ ] Implement lane-unit counting heuristic (AC2)
-- [ ] Emit `seed-stop-list.yaml` (AC3)
-- [ ] Emit `s0-spike-results.md` + append numbers to `epic.md` Progress (AC4)
-- [ ] Add a spike-level assertion that no network client is constructed
+- [x] Implement stop-list on/off measurement pass (AC2)
+- [x] Implement lane-unit counting heuristic (AC2)
+- [x] Emit `seed-stop-list.yaml` (AC3)
+- [x] Emit `s0-spike-results.md` + append numbers to `epic.md` Progress (AC4)
+- [x] Add a spike-level assertion that no network client is constructed
       (AC5)
 
 ## Existing Code
