@@ -208,3 +208,17 @@ def test_classify_records_skipped_tables_sorted() -> None:
         (capture,), scopes, catalog, profile="prod", skipped_tables=("sys_ai_agent", "ai_skill")
     )
     assert inv.skipped_tables == ("ai_skill", "sys_ai_agent")
+
+
+def test_classify_domain_map_overrides_catalog() -> None:
+    scopes = make_scope_manifest(scopes={"s1": "sn_hamp"}, captured_at=_TS)
+    catalog = make_schema_catalog(scope_to_product={"sn_hamp": "Hardware Asset Management"})
+    capture = make_capture_result(
+        records=(
+            make_config_record(
+                sys_id="r1", table="sys_hub_flow", scope_sys_id="s1", fields={"name": "A"}
+            ),
+        ),
+    )
+    inv = classify((capture,), scopes, catalog, profile="prod", overrides={"sn_hamp": "Asset Ops"})
+    assert inv.use_cases[0].domain == "Asset Ops"

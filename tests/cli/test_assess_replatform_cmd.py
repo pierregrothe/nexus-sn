@@ -20,6 +20,7 @@ from nexus.cli.apps import app
 from nexus.cli.commands_assess_replatform import (
     ReplatformCollaborators,
     _ref_value,
+    parse_domain_map,
     parse_scope_aliases,
     run_inventory,
     run_migration,
@@ -149,6 +150,15 @@ def test_parse_scope_aliases_rejects_missing_equals() -> None:
         parse_scope_aliases(["nope"])
 
 
+def test_parse_domain_map_returns_none_when_omitted() -> None:
+    assert parse_domain_map("") is None
+
+
+def test_parse_domain_map_rejects_missing_file(tmp_path: Path) -> None:
+    with pytest.raises(typer.BadParameter):
+        parse_domain_map(str(tmp_path / "absent.yaml"))
+
+
 def test_ref_value_extracts_value_from_reference_dict() -> None:
     assert _ref_value({"value": "abc123", "link": "https://x"}) == "abc123"
 
@@ -168,7 +178,7 @@ def test_assess_inventory_command_routes_profile_and_writes_json(
     seen: list[str] = []
     inv = _itsm_inventory("prod", ("Alpha",))
 
-    def fake_factory(_paths: object) -> ReplatformCollaborators:
+    def fake_factory(_paths: object, **_kwargs: object) -> ReplatformCollaborators:
         def build(profile: str) -> UseCaseInventory:
             seen.append(profile)
             return inv
@@ -202,7 +212,7 @@ def test_assess_migration_command_routes_options_and_writes_markdown(
     )
     by_profile = {"old": source, "new": target}
 
-    def fake_factory(_paths: object) -> ReplatformCollaborators:
+    def fake_factory(_paths: object, **_kwargs: object) -> ReplatformCollaborators:
         def build(profile: str) -> UseCaseInventory:
             seen.append(profile)
             return by_profile[profile]

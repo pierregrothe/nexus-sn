@@ -34,6 +34,7 @@ from nexus.connectors.servicenow.client import ServiceNowClient
 from nexus.connectors.servicenow.errors import SNClientError
 from nexus.replatform.classifier import classify
 from nexus.replatform.diff import build_checklist
+from nexus.replatform.domain_map import load_domain_map
 from nexus.replatform.models import UseCaseInventory
 from nexus.replatform.reporter import render_checklist, write_markdown
 from nexus.schema.product_registry import ProductRegistry
@@ -43,6 +44,7 @@ from nexus.ui.render_context import RenderContext
 __all__ = [
     "ReplatformCollaborators",
     "default_replatform_collaborators",
+    "parse_domain_map",
     "parse_scope_aliases",
     "run_inventory",
     "run_migration",
@@ -87,6 +89,26 @@ def parse_scope_aliases(raw: list[str]) -> tuple[tuple[str, str], ...]:
         old, new = item.split("=", 1)
         pairs.append((old, new))
     return tuple(pairs)
+
+
+def parse_domain_map(raw: str) -> dict[str, str] | None:
+    """Load ``--domain-map`` when given, translating errors to CLI errors.
+
+    Args:
+        raw: Path string from the CLI ("" when the option was omitted).
+
+    Returns:
+        The parsed overrides, or None when no map was supplied.
+
+    Raises:
+        typer.BadParameter: When the file is missing or malformed.
+    """
+    if not raw:
+        return None
+    try:
+        return load_domain_map(Path(raw))
+    except (ValueError, OSError) as exc:
+        raise typer.BadParameter(str(exc)) from exc
 
 
 def run_inventory(
@@ -168,22 +190,31 @@ def run_migration(
 
 def default_replatform_collaborators(  # pragma: no cover -- production wiring
     paths: NexusPaths,
+    *,
+    overrides: dict[str, str] | None = None,
 ) -> ReplatformCollaborators:
     """Production wire-up: build inventories from live capture + the catalog."""
 
     def build(profile: str) -> UseCaseInventory:
-        return _build_live_inventory(profile, paths)
+        return _build_live_inventory(profile, paths, overrides=overrides)
 
     return ReplatformCollaborators(build_inventory=build)
 
 
 def _build_live_inventory(  # pragma: no cover -- live I/O, exercised by smoke
-    profile: str, paths: NexusPaths
+    profile: str, paths: NexusPaths, *, overrides: dict[str, str] | None = None
 ) -> UseCaseInventory:
     """List the instance's custom AI/automation artifacts live, then classify."""
     manifest, capture, skipped = asyncio.run(_list_artifacts_live(profile))
     catalog = ProductRegistry(paths.schema_dir).load_catalog()
-    return classify((capture,), manifest, catalog, profile=profile, skipped_tables=skipped)
+    return classify(
+        (capture,),
+        manifest,
+        catalog,
+        profile=profile,
+        skipped_tables=skipped,
+        overrides=overrides,
+    )
 
 
 async def _list_artifacts_live(  # pragma: no cover -- live I/O, exercised by smoke
@@ -305,6 +336,10 @@ def assess_inventory(  # pragma: no cover -- thin Typer wrapper over run_invento
     out: Annotated[
         str, typer.Option("--out", help="Write the inventory as JSON to this path")
     ] = "",
+    domain_map: Annotated[
+        str,
+        typer.Option("--domain-map", help="YAML file mapping scope keys to business domains"),
+    ] = "",
 ) -> None:
     """Classify one instance's captured config into a use-case inventory."""
     paths = NexusPaths.from_env()
@@ -312,7 +347,9 @@ def assess_inventory(  # pragma: no cover -- thin Typer wrapper over run_invento
         profile=profile,
         out=Path(out) if out else None,
         render_context=_render_context,
-        collaborators=default_replatform_collaborators(paths),
+        collaborators=default_replatform_collaborators(
+            paths, overrides=parse_domain_map(domain_map)
+        ),
     )
     raise typer.Exit(code)
 
@@ -328,6 +365,10 @@ def assess_migration(  # pragma: no cover -- thin Typer wrapper over run_migrati
     out: Annotated[
         str, typer.Option("--out", help="Write the checklist markdown to this path")
     ] = "",
+    domain_map: Annotated[
+        str,
+        typer.Option("--domain-map", help="YAML file mapping scope keys to business domains"),
+    ] = "",
 ) -> None:
     """Diff two instances into a bi-directional replatform checklist."""
     paths = NexusPaths.from_env()
@@ -337,6 +378,8 @@ def assess_migration(  # pragma: no cover -- thin Typer wrapper over run_migrati
         aliases=parse_scope_aliases(scope_alias or []),
         out=Path(out) if out else None,
         render_context=_render_context,
-        collaborators=default_replatform_collaborators(paths),
+        collaborators=default_replatform_collaborators(
+            paths, overrides=parse_domain_map(domain_map)
+        ),
     )
     raise typer.Exit(code)

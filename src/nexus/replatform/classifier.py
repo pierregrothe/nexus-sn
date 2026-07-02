@@ -28,6 +28,7 @@ def classify(
     *,
     profile: str,
     skipped_tables: tuple[str, ...] = (),
+    overrides: dict[str, str] | None = None,
 ) -> UseCaseInventory:
     """Classify captured artifacts into a deterministic use-case inventory.
 
@@ -44,6 +45,8 @@ def classify(
         profile: Instance profile name recorded on the inventory.
         skipped_tables: Tables absent on this instance (HTTP 400/404 during the
             live listing), recorded on the inventory sorted for transparency.
+        overrides: Consultant-supplied ``{scope_key: domain}`` overlay. Takes
+            precedence over the catalog and the application display name.
 
     Returns:
         A frozen ``UseCaseInventory`` whose use cases are grouped by domain and
@@ -54,6 +57,7 @@ def classify(
     scope_to_domain = {
         scope.key: product.name for product in catalog.products for scope in product.scopes
     }
+    override_map = overrides or {}
     by_domain: dict[str, list[WorkflowRef]] = {}
     evidence: dict[str, set[str]] = {}
     coverage: set[str] = set()
@@ -63,7 +67,12 @@ def classify(
             entry = sys_to_entry.get(record.scope_sys_id)
             scope_key = entry.scope if entry is not None else record.scope_name
             app_name = entry.name if entry is not None else scope_key_to_name.get(scope_key, "")
-            domain = scope_to_domain.get(scope_key) or app_name or _UNCATEGORIZED
+            domain = (
+                override_map.get(scope_key)
+                or scope_to_domain.get(scope_key)
+                or app_name
+                or _UNCATEGORIZED
+            )
             name = _display_name(record.fields.get("name", ""))
             # Unnamed records have no stable cross-instance identity; fall back to
             # the sys_id so the natural key stays unique (no collision/over-count).
