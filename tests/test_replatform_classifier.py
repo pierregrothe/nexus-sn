@@ -222,3 +222,21 @@ def test_classify_domain_map_overrides_catalog() -> None:
     )
     inv = classify((capture,), scopes, catalog, profile="prod", overrides={"sn_hamp": "Asset Ops"})
     assert inv.use_cases[0].domain == "Asset Ops"
+
+
+def test_classify_groups_global_scope_under_its_display_name() -> None:
+    scopes = make_scope_manifest(scopes={"g1": "global"}, names={"g1": "Global"}, captured_at=_TS)
+    catalog = make_schema_catalog(scope_to_product={})
+    capture = make_capture_result(
+        records=(
+            make_config_record(
+                sys_id="r1",
+                table="sys_script",
+                scope_sys_id="g1",
+                fields={"name": "Incident autoclose"},
+            ),
+        ),
+    )
+    inv = classify((capture,), scopes, catalog, profile="prod")
+    assert inv.use_cases[0].domain == "Global"
+    assert inv.use_cases[0].workflows[0].key == "global|sys_script|incident autoclose"

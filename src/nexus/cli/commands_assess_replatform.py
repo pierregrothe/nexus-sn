@@ -24,7 +24,7 @@ import typer
 
 from nexus.capture.models import CaptureResult, ConfigRecord, ScopeEntry, ScopeManifest
 from nexus.capture.scope import ScopeDiscoverer
-from nexus.capture.tables import DEFAULT_TABLE_GROUPS, TableGroup
+from nexus.capture.tables import DEFAULT_TABLE_GROUPS, TableGroup, TableSpec
 from nexus.cli.apps import assess_app
 from nexus.cli.auth import acquire_token as _acquire_token
 from nexus.cli.console import console
@@ -273,6 +273,24 @@ def _build_live_inventory(  # pragma: no cover -- live I/O, exercised by smoke
     )
 
 
+def _scope_query(spec: TableSpec, scope_csv: str, *, customer_only: bool) -> str:
+    """Build the per-table listing query for a set of scope sys_ids.
+
+    Args:
+        spec: Table being listed.
+        scope_csv: Comma-joined scope sys_ids.
+        customer_only: Restrict to customer-created/modified records -- used
+            for the global scope, where OOB records vastly outnumber custom.
+
+    Returns:
+        An encoded sysparm query string.
+    """
+    query = f"{spec.scope_field}IN{scope_csv}"
+    if customer_only:
+        query += "^sys_customer_update=true"
+    return query
+
+
 async def _list_artifacts_live(  # pragma: no cover -- live I/O, exercised by smoke
     profile: str, groups: tuple[TableGroup, ...]
 ) -> tuple[ScopeManifest, tuple[CaptureResult, ...], tuple[str, ...]]:
@@ -309,49 +327,71 @@ async def _list_artifacts_live(  # pragma: no cover -- live I/O, exercised by sm
                     completed=completed,
                 )
 
+            async def _list_table(spec: TableSpec, query: str) -> list[ConfigRecord]:
+                rows: list[ConfigRecord] = []
+                offset = 0
+                while True:
+                    batch = await client.list_records(
+                        spec.name,
+                        query=query,
+                        limit=_PAGE_SIZE,
+                        offset=offset,
+                        fields=f"sys_id,{spec.name_field},{spec.scope_field}",
+                    )
+                    rows.extend(
+                        ConfigRecord(
+                            sys_id=_ref_value(row.get("sys_id")),
+                            table=spec.name,
+                            scope_sys_id=_ref_value(row.get(spec.scope_field)),
+                            scope_name="",
+                            captured_at=now,
+                            fields={"name": _ref_value(row.get(spec.name_field))},
+                            parent_sys_id=None,
+                        )
+                        for row in batch
+                    )
+                    if len(batch) < _PAGE_SIZE:
+                        break
+                    offset += _PAGE_SIZE
+                return rows
+
             for group in groups:
                 manifest = await ScopeDiscoverer(client, DEFAULT_TABLE_GROUPS).discover(
                     profile, group.key, on_progress=on_progress
                 )
                 manifests.append(manifest)
-                # A replatform checklist cares about CUSTOM scoped apps, not the
-                # hundreds of out-of-box scopes.
-                scope_ids = [
+                # A replatform checklist cares about CUSTOM scoped apps, plus
+                # customer-created/modified records in the global scope -- not
+                # the hundreds of out-of-box global and vendor-scoped records.
+                custom_ids = [
                     entry.sys_id
                     for entry in manifest.scopes
                     if entry.scope.startswith(_CUSTOM_PREFIXES)
                 ]
+                global_ids = [entry.sys_id for entry in manifest.scopes if entry.scope == "global"]
                 records: list[ConfigRecord] = []
-                if scope_ids:
-                    scope_csv = ",".join(scope_ids)
+                if custom_ids or global_ids:
                     for spec in group.tables:
                         progress.update(task, description=f"Listing {spec.display}...", total=None)
-                        query = f"{spec.scope_field}IN{scope_csv}"
                         try:
-                            offset = 0
-                            while True:
-                                batch = await client.list_records(
-                                    spec.name,
-                                    query=query,
-                                    limit=_PAGE_SIZE,
-                                    offset=offset,
-                                    fields=f"sys_id,{spec.name_field},{spec.scope_field}",
-                                )
+                            if custom_ids:
                                 records.extend(
-                                    ConfigRecord(
-                                        sys_id=_ref_value(row.get("sys_id")),
-                                        table=spec.name,
-                                        scope_sys_id=_ref_value(row.get(spec.scope_field)),
-                                        scope_name="",
-                                        captured_at=now,
-                                        fields={"name": _ref_value(row.get(spec.name_field))},
-                                        parent_sys_id=None,
+                                    await _list_table(
+                                        spec,
+                                        _scope_query(
+                                            spec, ",".join(custom_ids), customer_only=False
+                                        ),
                                     )
-                                    for row in batch
                                 )
-                                if len(batch) < _PAGE_SIZE:
-                                    break
-                                offset += _PAGE_SIZE
+                            if global_ids:
+                                records.extend(
+                                    await _list_table(
+                                        spec,
+                                        _scope_query(
+                                            spec, ",".join(global_ids), customer_only=True
+                                        ),
+                                    )
+                                )
                         except SNClientError as exc:
                             # A table absent on this instance (e.g. ai_skill
                             # without NowAssist) returns HTTP 400/404 -- skip
@@ -366,7 +406,7 @@ async def _list_artifacts_live(  # pragma: no cover -- live I/O, exercised by sm
                     CaptureResult(
                         instance_id=profile,
                         captured_at=now,
-                        scope_ids=tuple(scope_ids),
+                        scope_ids=tuple(custom_ids + global_ids),
                         table_group=group.key,
                         records=tuple(records),
                     )

@@ -27,8 +27,9 @@ from nexus.ui.render_context import RenderContext
 __all__ = ["EMPTY_SOURCE_NOTICE", "UNNAMED_NOTICE", "render_checklist", "write_markdown"]
 
 EMPTY_SOURCE_NOTICE = (
-    "source inventory is empty -- capture only covers custom AI/automation scopes "
-    "today; a clean checklist is not proof that nothing needs migrating"
+    "source inventory is empty -- coverage spans the configured table groups "
+    "for custom scopes and customer-updated global artifacts; a clean "
+    "checklist is not proof that nothing needs migrating"
 )
 
 UNNAMED_NOTICE = (

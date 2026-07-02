@@ -17,12 +17,14 @@ from rich.console import Console
 from typer.testing import CliRunner
 
 from nexus.capture.models import ScopeEntry, ScopeManifest
+from nexus.capture.tables import TableSpec
 from nexus.cli import commands_assess_replatform
 from nexus.cli.apps import app
 from nexus.cli.commands_assess_replatform import (
     ReplatformCollaborators,
     _merge_manifests,
     _ref_value,
+    _scope_query,
     parse_domain_map,
     parse_scope_aliases,
     resolve_groups,
@@ -348,3 +350,13 @@ def test_merge_manifests_unions_scopes_by_sys_id() -> None:
     s1 = next(e for e in merged.scopes if e.sys_id == "s1")
     # Right-biased union: b's incident count (9) overwrites a's (5); problem is added.
     assert s1.table_counts == {"incident": 9, "problem": 3}
+
+
+def test_scope_query_plain_for_custom_scopes() -> None:
+    spec = TableSpec(name="sys_script", display="Business Rules")
+    assert _scope_query(spec, "a,b", customer_only=False) == "sys_scopeINa,b"
+
+
+def test_scope_query_appends_customer_filter_for_global() -> None:
+    spec = TableSpec(name="sys_script", display="Business Rules")
+    assert _scope_query(spec, "g1", customer_only=True) == "sys_scopeINg1^sys_customer_update=true"
