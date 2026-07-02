@@ -443,6 +443,7 @@ def test_migrate_models_has_no_forbidden_imports_or_dict_any() -> None:
     source = Path(str(migrate_models.__file__)).read_text(encoding="utf-8")
     assert "nexus.cli" not in source
     assert "nexus.agents" not in source
+    assert "nexus.replatform" not in source
     assert "dict[str, Any]" not in source
 
 

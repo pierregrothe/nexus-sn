@@ -77,7 +77,7 @@ def run_select(
     """
     try:
         raw_text = checklist_path.read_text(encoding="utf-8")
-    except OSError as exc:
+    except (OSError, UnicodeDecodeError) as exc:
         err_console.print(Notice.error(f"cannot read checklist {checklist_path}: {exc}"))
         return 1
     try:

@@ -177,6 +177,20 @@ def test_migrate_select_missing_checklist_file_exits_1(
     assert not out_path.exists()
 
 
+def test_migrate_select_non_utf8_checklist_exits_1(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    checklist_path = tmp_path / "checklist.json"
+    checklist_path.write_bytes(b"\xff\xfe{invalid utf8: \x80\x81}")
+    out_path = tmp_path / "selection.yaml"
+
+    result = _invoke_select(monkeypatch, checklist_path, out_path)
+
+    assert result.exit_code == 1
+    assert "cannot read checklist" in result.stderr
+    assert not out_path.exists()
+
+
 def test_migrate_select_malformed_json_exits_1(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
