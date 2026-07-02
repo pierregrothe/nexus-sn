@@ -136,6 +136,19 @@
       for scopes whose display names are still too coarse (depends on the
       2026.07 Agent Specialists epic).
 
+## 2026.08 -- Migration Planner [planned]
+- [ ] Selective-migration planner -- nexus migrate select / plan / preflight;
+      selection plan file, dependency closure with waivers/acknowledgments,
+      wave ordering, lane-hint runbook. Advisory only (charter hard limit 4);
+      execution lanes gated on ADR-027 after the spike track.
+      PRD: prd/PRD-005-nexus-migration-planner.md
+      ADR: adr/ADR-026-selective-migration-planner.md
+      Epic: epics/2026.08-nexus-migration-planner/
+      Brainstorm: brainstorming/2026-07-02-selective-migration-planner.md
+      Start: epics/2026.08-nexus-migration-planner/00-s0-closure-scale-spike.story.md
+- [ ] Execution-lane spike track (S2-S5, demo pair only) -- results gate ADR-027.
+      Epic: epics/2026.08-execution-lane-spikes/
+
 ## 2026.08 -- Distribution [planned]
 - [ ] 100% line coverage, mypy strict, ruff 0 violations
 - [ ] README + getting started documentation
