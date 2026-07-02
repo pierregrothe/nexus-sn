@@ -147,7 +147,9 @@ have silently double-counted it DONE; v2 counts one DONE and one TODO.
 
 ## Regenerating the large artifacts
 
-The full v2 checklist and raw inventories are one command each (read-only):
+The raw v2 inventories are untracked (6MB each) and regenerable; the v2
+checklist is committed alongside this summary. Each is one command away
+(read-only):
 
     nexus assess inventory alectri --out inventory-alectri-v2.json
     nexus assess inventory retail  --out inventory-retail-v2.json

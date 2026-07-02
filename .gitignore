@@ -50,3 +50,6 @@ docs/erd/*.svg
 # cosmic-ray mutation session databases
 *.sqlite
 mutation.sqlite
+
+# replatform proof raw inventories -- regenerable, 6MB+ each
+artifacts/replatform-proof/inventory-*-v2.json

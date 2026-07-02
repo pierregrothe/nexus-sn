@@ -1,3 +1,5 @@
+> Sent 2026-06-30, pre-v2 coverage -- current scope is broader; see verification-summary.md (v2 section).
+
 Subject: Re: Comparing existing vs. new instance -- replatform checklists
 
 Hi,
