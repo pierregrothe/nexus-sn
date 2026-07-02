@@ -18,9 +18,9 @@ import pytest
 from nexus.capture.models import SnFieldValue
 from nexus.capture.tables import AI_AUTOMATION, DEFAULT_TABLE_GROUPS, DEVELOPER_PLATFORM
 from nexus.migrate.capture_bridge import (
-    _field_display,
-    _natural_key_segment,
     build_capture_for_selection,
+    field_display,
+    natural_key_segment,
 )
 from nexus.replatform.classifier import _display_name, _normalize
 from tests.fakes.fake_sn_client import FakeServiceNowClient
@@ -360,7 +360,7 @@ async def test_build_capture_for_selection_matches_none_name_field_via_sys_id_fa
     ],
 )
 def test_natural_key_segment_matches_replatform_normalization(name: str) -> None:
-    assert _natural_key_segment(name) == _normalize(name)
+    assert natural_key_segment(name) == _normalize(name)
 
 
 @pytest.mark.parametrize(
@@ -377,4 +377,4 @@ def test_natural_key_segment_matches_replatform_normalization(name: str) -> None
     ],
 )
 def test_field_display_matches_replatform_display_name(raw: SnFieldValue) -> None:
-    assert _field_display(raw) == _display_name(raw)
+    assert field_display(raw) == _display_name(raw)

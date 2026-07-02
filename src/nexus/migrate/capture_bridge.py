@@ -48,10 +48,15 @@ from nexus.migrate.models import Selection
 
 log = logging.getLogger(__name__)
 
-__all__ = ["build_capture_for_selection"]
+__all__ = [
+    "build_capture_for_selection",
+    "field_display",
+    "natural_key_segment",
+    "record_natural_key",
+]
 
 
-def _field_display(raw: SnFieldValue) -> str:
+def field_display(raw: SnFieldValue) -> str:
     """Coerce a captured field value to its display string.
 
     Mirrors ``nexus.replatform.classifier._display_name``'s extraction rule
@@ -72,7 +77,7 @@ def _field_display(raw: SnFieldValue) -> str:
     return raw if isinstance(raw, str) else str(raw)
 
 
-def _natural_key_segment(name: str) -> str:
+def natural_key_segment(name: str) -> str:
     """Casefold and collapse whitespace for a stable natural-key segment.
 
     Must match ``nexus.replatform.classifier._normalize`` exactly -- the
@@ -88,11 +93,18 @@ def _natural_key_segment(name: str) -> str:
     return " ".join(name.split()).casefold()
 
 
-def _record_key(record: ConfigRecord, name_field: str, scope_key: str) -> str:
-    """Compute a root record's natural key for matching against a Selection.
+def record_natural_key(record: ConfigRecord, name_field: str, scope_key: str) -> str:
+    """Compute a record's natural key for matching against a Selection.
+
+    Public promotion of the natural-key algorithm (Story 04 prep) so
+    ``nexus.migrate.closure`` can reuse it without duplicating the logic.
+    ``nexus.migrate.closure`` calls this with ``record.scope_name`` as
+    ``scope_key`` since it has no live scope-sys_id resolution available
+    (pure-function closure over already-captured records) -- see that
+    module's docstring for the documented v1 scope-key gap this implies.
 
     Args:
-        record: A fetched root ConfigRecord (``parent_sys_id is None``).
+        record: A fetched ConfigRecord.
         name_field: The record's table's display-name field.
         scope_key: The record's resolved technical scope key.
 
@@ -100,8 +112,8 @@ def _record_key(record: ConfigRecord, name_field: str, scope_key: str) -> str:
         The natural key, falling back to ``sys_id`` when the name is empty
         (unnamed records have no stable cross-instance identity).
     """
-    name = _field_display(record.fields.get(name_field, ""))
-    segment = _natural_key_segment(name) or record.sys_id
+    name = field_display(record.fields.get(name_field, ""))
+    segment = natural_key_segment(name) or record.sys_id
     return f"{scope_key}|{record.table}|{segment}"
 
 
@@ -219,7 +231,7 @@ async def build_capture_for_selection(
             # (see _fetch_table), never from row data -- always one of the
             # sys_ids this module resolved, so the lookup cannot miss.
             scope_key = sys_id_to_scope_key[record.scope_sys_id]
-            key = _record_key(record, name_fields[record.table], scope_key)
+            key = record_natural_key(record, name_fields[record.table], scope_key)
             if key in selection_keys:
                 kept.append(record)
                 kept_root_ids.add(record.sys_id)
