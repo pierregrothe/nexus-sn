@@ -236,3 +236,34 @@ def test_assess_migration_command_routes_options_and_writes_markdown(
     # reads DONE (checked box) with nothing left over as EXTRA.
     assert "- [x]" in content
     assert "EXTRA" not in content
+
+
+def test_run_inventory_warns_on_skipped_tables() -> None:
+    buf = StringIO()
+    inv = make_use_case_inventory(profile="dev", skipped_tables=("ai_skill",))
+    collaborators = ReplatformCollaborators(build_inventory=lambda _p: inv)
+    code = run_inventory(
+        profile="dev", out=None, render_context=_plain_ctx(buf), collaborators=collaborators
+    )
+    assert code == 0
+    assert "tables absent on dev" in buf.getvalue()
+    assert "ai_skill" in buf.getvalue()
+
+
+def test_run_migration_warns_on_skipped_tables_per_side() -> None:
+    buf = StringIO()
+    by_profile = {
+        "old": make_use_case_inventory(profile="old", skipped_tables=("ai_skill",)),
+        "new": make_use_case_inventory(profile="new", use_cases=()),
+    }
+    collaborators = ReplatformCollaborators(build_inventory=lambda p: by_profile[p])
+    code = run_migration(
+        from_profile="old",
+        to_profile="new",
+        aliases=(),
+        out=None,
+        render_context=_plain_ctx(buf),
+        collaborators=collaborators,
+    )
+    assert code == 0
+    assert "tables absent on old" in buf.getvalue()

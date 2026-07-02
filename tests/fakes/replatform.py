@@ -102,6 +102,7 @@ def make_use_case_inventory(
     captured_at: datetime = _DEFAULT_TS,
     coverage: tuple[str, ...] = ("ai_automation",),
     use_cases: tuple[UseCase, ...] | None = None,
+    skipped_tables: tuple[str, ...] = (),
 ) -> UseCaseInventory:
     """Build a UseCaseInventory with one default use case when none are supplied."""
     cases = use_cases if use_cases is not None else (make_use_case(),)
@@ -110,4 +111,5 @@ def make_use_case_inventory(
         captured_at=captured_at,
         coverage=coverage,
         use_cases=cases,
+        skipped_tables=skipped_tables,
     )

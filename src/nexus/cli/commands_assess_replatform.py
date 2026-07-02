@@ -117,6 +117,12 @@ def run_inventory(
         render_context.console.print(
             f"  {use_case.domain}: {len(use_case.workflows)} workflow(s)", highlight=False
         )
+    if inventory.skipped_tables:
+        render_context.console.print(
+            f"warning: tables absent on {profile}: {', '.join(inventory.skipped_tables)}"
+            " -- inventory excludes them",
+            highlight=False,
+        )
     if out is not None:
         out.write_bytes(inventory.model_dump_json(indent=2).encode("utf-8"))
     return 0
@@ -146,6 +152,13 @@ def run_migration(
     """
     source = collaborators.build_inventory(from_profile)
     target = collaborators.build_inventory(to_profile)
+    for inventory in (source, target):
+        if inventory.skipped_tables:
+            render_context.console.print(
+                f"warning: tables absent on {inventory.profile}: "
+                f"{', '.join(inventory.skipped_tables)} -- checklist excludes them",
+                highlight=False,
+            )
     checklist = build_checklist(source, target, aliases)
     render_checklist(checklist, render_context)
     if out is not None:
@@ -168,14 +181,14 @@ def _build_live_inventory(  # pragma: no cover -- live I/O, exercised by smoke
     profile: str, paths: NexusPaths
 ) -> UseCaseInventory:
     """List the instance's custom AI/automation artifacts live, then classify."""
-    manifest, capture = asyncio.run(_list_artifacts_live(profile))
+    manifest, capture, skipped = asyncio.run(_list_artifacts_live(profile))
     catalog = ProductRegistry(paths.schema_dir).load_catalog()
-    return classify((capture,), manifest, catalog, profile=profile)
+    return classify((capture,), manifest, catalog, profile=profile, skipped_tables=skipped)
 
 
 async def _list_artifacts_live(  # pragma: no cover -- live I/O, exercised by smoke
     profile: str,
-) -> tuple[ScopeManifest, CaptureResult]:
+) -> tuple[ScopeManifest, CaptureResult, tuple[str, ...]]:
     """List AI_AUTOMATION artifact names for custom scopes -- NOT a full capture.
 
     The checklist only needs each artifact's name/type/scope, so this issues one
@@ -192,6 +205,7 @@ async def _list_artifacts_live(  # pragma: no cover -- live I/O, exercised by sm
 
     now = datetime.now(UTC)
     records: list[ConfigRecord] = []
+    skipped: list[str] = []
     async with ServiceNowClient(
         instance_url=meta.url, token=token, refresh_token_callback=_refresh
     ) as client:
@@ -253,6 +267,7 @@ async def _list_artifacts_live(  # pragma: no cover -- live I/O, exercised by sm
                         # raise so a partial listing is never shown as complete.
                         if exc.status_code not in (400, 404):
                             raise
+                        skipped.append(spec.name)
                         log.debug("replatform: skipping absent table %s: %s", spec.name, exc)
     capture = CaptureResult(
         instance_id=profile,
@@ -261,7 +276,7 @@ async def _list_artifacts_live(  # pragma: no cover -- live I/O, exercised by sm
         table_group=AI_AUTOMATION.key,
         records=tuple(records),
     )
-    return manifest, capture
+    return manifest, capture, tuple(skipped)
 
 
 def _ref_value(raw: object) -> str:

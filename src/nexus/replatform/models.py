@@ -93,6 +93,8 @@ class UseCaseInventory(BaseModel):
         captured_at: When the underlying capture was taken (UTC).
         coverage: Table groups that fed this inventory.
         use_cases: The classified use cases, in classifier order.
+        skipped_tables: Tables absent on this instance (HTTP 400/404 during the
+            live listing), sorted. Empty when every table was reachable.
     """
 
     model_config = _FROZEN
@@ -101,6 +103,7 @@ class UseCaseInventory(BaseModel):
     captured_at: UtcDatetime
     coverage: tuple[str, ...]
     use_cases: tuple[UseCase, ...]
+    skipped_tables: tuple[str, ...] = ()
 
 
 class ChecklistItem(BaseModel):

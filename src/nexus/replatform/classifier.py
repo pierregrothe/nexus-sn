@@ -26,6 +26,7 @@ def classify(
     catalog: SchemaProductCatalog,
     *,
     profile: str,
+    skipped_tables: tuple[str, ...] = (),
 ) -> UseCaseInventory:
     """Classify captured artifacts into a deterministic use-case inventory.
 
@@ -37,6 +38,8 @@ def classify(
         catalog: Schema product catalog. Its ``{scope.key: product.name}`` map
             supplies each use case's domain; unknown scopes -> ``Uncategorized``.
         profile: Instance profile name recorded on the inventory.
+        skipped_tables: Tables absent on this instance (HTTP 400/404 during the
+            live listing), recorded on the inventory sorted for transparency.
 
     Returns:
         A frozen ``UseCaseInventory`` whose use cases are grouped by domain and
@@ -81,6 +84,7 @@ def classify(
         captured_at=scopes.captured_at,
         coverage=tuple(sorted(coverage)),
         use_cases=use_cases,
+        skipped_tables=tuple(sorted(skipped_tables)),
     )
 
 

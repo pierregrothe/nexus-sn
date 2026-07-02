@@ -162,3 +162,13 @@ def test_classify_falls_back_to_scope_name_when_sys_id_unknown() -> None:
     wf = inv.use_cases[0].workflows[0]
     assert wf.scope == "x_fallback"
     assert wf.key == "x_fallback|sys_hub_flow|x"
+
+
+def test_classify_records_skipped_tables_sorted() -> None:
+    scopes = make_scope_manifest(scopes={"s1": "x_acme_app"}, captured_at=_TS)
+    catalog = make_schema_catalog(scope_to_product={})
+    capture = make_capture_result(records=())
+    inv = classify(
+        (capture,), scopes, catalog, profile="prod", skipped_tables=("sys_ai_agent", "ai_skill")
+    )
+    assert inv.skipped_tables == ("ai_skill", "sys_ai_agent")
