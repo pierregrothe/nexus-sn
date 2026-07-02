@@ -11,7 +11,7 @@ from pathlib import Path
 from rich.console import Console
 
 from nexus.replatform.diff import build_checklist
-from nexus.replatform.models import MigrationChecklist
+from nexus.replatform.models import MigrationChecklist, WorkflowRef
 from nexus.replatform.reporter import EMPTY_SOURCE_NOTICE, render_checklist, write_markdown
 from nexus.ui.capabilities import ColorDepth, RenderProfile, TerminalCapabilities
 from nexus.ui.render_context import RenderContext
@@ -128,3 +128,40 @@ def test_write_markdown_empty_source_includes_warning(tmp_path: Path) -> None:
     out = tmp_path / "empty.md"
     write_markdown(_empty_checklist(), out)
     assert EMPTY_SOURCE_NOTICE in out.read_text(encoding="utf-8")
+
+
+def _unnamed_checklist() -> MigrationChecklist:
+    unnamed = WorkflowRef(
+        key="x_app|sys_hub_flow|0a1b2c3d4e5f", name="", type="sys_hub_flow", scope="x_app"
+    )
+    source = make_use_case_inventory(
+        profile="old", use_cases=(make_use_case(key="x_app", workflows=(unnamed,)),)
+    )
+    target = make_use_case_inventory(
+        profile="new", use_cases=(make_use_case(key="x_app", workflows=()),)
+    )
+    return build_checklist(source, target)
+
+
+def test_render_checklist_plain_warns_on_unnamed_artifacts() -> None:
+    buf = StringIO()
+    render_checklist(_unnamed_checklist(), _ctx(RenderProfile.PLAIN, buf))
+    assert "unnamed artifact" in buf.getvalue()
+
+
+def test_render_checklist_rich_warns_on_unnamed_artifacts() -> None:
+    buf = StringIO()
+    render_checklist(_unnamed_checklist(), _ctx(RenderProfile.RICH, buf))
+    assert "unnamed artifact" in buf.getvalue()
+
+
+def test_write_markdown_warns_on_unnamed_artifacts(tmp_path: Path) -> None:
+    out = tmp_path / "checklist.md"
+    write_markdown(_unnamed_checklist(), out)
+    assert "unnamed artifact" in out.read_text(encoding="utf-8")
+
+
+def test_write_markdown_omits_unnamed_warning_when_all_named(tmp_path: Path) -> None:
+    out = tmp_path / "checklist.md"
+    write_markdown(_partial_checklist(), out)
+    assert "unnamed artifact" not in out.read_text(encoding="utf-8")
