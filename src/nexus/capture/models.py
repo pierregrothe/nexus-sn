@@ -34,7 +34,7 @@ class SnRefField(TypedDict):
     display_value: str
 
 
-type SnFieldValue = str | SnRefField
+type SnFieldValue = str | bool | int | float | None | SnRefField
 type SnRecord = dict[str, SnFieldValue]
 
 

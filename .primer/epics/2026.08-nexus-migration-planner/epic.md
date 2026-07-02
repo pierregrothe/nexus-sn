@@ -103,7 +103,7 @@ on ADR-027.
 | FR7 | 05-runbook-plan-cli | backlog |
 | FR8 | 06-plan-recheck-drift | backlog |
 | FR9 | 07-migrate-preflight | backlog |
-| FR10 | 01-full-fidelity-selective-capture | backlog |
+| FR10 | 01-full-fidelity-selective-capture | done |
 | FR11 | 00-s0-closure-scale-spike | done |
 | NFR1-5 | all stories | backlog |
 | C1-2 | all stories | backlog |
@@ -113,7 +113,7 @@ on ADR-027.
 | # | Title | Dependencies | Status |
 |---|---|---|---|
 | 00 | s0-closure-scale-spike | none | done |
-| 01 | full-fidelity-selective-capture | none | backlog |
+| 01 | full-fidelity-selective-capture | none | done |
 | 02 | migrate-models-plan-roundtrip | none | done |
 | 03 | migrate-select-cli | 02 | backlog |
 | 04 | plan-builder-closure-waves | 01, 02 | backlog |
@@ -159,7 +159,7 @@ any full-estate curation is offered to anyone.
   single NEW instance.
 
 ## Progress
-- Stories: 2/8 done, 0 in-progress, 6 backlog
+- Stories: 3/8 done, 0 in-progress, 5 backlog
 - S0 wall-clock: 10.75ms (alectri, 30,463 artifacts, seed-stop-list walk; JSON load for both
   inventories + the schema archive is a separate 0.200s)
 - S0 findings (no stop-list): raw 40,306 / deduped 351

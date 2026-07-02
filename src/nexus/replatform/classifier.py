@@ -116,7 +116,9 @@ def _display_name(raw: SnFieldValue) -> str:
     """
     if isinstance(raw, dict):
         return raw["display_value"]
-    return raw
+    if raw is None:
+        return ""
+    return raw if isinstance(raw, str) else str(raw)
 
 
 def _normalize(name: str) -> str:

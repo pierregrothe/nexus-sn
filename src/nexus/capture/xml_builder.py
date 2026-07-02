@@ -48,7 +48,11 @@ class UpdateSetXmlBuilder:
             if isinstance(field_value, dict):
                 el.text = field_value["value"]
                 el.set("display_value", field_value["display_value"])
+            elif field_value is None:
+                el.text = None
+            elif isinstance(field_value, bool):
+                el.text = "true" if field_value else "false"
             else:
-                el.text = field_value
+                el.text = str(field_value)
 
         return ET.tostring(outer, encoding="unicode", xml_declaration=False)
