@@ -12,7 +12,12 @@ import pytest
 
 from nexus.plugins.errors import PluginScanError
 from nexus.plugins.models import PluginInventory, ScopeRecordCount
-from nexus.plugins.scanner import PluginScanner, _fetch_counts, _parse_next_link
+from nexus.plugins.scanner import (
+    PluginScanner,
+    _fetch_counts,
+    _parse_next_link,
+    is_plugin_row_active,
+)
 from tests.fakes.fake_plugin_data import SYS_STORE_APP_ROWS, V_PLUGIN_ROWS
 
 __all__: list[str] = []
@@ -658,3 +663,16 @@ def test_scan_appmanager_filters_to_update_available_one_only() -> None:
     ids = {p.plugin_id for p in inv.plugins}
     assert "sn_should_appear" in ids
     assert "sn_should_not_appear" not in ids
+
+
+def test_is_plugin_row_active_pins_truthy_spellings() -> None:
+    """Pin the exact truthy set so shared call sites can never silently drift.
+
+    is_plugin_row_active is a public export shared by nexus.migrate.preflight's
+    CICD-plugin probe; this test is the single source of truth for which
+    ``active`` spellings count as an active install.
+    """
+    for truthy in ("true", "1", "yes", "active", "installed", "enabled", " TRUE ", True):
+        assert is_plugin_row_active(truthy), f"expected truthy: {truthy!r}"
+    for falsy in ("false", "0", "no", "inactive", "", None, 1, 1.0, ["active"]):
+        assert not is_plugin_row_active(falsy), f"expected falsy: {falsy!r}"

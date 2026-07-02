@@ -23,7 +23,7 @@ from nexus.plugins.impact import (
 from nexus.plugins.models import PluginInfo, PluginInventory, ScopeRecordCount
 from nexus.plugins.product_families import product_family_for
 
-__all__ = ["PluginScanner"]
+__all__ = ["PluginScanner", "is_plugin_row_active"]
 
 log = logging.getLogger(__name__)
 
@@ -213,7 +213,7 @@ class PluginScanner:
             plugin_id=plugin_id,
             name=str(row.get("name", plugin_id)),
             version=version,
-            state="active" if _is_active(row.get("active")) else "inactive",
+            state="active" if is_plugin_row_active(row.get("active")) else "inactive",
             source=_source_for(plugin_id, vendor=""),
             product_family=product_family_for(plugin_id).value,
             depends_on=_parse_deps(row.get("requires", "") or row.get("dependencies", "")),
@@ -231,7 +231,7 @@ class PluginScanner:
             plugin_id=plugin_id,
             name=str(row.get("name", plugin_id)),
             version=version,
-            state="active" if _is_active(row.get("active")) else "inactive",
+            state="active" if is_plugin_row_active(row.get("active")) else "inactive",
             source=_source_for(plugin_id, vendor=vendor),
             product_family=product_family_for(plugin_id).value,
             depends_on=_parse_deps(row.get("requires", "") or row.get("dependencies", "")),
@@ -291,7 +291,7 @@ def _pick_latest_version(row: dict[str, object], *, current: str) -> str | None:
     return candidate
 
 
-def _is_active(value: object) -> bool:
+def is_plugin_row_active(value: object) -> bool:
     """Return True when an SN plugin ``active`` field signals an active install.
 
     SN exposes ``active`` inconsistently across releases and tables:
@@ -299,6 +299,17 @@ def _is_active(value: object) -> bool:
     older releases returned ``"true"`` / ``"false"`` or booleans; some
     edge tables (sys_plugin) use ``"installed"``. This helper accepts
     all observed truthy spellings.
+
+    Public export: ``nexus.migrate.preflight`` shares this parsing for
+    its CICD-plugin presence probe, so the truthy-string table exists
+    exactly once in the codebase.
+
+    Args:
+        value: Raw ``active`` field value from a plugin-inventory row.
+
+    Returns:
+        True when the value spells an active install in any observed
+        truthy form; False for every other value or type.
     """
     if isinstance(value, bool):
         return value

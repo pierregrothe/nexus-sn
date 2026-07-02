@@ -171,9 +171,27 @@ async def test_run_preflight_cicd_plugin_unknown_on_network_error() -> None:
 
 
 @pytest.mark.asyncio
-async def test_run_preflight_cicd_plugin_unknown_on_malformed_json() -> None:
-    malformed = httpx.Response(200, text="not json")
-    async with _client(_handler(v_plugin=malformed)) as old, _healthy_client() as new:
+@pytest.mark.parametrize(
+    "v_plugin_response",
+    [
+        pytest.param(httpx.Response(200, text="not json"), id="unparseable-body"),
+        pytest.param(
+            # Valid JSON but not an object: a bare list must land in the same
+            # UNKNOWN bucket, not raise AttributeError on .get("result").
+            httpx.Response(200, json=[{"id": "com.glide.continuousdelivery", "active": "true"}]),
+            id="bare-list-body",
+        ),
+        pytest.param(
+            # Object body whose "result" is not a list -- same bucket.
+            httpx.Response(200, json={"result": "nope"}),
+            id="non-list-result",
+        ),
+    ],
+)
+async def test_run_preflight_cicd_plugin_unknown_on_malformed_json(
+    v_plugin_response: httpx.Response,
+) -> None:
+    async with _client(_handler(v_plugin=v_plugin_response)) as old, _healthy_client() as new:
         report = await run_preflight(old, new, auth_mode_old="oauth", auth_mode_new="oauth")
     row = _find(report, instance="old", item="cicd-plugin")
     assert row.status is PreflightStatus.UNKNOWN

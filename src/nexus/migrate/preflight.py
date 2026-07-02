@@ -33,10 +33,13 @@ POST/PUT/PATCH/DELETE -- GET only (AC5).
 
 from __future__ import annotations
 
+from typing import cast
+
 import httpx
 
 from nexus.instances.role_probe import TableProbe, probe_table_access
 from nexus.migrate.models import PreflightItemResult, PreflightReport, PreflightStatus
+from nexus.plugins.scanner import is_plugin_row_active
 
 __all__ = ["MIGRATE_PREFLIGHT_PROBES", "run_preflight"]
 
@@ -141,30 +144,6 @@ async def _probe_table_item(
     )
 
 
-def _plugin_row_active(value: object) -> bool:
-    """Return True when a v_plugin row's ``active`` field signals an active install.
-
-    Mirrors ``nexus.plugins.scanner._is_active``'s truthy-string handling.
-    Duplicated rather than imported: it is module-private in
-    ``nexus.plugins.scanner`` (no public export exists) and pyright's
-    ``reportPrivateUsage`` rejects a cross-module private import under this
-    project's strict config -- the same established precedent
-    ``nexus.migrate.capture_bridge`` documents for its own duplicated helper.
-
-    Args:
-        value: Raw ``active`` field value from a v_plugin row.
-
-    Returns:
-        True when the value spells an active install in any observed form.
-    """
-    active_states = frozenset({"true", "1", "yes", "active", "installed", "enabled"})
-    if isinstance(value, bool):
-        return value
-    if isinstance(value, str):
-        return value.strip().lower() in active_states
-    return False
-
-
 async def _probe_cicd_plugin(client: httpx.AsyncClient, instance: str) -> PreflightItemResult:
     """Probe CICD plugin (com.glide.continuousdelivery) presence + active state.
 
@@ -173,7 +152,9 @@ async def _probe_cicd_plugin(client: httpx.AsyncClient, instance: str) -> Prefli
     "existing plugin-inventory read" AC1 calls for, without pulling in
     PluginScanner.scan()'s concurrent sys_store_app/appmanager fan-out
     (the appmanager leg issues a POST, which would violate AC5's GET-only
-    charter).
+    charter). The row's ``active`` flag is parsed with the scanner's
+    public ``is_plugin_row_active`` so the truthy-string table exists
+    exactly once.
 
     Args:
         client: Open httpx.AsyncClient for the instance being probed.
@@ -223,8 +204,16 @@ async def _probe_cicd_plugin(client: httpx.AsyncClient, instance: str) -> Prefli
             detail=f"HTTP {response.status_code} reading v_plugin",
         )
     try:
-        rows = response.json().get("result", [])
+        payload: object = response.json()
     except ValueError:
+        payload = None
+    # A valid-but-non-object body (e.g. a bare JSON list) or a non-list
+    # "result" would raise past a bare except ValueError -- both land in
+    # the same UNKNOWN bucket as unparseable JSON (never-raises promise).
+    result_rows = (
+        cast("dict[str, object]", payload).get("result") if isinstance(payload, dict) else None
+    )
+    if not isinstance(result_rows, list):
         return PreflightItemResult(
             item=_ITEM_CICD_PLUGIN,
             instance=instance,
@@ -233,6 +222,7 @@ async def _probe_cicd_plugin(client: httpx.AsyncClient, instance: str) -> Prefli
             remediation=remediation,
             detail="malformed JSON response from v_plugin",
         )
+    rows = cast("list[object]", result_rows)
     if not rows:
         return PreflightItemResult(
             item=_ITEM_CICD_PLUGIN,
@@ -242,7 +232,10 @@ async def _probe_cicd_plugin(client: httpx.AsyncClient, instance: str) -> Prefli
             remediation=remediation,
             detail=f"{_CICD_PLUGIN_ID} not found in v_plugin",
         )
-    active = _plugin_row_active(rows[0].get("active"))
+    first = rows[0]
+    active = is_plugin_row_active(
+        cast("dict[str, object]", first).get("active") if isinstance(first, dict) else None
+    )
     return PreflightItemResult(
         item=_ITEM_CICD_PLUGIN,
         instance=instance,
