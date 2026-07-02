@@ -303,6 +303,8 @@ def _find_latest_archive(root: Path, instance: str) -> Path | None:
     return candidates[-1] if candidates else None
 
 
+# The sys.modules default is intentional: checked by reference at call time,
+# never copied -- do not "fix" by snapshotting (dict(sys.modules)) at import.
 def _assert_no_network_client(modules: Mapping[str, object] = sys.modules) -> str:
     """Enforce AC5: this process must never have loaded a client-carrying module.
 
