@@ -81,11 +81,12 @@ def make_capture(
     instance_id: str = "alectri",
     table_group: str = "closure_fixture",
     scope_ids: tuple[str, ...] = (),
+    captured_at: datetime = DEFAULT_TS,
 ) -> CaptureResult:
     """Build a CaptureResult wrapping the given records."""
     return CaptureResult(
         instance_id=instance_id,
-        captured_at=DEFAULT_TS,
+        captured_at=captured_at,
         scope_ids=scope_ids,
         table_group=table_group,
         records=records,

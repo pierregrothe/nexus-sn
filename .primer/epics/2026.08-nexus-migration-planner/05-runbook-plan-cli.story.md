@@ -1,6 +1,6 @@
 # Story 05: `nexus migrate plan` + runbook
 
-Status: backlog
+Status: done
 Spec-Clarity: high
 Depends-On: 04
 
@@ -80,19 +80,19 @@ later git-reviewed step).
 
 ## Tasks / Subtasks
 
-- [ ] Create `src/nexus/migrate/runbook.py` -- `render_runbook(plan) ->
+- [x] Create `src/nexus/migrate/runbook.py` -- `render_runbook(plan) ->
       str` markdown emitter (AC2-AC6)
-- [ ] Implement lane-shaped grouping (group PlanItems by `(wave_index,
+- [x] Implement lane-shaped grouping (group PlanItems by `(wave_index,
       lane)`) (AC2)
-- [ ] Implement header block (generated-at, snapshot identities, validity
+- [x] Implement header block (generated-at, snapshot identities, validity
       window) (AC3)
-- [ ] Implement waiver/acknowledgment front-page section (AC4)
-- [ ] Add the fixed documented-gap register constant (shared with Story
+- [x] Implement waiver/acknowledgment front-page section (AC4)
+- [x] Add the fixed documented-gap register constant (shared with Story
       04's finding taxonomy) (AC5)
-- [ ] Wire `@migrate_app.command("plan")` in
+- [x] Wire `@migrate_app.command("plan")` in
       `src/nexus/cli/commands_migrate.py` calling closure + planner (Story
       04) + `render_runbook` (AC1, AC7)
-- [ ] Create `tests/test_migrate_runbook.py`, `tests/cli/test_migrate_plan_cmd.py`
+- [x] Create `tests/test_migrate_runbook.py`, `tests/cli/test_migrate_plan_cmd.py`
       (AC1-AC7)
 
 ## Existing Code

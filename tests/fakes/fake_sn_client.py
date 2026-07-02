@@ -309,7 +309,7 @@ class FakeServiceNowClient:
         """
         result: dict[str, int] = {}
         for record in self._tables.get(table, []):
-            value = str(record.get(group_by, ""))
+            value = _cell(record, group_by)
             if value:
                 result[value] = result.get(value, 0) + 1
         return result
