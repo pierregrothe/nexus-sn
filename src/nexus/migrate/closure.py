@@ -453,7 +453,18 @@ def build_closure(
                     items[row_key] = ClosureItem(key=row_key, added_by_closure=True)
                     queue.append(row_key)
 
-    tables_in_plan = {key.split("|", 2)[1] for key in items}
+    tables_in_plan: set[str] = set()
+    for key in items:
+        parts = key.split("|", 2)
+        if len(parts) != 3:
+            # USE_CASE rollup key (no "|" separators, e.g. "AI Summit") can
+            # reach `items` when a curator marks it disposition="include" --
+            # it aggregates workflows rather than naming a table, so it is
+            # skipped here (see capture_bridge.build_capture_for_selection's
+            # docstring for the same treatment at the capture layer).
+            log.debug("closure: skipping non-workflow item key %r for access-posture scan", key)
+            continue
+        tables_in_plan.add(parts[1])
     findings.extend(_access_posture_findings(tables_in_plan, old_records, new_records))
 
     sorted_items = tuple(items[key] for key in sorted(items))

@@ -249,7 +249,16 @@ async def _build_live_schema_graph(selection: Selection) -> SchemaGraph:  # prag
         A SchemaGraph covering exactly the selection's named tables and
         their reference targets.
     """
-    tables = tuple(sorted({item.key.split("|", 2)[1] for item in selection.items}))
+    wanted_tables: set[str] = set()
+    for item in selection.items:
+        parts = item.key.split("|", 2)
+        if len(parts) != 3:
+            # USE_CASE rollup key (no "|" separators) -- see
+            # capture_bridge.build_capture_for_selection's docstring; it
+            # names no table, so it is skipped here too.
+            continue
+        wanted_tables.add(parts[1])
+    tables = tuple(sorted(wanted_tables))
     _registry, meta, token, _expiry = _acquire_token(selection.source_profile)
     async with ServiceNowClient(instance_url=meta.url, token=token) as client:
         rows = await _fetch_reference_dictionary_rows(client, tables)

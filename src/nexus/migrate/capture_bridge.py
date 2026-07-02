@@ -226,6 +226,12 @@ async def build_capture_for_selection(
         when the selection has no items, no named table is registered, or
         none of the named scopes resolve on the instance -- an empty
         selection issues no ConfigFetcher/ScopeDiscoverer calls at all.
+        USE_CASE rollup keys (no ``|`` separators, e.g. ``"AI Summit"`` --
+        story 03's checklist seeds one per app alongside its WORKFLOW leaf
+        items) are ignored entirely: they aggregate workflows rather than
+        naming a capturable record, so they contribute nothing to the
+        resolved scopes/tables and never appear in a CaptureResult; their
+        member workflows are captured normally as their own WORKFLOW items.
     """
     if not selection.items:
         return ()
@@ -234,7 +240,14 @@ async def build_capture_for_selection(
     wanted_tables: set[str] = set()
     selection_keys: set[str] = set()
     for item in selection.items:
-        scope, table, _name = item.key.split("|", 2)
+        parts = item.key.split("|", 2)
+        if len(parts) != 3:
+            # USE_CASE rollup key -- see the docstring above. Cannot resolve
+            # to any scope/table/record, so it is skipped rather than
+            # unpacked (every real workflow key is "scope|table|name").
+            log.debug("capture bridge: skipping non-workflow selection key %r", item.key)
+            continue
+        scope, table, _name = parts
         wanted_scopes.add(scope)
         wanted_tables.add(table)
         selection_keys.add(item.key)

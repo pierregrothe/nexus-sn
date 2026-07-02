@@ -12,19 +12,29 @@ private helpers directly to assert byte-identical output over tricky inputs.
 """
 
 import logging
+from datetime import UTC, datetime
 
 import pytest
 
 from nexus.capture.models import SnFieldValue
 from nexus.capture.tables import AI_AUTOMATION, DEFAULT_TABLE_GROUPS, DEVELOPER_PLATFORM
+from nexus.cli.commands_migrate import _seed_selection
 from nexus.migrate.capture_bridge import (
     build_capture_for_selection,
     field_display,
     natural_key_segment,
 )
 from nexus.replatform.classifier import _display_name, _normalize
+from nexus.replatform.models import (
+    ChecklistItem,
+    ChecklistKind,
+    ChecklistStatus,
+    MigrationChecklist,
+)
 from tests.fakes.fake_sn_client import FakeServiceNowClient
 from tests.fakes.migrate import make_selection, make_selection_item
+
+_CHECKLIST_TS = datetime(2026, 7, 2, 12, 0, 0, tzinfo=UTC)
 
 _ALECTRI_SCOPE_ROW = {
     "sys_id": "scope001",
@@ -253,6 +263,86 @@ async def test_build_capture_for_selection_captures_excluded_item_disposition_bl
     async with client:
         results = await build_capture_for_selection(client, selection, DEFAULT_TABLE_GROUPS)
 
+    sys_ids = {r.sys_id for r in results[0].records}
+    assert sys_ids == {"f1"}
+
+
+@pytest.mark.asyncio
+async def test_build_capture_for_selection_skips_use_case_rollup_keys() -> None:
+    # USE_CASE rollup keys are plain app names with no "|" separators (e.g.
+    # "AI Summit") -- story 03 seeds one per app alongside its WORKFLOW leaf
+    # items, and build_capture_for_selection processes every item
+    # regardless of disposition (AC1), so a rollup key of EITHER
+    # disposition must not crash key-parsing or pollute the resolved
+    # scope/table set.
+    client = _client_with_flows()
+    selection = make_selection(
+        source_profile="alectri",
+        items=(
+            make_selection_item(key="AI Summit", disposition="undecided"),
+            make_selection_item(key="Retail Ops", disposition="include"),
+            make_selection_item(
+                key="x_alectri_core|sys_hub_flow|approve po", disposition="include"
+            ),
+        ),
+    )
+    async with client:
+        results = await build_capture_for_selection(client, selection, DEFAULT_TABLE_GROUPS)
+
+    assert len(results) == 1
+    result = results[0]
+    assert result.scope_ids == ("scope001",)
+    sys_ids = {r.sys_id for r in result.records}
+    assert sys_ids == {"f1"}
+    tables_queried = {table for table, _query in client.calls}
+    # ai_skill is another table in the same ai_automation group -- proves the
+    # rollup keys never widened wanted_tables beyond sys_hub_flow's own group.
+    assert "ai_skill" not in tables_queried
+    assert "sys_hub_flow" in tables_queried
+
+
+@pytest.mark.asyncio
+async def test_build_capture_for_selection_seeded_checklist_selection_does_not_raise() -> None:
+    # Real cross-story seam (story 03 -> story 01b): _seed_selection builds
+    # one undecided SelectionItem per checklist item, including a USE_CASE
+    # rollup row alongside its WORKFLOW leaf -- exactly the shape a fresh
+    # `migrate select` -> `migrate plan` run always produces (the live e2e
+    # defect this module fixes). Pins that the seeded Selection flows
+    # through build_capture_for_selection without raising.
+    checklist = MigrationChecklist(
+        source_profile="alectri",
+        target_profile="retail",
+        source_captured_at=_CHECKLIST_TS,
+        target_captured_at=_CHECKLIST_TS,
+        coverage=("ai_automation",),
+        items=(
+            ChecklistItem(
+                key="AI Summit",
+                name="AI Summit",
+                domain="ITSM",
+                use_case_key="AI Summit",
+                kind=ChecklistKind.USE_CASE,
+                status=ChecklistStatus.TODO,
+                built_count=0,
+                total_count=1,
+            ),
+            ChecklistItem(
+                key="x_alectri_core|sys_hub_flow|approve po",
+                name="Approve PO",
+                domain="ITSM",
+                use_case_key="AI Summit",
+                kind=ChecklistKind.WORKFLOW,
+                status=ChecklistStatus.TODO,
+            ),
+        ),
+    )
+    selection = _seed_selection(checklist)
+    client = _client_with_flows()
+
+    async with client:
+        results = await build_capture_for_selection(client, selection, DEFAULT_TABLE_GROUPS)
+
+    assert len(results) == 1
     sys_ids = {r.sys_id for r in results[0].records}
     assert sys_ids == {"f1"}
 

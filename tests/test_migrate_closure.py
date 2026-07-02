@@ -183,6 +183,31 @@ def test_build_closure_seed_item_without_captured_record_stays_in_plan() -> None
     assert result.findings == ()
 
 
+def test_build_closure_use_case_rollup_key_included_does_not_crash_access_posture_scan() -> None:
+    # A USE_CASE rollup key (no "|" separators, e.g. "AI Summit") can reach
+    # `items` when a curator marks it disposition="include" even though it
+    # aggregates workflows rather than naming a capturable table (its member
+    # workflows appear as their own WORKFLOW items). build_closure's AC4
+    # access-posture scan must not crash deriving the in-plan table set.
+    selection = _selection(
+        (
+            make_selection_item(key="AI Summit", disposition="include"),
+            make_selection_item(key=f"{_SCOPE}|sys_script_include|helper a", disposition="include"),
+        )
+    )
+    record_a = make_record("sys_script_include", "a1", _SCOPE, "Helper A")
+    captures = (make_capture((record_a,), instance_id="alectri"),)
+    schema_graph = make_schema_graph(())
+
+    result = build_closure(selection, captures, schema_graph)
+
+    assert {item.key for item in result.items} == {
+        "AI Summit",
+        f"{_SCOPE}|sys_script_include|helper a",
+    }
+    assert result.findings == ()
+
+
 def test_build_closure_reference_edge_with_no_field_value_is_skipped() -> None:
     selection = _selection(
         (make_selection_item(key=f"{_SCOPE}|sys_script_include|helper a", disposition="include"),)

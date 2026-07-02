@@ -183,6 +183,34 @@ def test_migrate_plan_records_fresh_source_capture_timestamp_not_selection_seed(
     assert stale_seed_ts.isoformat() not in runbook
 
 
+def test_migrate_plan_selection_with_use_case_rollup_key_succeeds(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Regression (live e2e defect): story 03's checklist seeds USE_CASE
+    # rollup items (plain app-name keys with no "|" separators, e.g.
+    # "AI Summit") alongside WORKFLOW items into the Selection, and a
+    # curator can mark a rollup key disposition="include" without knowing
+    # it names no capturable record. run_plan's own pipeline (build_closure
+    # runs over the REAL selection even though captures/schema_graph are
+    # fixture-driven here) must not raise.
+    monkeypatch.setenv("NEXUS_AUTO_UPDATE", "0")
+    selection = make_selection(
+        items=(
+            make_selection_item(key="AI Summit", disposition="include"),
+            make_selection_item(key=f"{_SCOPE}|sys_script_include|helper a", disposition="include"),
+        ),
+    )
+    selection_path = tmp_path / "selection.yaml"
+    _write_selection(selection_path, selection)
+    _set_collaborators(monkeypatch, captures=_happy_captures(), schema_graph=make_schema_graph())
+    out_path = tmp_path / "runbook.md"
+
+    result = _invoke_plan(selection_path, out_path)
+
+    assert result.exit_code == 0
+    assert out_path.exists()
+
+
 # -- AC7: unapproved plan still writes and exits 0 ----------------------------
 
 
