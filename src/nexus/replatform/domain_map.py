@@ -8,8 +8,8 @@
 A domain map lets a consultant group custom scopes under business domains
 ("HR", "Lending Ops") without waiting for catalog entries or AI enrichment:
 
-    x_cibc_hr_onboard: HR
-    x_cibc_kyc: Lending Ops
+    x_acme_hr_onboard: HR
+    x_acme_kyc: Lending Ops
 """
 
 from pathlib import Path

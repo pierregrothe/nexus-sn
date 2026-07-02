@@ -16,8 +16,8 @@ __all__: list[str] = []
 
 def test_load_domain_map_parses_flat_mapping(tmp_path: Path) -> None:
     path = tmp_path / "map.yaml"
-    path.write_text("x_cibc_hr: HR\nx_cibc_kyc: Lending Ops\n", encoding="utf-8")
-    assert load_domain_map(path) == {"x_cibc_hr": "HR", "x_cibc_kyc": "Lending Ops"}
+    path.write_text("x_acme_hr: HR\nx_acme_kyc: Lending Ops\n", encoding="utf-8")
+    assert load_domain_map(path) == {"x_acme_hr": "HR", "x_acme_kyc": "Lending Ops"}
 
 
 def test_load_domain_map_rejects_non_mapping(tmp_path: Path) -> None:
@@ -29,7 +29,7 @@ def test_load_domain_map_rejects_non_mapping(tmp_path: Path) -> None:
 
 def test_load_domain_map_rejects_non_string_values(tmp_path: Path) -> None:
     path = tmp_path / "map.yaml"
-    path.write_text("x_cibc_hr: 42\n", encoding="utf-8")
+    path.write_text("x_acme_hr: 42\n", encoding="utf-8")
     with pytest.raises(ValueError, match="string scopes to string domains"):
         load_domain_map(path)
 

@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Close the gap between what `nexus assess inventory` / `nexus assess migration` cover today (custom-scoped AI & Automation artifacts, one flat Uncategorized bucket) and what a large-enterprise replatform (the CIBC pattern) actually needs: developer-platform artifact coverage, global-scope visibility, per-application checklist grouping, and count-honest diffing at bank scale.
+**Goal:** Close the gap between what `nexus assess inventory` / `nexus assess migration` cover today (custom-scoped AI & Automation artifacts, one flat Uncategorized bucket) and what a large-enterprise replatform (the acquisition-onto-clean-instance pattern) actually needs: developer-platform artifact coverage, global-scope visibility, per-application checklist grouping, and count-honest diffing at bank scale.
 
 **Architecture:** All work stays inside the existing replatform vertical (`src/nexus/capture/tables.py`, `src/nexus/replatform/`, `src/nexus/cli/commands_assess_replatform.py`). The classifier and diff remain pure, deterministic, LLM-free functions; the live lister remains the only I/O seam and stays `pragma: no cover` with its new logic extracted into testable pure helpers. No new subsystem, no schema changes outside `UseCaseInventory` gaining one defaulted field.
 
@@ -694,8 +694,8 @@ __all__: list[str] = []
 
 def test_load_domain_map_parses_flat_mapping(tmp_path: Path) -> None:
     path = tmp_path / "map.yaml"
-    path.write_text("x_cibc_hr: HR\nx_cibc_kyc: Lending Ops\n", encoding="utf-8")
-    assert load_domain_map(path) == {"x_cibc_hr": "HR", "x_cibc_kyc": "Lending Ops"}
+    path.write_text("x_acme_hr: HR\nx_acme_kyc: Lending Ops\n", encoding="utf-8")
+    assert load_domain_map(path) == {"x_acme_hr": "HR", "x_acme_kyc": "Lending Ops"}
 
 
 def test_load_domain_map_rejects_non_mapping(tmp_path: Path) -> None:
@@ -707,7 +707,7 @@ def test_load_domain_map_rejects_non_mapping(tmp_path: Path) -> None:
 
 def test_load_domain_map_rejects_non_string_values(tmp_path: Path) -> None:
     path = tmp_path / "map.yaml"
-    path.write_text("x_cibc_hr: 42\n", encoding="utf-8")
+    path.write_text("x_acme_hr: 42\n", encoding="utf-8")
     with pytest.raises(ValueError, match="string scopes to string domains"):
         load_domain_map(path)
 ```
@@ -751,8 +751,8 @@ Create `src/nexus/replatform/domain_map.py`:
 A domain map lets a consultant group custom scopes under business domains
 ("HR", "Lending Ops") without waiting for catalog entries or AI enrichment:
 
-    x_cibc_hr_onboard: HR
-    x_cibc_kyc: Lending Ops
+    x_acme_hr_onboard: HR
+    x_acme_kyc: Lending Ops
 """
 
 from pathlib import Path

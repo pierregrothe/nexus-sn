@@ -125,30 +125,30 @@ existing IT Asset Management setup.
 
 ## Act 4 -- Answer the Data Model Question (2 minutes)
 
-Scene: The integration team wants to know which tables are involved when
-a hardware asset in HAM drives an ITSM workflow -- incident, change,
-configuration item.
+Scene: The integration team needs to know exactly which tables the Document
+Designer module uses -- they are building a custom integration and need the
+field-level data model before the scoping call.
 
   # What schema products are available for reverse engineering?
   nexus schema products
 
-  [PAUSE] "I have schema snapshots pre-registered for the products I
-  demo most often. Let me pull the HAM to ITSM bridge -- the exact tables
-  and fields where Hardware Asset Management connects to the configuration
-  item backbone."
+  [PAUSE] "I have a community-maintained product catalog synced from our
+  GitHub registry. Let me pull the Document Designer data model -- exact
+  tables, field types, and cross-scope references."
 
-  # Reverse-engineer the HAM -> ITSM reference graph into a Mermaid ERD
-  nexus schema erd ham-itsm
+  # Reverse-engineer Document Designer into a Mermaid ERD
+  nexus schema erd doc-designer --profile alectri
 
-  [PAUSE] "In 15 seconds, a complete entity-relationship diagram: every
-  HAM Pro table that touches cmdb_ci, with field names inside each box.
-  The integration team sees exactly which tables they are working with
-  before the scoping call happens."
+  [PAUSE] "14 tables, 22 edges, cross-scope bridges -- all derived
+  deterministically from sys_dictionary and sys_relationship on the live
+  instance. The integration team sees exactly which tables and fields they
+  are working with before the scoping call happens. No LLM involved."
 
-  # Export as an SVG for the follow-up deck
-  nexus schema erd ham-itsm --image svg
+  # Export as an SVG for the follow-up deck (default, no flag needed)
+  nexus schema erd doc-designer --profile alectri -o docs/erd/doc-designer-demo.md
 
-  [PAUSE] "One flag. One SVG. Ready for a slide or the follow-up email."
+  [PAUSE] "SVG rendered by default alongside the Markdown. One command.
+  Ready for a slide or the follow-up email."
 
 ---
 
