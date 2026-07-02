@@ -12,7 +12,12 @@ curated Selection into full CaptureResult(s) for closure to walk (Story 01).
 Advisory only: this layer never mutates an instance.
 """
 
-from nexus.migrate.capture_bridge import build_capture_for_selection
+from nexus.migrate.capture_bridge import (
+    build_capture_for_selection,
+    field_display,
+    natural_key_segment,
+    record_natural_key,
+)
 from nexus.migrate.models import (
     Acknowledgment,
     FindingKind,
@@ -44,6 +49,9 @@ __all__ = [
     "build_capture_for_selection",
     "emit_plan_yaml",
     "emit_selection_yaml",
+    "field_display",
     "load_plan_yaml",
     "load_selection_yaml",
+    "natural_key_segment",
+    "record_natural_key",
 ]
