@@ -102,7 +102,7 @@ on ADR-027.
 | FR6 | 04-plan-builder-closure-waves | done |
 | FR7 | 05-runbook-plan-cli | done |
 | FR8 | 06-plan-recheck-drift | done |
-| FR9 | 07-migrate-preflight | backlog |
+| FR9 | 07-migrate-preflight | done |
 | FR10 | 01-full-fidelity-selective-capture | done |
 | FR11 | 00-s0-closure-scale-spike | done |
 | NFR1-5 | all stories | backlog |
@@ -119,7 +119,7 @@ on ADR-027.
 | 04 | plan-builder-closure-waves | 01, 02 | done |
 | 05 | runbook-plan-cli | 04 | done |
 | 06 | plan-recheck-drift | 05 | done |
-| 07 | migrate-preflight | none | backlog |
+| 07 | migrate-preflight | none | done |
 
 ## Parallel Spike Track
 
@@ -159,7 +159,7 @@ any full-estate curation is offered to anyone.
   single NEW instance.
 
 ## Progress
-- Stories: 7/8 done, 0 in-progress, 1 backlog
+- Stories: 8/8 done -- COMPLETE
 - S0 wall-clock: 10.75ms (alectri, 30,463 artifacts, seed-stop-list walk; JSON load for both
   inventories + the schema archive is a separate 0.200s)
 - S0 findings (no stop-list): raw 40,306 / deduped 351

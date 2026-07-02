@@ -1,6 +1,6 @@
 # Story 07: `nexus migrate preflight`
 
-Status: backlog
+Status: done
 Spec-Clarity: high
 Depends-On: none
 
@@ -68,20 +68,20 @@ instance -- GET-only.
 
 ## Tasks / Subtasks
 
-- [ ] Create `src/nexus/migrate/preflight.py` --
+- [x] Create `src/nexus/migrate/preflight.py` --
       `MIGRATE_PREFLIGHT_PROBES` + `run_preflight(client_old, client_new)
       -> PreflightReport` (AC1, AC4)
-- [ ] Reuse `src/nexus/instances/role_probe.py`'s `probe_table_access` for
+- [x] Reuse `src/nexus/instances/role_probe.py`'s `probe_table_access` for
       the sn_cicd-role and app-repo-entitlement table reads (AC1, AC5)
-- [ ] Implement the CICD-plugin-presence check via the existing
+- [x] Implement the CICD-plugin-presence check via the existing
       plugin-scan primitive (AC1)
-- [ ] Implement the auth-mode report from the instance registry metadata
+- [x] Implement the auth-mode report from the instance registry metadata
       (AC1)
-- [ ] Define `PreflightReport`/`PreflightItemResult` frozen models in
+- [x] Define `PreflightReport`/`PreflightItemResult` frozen models in
       `src/nexus/migrate/models.py` (pass/fail/unknown enum) (AC1, AC2)
-- [ ] Wire `@migrate_app.command("preflight")` rendering like `instance
+- [x] Wire `@migrate_app.command("preflight")` rendering like `instance
       diagnose-roles` (AC3)
-- [ ] Create `tests/test_migrate_preflight.py`, `tests/cli/test_migrate_preflight_cmd.py`
+- [x] Create `tests/test_migrate_preflight.py`, `tests/cli/test_migrate_preflight_cmd.py`
       (AC1-AC5)
 
 ## Existing Code
