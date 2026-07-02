@@ -482,6 +482,14 @@ TOP_LEVEL_HELP: list[CommandHelpEntry] = [
         "nexus assess migration --from old-prod --to new-prod --out checklist.md",
     ),
     help_entry(
+        "migrate",
+        "Curate a selective migration. 'select' seeds a git-reviewed "
+        "Selection YAML from a replatform checklist, one undecided row per "
+        "checklist item, ready for a consultant to curate include/exclude "
+        "dispositions.",
+        "nexus migrate select --from-checklist checklist.json --out selection.yaml",
+    ),
+    help_entry(
         "apply <template>",
         "Deploy a template to the configured ServiceNow instance (stub).",
         "nexus apply incident-tuner",
