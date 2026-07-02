@@ -25,7 +25,9 @@ from nexus.migrate.models import (
     Waiver,
     Wave,
     emit_plan_yaml,
+    emit_selection_yaml,
     load_plan_yaml,
+    load_selection_yaml,
 )
 
 __all__: list[str] = []
@@ -375,6 +377,46 @@ def test_load_plan_yaml_rejects_non_mapping() -> None:
         load_plan_yaml("- just\n- a list\n")
 
 
+def test_emit_selection_yaml_round_trip_byte_stable(tmp_path: Path) -> None:
+    selection = _selection()
+    first = emit_selection_yaml(selection)
+
+    assert "\r" not in first
+    assert "include" in first
+
+    path = tmp_path / "selection.yaml"
+    path.write_bytes(first.encode("utf-8"))
+    reloaded_text = path.read_bytes().decode("utf-8")
+
+    reloaded_selection = load_selection_yaml(reloaded_text)
+    second = emit_selection_yaml(reloaded_selection)
+
+    assert second == first
+    assert "\r" not in second
+
+
+def test_load_selection_yaml_rejects_invalid_yaml_syntax() -> None:
+    with pytest.raises(ValueError, match="not valid YAML"):
+        load_selection_yaml("foo: [unclosed\n")
+
+
+def test_load_selection_yaml_rejects_non_mapping() -> None:
+    with pytest.raises(ValueError, match="must be a mapping"):
+        load_selection_yaml("- just\n- a list\n")
+
+
+def test_make_selection_round_trips_byte_stable() -> None:
+    selection = fakes_migrate.make_selection(
+        items=(
+            fakes_migrate.make_selection_item(
+                key="x_alectri_core|sys_hub_flow|approve po", disposition="undecided"
+            ),
+        )
+    )
+    first = emit_selection_yaml(selection)
+    assert emit_selection_yaml(load_selection_yaml(first)) == first
+
+
 # -- AC11: exports + purity -----------------------------------------------------
 
 
@@ -391,7 +433,9 @@ def test_migrate_models_all_lists_every_public_name() -> None:
         "Waiver",
         "Wave",
         "emit_plan_yaml",
+        "emit_selection_yaml",
         "load_plan_yaml",
+        "load_selection_yaml",
     }
 
 
@@ -399,6 +443,7 @@ def test_migrate_models_has_no_forbidden_imports_or_dict_any() -> None:
     source = Path(str(migrate_models.__file__)).read_text(encoding="utf-8")
     assert "nexus.cli" not in source
     assert "nexus.agents" not in source
+    assert "nexus.replatform" not in source
     assert "dict[str, Any]" not in source
 
 

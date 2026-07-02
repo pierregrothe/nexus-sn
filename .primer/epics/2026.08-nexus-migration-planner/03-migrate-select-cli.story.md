@@ -1,6 +1,6 @@
 # Story 03: `nexus migrate select`
 
-Status: backlog
+Status: done
 Spec-Clarity: high
 Depends-On: 02
 
@@ -69,17 +69,17 @@ emit path, not an ad hoc `yaml.dump` call in the CLI module.
 
 ## Tasks / Subtasks
 
-- [ ] Create `src/nexus/cli/commands_migrate.py` -- new `migrate_app` Typer
+- [x] Create `src/nexus/cli/commands_migrate.py` -- new `migrate_app` Typer
       group (AC1)
-- [ ] Register `migrate_app` in `src/nexus/cli/apps.py`
+- [x] Register `migrate_app` in `src/nexus/cli/apps.py`
       (`app.add_typer(migrate_app)`) (AC1)
-- [ ] Implement `run_select(*, checklist_path, out, render_context) -> int`
+- [x] Implement `run_select(*, checklist_path, out, render_context) -> int`
       (thin-wrapper pattern per Story 06 of the 2026.07 epic) (AC1-AC4)
-- [ ] Implement checklist-to-Selection seeding: one `SelectionItem` per
+- [x] Implement checklist-to-Selection seeding: one `SelectionItem` per
       `ChecklistItem.key` (AC1-AC3)
-- [ ] Wire `@migrate_app.command("select")` Typer command over `run_select`
+- [x] Wire `@migrate_app.command("select")` Typer command over `run_select`
       (AC4)
-- [ ] Create `tests/cli/test_migrate_select_cmd.py` using `CliRunner` +
+- [x] Create `tests/cli/test_migrate_select_cmd.py` using `CliRunner` +
       `tests/fakes/migrate.py` / `tests/fakes/replatform.py` fixtures
       (AC1-AC5)
 

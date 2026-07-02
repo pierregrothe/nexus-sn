@@ -24,6 +24,7 @@ __all__ = [
     "baselines_app",
     "capture_app",
     "instance_app",
+    "migrate_app",
     "plugins_app",
     "recommend_app",
     "schema_app",
@@ -45,6 +46,9 @@ app.add_typer(schema_app)
 
 assess_app = typer.Typer(name="assess", help="Assess instances and plan replatform migrations.")
 app.add_typer(assess_app)
+
+migrate_app = typer.Typer(name="migrate", help="Curate and execute selective instance migrations.")
+app.add_typer(migrate_app)
 
 plugins_app = typer.Typer(
     name="plugins", help="Inspect the plugin inventory of registered instances."

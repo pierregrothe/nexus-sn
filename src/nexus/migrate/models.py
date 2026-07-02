@@ -33,7 +33,9 @@ __all__ = [
     "Waiver",
     "Wave",
     "emit_plan_yaml",
+    "emit_selection_yaml",
     "load_plan_yaml",
+    "load_selection_yaml",
 ]
 
 _FROZEN = ConfigDict(frozen=True, strict=True, extra="forbid")
@@ -234,6 +236,24 @@ class MigrationPlan(BaseModel):
     target_chain: tuple[str, ...] = ()
 
 
+def _emit_yaml(model: BaseModel) -> str:
+    """Serialize a frozen plan-file model to byte-stable YAML text.
+
+    Shared core for emit_plan_yaml / emit_selection_yaml so both byte-stable
+    emit paths dump through the same call.
+
+    Args:
+        model: The model to serialize (MigrationPlan or Selection).
+
+    Returns:
+        YAML text with LF-only line endings, key order matching model field
+        declaration order (``sort_keys=False``).
+    """
+    data = model.model_dump(mode="json")
+    text: str = yaml.safe_dump(data, sort_keys=False, default_flow_style=False)
+    return text.replace("\r\n", "\n")
+
+
 def emit_plan_yaml(plan: MigrationPlan) -> str:
     """Serialize a MigrationPlan to byte-stable YAML text.
 
@@ -244,9 +264,20 @@ def emit_plan_yaml(plan: MigrationPlan) -> str:
         YAML text with LF-only line endings, key order matching model field
         declaration order (``sort_keys=False``).
     """
-    data = plan.model_dump(mode="json")
-    text: str = yaml.safe_dump(data, sort_keys=False, default_flow_style=False)
-    return text.replace("\r\n", "\n")
+    return _emit_yaml(plan)
+
+
+def emit_selection_yaml(selection: Selection) -> str:
+    """Serialize a Selection to byte-stable YAML text.
+
+    Args:
+        selection: The selection to serialize.
+
+    Returns:
+        YAML text with LF-only line endings, key order matching model field
+        declaration order (``sort_keys=False``).
+    """
+    return _emit_yaml(selection)
 
 
 def load_plan_yaml(text: str) -> MigrationPlan:
@@ -275,3 +306,30 @@ def load_plan_yaml(text: str) -> MigrationPlan:
     if not isinstance(data, dict):
         raise ValueError("plan YAML must be a mapping")
     return MigrationPlan.model_validate(data, strict=False)
+
+
+def load_selection_yaml(text: str) -> Selection:
+    """Deserialize a Selection from YAML text emitted by emit_selection_yaml.
+
+    Pydantic strict mode rejects the plain ``str`` and ``list`` containers
+    that ``yaml.safe_load`` produces for tuple fields -- so this call passes
+    ``strict=False`` to ``model_validate`` itself rather than relaxing
+    model_config. The text is our own emitted format, so per-call laxity is
+    acceptable, and the byte-stable round-trip test guards fidelity.
+
+    Args:
+        text: YAML text, as produced by emit_selection_yaml.
+
+    Returns:
+        The reconstructed Selection.
+
+    Raises:
+        ValueError: When text is not valid YAML or is not a mapping.
+    """
+    try:
+        data = yaml.safe_load(text)
+    except yaml.YAMLError as exc:
+        raise ValueError(f"selection YAML is not valid YAML: {exc}") from exc
+    if not isinstance(data, dict):
+        raise ValueError("selection YAML must be a mapping")
+    return Selection.model_validate(data, strict=False)
