@@ -259,7 +259,14 @@ async def _build_live_schema_graph(selection: Selection) -> SchemaGraph:  # prag
         wanted_tables.add(parts[1])
     tables = tuple(sorted(wanted_tables))
     _registry, meta, token, _expiry = _acquire_token(selection.source_profile)
-    async with ServiceNowClient(instance_url=meta.url, token=token) as client:
+
+    async def _refresh() -> tuple[str, datetime]:
+        _r, _m, new_token, new_expiry = _acquire_token(selection.source_profile)
+        return new_token, new_expiry
+
+    async with ServiceNowClient(
+        instance_url=meta.url, token=token, refresh_token_callback=_refresh
+    ) as client:
         rows = await _fetch_reference_dictionary_rows(client, tables)
     return _schema_graph_from_dictionary_rows(
         selection.source_profile, tables, rows, datetime.now(UTC)
@@ -280,7 +287,14 @@ async def _capture_for_profile(  # pragma: no cover -- live I/O
         The CaptureResults ``build_capture_for_selection`` returns.
     """
     _registry, meta, token, _expiry = _acquire_token(profile)
-    async with ServiceNowClient(instance_url=meta.url, token=token) as client:
+
+    async def _refresh() -> tuple[str, datetime]:
+        _r, _m, new_token, new_expiry = _acquire_token(profile)
+        return new_token, new_expiry
+
+    async with ServiceNowClient(
+        instance_url=meta.url, token=token, refresh_token_callback=_refresh
+    ) as client:
         return await build_capture_for_selection(client, selection, DEFAULT_TABLE_GROUPS)
 
 
