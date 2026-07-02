@@ -8,13 +8,13 @@
 import xml.etree.ElementTree as ET
 from datetime import UTC, datetime
 
-from nexus.capture.models import ConfigRecord, SnRefField
+from nexus.capture.models import ConfigRecord, SnRecord, SnRefField
 from nexus.capture.xml_builder import UpdateSetXmlBuilder
 
 _NOW = datetime(2026, 5, 9, tzinfo=UTC)
 
 
-def _record(fields: dict[str, str | SnRefField]) -> ConfigRecord:
+def _record(fields: SnRecord) -> ConfigRecord:
     return ConfigRecord(
         sys_id="abc123",
         table="ai_skill",
@@ -69,3 +69,48 @@ def test_xml_builder_ref_field_includes_display_value_attribute() -> None:
     assert scope_el is not None
     assert scope_el.text == "global"
     assert scope_el.attrib["display_value"] == "Global"
+
+
+def test_xml_builder_none_field_produces_empty_element() -> None:
+    builder = UpdateSetXmlBuilder()
+    xml_str = builder.build(_record({"description": None}))
+    root = ET.fromstring(xml_str)
+    el = root.find("ai_skill/description")
+    assert el is not None
+    assert el.text is None
+
+
+def test_xml_builder_true_bool_field_serializes_lowercase_true() -> None:
+    builder = UpdateSetXmlBuilder()
+    xml_str = builder.build(_record({"active": True}))
+    root = ET.fromstring(xml_str)
+    el = root.find("ai_skill/active")
+    assert el is not None
+    assert el.text == "true"
+
+
+def test_xml_builder_false_bool_field_serializes_lowercase_false() -> None:
+    builder = UpdateSetXmlBuilder()
+    xml_str = builder.build(_record({"active": False}))
+    root = ET.fromstring(xml_str)
+    el = root.find("ai_skill/active")
+    assert el is not None
+    assert el.text == "false"
+
+
+def test_xml_builder_int_field_serializes_as_str() -> None:
+    builder = UpdateSetXmlBuilder()
+    xml_str = builder.build(_record({"order": 100}))
+    root = ET.fromstring(xml_str)
+    el = root.find("ai_skill/order")
+    assert el is not None
+    assert el.text == "100"
+
+
+def test_xml_builder_float_field_serializes_as_str() -> None:
+    builder = UpdateSetXmlBuilder()
+    xml_str = builder.build(_record({"weight": 2.5}))
+    root = ET.fromstring(xml_str)
+    el = root.find("ai_skill/weight")
+    assert el is not None
+    assert el.text == "2.5"

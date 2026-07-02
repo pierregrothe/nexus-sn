@@ -60,7 +60,7 @@ def record_field_value(record: ConfigRecord, field: str) -> str | None:
         return None
     if isinstance(raw, dict):
         return raw.get("value")
-    return raw
+    return raw if isinstance(raw, str) else str(raw)
 
 
 def filter_records(

@@ -180,6 +180,22 @@ def test_classify_unnamed_records_get_distinct_keys() -> None:
     assert len(keys) == 2
 
 
+def test_classify_none_name_field_falls_back_to_sys_id() -> None:
+    scopes = make_scope_manifest(scopes={"s1": "x_app"}, captured_at=_TS)
+    catalog = make_schema_catalog(scope_to_product={})
+    capture = make_capture_result(
+        records=(
+            make_config_record(
+                sys_id="r1", table="sys_hub_flow", scope_sys_id="s1", fields={"name": None}
+            ),
+        ),
+    )
+    inv = classify((capture,), scopes, catalog, profile="prod")
+    wf = inv.use_cases[0].workflows[0]
+    assert wf.name == ""
+    assert wf.key == "x_app|sys_hub_flow|r1"
+
+
 def test_classify_falls_back_to_scope_name_when_sys_id_unknown() -> None:
     scopes = make_scope_manifest(scopes={}, captured_at=_TS)
     catalog = make_schema_catalog(scope_to_product={})

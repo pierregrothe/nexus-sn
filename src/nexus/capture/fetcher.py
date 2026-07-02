@@ -35,7 +35,7 @@ def _row_to_record(
     scope_name = scope_raw if isinstance(scope_raw, str) else scope_sys_id
     fields: SnRecord = {}
     for key, val in row.items():
-        if isinstance(val, str):
+        if val is None or isinstance(val, str | bool | int | float):
             fields[key] = val
         elif isinstance(val, dict):
             val_d = cast(dict[str, object], val)

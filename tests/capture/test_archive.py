@@ -100,6 +100,54 @@ def test_archive_reader_roundtrip_preserves_all_fields(tmp_path: Path) -> None:
     assert skill.fields["sys_scope"] == {"value": "global", "display_value": "Global"}
 
 
+def test_archive_reader_roundtrip_preserves_scalar_field_types(tmp_path: Path) -> None:
+    ref: SnRefField = {"value": "global", "display_value": "Global"}
+    record = ConfigRecord(
+        sys_id="scalar1",
+        table="ai_skill",
+        scope_sys_id="scope001",
+        scope_name="x_app",
+        captured_at=_NOW,
+        fields={
+            "name": "Scalar Skill",
+            "active": True,
+            "disabled": False,
+            "order": 100,
+            "zero_order": 0,
+            "weight": 2.5,
+            "description": None,
+            "sys_scope": ref,
+        },
+        parent_sys_id=None,
+    )
+    result = CaptureResult(
+        instance_id="dev-instance",
+        captured_at=_NOW,
+        scope_ids=("scope001",),
+        table_group="ai_automation",
+        records=(record,),
+    )
+    writer = ArchiveWriter(archive_root=tmp_path)
+    manifest = writer.write(result)
+
+    reader = ArchiveReader()
+    loaded = reader.read(manifest.archive_dir / "manifest.yaml")
+
+    loaded_fields = loaded.records[0].fields
+    assert loaded_fields["active"] is True
+    assert type(loaded_fields["active"]) is bool
+    assert loaded_fields["disabled"] is False
+    assert type(loaded_fields["disabled"]) is bool
+    assert loaded_fields["order"] == 100
+    assert type(loaded_fields["order"]) is int
+    assert loaded_fields["zero_order"] == 0
+    assert type(loaded_fields["zero_order"]) is int
+    assert loaded_fields["weight"] == 2.5
+    assert type(loaded_fields["weight"]) is float
+    assert loaded_fields["description"] is None
+    assert loaded_fields["sys_scope"] == ref
+
+
 def test_archive_reader_corrupt_manifest_raises(tmp_path: Path) -> None:
     bad_dir = tmp_path / "bad_archive"
     bad_dir.mkdir()
