@@ -203,10 +203,12 @@ def run_plan(
     Args:
         selection_path: Path to a Selection YAML file (the
             ``emit_selection_yaml`` format ``migrate select`` produces).
-        out: Destination for the runbook markdown. The plan YAML is written
-            alongside it via the byte-stable ``emit_plan_yaml`` path, at
-            ``out`` with its suffix replaced by ``.plan.yaml`` (e.g.
-            ``runbook.md`` -> ``runbook.plan.yaml``).
+        out: Destination for the runbook markdown; MUST end in ``.md``. The
+            plan YAML is written alongside it via the byte-stable
+            ``emit_plan_yaml`` path, at ``out`` with its suffix replaced by
+            ``.plan.yaml`` (e.g. ``runbook.md`` -> ``runbook.plan.yaml``) --
+            requiring ``.md`` keeps this derivation, and ``--recheck``'s
+            inverse derivation in ``_runbook_path_for_recheck``, bijective.
         render_context: Destination console for the summary.
         collaborators: Injectable capture + schema-graph + baseline builders.
             The assembled plan's ``source_baseline``/``target_baseline``
@@ -216,10 +218,20 @@ def run_plan(
     Returns:
         Exit code 0 on success -- including a plan with unresolved blocking
         findings, since the runbook still renders and approval is a
-        separate, later git-reviewed step (AC7). 1 when the selection file
-        is missing/unreadable/malformed/invalid, a collaborator fails, or
-        the captures do not cover either the source or the target profile.
+        separate, later git-reviewed step (AC7). 1 when ``out`` does not end
+        in ``.md``, the selection file is missing/unreadable/malformed/
+        invalid, a collaborator fails, or the captures do not cover either
+        the source or the target profile.
     """
+    if out.suffix != ".md":
+        err_console.print(
+            Notice.error(
+                f"--out must end in .md (the runbook path), got {out} -- the plan YAML "
+                "is derived from it by replacing the suffix with .plan.yaml"
+            )
+        )
+        return 1
+
     try:
         raw_text = selection_path.read_text(encoding="utf-8")
     except (OSError, UnicodeDecodeError) as exc:
@@ -359,8 +371,11 @@ def run_recheck(
         Exit code 0 when no drift is detected (AC1); 2 when drift is
         detected (AC2); 1 when the plan is missing/unreadable/malformed/
         invalid, has no usable baseline, a collaborator fails (e.g. an
-        instance is unreachable), or a drifted recheck cannot determine a
-        runbook path to rewrite (AC3).
+        instance is unreachable), a drifted recheck cannot determine a
+        runbook path to rewrite (AC3), or the derived runbook path (no
+        ``--out`` given) does not already exist on disk -- rechecking must
+        never write a STALE runbook to a path that was never the plan's own
+        runbook.
     """
     try:
         raw_text = plan_path.read_text(encoding="utf-8")
@@ -410,6 +425,14 @@ def run_recheck(
             )
         )
         return 1
+    if out_override is None and not runbook_path.exists():
+        err_console.print(
+            Notice.error(
+                f"derived runbook path {runbook_path} does not exist -- pass --out to say "
+                "where the STALE runbook should be rewritten"
+            )
+        )
+        return 1
     write_runbook(plan, runbook_path, drift=drift)
     return 2
 
@@ -424,10 +447,11 @@ def migrate_plan(  # pragma: no cover -- thin Typer wrapper over run_plan/run_re
         typer.Option(
             "--out",
             help=(
-                "Write the runbook markdown to this path; the plan YAML is written "
-                "alongside it, at --out with its suffix replaced by .plan.yaml. With "
-                "--recheck, only needed when --plan does not end in .plan.yaml -- "
-                "overrides the derived runbook rewrite path on drift"
+                "Write the runbook markdown to this path; the path must end in .md. "
+                "The plan YAML is written alongside it, at --out with its suffix "
+                "replaced by .plan.yaml. With --recheck, only needed when --plan does "
+                "not end in .plan.yaml -- overrides the derived runbook rewrite path "
+                "on drift"
             ),
         ),
     ] = "",

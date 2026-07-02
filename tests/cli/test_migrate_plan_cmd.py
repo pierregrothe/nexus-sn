@@ -423,3 +423,38 @@ def test_migrate_plan_without_out_and_without_recheck_exits_1(tmp_path: Path) ->
 
     assert result.exit_code == 1
     assert "--out is required" in result.stderr
+
+
+# -- Finding 1a: --out must end in .md, so .plan.yaml <-> .md is bijective ----
+
+
+def test_migrate_plan_out_not_md_suffix_exits_1(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("NEXUS_AUTO_UPDATE", "0")
+    selection_path = tmp_path / "selection.yaml"
+    _write_selection(selection_path, _happy_selection())
+    _set_collaborators(monkeypatch, captures=_happy_captures(), schema_graph=make_schema_graph())
+    out_path = tmp_path / "runbook.txt"
+
+    result = _invoke_plan(selection_path, out_path)
+
+    assert result.exit_code == 1
+    assert "--out must end in .md" in result.stderr
+    assert not out_path.exists()
+    assert not (tmp_path / "runbook.plan.yaml").exists()
+
+
+def test_migrate_plan_out_without_suffix_exits_1(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("NEXUS_AUTO_UPDATE", "0")
+    selection_path = tmp_path / "selection.yaml"
+    _write_selection(selection_path, _happy_selection())
+    _set_collaborators(monkeypatch, captures=_happy_captures(), schema_graph=make_schema_graph())
+    out_path = tmp_path / "runbook"
+
+    result = _invoke_plan(selection_path, out_path)
+
+    assert result.exit_code == 1
+    assert "--out must end in .md" in result.stderr

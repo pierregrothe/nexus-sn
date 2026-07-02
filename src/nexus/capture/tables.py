@@ -9,12 +9,21 @@ from dataclasses import dataclass, field
 
 __all__ = [
     "AI_AUTOMATION",
+    "CUSTOM_SCOPE_PREFIXES",
     "DEFAULT_TABLE_GROUPS",
     "DEVELOPER_PLATFORM",
     "RelatedTable",
     "TableGroup",
     "TableSpec",
 ]
+
+CUSTOM_SCOPE_PREFIXES: tuple[str, ...] = ("x_", "u_")
+"""Scope-key prefixes that mark a user-developed (custom) scoped app.
+
+Single-sourced here so assess/replatform checklists and migrate baselines
+never desynchronize on which scopes count as "custom" -- a prefix change
+updating only one copy would cause false drift on every recheck.
+"""
 
 
 @dataclass(slots=True, frozen=True)

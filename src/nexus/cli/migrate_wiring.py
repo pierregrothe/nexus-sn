@@ -26,7 +26,7 @@ from typing import cast
 
 from nexus.capture.models import CaptureResult
 from nexus.capture.scope import ScopeDiscoverer
-from nexus.capture.tables import DEFAULT_TABLE_GROUPS, TableGroup, TableSpec
+from nexus.capture.tables import CUSTOM_SCOPE_PREFIXES, DEFAULT_TABLE_GROUPS, TableGroup, TableSpec
 from nexus.cli.auth import acquire_token as _acquire_token
 from nexus.connectors.servicenow.client import ServiceNowClient
 from nexus.connectors.servicenow.errors import SNClientError
@@ -51,8 +51,7 @@ _PAGE_LIMIT = 5000
 _SCHEMA_AREA_KEY = "migrate-plan-selection-tables"
 
 # Baseline/recheck instance-wide listing (Story 06) -- mirrors
-# commands_assess_replatform.py's lightweight-listing constants.
-_CUSTOM_PREFIXES = ("x_", "u_")
+# commands_assess_replatform.py's lightweight-listing shape.
 _PAGE_SIZE = 1000
 _FINGERPRINT_FIELD = "sys_updated_on"
 
@@ -409,7 +408,7 @@ async def _list_baseline_live(  # pragma: no cover -- live I/O
             custom_ids = [
                 entry.sys_id
                 for entry in manifest.scopes
-                if entry.scope.startswith(_CUSTOM_PREFIXES)
+                if entry.scope.startswith(CUSTOM_SCOPE_PREFIXES)
             ]
             global_ids = [entry.sys_id for entry in manifest.scopes if entry.scope == "global"]
             if not (custom_ids or global_ids):

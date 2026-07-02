@@ -24,7 +24,7 @@ import typer
 
 from nexus.capture.models import CaptureResult, ConfigRecord, ScopeEntry, ScopeManifest
 from nexus.capture.scope import ScopeDiscoverer
-from nexus.capture.tables import DEFAULT_TABLE_GROUPS, TableGroup, TableSpec
+from nexus.capture.tables import CUSTOM_SCOPE_PREFIXES, DEFAULT_TABLE_GROUPS, TableGroup, TableSpec
 from nexus.cli.apps import assess_app
 from nexus.cli.auth import acquire_token as _acquire_token
 from nexus.cli.console import console
@@ -53,8 +53,6 @@ __all__ = [
 
 log = logging.getLogger(__name__)
 
-# Scope-key prefixes that mark a user-developed (custom) scoped app.
-_CUSTOM_PREFIXES = ("x_", "u_")
 # Page size for listing artifacts per covered table.
 _PAGE_SIZE = 1000
 
@@ -421,7 +419,7 @@ async def _list_artifacts_live(  # pragma: no cover -- live I/O, exercised by sm
                 custom_ids = [
                     entry.sys_id
                     for entry in manifest.scopes
-                    if entry.scope.startswith(_CUSTOM_PREFIXES)
+                    if entry.scope.startswith(CUSTOM_SCOPE_PREFIXES)
                 ]
                 global_ids = [entry.sys_id for entry in manifest.scopes if entry.scope == "global"]
                 records: list[ConfigRecord] = []

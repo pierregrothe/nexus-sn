@@ -10,9 +10,11 @@ emit/load pair that makes the plan file the auditable artifact of record
 (ADR-026 Decision 2), the selection-to-capture bridge that turns a curated
 Selection into full CaptureResult(s) (Story 01), the pure closure/wave
 builder that expands a Selection into its dependency closure and orders it
-into topologically-sorted waves (Story 04), and the pure drift-detection
-core `plan --recheck` diffs a plan's baselines against a fresh re-inventory
-with (Story 06). Advisory only: this layer never mutates an instance.
+into topologically-sorted waves (Story 04), the pure drift-detection core
+`plan --recheck` diffs a plan's baselines against a fresh re-inventory with
+(Story 06), and the read-only execution-precondition prober `nexus migrate
+preflight` probes against both instances (Story 07). Advisory only: this
+layer never mutates an instance.
 """
 
 from nexus.migrate.capture_bridge import (
@@ -38,6 +40,9 @@ from nexus.migrate.models import (
     MigrationPlan,
     PlanItem,
     PlanLane,
+    PreflightItemResult,
+    PreflightReport,
+    PreflightStatus,
     Selection,
     SelectionItem,
     Waiver,
@@ -48,10 +53,12 @@ from nexus.migrate.models import (
     load_selection_yaml,
 )
 from nexus.migrate.planner import build_waves, detect_cycles, validate_approval
+from nexus.migrate.preflight import MIGRATE_PREFLIGHT_PROBES, run_preflight
 from nexus.migrate.recheck import compute_drift, listing_from_entries, plan_has_baseline
 
 __all__ = [
     "DEFAULT_STOP_LIST",
+    "MIGRATE_PREFLIGHT_PROBES",
     "Acknowledgment",
     "BaselineEntry",
     "ClosureItem",
@@ -63,6 +70,9 @@ __all__ = [
     "OrderingEdge",
     "PlanItem",
     "PlanLane",
+    "PreflightItemResult",
+    "PreflightReport",
+    "PreflightStatus",
     "Selection",
     "SelectionItem",
     "Waiver",
@@ -82,5 +92,6 @@ __all__ = [
     "natural_key_segment",
     "plan_has_baseline",
     "record_natural_key",
+    "run_preflight",
     "validate_approval",
 ]

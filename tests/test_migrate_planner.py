@@ -204,3 +204,19 @@ def test_validate_approval_cycle_and_drift_findings_never_block() -> None:
     reasons = validate_approval(plan)
 
     assert reasons == ()
+
+
+# -- Finding 3 (fix wave 2): KEY_COLLISION never blocks ----------------------
+
+
+def test_validate_approval_key_collision_finding_never_blocks() -> None:
+    collision_finding = make_integrity_finding(
+        kind=FindingKind.KEY_COLLISION,
+        subject_key="x_alectri_core|sys_hub_flow|dup",
+        detail="natural key collides across sys_ids: a1, z9 -- kept 'a1'",
+    )
+    plan = make_migration_plan(findings=(collision_finding,))
+
+    reasons = validate_approval(plan)
+
+    assert reasons == ()

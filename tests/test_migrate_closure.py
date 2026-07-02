@@ -733,6 +733,77 @@ def test_build_closure_unresolvable_sys_id_is_noop() -> None:
     assert result.findings == ()
 
 
+# -- Finding 3 (fix wave 2): natural-key collision resolution ---------------
+
+
+def test_build_closure_key_collision_keeps_smallest_sys_id_regardless_of_order() -> None:
+    dup_key = f"{_SCOPE}|sys_script_include|dup a"
+    selection = _selection(
+        (
+            make_selection_item(key=dup_key, disposition="include"),
+            make_selection_item(
+                key=f"{_SCOPE}|sys_script_include|target b", disposition="undecided"
+            ),
+            make_selection_item(
+                key=f"{_SCOPE}|sys_script_include|target c", disposition="undecided"
+            ),
+        )
+    )
+    # Two OLD records share the same natural key (scope+table+casefolded
+    # name) -- ServiceNow allows this. "a1" sorts before "z9", so "a1" must
+    # win regardless of which order the capture lists them in.
+    dup_small = make_record(
+        "sys_script_include", "a1", _SCOPE, "Dup A", uses=make_ref("b1", "Target B")
+    )
+    dup_large = make_record(
+        "sys_script_include", "z9", _SCOPE, "Dup A", uses=make_ref("c1", "Target C")
+    )
+    target_b = make_record("sys_script_include", "b1", _SCOPE, "Target B")
+    target_c = make_record("sys_script_include", "c1", _SCOPE, "Target C")
+    schema_graph = make_schema_graph(
+        (make_reference_edge("sys_script_include", "uses", "sys_script_include"),)
+    )
+
+    forward = build_closure(
+        selection,
+        (make_capture((dup_small, dup_large, target_b, target_c), instance_id="alectri"),),
+        schema_graph,
+    )
+    shuffled = build_closure(
+        selection,
+        (make_capture((dup_large, target_c, target_b, dup_small), instance_id="alectri"),),
+        schema_graph,
+    )
+
+    assert forward == shuffled
+    # The winner ("a1")'s reference field flows into closure resolution --
+    # its target (Target B) is pulled in, the loser's (Target C) is not.
+    item_keys = {item.key for item in forward.items}
+    assert f"{_SCOPE}|sys_script_include|target b" in item_keys
+    assert f"{_SCOPE}|sys_script_include|target c" not in item_keys
+    assert (dup_key, f"{_SCOPE}|sys_script_include|target b") in {
+        (e.dependent_key, e.dependency_key) for e in forward.edges
+    }
+
+
+def test_build_closure_key_collision_raises_one_finding_naming_both_sys_ids() -> None:
+    dup_key = f"{_SCOPE}|sys_script_include|dup a"
+    selection = _selection((make_selection_item(key=dup_key, disposition="include"),))
+    dup_small = make_record("sys_script_include", "a1", _SCOPE, "Dup A")
+    dup_large = make_record("sys_script_include", "z9", _SCOPE, "Dup A")
+    captures = (make_capture((dup_small, dup_large), instance_id="alectri"),)
+    schema_graph = make_schema_graph(())
+
+    result = build_closure(selection, captures, schema_graph)
+
+    collisions = [f for f in result.findings if f.kind == FindingKind.KEY_COLLISION]
+    assert len(collisions) == 1
+    finding = collisions[0]
+    assert finding.subject_key == dup_key
+    assert "a1" in finding.detail
+    assert "z9" in finding.detail
+
+
 def test_build_closure_is_order_independent() -> None:
     selection = _selection(
         (
