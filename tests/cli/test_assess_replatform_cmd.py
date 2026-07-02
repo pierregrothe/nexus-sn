@@ -17,7 +17,7 @@ from rich.console import Console
 from typer.testing import CliRunner
 
 from nexus.capture.models import ScopeEntry, ScopeManifest
-from nexus.capture.tables import TableSpec
+from nexus.capture.tables import DEVELOPER_PLATFORM, TableSpec
 from nexus.cli import commands_assess_replatform
 from nexus.cli.apps import app
 from nexus.cli.commands_assess_replatform import (
@@ -207,6 +207,38 @@ def test_assess_inventory_command_routes_profile_and_writes_json(
     assert data["profile"] == "prod"
 
 
+def test_assess_inventory_command_routes_group_and_domain_map_kwargs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("NEXUS_AUTO_UPDATE", "0")
+    inv = _itsm_inventory("prod", ("Alpha",))
+    seen_kwargs: dict[str, object] = {}
+
+    def fake_factory(_paths: object, **kwargs: object) -> ReplatformCollaborators:
+        seen_kwargs.update(kwargs)
+        return ReplatformCollaborators(build_inventory=lambda _p: inv)
+
+    monkeypatch.setattr(
+        commands_assess_replatform, "default_replatform_collaborators", fake_factory
+    )
+    out = tmp_path / "inv.json"
+    result = CliRunner().invoke(
+        app,
+        [
+            "assess",
+            "inventory",
+            "prod",
+            "--out",
+            str(out),
+            "--group",
+            "developer_platform",
+        ],
+    )
+    assert result.exit_code == 0
+    assert seen_kwargs["groups"] == (DEVELOPER_PLATFORM,)
+    assert seen_kwargs["overrides"] is None
+
+
 def test_assess_migration_command_routes_options_and_writes_markdown(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -274,7 +306,9 @@ def test_run_migration_warns_on_skipped_tables_per_side() -> None:
     buf = StringIO()
     by_profile = {
         "old": make_use_case_inventory(profile="old", skipped_tables=("ai_skill",)),
-        "new": make_use_case_inventory(profile="new", use_cases=()),
+        "new": make_use_case_inventory(
+            profile="new", use_cases=(), skipped_tables=("sys_ai_agent",)
+        ),
     }
     collaborators = ReplatformCollaborators(build_inventory=lambda p: by_profile[p])
     code = run_migration(
@@ -287,6 +321,7 @@ def test_run_migration_warns_on_skipped_tables_per_side() -> None:
     )
     assert code == 0
     assert "tables absent on old" in buf.getvalue()
+    assert "tables absent on new" in buf.getvalue()
 
 
 def test_resolve_groups_defaults_to_all_registered_groups() -> None:
@@ -302,6 +337,11 @@ def test_resolve_groups_rejects_unknown_key() -> None:
 def test_resolve_groups_with_explicit_keys_returns_cli_order() -> None:
     groups = resolve_groups(["developer_platform", "ai_automation"])
     assert tuple(g.key for g in groups) == ("developer_platform", "ai_automation")
+
+
+def test_resolve_groups_dedupes_repeated_keys() -> None:
+    groups = resolve_groups(["ai_automation", "ai_automation"])
+    assert tuple(g.key for g in groups) == ("ai_automation",)
 
 
 def test_merge_manifests_unions_scopes_by_sys_id() -> None:

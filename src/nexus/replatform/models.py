@@ -66,12 +66,15 @@ class WorkflowRef(BaseModel):
 
 
 class UseCase(BaseModel):
-    """A product-family bucket of workflows discovered on one instance.
+    """A bucket of workflows discovered on one instance, grouped by domain.
 
     Attributes:
         key: Stable use-case key (the scope or family identifier).
         name: Display name.
-        domain: Product family / domain (catalog product name or ``Uncategorized``).
+        domain: The catalog product name for known OOB scopes, the
+            application display name for other scopes, a ``--domain-map``
+            override when supplied, or ``Uncategorized`` only for
+            unresolvable scopes.
         workflows: Workflows belonging to this use case.
         evidence: Scopes/plugins that justify this use case.
     """

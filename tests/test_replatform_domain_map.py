@@ -32,3 +32,10 @@ def test_load_domain_map_rejects_non_string_values(tmp_path: Path) -> None:
     path.write_text("x_cibc_hr: 42\n", encoding="utf-8")
     with pytest.raises(ValueError, match="string scopes to string domains"):
         load_domain_map(path)
+
+
+def test_load_domain_map_rejects_invalid_yaml_syntax(tmp_path: Path) -> None:
+    path = tmp_path / "map.yaml"
+    path.write_text("foo: [unclosed\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="not valid YAML"):
+        load_domain_map(path)

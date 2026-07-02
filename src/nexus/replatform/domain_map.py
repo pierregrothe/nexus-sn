@@ -30,10 +30,14 @@ def load_domain_map(path: Path) -> dict[str, str]:
         The parsed scope-to-domain mapping.
 
     Raises:
-        ValueError: When the document is not a flat string-to-string mapping.
+        ValueError: When the document is not valid YAML, or is not a flat
+            string-to-string mapping.
         OSError: When the file cannot be read.
     """
-    raw = yaml.safe_load(path.read_text(encoding="utf-8"))
+    try:
+        raw = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except yaml.YAMLError as exc:
+        raise ValueError(f"domain map {path} is not valid YAML: {exc}") from exc
     if not isinstance(raw, dict):
         raise ValueError(f"domain map {path} must be a mapping of scope -> domain")
     parsed = cast("dict[object, object]", raw)

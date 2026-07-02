@@ -115,6 +115,9 @@ def parse_domain_map(raw: str) -> dict[str, str] | None:
 def resolve_groups(raw: list[str]) -> tuple[TableGroup, ...]:
     """Resolve ``--group`` values against the registry; empty means all groups.
 
+    Repeated keys are deduped, preserving first-occurrence order, so a
+    duplicated ``--group`` never double-lists (and double-counts) a group.
+
     Args:
         raw: Group keys from the CLI.
 
@@ -124,6 +127,7 @@ def resolve_groups(raw: list[str]) -> tuple[TableGroup, ...]:
     Raises:
         typer.BadParameter: When a key is not a registered table group.
     """
+    raw = list(dict.fromkeys(raw))
     if not raw:
         return tuple(DEFAULT_TABLE_GROUPS.values())
     unknown = [key for key in raw if key not in DEFAULT_TABLE_GROUPS]
