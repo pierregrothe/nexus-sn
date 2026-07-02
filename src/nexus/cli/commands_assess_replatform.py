@@ -22,9 +22,9 @@ from typing import Annotated, cast
 
 import typer
 
-from nexus.capture.models import CaptureResult, ConfigRecord, ScopeManifest
+from nexus.capture.models import CaptureResult, ConfigRecord, ScopeEntry, ScopeManifest
 from nexus.capture.scope import ScopeDiscoverer
-from nexus.capture.tables import AI_AUTOMATION, DEFAULT_TABLE_GROUPS
+from nexus.capture.tables import DEFAULT_TABLE_GROUPS, TableGroup
 from nexus.cli.apps import assess_app
 from nexus.cli.auth import acquire_token as _acquire_token
 from nexus.cli.console import console
@@ -46,6 +46,7 @@ __all__ = [
     "default_replatform_collaborators",
     "parse_domain_map",
     "parse_scope_aliases",
+    "resolve_groups",
     "run_inventory",
     "run_migration",
 ]
@@ -54,7 +55,7 @@ log = logging.getLogger(__name__)
 
 # Scope-key prefixes that mark a user-developed (custom) scoped app.
 _CUSTOM_PREFIXES = ("x_", "u_")
-# Page size for listing artifacts per AI_AUTOMATION table.
+# Page size for listing artifacts per covered table.
 _PAGE_SIZE = 1000
 
 
@@ -109,6 +110,56 @@ def parse_domain_map(raw: str) -> dict[str, str] | None:
         return load_domain_map(Path(raw))
     except (ValueError, OSError) as exc:
         raise typer.BadParameter(str(exc)) from exc
+
+
+def resolve_groups(raw: list[str]) -> tuple[TableGroup, ...]:
+    """Resolve ``--group`` values against the registry; empty means all groups.
+
+    Args:
+        raw: Group keys from the CLI.
+
+    Returns:
+        The selected TableGroups in registry order (or CLI order when given).
+
+    Raises:
+        typer.BadParameter: When a key is not a registered table group.
+    """
+    if not raw:
+        return tuple(DEFAULT_TABLE_GROUPS.values())
+    unknown = [key for key in raw if key not in DEFAULT_TABLE_GROUPS]
+    if unknown:
+        raise typer.BadParameter(
+            f"unknown table group(s): {', '.join(unknown)}; "
+            f"valid: {', '.join(DEFAULT_TABLE_GROUPS)}"
+        )
+    return tuple(DEFAULT_TABLE_GROUPS[key] for key in raw)
+
+
+def _merge_manifests(manifests: tuple[ScopeManifest, ...]) -> ScopeManifest:
+    """Union per-group ScopeManifests by scope sys_id.
+
+    Args:
+        manifests: One manifest per discovered table group (at least one).
+
+    Returns:
+        A manifest whose scopes are the by-sys_id union, table counts merged,
+        sorted by sys_id for stable output.
+    """
+    by_id: dict[str, ScopeEntry] = {}
+    for manifest in manifests:
+        for entry in manifest.scopes:
+            existing = by_id.get(entry.sys_id)
+            if existing is None:
+                by_id[entry.sys_id] = entry
+            else:
+                merged = dict(existing.table_counts) | dict(entry.table_counts)
+                by_id[entry.sys_id] = existing.model_copy(update={"table_counts": merged})
+    first = manifests[0]
+    return ScopeManifest(
+        instance_id=first.instance_id,
+        captured_at=first.captured_at,
+        scopes=tuple(sorted(by_id.values(), key=lambda entry: entry.sys_id)),
+    )
 
 
 def run_inventory(
@@ -191,24 +242,29 @@ def run_migration(
 def default_replatform_collaborators(  # pragma: no cover -- production wiring
     paths: NexusPaths,
     *,
+    groups: tuple[TableGroup, ...],
     overrides: dict[str, str] | None = None,
 ) -> ReplatformCollaborators:
     """Production wire-up: build inventories from live capture + the catalog."""
 
     def build(profile: str) -> UseCaseInventory:
-        return _build_live_inventory(profile, paths, overrides=overrides)
+        return _build_live_inventory(profile, paths, groups=groups, overrides=overrides)
 
     return ReplatformCollaborators(build_inventory=build)
 
 
 def _build_live_inventory(  # pragma: no cover -- live I/O, exercised by smoke
-    profile: str, paths: NexusPaths, *, overrides: dict[str, str] | None = None
+    profile: str,
+    paths: NexusPaths,
+    *,
+    groups: tuple[TableGroup, ...],
+    overrides: dict[str, str] | None = None,
 ) -> UseCaseInventory:
-    """List the instance's custom AI/automation artifacts live, then classify."""
-    manifest, capture, skipped = asyncio.run(_list_artifacts_live(profile))
+    """List the instance's custom artifacts live across table groups, then classify."""
+    manifest, captures, skipped = asyncio.run(_list_artifacts_live(profile, groups))
     catalog = ProductRegistry(paths.schema_dir).load_catalog()
     return classify(
-        (capture,),
+        captures,
         manifest,
         catalog,
         profile=profile,
@@ -218,15 +274,16 @@ def _build_live_inventory(  # pragma: no cover -- live I/O, exercised by smoke
 
 
 async def _list_artifacts_live(  # pragma: no cover -- live I/O, exercised by smoke
-    profile: str,
-) -> tuple[ScopeManifest, CaptureResult, tuple[str, ...]]:
-    """List AI_AUTOMATION artifact names for custom scopes -- NOT a full capture.
+    profile: str, groups: tuple[TableGroup, ...]
+) -> tuple[ScopeManifest, tuple[CaptureResult, ...], tuple[str, ...]]:
+    """List artifact names for custom scopes across covered table groups.
 
-    The checklist only needs each artifact's name/type/scope, so this issues one
-    lightweight ``list_records`` per table (sys_id, name, sys_scope) instead of a
-    full config capture (every flow's inputs/logic, every topic's blocks, all
-    child records) -- orders of magnitude faster. The client carries a token
-    refresh callback to survive the ~30-minute OAuth cap.
+    NOT a full capture -- the checklist only needs each artifact's name/type/
+    scope, so this issues one lightweight ``list_records`` per table (sys_id,
+    name field, sys_scope) instead of a full config capture (every flow's
+    inputs/logic, every topic's blocks, all child records) -- orders of
+    magnitude faster. The client carries a token refresh callback to survive
+    the ~30-minute OAuth cap.
     """
     _registry, meta, token, _expiry = _acquire_token(profile)
 
@@ -235,7 +292,8 @@ async def _list_artifacts_live(  # pragma: no cover -- live I/O, exercised by sm
         return new_token, new_expiry
 
     now = datetime.now(UTC)
-    records: list[ConfigRecord] = []
+    manifests: list[ScopeManifest] = []
+    captures: list[CaptureResult] = []
     skipped: list[str] = []
     async with ServiceNowClient(
         instance_url=meta.url, token=token, refresh_token_callback=_refresh
@@ -251,63 +309,69 @@ async def _list_artifacts_live(  # pragma: no cover -- live I/O, exercised by sm
                     completed=completed,
                 )
 
-            manifest = await ScopeDiscoverer(client, DEFAULT_TABLE_GROUPS).discover(
-                profile, AI_AUTOMATION.key, on_progress=on_progress
-            )
-            # A replatform checklist cares about CUSTOM scoped apps, not the
-            # hundreds of out-of-box scopes.
-            scope_ids = [
-                entry.sys_id
-                for entry in manifest.scopes
-                if entry.scope.startswith(_CUSTOM_PREFIXES)
-            ]
-            if scope_ids:
-                scope_csv = ",".join(scope_ids)
-                for spec in AI_AUTOMATION.tables:
-                    progress.update(task, description=f"Listing {spec.display}...", total=None)
-                    query = f"{spec.scope_field}IN{scope_csv}"
-                    try:
-                        offset = 0
-                        while True:
-                            batch = await client.list_records(
-                                spec.name,
-                                query=query,
-                                limit=_PAGE_SIZE,
-                                offset=offset,
-                                fields=f"sys_id,name,{spec.scope_field}",
-                            )
-                            records.extend(
-                                ConfigRecord(
-                                    sys_id=_ref_value(row.get("sys_id")),
-                                    table=spec.name,
-                                    scope_sys_id=_ref_value(row.get(spec.scope_field)),
-                                    scope_name="",
-                                    captured_at=now,
-                                    fields={"name": _ref_value(row.get("name"))},
-                                    parent_sys_id=None,
+            for group in groups:
+                manifest = await ScopeDiscoverer(client, DEFAULT_TABLE_GROUPS).discover(
+                    profile, group.key, on_progress=on_progress
+                )
+                manifests.append(manifest)
+                # A replatform checklist cares about CUSTOM scoped apps, not the
+                # hundreds of out-of-box scopes.
+                scope_ids = [
+                    entry.sys_id
+                    for entry in manifest.scopes
+                    if entry.scope.startswith(_CUSTOM_PREFIXES)
+                ]
+                records: list[ConfigRecord] = []
+                if scope_ids:
+                    scope_csv = ",".join(scope_ids)
+                    for spec in group.tables:
+                        progress.update(task, description=f"Listing {spec.display}...", total=None)
+                        query = f"{spec.scope_field}IN{scope_csv}"
+                        try:
+                            offset = 0
+                            while True:
+                                batch = await client.list_records(
+                                    spec.name,
+                                    query=query,
+                                    limit=_PAGE_SIZE,
+                                    offset=offset,
+                                    fields=f"sys_id,{spec.name_field},{spec.scope_field}",
                                 )
-                                for row in batch
-                            )
-                            if len(batch) < _PAGE_SIZE:
-                                break
-                            offset += _PAGE_SIZE
-                    except SNClientError as exc:
-                        # A table absent on this instance (e.g. ai_skill without
-                        # NowAssist) returns HTTP 400/404 -- skip just those. Auth
-                        # (401/403), rate-limit (429), and any other error must
-                        # raise so a partial listing is never shown as complete.
-                        if exc.status_code not in (400, 404):
-                            raise
-                        skipped.append(spec.name)
-                        log.debug("replatform: skipping absent table %s: %s", spec.name, exc)
-    capture = CaptureResult(
-        instance_id=profile,
-        captured_at=now,
-        scope_ids=tuple(scope_ids),
-        table_group=AI_AUTOMATION.key,
-        records=tuple(records),
-    )
-    return manifest, capture, tuple(skipped)
+                                records.extend(
+                                    ConfigRecord(
+                                        sys_id=_ref_value(row.get("sys_id")),
+                                        table=spec.name,
+                                        scope_sys_id=_ref_value(row.get(spec.scope_field)),
+                                        scope_name="",
+                                        captured_at=now,
+                                        fields={"name": _ref_value(row.get(spec.name_field))},
+                                        parent_sys_id=None,
+                                    )
+                                    for row in batch
+                                )
+                                if len(batch) < _PAGE_SIZE:
+                                    break
+                                offset += _PAGE_SIZE
+                        except SNClientError as exc:
+                            # A table absent on this instance (e.g. ai_skill
+                            # without NowAssist) returns HTTP 400/404 -- skip
+                            # just those. Auth (401/403), rate-limit (429), and
+                            # any other error must raise so a partial listing
+                            # is never shown as complete.
+                            if exc.status_code not in (400, 404):
+                                raise
+                            skipped.append(spec.name)
+                            log.debug("replatform: skipping absent table %s: %s", spec.name, exc)
+                captures.append(
+                    CaptureResult(
+                        instance_id=profile,
+                        captured_at=now,
+                        scope_ids=tuple(scope_ids),
+                        table_group=group.key,
+                        records=tuple(records),
+                    )
+                )
+    return _merge_manifests(tuple(manifests)), tuple(captures), tuple(skipped)
 
 
 def _ref_value(raw: object) -> str:
@@ -340,6 +404,10 @@ def assess_inventory(  # pragma: no cover -- thin Typer wrapper over run_invento
         str,
         typer.Option("--domain-map", help="YAML file mapping scope keys to business domains"),
     ] = "",
+    group: Annotated[
+        list[str] | None,
+        typer.Option("--group", help="Restrict to table group(s) (repeatable; default: all)"),
+    ] = None,
 ) -> None:
     """Classify one instance's captured config into a use-case inventory."""
     paths = NexusPaths.from_env()
@@ -348,7 +416,7 @@ def assess_inventory(  # pragma: no cover -- thin Typer wrapper over run_invento
         out=Path(out) if out else None,
         render_context=_render_context,
         collaborators=default_replatform_collaborators(
-            paths, overrides=parse_domain_map(domain_map)
+            paths, groups=resolve_groups(group or []), overrides=parse_domain_map(domain_map)
         ),
     )
     raise typer.Exit(code)
@@ -369,6 +437,10 @@ def assess_migration(  # pragma: no cover -- thin Typer wrapper over run_migrati
         str,
         typer.Option("--domain-map", help="YAML file mapping scope keys to business domains"),
     ] = "",
+    group: Annotated[
+        list[str] | None,
+        typer.Option("--group", help="Restrict to table group(s) (repeatable; default: all)"),
+    ] = None,
 ) -> None:
     """Diff two instances into a bi-directional replatform checklist."""
     paths = NexusPaths.from_env()
@@ -379,7 +451,7 @@ def assess_migration(  # pragma: no cover -- thin Typer wrapper over run_migrati
         out=Path(out) if out else None,
         render_context=_render_context,
         collaborators=default_replatform_collaborators(
-            paths, overrides=parse_domain_map(domain_map)
+            paths, groups=resolve_groups(group or []), overrides=parse_domain_map(domain_map)
         ),
     )
     raise typer.Exit(code)

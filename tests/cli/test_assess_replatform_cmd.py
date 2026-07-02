@@ -7,6 +7,7 @@
 
 import json
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from io import StringIO
 from pathlib import Path
 
@@ -19,9 +20,11 @@ from nexus.cli import commands_assess_replatform
 from nexus.cli.apps import app
 from nexus.cli.commands_assess_replatform import (
     ReplatformCollaborators,
+    _merge_manifests,
     _ref_value,
     parse_domain_map,
     parse_scope_aliases,
+    resolve_groups,
     run_inventory,
     run_migration,
 )
@@ -29,7 +32,12 @@ from nexus.replatform.models import UseCaseInventory
 from nexus.ui.capabilities import ColorDepth, RenderProfile, TerminalCapabilities
 from nexus.ui.render_context import RenderContext
 from nexus.ui.theme import NEXUS_THEME
-from tests.fakes.replatform import make_use_case, make_use_case_inventory, make_workflow_ref
+from tests.fakes.replatform import (
+    make_scope_manifest,
+    make_use_case,
+    make_use_case_inventory,
+    make_workflow_ref,
+)
 
 
 @dataclass(slots=True)
@@ -277,3 +285,26 @@ def test_run_migration_warns_on_skipped_tables_per_side() -> None:
     )
     assert code == 0
     assert "tables absent on old" in buf.getvalue()
+
+
+def test_resolve_groups_defaults_to_all_registered_groups() -> None:
+    groups = resolve_groups([])
+    assert tuple(g.key for g in groups) == ("ai_automation", "developer_platform")
+
+
+def test_resolve_groups_rejects_unknown_key() -> None:
+    with pytest.raises(typer.BadParameter, match="unknown table group"):
+        resolve_groups(["nope"])
+
+
+def test_resolve_groups_with_explicit_keys_returns_cli_order() -> None:
+    groups = resolve_groups(["developer_platform", "ai_automation"])
+    assert tuple(g.key for g in groups) == ("developer_platform", "ai_automation")
+
+
+def test_merge_manifests_unions_scopes_by_sys_id() -> None:
+    ts = datetime(2026, 7, 1, 12, 0, 0, tzinfo=UTC)
+    a = make_scope_manifest(scopes={"s1": "x_app"}, captured_at=ts)
+    b = make_scope_manifest(scopes={"s1": "x_app", "s2": "x_other"}, captured_at=ts)
+    merged = _merge_manifests((a, b))
+    assert tuple(e.sys_id for e in merged.scopes) == ("s1", "s2")

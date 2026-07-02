@@ -33,8 +33,8 @@ def classify(
     """Classify captured artifacts into a deterministic use-case inventory.
 
     Args:
-        captures: Captures for one instance. Plural for forward-compat with
-            future table groups; one ``AI_AUTOMATION`` capture suffices today.
+        captures: Captures for one instance -- one CaptureResult per covered
+            table group.
         scopes: Scope manifest used to resolve ``ConfigRecord.scope_sys_id`` to
             the technical scope key (``ScopeEntry.scope``).
         catalog: Schema product catalog. Its ``{scope.key: product.name}`` map
