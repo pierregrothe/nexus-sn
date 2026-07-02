@@ -149,10 +149,32 @@ def test_render_checklist_plain_warns_on_unnamed_artifacts() -> None:
     assert "unnamed artifact" in buf.getvalue()
 
 
+def test_render_checklist_plain_shows_empty_and_unnamed_notices_independently() -> None:
+    empty_buf = StringIO()
+    render_checklist(_empty_checklist(), _ctx(RenderProfile.PLAIN, empty_buf))
+    empty_out = empty_buf.getvalue()
+    # Console wrapping at width=120 can split EMPTY_SOURCE_NOTICE across lines,
+    # so match its leading phrase rather than the full constant (as the
+    # pre-existing test_render_checklist_empty_source_warns already does).
+    assert "source inventory is empty" in empty_out
+    assert "unnamed artifact" not in empty_out
+
+    unnamed_buf = StringIO()
+    render_checklist(_unnamed_checklist(), _ctx(RenderProfile.PLAIN, unnamed_buf))
+    unnamed_out = unnamed_buf.getvalue()
+    assert "unnamed artifact" in unnamed_out
+    assert "source inventory is empty" not in unnamed_out
+
+
 def test_render_checklist_rich_warns_on_unnamed_artifacts() -> None:
     buf = StringIO()
     render_checklist(_unnamed_checklist(), _ctx(RenderProfile.RICH, buf))
-    assert "unnamed artifact" in buf.getvalue()
+    text = buf.getvalue()
+    assert "unnamed artifact" in text
+    # Notice.warn's "Warning:" prefix is plain text (not color-only), so it
+    # survives a non-TTY recorded console and is distinguishable from info's
+    # "Info:" prefix even without ANSI styling.
+    assert "Warning:" in text
 
 
 def test_write_markdown_warns_on_unnamed_artifacts(tmp_path: Path) -> None:

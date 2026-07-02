@@ -239,6 +239,49 @@ def test_assess_inventory_command_routes_group_and_domain_map_kwargs(
     assert seen_kwargs["overrides"] is None
 
 
+def test_assess_migration_command_routes_group_and_domain_map_kwargs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("NEXUS_AUTO_UPDATE", "0")
+    src_wf = make_workflow_ref(scope="x_oldcorp", name="Intake")
+    tgt_wf = make_workflow_ref(scope="x_newcorp", name="Intake")
+    source = make_use_case_inventory(
+        profile="old", use_cases=(make_use_case(key="x_oldcorp", workflows=(src_wf,)),)
+    )
+    target = make_use_case_inventory(
+        profile="new", use_cases=(make_use_case(key="x_newcorp", workflows=(tgt_wf,)),)
+    )
+    by_profile = {"old": source, "new": target}
+    seen_kwargs: dict[str, object] = {}
+
+    def fake_factory(_paths: object, **kwargs: object) -> ReplatformCollaborators:
+        seen_kwargs.update(kwargs)
+        return ReplatformCollaborators(build_inventory=lambda p: by_profile[p])
+
+    monkeypatch.setattr(
+        commands_assess_replatform, "default_replatform_collaborators", fake_factory
+    )
+    out = tmp_path / "checklist.md"
+    result = CliRunner().invoke(
+        app,
+        [
+            "assess",
+            "migration",
+            "--from",
+            "old",
+            "--to",
+            "new",
+            "--out",
+            str(out),
+            "--group",
+            "developer_platform",
+        ],
+    )
+    assert result.exit_code == 0
+    assert seen_kwargs["groups"] == (DEVELOPER_PLATFORM,)
+    assert seen_kwargs["overrides"] is None
+
+
 def test_assess_migration_command_routes_options_and_writes_markdown(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -390,6 +433,11 @@ def test_merge_manifests_unions_scopes_by_sys_id() -> None:
     s1 = next(e for e in merged.scopes if e.sys_id == "s1")
     # Right-biased union: b's incident count (9) overwrites a's (5); problem is added.
     assert s1.table_counts == {"incident": 9, "problem": 3}
+
+
+def test_merge_manifests_rejects_empty_input() -> None:
+    with pytest.raises(ValueError, match="at least one manifest"):
+        _merge_manifests(())
 
 
 def test_scope_query_plain_for_custom_scopes() -> None:

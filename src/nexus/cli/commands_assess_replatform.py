@@ -148,7 +148,12 @@ def _merge_manifests(manifests: tuple[ScopeManifest, ...]) -> ScopeManifest:
     Returns:
         A manifest whose scopes are the by-sys_id union, table counts merged,
         sorted by sys_id for stable output.
+
+    Raises:
+        ValueError: If ``manifests`` is empty.
     """
+    if not manifests:
+        raise ValueError("at least one manifest is required")
     by_id: dict[str, ScopeEntry] = {}
     for manifest in manifests:
         for entry in manifest.scopes:
@@ -163,6 +168,23 @@ def _merge_manifests(manifests: tuple[ScopeManifest, ...]) -> ScopeManifest:
         instance_id=first.instance_id,
         captured_at=first.captured_at,
         scopes=tuple(sorted(by_id.values(), key=lambda entry: entry.sys_id)),
+    )
+
+
+def _warn_skipped_tables(
+    render_context: RenderContext, profile: str, tables: tuple[str, ...], artifact: str
+) -> None:
+    """Print the absent-tables warning for one instance's inventory.
+
+    Args:
+        render_context: Destination console.
+        profile: Instance profile the tables were absent on.
+        tables: Sorted absent table names.
+        artifact: What excludes them in the message ("inventory" or "checklist").
+    """
+    render_context.console.print(
+        f"warning: tables absent on {profile}: {', '.join(tables)}" f" -- {artifact} excludes them",
+        highlight=False,
     )
 
 
@@ -195,11 +217,7 @@ def run_inventory(
             f"  {use_case.domain}: {len(use_case.workflows)} workflow(s)", highlight=False
         )
     if inventory.skipped_tables:
-        render_context.console.print(
-            f"warning: tables absent on {profile}: {', '.join(inventory.skipped_tables)}"
-            " -- inventory excludes them",
-            highlight=False,
-        )
+        _warn_skipped_tables(render_context, profile, inventory.skipped_tables, "inventory")
     if out is not None:
         out.write_bytes(inventory.model_dump_json(indent=2).encode("utf-8"))
     return 0
@@ -231,10 +249,8 @@ def run_migration(
     target = collaborators.build_inventory(to_profile)
     for inventory in (source, target):
         if inventory.skipped_tables:
-            render_context.console.print(
-                f"warning: tables absent on {inventory.profile}: "
-                f"{', '.join(inventory.skipped_tables)} -- checklist excludes them",
-                highlight=False,
+            _warn_skipped_tables(
+                render_context, inventory.profile, inventory.skipped_tables, "checklist"
             )
     checklist = build_checklist(source, target, aliases)
     render_checklist(checklist, render_context)
@@ -249,7 +265,18 @@ def default_replatform_collaborators(  # pragma: no cover -- production wiring
     groups: tuple[TableGroup, ...],
     overrides: dict[str, str] | None = None,
 ) -> ReplatformCollaborators:
-    """Production wire-up: build inventories from live capture + the catalog."""
+    """Production wire-up: build inventories from live capture + the catalog.
+
+    Args:
+        paths: Resolved NEXUS paths (schema catalog directory).
+        groups: Table groups to cover when listing artifacts.
+        overrides: Optional scope-key -> business-domain overrides for
+            classification.
+
+    Returns:
+        A ReplatformCollaborators whose build_inventory lists live artifacts
+        and classifies them for the given profile.
+    """
 
     def build(profile: str) -> UseCaseInventory:
         return _build_live_inventory(profile, paths, groups=groups, overrides=overrides)
@@ -264,7 +291,18 @@ def _build_live_inventory(  # pragma: no cover -- live I/O, exercised by smoke
     groups: tuple[TableGroup, ...],
     overrides: dict[str, str] | None = None,
 ) -> UseCaseInventory:
-    """List the instance's custom artifacts live across table groups, then classify."""
+    """List the instance's custom artifacts live across table groups, then classify.
+
+    Args:
+        profile: Instance profile to inventory.
+        paths: Resolved NEXUS paths (schema catalog directory).
+        groups: Table groups to cover when listing artifacts.
+        overrides: Optional scope-key -> business-domain overrides for
+            classification.
+
+    Returns:
+        The classified UseCaseInventory for this profile.
+    """
     manifest, captures, skipped = asyncio.run(_list_artifacts_live(profile, groups))
     catalog = ProductRegistry(paths.schema_dir).load_catalog()
     return classify(
@@ -332,6 +370,15 @@ async def _list_artifacts_live(  # pragma: no cover -- live I/O, exercised by sm
                 )
 
             async def _list_table(spec: TableSpec, query: str) -> list[ConfigRecord]:
+                """List all records of one table matching a scope query.
+
+                Args:
+                    spec: Table being listed.
+                    query: Encoded sysparm query restricting to target scopes.
+
+                Returns:
+                    Every matching record as a ConfigRecord, paged until exhausted.
+                """
                 rows: list[ConfigRecord] = []
                 offset = 0
                 while True:
@@ -359,10 +406,9 @@ async def _list_artifacts_live(  # pragma: no cover -- live I/O, exercised by sm
                     offset += _PAGE_SIZE
                 return rows
 
+            discoverer = ScopeDiscoverer(client, DEFAULT_TABLE_GROUPS)
             for group in groups:
-                manifest = await ScopeDiscoverer(client, DEFAULT_TABLE_GROUPS).discover(
-                    profile, group.key, on_progress=on_progress
-                )
+                manifest = await discoverer.discover(profile, group.key, on_progress=on_progress)
                 manifests.append(manifest)
                 # A replatform checklist cares about CUSTOM scoped apps, plus
                 # customer-created/modified records in the global scope -- not

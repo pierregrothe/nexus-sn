@@ -51,8 +51,7 @@ def build_checklist(
     for use_case in target.use_cases:
         for workflow in use_case.workflows:
             target_by_key.setdefault(_remap(workflow, new_to_old), []).append((use_case, workflow))
-    # Multiset semantics: each source occurrence consumes at most one target
-    # occurrence, so duplicate names neither drop EXTRA rows nor double-count DONE.
+    # Count occurrences per key; source matching consumes them one-for-one.
     unmatched = {key: len(entries) for key, entries in target_by_key.items()}
 
     items: list[ChecklistItem] = []
