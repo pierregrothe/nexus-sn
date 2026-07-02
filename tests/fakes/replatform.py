@@ -33,14 +33,23 @@ _DEFAULT_TS = datetime(2026, 6, 29, 12, 0, 0, tzinfo=UTC)
 def make_scope_manifest(
     *,
     scopes: dict[str, str],
+    names: dict[str, str] | None = None,
     instance_id: str = "dev",
     captured_at: datetime = _DEFAULT_TS,
 ) -> ScopeManifest:
-    """Build a ScopeManifest from a ``sys_id -> technical-scope-key`` mapping."""
+    """Build a ScopeManifest from a ``sys_id -> technical-scope-key`` mapping.
+
+    Args:
+        scopes: Mapping of scope sys_id to technical scope key.
+        names: Optional mapping of scope sys_id to display name; entries
+            default to the scope key when absent.
+        instance_id: Manifest instance profile.
+        captured_at: Manifest capture timestamp.
+    """
     entries = tuple(
         ScopeEntry(
             sys_id=sys_id,
-            name=scope_key,
+            name=(names or {}).get(sys_id, scope_key),
             scope=scope_key,
             version="1.0",
             vendor="test",
