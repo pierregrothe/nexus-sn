@@ -117,6 +117,40 @@ def record_natural_key(record: ConfigRecord, name_field: str, scope_key: str) ->
     return f"{scope_key}|{record.table}|{segment}"
 
 
+def _normalize_scope_name(
+    record: ConfigRecord, sys_id_to_scope_key: dict[str, str]
+) -> ConfigRecord:
+    """Correct a fetched record's scope_name to its technical scope key.
+
+    ``ConfigFetcher`` queries with ``display_value="all"``, so a reference
+    ``sys_scope`` cell arrives as a dict rather than a plain string, and
+    ``ConfigFetcher._row_to_record`` falls back to stamping the raw scope
+    sys_id into ``scope_name`` instead of the technical scope key --
+    breaking ``record_natural_key`` downstream, which expects the technical
+    key (matching how ``Selection`` keys are built). This bridge already
+    resolved every selected scope's sys_id in ``sys_id_to_scope_key``
+    (inverted from ``scope_sys_ids``), so it can correct the value here.
+
+    Args:
+        record: A freshly fetched ConfigRecord.
+        sys_id_to_scope_key: Scope sys_id -> technical scope key, inverted
+            from the scope-key -> sys_id map this bridge resolved.
+
+    Returns:
+        The record with ``scope_name`` corrected to the technical scope
+        key; unchanged when its ``scope_sys_id`` has no known technical key.
+    """
+    scope_key = sys_id_to_scope_key.get(record.scope_sys_id)
+    if scope_key is None:
+        # Defensive: ConfigFetcher.fetch() stamps scope_sys_id from the
+        # queried scope (see _fetch_table), never from row data -- always
+        # one of the sys_ids this module resolved, so the lookup cannot
+        # miss today -- kept as a guard against a future fetch path
+        # supplying an unresolved scope_sys_id.
+        return record  # pragma: no cover
+    return record.model_copy(update={"scope_name": scope_key})
+
+
 def _narrow_table_groups(
     table_groups: dict[str, TableGroup], wanted_tables: set[str]
 ) -> dict[str, TableGroup]:
@@ -233,11 +267,11 @@ async def build_capture_for_selection(
             scope_key = sys_id_to_scope_key[record.scope_sys_id]
             key = record_natural_key(record, name_fields[record.table], scope_key)
             if key in selection_keys:
-                kept.append(record)
+                kept.append(_normalize_scope_name(record, sys_id_to_scope_key))
                 kept_root_ids.add(record.sys_id)
         for record in records:
             if record.parent_sys_id is not None and record.parent_sys_id in kept_root_ids:
-                kept.append(record)
+                kept.append(_normalize_scope_name(record, sys_id_to_scope_key))
 
         results.append(
             CaptureResult(

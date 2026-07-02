@@ -92,6 +92,46 @@ async def test_build_capture_for_selection_happy_path_fetches_exact_scope_and_ta
 
 
 @pytest.mark.asyncio
+async def test_build_capture_for_selection_normalizes_dict_shaped_scope_cell() -> None:
+    # ConfigFetcher queries with display_value="all", so a real ServiceNow
+    # response's sys_scope reference cell arrives as a
+    # {"value": ..., "display_value": ...} dict, not a plain string.
+    # ConfigFetcher._row_to_record then falls back to stamping the raw scope
+    # sys_id into scope_name -- this fixture reproduces that shape directly
+    # (FakeServiceNowClient ignores display_value and returns rows verbatim).
+    flow_with_dict_scope = {
+        "sys_id": "f7",
+        "name": "Approve PO",
+        "sys_scope": {"value": "scope001", "display_value": "Alectri Core"},
+        "sys_customer_update": "true",
+    }
+    client = FakeServiceNowClient(
+        initial_records={
+            "sys_scope": [_ALECTRI_SCOPE_ROW],
+            "sys_hub_flow": [flow_with_dict_scope],
+        }
+    )
+    selection = make_selection(
+        source_profile="alectri",
+        items=(
+            make_selection_item(
+                key="x_alectri_core|sys_hub_flow|approve po", disposition="include"
+            ),
+        ),
+    )
+    async with client:
+        results = await build_capture_for_selection(client, selection, DEFAULT_TABLE_GROUPS)
+
+    assert len(results) == 1
+    record = results[0].records[0]
+    assert record.sys_id == "f7"
+    # Bridge fix: scope_name is normalized to the technical scope key (not
+    # left as the raw "scope001" sys_id) so record_natural_key matches the
+    # Selection's key downstream in build_closure.
+    assert record.scope_name == "x_alectri_core"
+
+
+@pytest.mark.asyncio
 async def test_build_capture_for_selection_excludes_unselected_artifact_in_same_table() -> None:
     client = _client_with_flows()
     selection = make_selection(
