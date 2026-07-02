@@ -21,6 +21,7 @@ from nexus.cli import commands_assess_replatform as commands_assess_replatform
 from nexus.cli import commands_capture as commands_capture
 from nexus.cli import commands_instance as commands_instance
 from nexus.cli import commands_migrate as commands_migrate
+from nexus.cli import commands_migrate_preflight as commands_migrate_preflight
 from nexus.cli import commands_plugins_advisories as commands_plugins_advisories
 from nexus.cli import commands_plugins_analysis as commands_plugins_analysis
 from nexus.cli import commands_plugins_basic as commands_plugins_basic
@@ -50,6 +51,7 @@ __all__ = [
     "commands_capture",
     "commands_instance",
     "commands_migrate",
+    "commands_migrate_preflight",
     "commands_plugins_advisories",
     "commands_plugins_analysis",
     "commands_plugins_basic",
