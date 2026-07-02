@@ -110,21 +110,31 @@
 - [ ] Multi-step orchestration via Planner + Dispatcher
 - [ ] Rollback manager for failed deployments
 
-## 2026.07 -- Replatform Checklist [planned]
-- [ ] Replatform analysis layer (src/nexus/replatform/) + nexus assess
+## 2026.07 -- Replatform Checklist [in progress]
+- [x] Replatform analysis layer (src/nexus/replatform/) + nexus assess
       inventory / migration -- bi-directional use-case + workflow checklist
       across two instances. Deterministic v1 (product-family bucketing over
       the AI_AUTOMATION capture + plugins), natural-key matching (never
       sys_id), advisory only. Driver: replatform onto a clean instance after
-      an acquisition (CIBC pattern).
+      an acquisition (CIBC pattern). Shipped in PRs #55/#56 (2026-06-29).
       PRD: prd/PRD-004-nexus-replatform-checklist.md
       ADR: adr/ADR-025-replatform-cross-instance-analysis.md
       Epic: epics/2026.07-nexus-replatform-checklist/
       Brainstorm: brainstorming/2026-06-29-nexus-assess-migration.md
       Start: epics/2026.07-nexus-replatform-checklist/01-replatform-models.story.md
+- [x] Coverage extension (branch feat/2026.07-replatform-coverage,
+      2026-07-02): DEVELOPER_PLATFORM table group (business rules, script
+      includes, client scripts, UI policies/actions, ACLs, scheduled jobs,
+      classic workflows) + customer-updated global-scope artifacts + per-app
+      use-case naming (Uncategorized only for unresolvable scopes) +
+      --group / --domain-map flags + multiset natural-key matching +
+      absent-table and unnamed-artifact warnings. Live-proven vs
+      alectri/retail: 30,463 artifacts, 95 named use cases, 0 Uncategorized
+      (artifacts/replatform-proof/verification-summary.md v2 section).
+      Plan: docs/superpowers/plans/2026-07-01-replatform-gap-closure.md
 - [ ] v2: AI enrichment -- specialist-driven use-case naming + sub-clustering
-      for scopes that collapse to Uncategorized in v1 (depends on the 2026.07
-      Agent Specialists epic).
+      for scopes whose display names are still too coarse (depends on the
+      2026.07 Agent Specialists epic).
 
 ## 2026.08 -- Distribution [planned]
 - [ ] 100% line coverage, mypy strict, ruff 0 violations
@@ -178,8 +188,10 @@ works for any ServiceNow product installed on the instance.
 - [ ] Knowledge mastery KB (206 ServiceNow product docs)
 - [ ] MCPProbe real endpoint URLs
 - [ ] JIRA, GitHub, Confluence connectors
-- [ ] Extend capture to DEVELOPER_PLATFORM table group
-      (business rules, script includes, ACLs, scheduled jobs)
+- [x] Extend capture to DEVELOPER_PLATFORM table group
+      (business rules, script includes, ACLs, scheduled jobs) -- shipped
+      2026-07-02 with the replatform coverage extension; the group is also
+      selectable in nexus capture discover/pull via --group
 - [ ] Wire `/api/sn_appclient/appmanager/products?tab_context=updates`
       into scanner (alectri demo shows 269 product updates beyond the 762 apps)
 - [ ] Plugin install/activate over REST via the discovered sn_appclient

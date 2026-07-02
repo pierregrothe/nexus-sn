@@ -1,0 +1,3426 @@
+{
+  "profile": "alectri",
+  "captured_at": "2026-06-30T03:29:55.821224Z",
+  "coverage": [
+    "ai_automation"
+  ],
+  "use_cases": [
+    {
+      "key": "Uncategorized",
+      "name": "Uncategorized",
+      "domain": "Uncategorized",
+      "workflows": [
+        {
+          "key": "x_envas_sales_or_0|sys_hub_flow|get sap customers",
+          "name": "Get SAP Customers",
+          "type": "sys_hub_flow",
+          "scope": "x_envas_sales_or_0"
+        },
+        {
+          "key": "x_envas_sales_or_0|sys_hub_flow|get sap sales order details",
+          "name": "Get SAP Sales Order Details",
+          "type": "sys_hub_flow",
+          "scope": "x_envas_sales_or_0"
+        },
+        {
+          "key": "x_envas_sales_or_0|sys_hub_flow|get sap sales orders",
+          "name": "Get SAP Sales Orders",
+          "type": "sys_hub_flow",
+          "scope": "x_envas_sales_or_0"
+        },
+        {
+          "key": "x_envas_sales_or_0|sys_hub_flow|request sales order discount approval",
+          "name": "Request Sales Order Discount Approval",
+          "type": "sys_hub_flow",
+          "scope": "x_envas_sales_or_0"
+        },
+        {
+          "key": "x_envas_sales_or_0|sys_hub_flow|sales order discount request - use case: app engine - sales order discount approval flow - e65c3d75970472104a03bd90f053afc9",
+          "name": "Sales Order Discount Request - Use case: App Engine - Sales Order Discount Approval Flow - e65c3d75970472104a03bd90f053afc9",
+          "type": "sys_hub_flow",
+          "scope": "x_envas_sales_or_0"
+        },
+        {
+          "key": "x_envas_sales_or_0|sys_hub_flow|send sales order discount request for approval",
+          "name": "Send Sales Order Discount Request for Approval",
+          "type": "sys_hub_flow",
+          "scope": "x_envas_sales_or_0"
+        },
+        {
+          "key": "x_envas_sales_or_0|sys_hub_flow|update sales order discount in sap",
+          "name": "Update Sales Order Discount in SAP",
+          "type": "sys_hub_flow",
+          "scope": "x_envas_sales_or_0"
+        },
+        {
+          "key": "x_snc_2204giftcard|sys_hub_action_type_definition|gift card detalis",
+          "name": "Gift Card Detalis",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_2204giftcard"
+        },
+        {
+          "key": "x_snc_2204giftcard|sys_hub_flow|gift card request request - gift card compliance evaluation - 7158f1c63345ae143d1f2ca19e5c7b27",
+          "name": "Gift card request Request - Gift Card Compliance Evaluation - 7158f1c63345ae143d1f2ca19e5c7b27",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_2204giftcard"
+        },
+        {
+          "key": "x_snc_2805_cross_0|sys_hub_action_type_definition|analysis: upcoming projects",
+          "name": "Analysis: Upcoming projects",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_2805_cross_0"
+        },
+        {
+          "key": "x_snc_2805_cross_0|sys_hub_action_type_definition|get instance url",
+          "name": "Get Instance URL",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_2805_cross_0"
+        },
+        {
+          "key": "x_snc_2805_cross_0|sys_hub_action_type_definition|training details: get skills gap",
+          "name": "Training details: Get skills gap",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_2805_cross_0"
+        },
+        {
+          "key": "x_snc_2805_cross_0|sys_hub_action_type_definition|training session feedback report",
+          "name": "Training session feedback report",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_2805_cross_0"
+        },
+        {
+          "key": "x_snc_2805_cross_0|sys_hub_action_type_definition|training sessions: analyze enrollments",
+          "name": "Training sessions: Analyze enrollments",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_2805_cross_0"
+        },
+        {
+          "key": "x_snc_2805_cross_0|sys_hub_flow|gather feedback from attendees",
+          "name": "Gather feedback from attendees",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_2805_cross_0"
+        },
+        {
+          "key": "x_snc_2805_cross_0|sys_hub_flow|reminder mail for trainers and attendees",
+          "name": "Reminder mail for trainers and attendees",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_2805_cross_0"
+        },
+        {
+          "key": "x_snc_2805_cross_0|sys_hub_flow|training session creation",
+          "name": "Training session creation",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_2805_cross_0"
+        },
+        {
+          "key": "x_snc_2805_cross_0|sys_hub_flow|training: combined training demand view",
+          "name": "Training: Combined training demand view",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_2805_cross_0"
+        },
+        {
+          "key": "x_snc_2805_cross_0|sys_hub_flow|training: enrollment trends",
+          "name": "Training: Enrollment Trends",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_2805_cross_0"
+        },
+        {
+          "key": "x_snc_2805_cross_0|sys_hub_flow|training: skills gap analysis",
+          "name": "Training: Skills Gap Analysis",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_2805_cross_0"
+        },
+        {
+          "key": "x_snc_2805_cross_0|sys_hub_flow|training: upcoming project demand",
+          "name": "Training: Upcoming Project Demand",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_2805_cross_0"
+        },
+        {
+          "key": "x_snc_91_stripe|sys_hub_action_type_definition|create customer",
+          "name": "Create customer",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_91_stripe"
+        },
+        {
+          "key": "x_snc_91_stripe|sys_hub_action_type_definition|create invoice line",
+          "name": "Create invoice line",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_91_stripe"
+        },
+        {
+          "key": "x_snc_ae_direct_0|sys_hub_action_type_definition|docintel - retrieve task",
+          "name": "DocIntel - Retrieve task",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_ae_direct_0"
+        },
+        {
+          "key": "x_snc_ae_direct_0|sys_hub_action_type_definition|get record from docintel",
+          "name": "Get record from DocIntel",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_ae_direct_0"
+        },
+        {
+          "key": "x_snc_ae_direct_0|sys_hub_flow|direct deposit user form",
+          "name": "Direct Deposit User Form",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_ae_direct_0"
+        },
+        {
+          "key": "x_snc_ae_direct_0|sys_hub_flow|view docintel task frame",
+          "name": "View DocIntel Task Frame",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_ae_direct_0"
+        },
+        {
+          "key": "x_snc_ae_direct_0|sys_hub_flow|wait for docintel submit",
+          "name": "Wait For DocIntel Submit",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_ae_direct_0"
+        },
+        {
+          "key": "x_snc_alectrimot_0|sys_hub_flow|servicenow lens loader",
+          "name": "ServiceNow Lens Loader",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_alectrimot_0"
+        },
+        {
+          "key": "x_snc_alectrimot_0|sys_hub_flow|servicenow lens unloader",
+          "name": "ServiceNow Lens Unloader",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_alectrimot_0"
+        },
+        {
+          "key": "x_snc_annual_com_0|sys_hub_action_type_definition|performance review get properties",
+          "name": "Performance Review Get Properties",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_annual_com_0"
+        },
+        {
+          "key": "x_snc_annual_com_0|sys_hub_action_type_definition|performance review set properties for next cycle",
+          "name": "Performance Review set properties for next cycle",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_annual_com_0"
+        },
+        {
+          "key": "x_snc_annual_com_0|sys_hub_action_type_definition|performance review trigger",
+          "name": "Performance Review trigger",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_annual_com_0"
+        },
+        {
+          "key": "x_snc_annual_com_0|sys_hub_flow|perf review - create records",
+          "name": "Perf Review - Create records",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_annual_com_0"
+        },
+        {
+          "key": "x_snc_annual_com_0|sys_hub_flow|perf review - main flow",
+          "name": "Perf Review - Main flow",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_annual_com_0"
+        },
+        {
+          "key": "x_snc_annual_com_0|sys_hub_flow|perf review - send deadline email",
+          "name": "Perf Review - send deadline email",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_annual_com_0"
+        },
+        {
+          "key": "x_snc_annual_com_0|sys_hub_flow|perf review - send manager/admin self evaluation submitted email",
+          "name": "Perf Review - Send Manager/ADMIN Self Evaluation Submitted email",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_annual_com_0"
+        },
+        {
+          "key": "x_snc_annual_com_0|sys_hub_flow|perf review - send pr employee complete evaluation email",
+          "name": "Perf Review - Send PR Employee Complete Evaluation email",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_annual_com_0"
+        },
+        {
+          "key": "x_snc_annual_com_0|sys_hub_flow|perf review - send pr employee manager-eval submitted",
+          "name": "Perf Review - Send PR Employee Manager-Eval submitted",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_annual_com_0"
+        },
+        {
+          "key": "x_snc_annual_com_0|sys_hub_flow|perf review - send pr employee update self-eval email",
+          "name": "Perf Review - Send PR Employee Update Self-Eval email",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_annual_com_0"
+        },
+        {
+          "key": "x_snc_annual_com_0|sys_hub_flow|perf review - send reminder emails",
+          "name": "Perf Review - send reminder emails",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_annual_com_0"
+        },
+        {
+          "key": "x_snc_annual_com_0|sys_hub_flow|perf review - set review inactive",
+          "name": "Perf Review - Set review inactive",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_annual_com_0"
+        },
+        {
+          "key": "x_snc_automate_e_0|sys_hub_flow|equipment master state update",
+          "name": "Equipment master state update",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_automate_e_0"
+        },
+        {
+          "key": "x_snc_automate_e_0|sys_hub_flow|equipment master update data - use case: mdm aemu approval workflow - f92950308763e250773f40860cbb35c0",
+          "name": "Equipment Master Update Data - Use case: MDM AEMU Approval Workflow - f92950308763e250773f40860cbb35c0",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_automate_e_0"
+        },
+        {
+          "key": "x_snc_automate_e_0|sys_hub_flow|equipment task automation",
+          "name": "Equipment task automation",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_automate_e_0"
+        },
+        {
+          "key": "x_snc_automate_e_0|sys_hub_flow|equipment task created",
+          "name": "Equipment task created",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_automate_e_0"
+        },
+        {
+          "key": "x_snc_automate_e_0|sys_hub_flow|new equipment update request",
+          "name": "New equipment update request",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_automate_e_0"
+        },
+        {
+          "key": "x_snc_automate_e_0|sys_hub_flow|update equipment details in sap",
+          "name": "Update equipment details in SAP",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_automate_e_0"
+        },
+        {
+          "key": "x_snc_automate_e_0|sys_hub_flow|update equipment master in sap",
+          "name": "Update Equipment Master in SAP",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_automate_e_0"
+        },
+        {
+          "key": "x_snc_banking_ch_1|sys_hub_action_type_definition|create banking churn case",
+          "name": "Create Banking Churn Case",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_banking_ch_1"
+        },
+        {
+          "key": "x_snc_banking_ch_1|sys_hub_action_type_definition|unload data for banking churn prevention",
+          "name": "Unload data for banking churn prevention",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_banking_ch_1"
+        },
+        {
+          "key": "x_snc_banking_ch_1|sys_hub_action_type_definition|update semantic configuration",
+          "name": "Update Semantic Configuration",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_banking_ch_1"
+        },
+        {
+          "key": "x_snc_banking_ch_1|sys_hub_action_type_definition|update worknotes for churn case",
+          "name": "Update Worknotes for Churn Case",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_banking_ch_1"
+        },
+        {
+          "key": "x_snc_crwf_autom_0|sys_hub_action_type_definition|crwf - add apps to package",
+          "name": "CrWF - Add apps to package",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_crwf_autom_0"
+        },
+        {
+          "key": "x_snc_crwf_autom_0|sys_hub_action_type_definition|crwf - create batch plan",
+          "name": "CrWF - Create Batch Plan",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_crwf_autom_0"
+        },
+        {
+          "key": "x_snc_crwf_autom_0|sys_hub_action_type_definition|crwf demo - disable client instance",
+          "name": "CrWF Demo - Disable Client Instance",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_crwf_autom_0"
+        },
+        {
+          "key": "x_snc_crwf_autom_0|sys_hub_action_type_definition|crwf demo - setup client instance",
+          "name": "CrWF Demo - Setup Client Instance",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_crwf_autom_0"
+        },
+        {
+          "key": "x_snc_crwf_autom_0|sys_hub_action_type_definition|deactivated - crwf demo - send usage analytics details",
+          "name": "DEACTIVATED - CrWF Demo - Send Usage Analytics Details",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_crwf_autom_0"
+        },
+        {
+          "key": "x_snc_crwf_autom_0|sys_hub_flow|crwf - add sidebar to workspace",
+          "name": "CrWF - Add sidebar to workspace",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_crwf_autom_0"
+        },
+        {
+          "key": "x_snc_crwf_autom_0|sys_hub_flow|crwf - batch update store apps",
+          "name": "CrWF - Batch Update Store Apps",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_crwf_autom_0"
+        },
+        {
+          "key": "x_snc_crwf_autom_0|sys_hub_flow|crwf - subflow: create your own package",
+          "name": "CrWF - Subflow: Create your own package",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_crwf_autom_0"
+        },
+        {
+          "key": "x_snc_crwf_autom_0|sys_hub_flow|crwf demo - add genai capabilities to workspace",
+          "name": "CrWF Demo - Add GenAI capabilities to workspace",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_crwf_autom_0"
+        },
+        {
+          "key": "x_snc_crwf_autom_0|sys_hub_flow|crwf demo - add playbook to workspace",
+          "name": "CrWF Demo - Add playbook to workspace",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_crwf_autom_0"
+        },
+        {
+          "key": "x_snc_crwf_autom_0|sys_hub_flow|crwf demo - setup repository and aes pipeline",
+          "name": "CrWF Demo - Setup Repository and AES Pipeline",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_crwf_autom_0"
+        },
+        {
+          "key": "x_snc_crwf_autom_0|sys_hub_flow|crwf demo - subflow - disable repository",
+          "name": "CrWF Demo - Subflow - Disable Repository",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_crwf_autom_0"
+        },
+        {
+          "key": "x_snc_crwf_autom_0|sys_hub_flow|crwf demo - subflow - setup local repository",
+          "name": "CrWF Demo - Subflow - Setup Local Repository",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_crwf_autom_0"
+        },
+        {
+          "key": "x_snc_dash_builder|sys_hub_action_type_definition|create a record",
+          "name": "Create a Record",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_dash_builder"
+        },
+        {
+          "key": "x_snc_dash_builder|sys_hub_action_type_definition|create dashboard kpi relationships",
+          "name": "Create Dashboard KPI Relationships",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_dash_builder"
+        },
+        {
+          "key": "x_snc_dash_builder|sys_hub_action_type_definition|create record",
+          "name": "Create Record",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_dash_builder"
+        },
+        {
+          "key": "x_snc_dash_builder|sys_hub_action_type_definition|delete m2m records",
+          "name": "Delete M2M Records",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_dash_builder"
+        },
+        {
+          "key": "x_snc_dash_builder|sys_hub_action_type_definition|get record detail",
+          "name": "Get Record Detail",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_dash_builder"
+        },
+        {
+          "key": "x_snc_dash_builder|sys_hub_action_type_definition|getrecorddetail",
+          "name": "GetRecordDetail",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_dash_builder"
+        },
+        {
+          "key": "x_snc_dash_builder|sys_hub_action_type_definition|getrecordkpidetail",
+          "name": "GetRecordKPIDetail",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_dash_builder"
+        },
+        {
+          "key": "x_snc_dash_builder|sys_hub_action_type_definition|load pa data",
+          "name": "Load PA Data",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_dash_builder"
+        },
+        {
+          "key": "x_snc_dash_builder|sys_hub_action_type_definition|update record",
+          "name": "Update Record",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_dash_builder"
+        },
+        {
+          "key": "x_snc_dash_builder|sys_hub_flow|run pa data generators for dashboard agent",
+          "name": "Run PA Data Generators for dashboard agent",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_dash_builder"
+        },
+        {
+          "key": "x_snc_demodata_wiz|sys_hub_action_type_definition|refresh record dates",
+          "name": "Refresh Record Dates",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_demodata_wiz"
+        },
+        {
+          "key": "x_snc_demodata_wiz|sys_hub_action_type_definition|run date wizard",
+          "name": "Run Date Wizard",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_demodata_wiz"
+        },
+        {
+          "key": "x_snc_demohub_app|sys_hub_action_type_definition|count number of ips in demohub xml",
+          "name": "Count number of IPs in demohub XML",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_demohub_app"
+        },
+        {
+          "key": "x_snc_demohub_app|sys_hub_action_type_definition|create dh lastlogin json from string",
+          "name": "Create DH LastLogin JSON from string",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_demohub_app"
+        },
+        {
+          "key": "x_snc_demohub_app|sys_hub_action_type_definition|demohub app upgrade",
+          "name": "DemoHub App Upgrade",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_demohub_app"
+        },
+        {
+          "key": "x_snc_demohub_app|sys_hub_action_type_definition|demohub convert to interim asyncronous",
+          "name": "DemoHub Convert to Interim Asyncronous",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_demohub_app"
+        },
+        {
+          "key": "x_snc_demohub_app|sys_hub_action_type_definition|demohub sync asyncronous",
+          "name": "DemoHub Sync asyncronous",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_demohub_app"
+        },
+        {
+          "key": "x_snc_demohub_app|sys_hub_action_type_definition|dh deny access",
+          "name": "DH Deny Access",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_demohub_app"
+        },
+        {
+          "key": "x_snc_demohub_app|sys_hub_action_type_definition|generate random letter",
+          "name": "Generate Random Letter",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_demohub_app"
+        },
+        {
+          "key": "x_snc_demohub_app|sys_hub_action_type_definition|generate random number",
+          "name": "Generate Random Number",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_demohub_app"
+        },
+        {
+          "key": "x_snc_demohub_app|sys_hub_action_type_definition|generate random number array",
+          "name": "Generate Random Number Array",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_demohub_app"
+        },
+        {
+          "key": "x_snc_demohub_app|sys_hub_action_type_definition|get number of days inactive",
+          "name": "Get Number of Days Inactive",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_demohub_app"
+        },
+        {
+          "key": "x_snc_demohub_app|sys_hub_action_type_definition|get zscaler ip address controls",
+          "name": "Get ZScaler IP Address Controls",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_demohub_app"
+        },
+        {
+          "key": "x_snc_demohub_app|sys_hub_action_type_definition|import update set",
+          "name": "Import Update Set",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_demohub_app"
+        },
+        {
+          "key": "x_snc_demohub_app|sys_hub_action_type_definition|import xml",
+          "name": "Import XML",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_demohub_app"
+        },
+        {
+          "key": "x_snc_demohub_app|sys_hub_action_type_definition|insert ips acl from zscaler",
+          "name": "Insert IPs ACL from Zscaler",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_demohub_app"
+        },
+        {
+          "key": "x_snc_demohub_app|sys_hub_action_type_definition|load plugin demo data",
+          "name": "Load Plugin Demo Data",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_demohub_app"
+        },
+        {
+          "key": "x_snc_demohub_app|sys_hub_action_type_definition|remove ip access control",
+          "name": "Remove IP Access Control",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_demohub_app"
+        },
+        {
+          "key": "x_snc_demohub_app|sys_hub_action_type_definition|set ip access control",
+          "name": "Set IP Access Control",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_demohub_app"
+        },
+        {
+          "key": "x_snc_demohub_app|sys_hub_action_type_definition|sleep random (min-max hours)",
+          "name": "sleep random (min-max hours)",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_demohub_app"
+        },
+        {
+          "key": "x_snc_demohub_app|sys_hub_action_type_definition|sync default content version",
+          "name": "Sync Default Content Version",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_demohub_app"
+        },
+        {
+          "key": "x_snc_demohub_app|sys_hub_flow|convert to interim and sync",
+          "name": "Convert To Interim and Sync",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_demohub_app"
+        },
+        {
+          "key": "x_snc_demohub_app|sys_hub_flow|daily dh instance last login",
+          "name": "daily DH Instance Last Login",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_demohub_app"
+        },
+        {
+          "key": "x_snc_demohub_app|sys_hub_flow|insert zscaler ips acl list",
+          "name": "Insert Zscaler IPs ACL list",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_demohub_app"
+        },
+        {
+          "key": "x_snc_demohub_app|sys_hub_flow|remove ip access control",
+          "name": "Remove IP Access Control",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_demohub_app"
+        },
+        {
+          "key": "x_snc_demohub_app|sys_hub_flow|set ip access control",
+          "name": "Set IP Access Control",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_demohub_app"
+        },
+        {
+          "key": "x_snc_demohub_app|sys_hub_flow|validate ip address acls",
+          "name": "Validate IP Address ACLs",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_demohub_app"
+        },
+        {
+          "key": "x_snc_demohub_da_0|sys_hub_action_type_definition|create or update table configuration",
+          "name": "Create or update table configuration",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_demohub_da_0"
+        },
+        {
+          "key": "x_snc_demohub_da_0|sys_hub_action_type_definition|dynamic action processor for skill input",
+          "name": "Dynamic Action processor for Skill input",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_demohub_da_0"
+        },
+        {
+          "key": "x_snc_demohub_da_0|sys_hub_action_type_definition|incident summarization preprocessor",
+          "name": "Incident Summarization preprocessor",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_demohub_da_0"
+        },
+        {
+          "key": "x_snc_demohub_da_0|sys_hub_action_type_definition|join skill output and randomized ouputs",
+          "name": "Join Skill output and Randomized ouputs",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_demohub_da_0"
+        },
+        {
+          "key": "x_snc_demohub_da_0|sys_hub_action_type_definition|prepare inputs for randomization and fixed fields",
+          "name": "Prepare Inputs for Randomization and fixed fields",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_demohub_da_0"
+        },
+        {
+          "key": "x_snc_demohub_da_0|sys_hub_action_type_definition|prepare inputs for skill",
+          "name": "Prepare Inputs for Skill",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_demohub_da_0"
+        },
+        {
+          "key": "x_snc_demohub_da_0|sys_hub_action_type_definition|prepare skill input",
+          "name": "Prepare skill input",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_demohub_da_0"
+        },
+        {
+          "key": "x_snc_demohub_da_0|sys_hub_action_type_definition|process generated data",
+          "name": "Process generated data",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_demohub_da_0"
+        },
+        {
+          "key": "x_snc_demohub_da_0|sys_hub_action_type_definition|process randomization fields",
+          "name": "Process Randomization fields",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_demohub_da_0"
+        },
+        {
+          "key": "x_snc_demohub_da_0|sys_hub_action_type_definition|process skill inputs",
+          "name": "Process skill inputs",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_demohub_da_0"
+        },
+        {
+          "key": "x_snc_demohub_da_0|sys_hub_action_type_definition|skill execution",
+          "name": "Skill Execution",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_demohub_da_0"
+        },
+        {
+          "key": "x_snc_demohub_da_0|sys_hub_action_type_definition|update oem limits",
+          "name": "Update OEM Limits",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_demohub_da_0"
+        },
+        {
+          "key": "x_snc_demohub_da_0|sys_hub_action_type_definition|update skill config default",
+          "name": "Update skill Config default",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_demohub_da_0"
+        },
+        {
+          "key": "x_snc_demohub_da_0|sys_hub_flow|data generation by skill kit",
+          "name": "Data generation by skill kit",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_demohub_da_0"
+        },
+        {
+          "key": "x_snc_demohub_da_0|sys_hub_flow|data generator preprocessor",
+          "name": "Data Generator preprocessor",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_demohub_da_0"
+        },
+        {
+          "key": "x_snc_demohub_da_0|sys_hub_flow|data generator preprocessor - v2",
+          "name": "Data Generator preprocessor - v2",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_demohub_da_0"
+        },
+        {
+          "key": "x_snc_demohub_da_0|sys_hub_flow|data generator subflow",
+          "name": "Data generator subflow",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_demohub_da_0"
+        },
+        {
+          "key": "x_snc_demohub_da_0|sys_hub_flow|process demo data execution",
+          "name": "Process Demo Data Execution",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_demohub_da_0"
+        },
+        {
+          "key": "x_snc_demohub_da_1|sys_hub_action_type_definition|check schema for fixes",
+          "name": "Check schema for fixes",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_demohub_da_1"
+        },
+        {
+          "key": "x_snc_demohub_da_1|sys_hub_action_type_definition|create data",
+          "name": "Create data ",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_demohub_da_1"
+        },
+        {
+          "key": "x_snc_demohub_da_1|sys_hub_action_type_definition|execute skill and generate data",
+          "name": "Execute skill and Generate data",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_demohub_da_1"
+        },
+        {
+          "key": "x_snc_demohub_da_1|sys_hub_action_type_definition|prepare reference config",
+          "name": "Prepare reference config",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_demohub_da_1"
+        },
+        {
+          "key": "x_snc_demohub_da_1|sys_hub_action_type_definition|process references",
+          "name": "Process references",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_demohub_da_1"
+        },
+        {
+          "key": "x_snc_demohub_da_1|sys_hub_action_type_definition|process schema",
+          "name": "Process schema",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_demohub_da_1"
+        },
+        {
+          "key": "x_snc_demohub_da_1|sys_hub_action_type_definition|process worknotes",
+          "name": "Process worknotes",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_demohub_da_1"
+        },
+        {
+          "key": "x_snc_demohub_da_1|sys_hub_action_type_definition|schema processor",
+          "name": "Schema processor",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_demohub_da_1"
+        },
+        {
+          "key": "x_snc_demohub_da_1|sys_hub_flow|data generator",
+          "name": "Data Generator",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_demohub_da_1"
+        },
+        {
+          "key": "x_snc_demohub_da_1|sys_hub_flow|trigger data generation",
+          "name": "Trigger data generation",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_demohub_da_1"
+        },
+        {
+          "key": "x_snc_demohub_isim|sys_hub_action_type_definition|simulate event",
+          "name": "Simulate Event",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_demohub_isim"
+        },
+        {
+          "key": "x_snc_demohub_isim|sys_hub_action_type_definition|simulate record creation",
+          "name": "Simulate Record Creation",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_demohub_isim"
+        },
+        {
+          "key": "x_snc_demohub_isim|sys_hub_action_type_definition|simulate record update",
+          "name": "Simulate Record update",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_demohub_isim"
+        },
+        {
+          "key": "x_snc_dh_app_brand|sys_hub_action_type_definition|dhbe - execute subflow",
+          "name": "DHBE - Execute Subflow",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_dh_app_brand"
+        },
+        {
+          "key": "x_snc_dh_app_brand|sys_hub_action_type_definition|dhbe - get colors & logo from palette",
+          "name": "DHBE - Get Colors & Logo From Palette",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_dh_app_brand"
+        },
+        {
+          "key": "x_snc_dh_app_brand|sys_hub_action_type_definition|dhbe - get new attachment logo",
+          "name": "DHBE - Get New Attachment Logo",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_dh_app_brand"
+        },
+        {
+          "key": "x_snc_dh_app_brand|sys_hub_action_type_definition|dhbe - look up for correct attachment record",
+          "name": "DHBE - Look Up for correct Attachment Record",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_dh_app_brand"
+        },
+        {
+          "key": "x_snc_dh_app_brand|sys_hub_action_type_definition|dhbe - parse record from configuration",
+          "name": "DHBE - Parse Record from Configuration",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_dh_app_brand"
+        },
+        {
+          "key": "x_snc_dh_app_brand|sys_hub_flow|branding editor main",
+          "name": "Branding Editor Main",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_dh_app_brand"
+        },
+        {
+          "key": "x_snc_dh_app_con|sys_hub_action_type_definition|execute loader",
+          "name": "Execute Loader",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_dh_app_con"
+        },
+        {
+          "key": "x_snc_dh_app_con|sys_hub_action_type_definition|return loaders ids ordered",
+          "name": "Return Loaders IDs ordered",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_dh_app_con"
+        },
+        {
+          "key": "x_snc_dh_app_con|sys_hub_flow|execute recipe",
+          "name": "Execute Recipe",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_dh_app_con"
+        },
+        {
+          "key": "x_snc_dh_app_con|sys_hub_flow|execute recipe subflow",
+          "name": "Execute Recipe Subflow",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_dh_app_con"
+        },
+        {
+          "key": "x_snc_dh_app_diag|sys_hub_action_type_definition|execute diagnostic step script",
+          "name": "Execute diagnostic step script",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_dh_app_diag"
+        },
+        {
+          "key": "x_snc_dh_app_diag|sys_hub_action_type_definition|execute remediation diagnostic step",
+          "name": "Execute Remediation diagnostic step",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_dh_app_diag"
+        },
+        {
+          "key": "x_snc_dh_app_diag|sys_hub_flow|execute diagnostic steps",
+          "name": "Execute diagnostic steps",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_dh_app_diag"
+        },
+        {
+          "key": "x_snc_dh_app_load|sys_hub_action_type_definition|execute load subflow",
+          "name": "Execute Load Subflow",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_dh_app_load"
+        },
+        {
+          "key": "x_snc_dh_app_load|sys_hub_action_type_definition|execute unload subflow",
+          "name": "Execute Unload Subflow",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_dh_app_load"
+        },
+        {
+          "key": "x_snc_dh_app_load|sys_hub_action_type_definition|get execution status",
+          "name": "Get Execution Status",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_dh_app_load"
+        },
+        {
+          "key": "x_snc_dh_app_load|sys_hub_action_type_definition|get load inputs",
+          "name": "Get Load Inputs",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_dh_app_load"
+        },
+        {
+          "key": "x_snc_dh_app_load|sys_hub_action_type_definition|get loader",
+          "name": "Get Loader",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_dh_app_load"
+        },
+        {
+          "key": "x_snc_dh_app_load|sys_hub_action_type_definition|get unload inputs",
+          "name": "Get Unload Inputs",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_dh_app_load"
+        },
+        {
+          "key": "x_snc_dh_app_load|sys_hub_action_type_definition|update load input",
+          "name": "Update Load Input",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_dh_app_load"
+        },
+        {
+          "key": "x_snc_dh_app_load|sys_hub_action_type_definition|update unload input",
+          "name": "Update Unload Input",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_dh_app_load"
+        },
+        {
+          "key": "x_snc_dh_app_load|sys_hub_flow|execute load experience main",
+          "name": "Execute Load Experience Main",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_dh_app_load"
+        },
+        {
+          "key": "x_snc_dh_app_load|sys_hub_flow|load experience main",
+          "name": "Load Experience Main",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_dh_app_load"
+        },
+        {
+          "key": "x_snc_dh_app_setup|sys_hub_action_type_definition|execute subflow",
+          "name": "Execute Subflow",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_dh_app_setup"
+        },
+        {
+          "key": "x_snc_dh_app_setup|sys_hub_action_type_definition|look up flow context",
+          "name": "Look Up Flow Context",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_dh_app_setup"
+        },
+        {
+          "key": "x_snc_dh_app_setup|sys_hub_flow|scenario experience main",
+          "name": "Scenario Experience Main",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_dh_app_setup"
+        },
+        {
+          "key": "x_snc_dh_custom_re|sys_hub_action_type_definition|custom registry update request",
+          "name": "Custom Registry Update Request",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_dh_custom_re"
+        },
+        {
+          "key": "x_snc_dh_custom_re|sys_hub_flow|customization registry update request",
+          "name": "Customization Registry Update Request",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_dh_custom_re"
+        },
+        {
+          "key": "x_snc_dh_custom_re|sys_hub_flow|customization registry update request - flow",
+          "name": "Customization Registry Update Request - Flow",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_dh_custom_re"
+        },
+        {
+          "key": "x_snc_dh_employe_0|sys_hub_flow|docintel extract values flow - employee i9 extraction - extract i9 form",
+          "name": "DocIntel Extract Values Flow - Employee I9 Extraction - Extract I9 Form",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_dh_employe_0"
+        },
+        {
+          "key": "x_snc_dh_employe_0|sys_hub_flow|docintel extract values flow - employee verification extraction - extract values",
+          "name": "DocIntel Extract Values Flow - Employee Verification Extraction - Extract Values",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_dh_employe_0"
+        },
+        {
+          "key": "x_snc_dh_employe_0|sys_hub_flow|docintel task processing flow - employee i9 extraction - i9 - processing task",
+          "name": "DocIntel Task Processing Flow - Employee I9 Extraction - I9 - Processing Task",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_dh_employe_0"
+        },
+        {
+          "key": "x_snc_dh_employe_0|sys_hub_flow|docintel task processing flow - employee verification extraction - passport process task",
+          "name": "DocIntel Task Processing Flow - Employee Verification Extraction - Passport Process Task",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_dh_employe_0"
+        },
+        {
+          "key": "x_snc_dh_employe_0|sys_hub_flow|employee verification loader_load",
+          "name": "Employee Verification Loader_load",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_dh_employe_0"
+        },
+        {
+          "key": "x_snc_dh_employe_0|sys_hub_flow|employee verification loader_unload",
+          "name": "Employee Verification Loader_unload",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_dh_employe_0"
+        },
+        {
+          "key": "x_snc_dh_employe_0|sys_hub_flow|fetch employee verification request details",
+          "name": "Fetch Employee Verification Request Details",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_dh_employe_0"
+        },
+        {
+          "key": "x_snc_dh_employe_0|sys_hub_flow|update status of verification request",
+          "name": "Update status of verification request",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_dh_employe_0"
+        },
+        {
+          "key": "x_snc_dh_employe_0|sys_hub_flow|update verification worknotes",
+          "name": "Update verification worknotes",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_dh_employe_0"
+        },
+        {
+          "key": "x_snc_dh_employe_0|sys_hub_flow|validate document details",
+          "name": "Validate document details",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_dh_employe_0"
+        },
+        {
+          "key": "x_snc_dh_employe_0|sys_hub_flow|validate employee details",
+          "name": "Validate Employee Details",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_dh_employe_0"
+        },
+        {
+          "key": "x_snc_dh_employe_0|sys_hub_flow|verification request - use case: employee verification i9 - d1770eb82f87ba5065d5ba2bcfa4e32a",
+          "name": "Verification Request - Use case: Employee Verification I9 - d1770eb82f87ba5065d5ba2bcfa4e32a",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_dh_employe_0"
+        },
+        {
+          "key": "x_snc_dh_expense|sys_hub_flow|offboard inactive users",
+          "name": "Offboard Inactive Users",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_dh_expense"
+        },
+        {
+          "key": "x_snc_dh_stg|sys_hub_action_type_definition|apply storytelling mode pa l1 scores",
+          "name": "Apply Storytelling Mode PA L1 Scores",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_dh_stg"
+        },
+        {
+          "key": "x_snc_dh_stg|sys_hub_action_type_definition|create pa l1 scores cache chunks demohub storytelling",
+          "name": "Create PA L1 Scores Cache Chunks DemoHub Storytelling",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_dh_stg"
+        },
+        {
+          "key": "x_snc_dh_stg|sys_hub_action_type_definition|delete multiple records - demohub storytelling",
+          "name": "Delete Multiple Records - DemoHub Storytelling",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_dh_stg"
+        },
+        {
+          "key": "x_snc_dh_stg|sys_hub_action_type_definition|get dh pa generator",
+          "name": "Get DH PA Generator",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_dh_stg"
+        },
+        {
+          "key": "x_snc_dh_stg|sys_hub_action_type_definition|get pa l1 scores demohub storytelling",
+          "name": "Get PA L1 Scores DemoHub Storytelling",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_dh_stg"
+        },
+        {
+          "key": "x_snc_dh_stg|sys_hub_action_type_definition|get storytelling configuration generator configuration",
+          "name": "Get Storytelling Configuration Generator Configuration",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_dh_stg"
+        },
+        {
+          "key": "x_snc_dh_stg|sys_hub_action_type_definition|scale storytelling scores",
+          "name": "Scale Storytelling Scores",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_dh_stg"
+        },
+        {
+          "key": "x_snc_dh_stg|sys_hub_action_type_definition|storytelling frame loader",
+          "name": "Storytelling Frame Loader",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_dh_stg"
+        },
+        {
+          "key": "x_snc_dh_stg|sys_hub_action_type_definition|storytelling library",
+          "name": "Storytelling Library",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_dh_stg"
+        },
+        {
+          "key": "x_snc_dh_stg|sys_hub_action_type_definition|storytelling par dashboard date shift indicators",
+          "name": "Storytelling PAR Dashboard Date Shift Indicators",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_dh_stg"
+        },
+        {
+          "key": "x_snc_dh_stg|sys_hub_action_type_definition|tune storytelling pa generator settings",
+          "name": "Tune Storytelling PA Generator Settings",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_dh_stg"
+        },
+        {
+          "key": "x_snc_dh_stg|sys_hub_flow|apply storytelling pa mode",
+          "name": "Apply Storytelling PA Mode",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_dh_stg"
+        },
+        {
+          "key": "x_snc_dh_stg|sys_hub_flow|copy pa l1 scores - demohub storytelling",
+          "name": "Copy PA L1 Scores - DemoHub Storytelling",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_dh_stg"
+        },
+        {
+          "key": "x_snc_dh_stg|sys_hub_flow|copy pa l1 scores from mode - demohub storytelling",
+          "name": "Copy PA L1 Scores from Mode - DemoHub Storytelling",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_dh_stg"
+        },
+        {
+          "key": "x_snc_dh_stg|sys_hub_flow|create storytelling pa generators",
+          "name": "Create Storytelling PA Generators",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_dh_stg"
+        },
+        {
+          "key": "x_snc_dh_stg|sys_hub_flow|create storytelling pa generators custom ui",
+          "name": "Create Storytelling PA Generators Custom UI",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_dh_stg"
+        },
+        {
+          "key": "x_snc_dh_stg|sys_hub_flow|create storytelling pa generators delta",
+          "name": "Create Storytelling PA Generators Delta",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_dh_stg"
+        },
+        {
+          "key": "x_snc_dh_stg|sys_hub_flow|refresh dashboard - configuration",
+          "name": "Refresh Dashboard - Configuration",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_dh_stg"
+        },
+        {
+          "key": "x_snc_dh_stg|sys_hub_flow|refresh dashboard - mode",
+          "name": "Refresh Dashboard - Mode",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_dh_stg"
+        },
+        {
+          "key": "x_snc_dh_stg|sys_hub_flow|run storytelling configurations for current mode",
+          "name": "Run Storytelling Configurations for current Mode",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_dh_stg"
+        },
+        {
+          "key": "x_snc_dh_stg|sys_hub_flow|storytelling dashboards catalog",
+          "name": "Storytelling Dashboards Catalog",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_dh_stg"
+        },
+        {
+          "key": "x_snc_dh_stg|sys_hub_flow|storytelling execute all",
+          "name": "Storytelling Execute All",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_dh_stg"
+        },
+        {
+          "key": "x_snc_dh_stg|sys_hub_flow|storytelling frame creation flow",
+          "name": "Storytelling Frame Creation Flow",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_dh_stg"
+        },
+        {
+          "key": "x_snc_dh_stg|sys_hub_flow|storytelling mode creation flow",
+          "name": "Storytelling Mode Creation Flow",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_dh_stg"
+        },
+        {
+          "key": "x_snc_dh_stg|sys_hub_flow|storytelling mode creation flow custom ui",
+          "name": "Storytelling Mode Creation Flow Custom UI",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_dh_stg"
+        },
+        {
+          "key": "x_snc_dh_stg|sys_hub_flow|storytelling pa generator jobs utility",
+          "name": "Storytelling PA Generator Jobs Utility",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_dh_stg"
+        },
+        {
+          "key": "x_snc_dh_stg|sys_hub_flow|storytelling pa generator tune catalog flow",
+          "name": "Storytelling PA Generator Tune Catalog Flow",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_dh_stg"
+        },
+        {
+          "key": "x_snc_dh_stg|sys_hub_flow|storytelling processor",
+          "name": "Storytelling Processor",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_dh_stg"
+        },
+        {
+          "key": "x_snc_dh_stg|sys_hub_flow|tune scale storytelling scores",
+          "name": "Tune Scale Storytelling Scores",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_dh_stg"
+        },
+        {
+          "key": "x_snc_dh_stg|sys_hub_flow|tune storytelling pa generator configurations",
+          "name": "Tune Storytelling PA Generator Configurations",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_dh_stg"
+        },
+        {
+          "key": "x_snc_dh_stg|sys_hub_flow|tune storytelling pa generator configurations - mode",
+          "name": "Tune Storytelling PA Generator Configurations - Mode",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_dh_stg"
+        },
+        {
+          "key": "x_snc_dh_telemetry|sys_hub_action_type_definition|create activity json",
+          "name": "Create Activity JSON ",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_dh_telemetry"
+        },
+        {
+          "key": "x_snc_dh_telemetry|sys_hub_action_type_definition|create dh chat json",
+          "name": "Create DH Chat JSON",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_dh_telemetry"
+        },
+        {
+          "key": "x_snc_dh_telemetry|sys_hub_action_type_definition|create dh lastlogin json",
+          "name": "Create DH LastLogin JSON",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_dh_telemetry"
+        },
+        {
+          "key": "x_snc_dh_telemetry|sys_hub_action_type_definition|create json",
+          "name": "Create JSON",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_dh_telemetry"
+        },
+        {
+          "key": "x_snc_dh_telemetry|sys_hub_action_type_definition|create json execution",
+          "name": "create JSON execution",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_dh_telemetry"
+        },
+        {
+          "key": "x_snc_dh_telemetry|sys_hub_action_type_definition|create jsons",
+          "name": "Create JSONs",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_dh_telemetry"
+        },
+        {
+          "key": "x_snc_dh_telemetry|sys_hub_action_type_definition|generate random number",
+          "name": "Generate Random Number",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_dh_telemetry"
+        },
+        {
+          "key": "x_snc_dh_telemetry|sys_hub_action_type_definition|get max json size",
+          "name": "Get Max JSON Size",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_dh_telemetry"
+        },
+        {
+          "key": "x_snc_dh_telemetry|sys_hub_action_type_definition|left outer join activity and tables",
+          "name": "Left outer join activity and tables",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_dh_telemetry"
+        },
+        {
+          "key": "x_snc_dh_telemetry|sys_hub_action_type_definition|loader lookup",
+          "name": "Loader lookup",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_dh_telemetry"
+        },
+        {
+          "key": "x_snc_dh_telemetry|sys_hub_action_type_definition|post dh lastlogin time",
+          "name": "POST DH LastLogin Time",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_dh_telemetry"
+        },
+        {
+          "key": "x_snc_dh_telemetry|sys_hub_action_type_definition|post generic json to demohubreceiver",
+          "name": "POST generic JSON to demohubreceiver",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_dh_telemetry"
+        },
+        {
+          "key": "x_snc_dh_telemetry|sys_hub_action_type_definition|post json to demohubreceiver",
+          "name": "POST JSON to demohubreceiver",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_dh_telemetry"
+        },
+        {
+          "key": "x_snc_dh_telemetry|sys_hub_action_type_definition|post narrative ratings to demohub telemetry",
+          "name": "POST Narrative Ratings to DemoHub Telemetry",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_dh_telemetry"
+        },
+        {
+          "key": "x_snc_dh_telemetry|sys_hub_action_type_definition|post va chat json to demohubreceiver",
+          "name": "POST VA chat JSON to demohubreceiver",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_dh_telemetry"
+        },
+        {
+          "key": "x_snc_dh_telemetry|sys_hub_action_type_definition|scenarios lookup",
+          "name": "Scenarios lookup",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_dh_telemetry"
+        },
+        {
+          "key": "x_snc_dh_telemetry|sys_hub_action_type_definition|send demohub tools telemetry data",
+          "name": "Send DemoHub Tools Telemetry data",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_dh_telemetry"
+        },
+        {
+          "key": "x_snc_dh_telemetry|sys_hub_action_type_definition|test cano",
+          "name": "test cano ",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_dh_telemetry"
+        },
+        {
+          "key": "x_snc_dh_telemetry|sys_hub_action_type_definition|validate json size",
+          "name": "Validate JSON Size",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_dh_telemetry"
+        },
+        {
+          "key": "x_snc_dh_telemetry|sys_hub_flow|activity telemetry flow v2",
+          "name": "Activity Telemetry Flow v2",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_dh_telemetry"
+        },
+        {
+          "key": "x_snc_dh_telemetry|sys_hub_flow|create activity record",
+          "name": "Create Activity Record",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_dh_telemetry"
+        },
+        {
+          "key": "x_snc_dh_telemetry|sys_hub_flow|dh generic telemetry data",
+          "name": "DH Generic Telemetry Data",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_dh_telemetry"
+        },
+        {
+          "key": "x_snc_dh_telemetry|sys_hub_flow|dh help va telemetry",
+          "name": "DH Help VA Telemetry",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_dh_telemetry"
+        },
+        {
+          "key": "x_snc_dh_telemetry|sys_hub_flow|dh instance last login",
+          "name": "DH Instance Last Login",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_dh_telemetry"
+        },
+        {
+          "key": "x_snc_dh_telemetry|sys_hub_flow|send dh tools telemetry",
+          "name": "Send DH Tools Telemetry ",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_dh_telemetry"
+        },
+        {
+          "key": "x_snc_dh_telemetry|sys_hub_flow|submit narrative ratings to demohub telemetry",
+          "name": "Submit Narrative ratings to DemoHub Telemetry",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_dh_telemetry"
+        },
+        {
+          "key": "x_snc_diag|sys_hub_action_type_definition|cancel flow execution context",
+          "name": "Cancel Flow Execution Context",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_diag"
+        },
+        {
+          "key": "x_snc_diag|sys_hub_action_type_definition|getcurrenttime",
+          "name": "GetCurrentTime",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_diag"
+        },
+        {
+          "key": "x_snc_diag|sys_hub_action_type_definition|parse subflow timeout",
+          "name": "Parse Subflow Timeout",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_diag"
+        },
+        {
+          "key": "x_snc_diag|sys_hub_action_type_definition|rest call telemetry api diagnostic tool",
+          "name": "Rest Call Telemetry API Diagnostic Tool",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_diag"
+        },
+        {
+          "key": "x_snc_diag|sys_hub_action_type_definition|retrieve subflow output",
+          "name": "Retrieve Subflow Output",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_diag"
+        },
+        {
+          "key": "x_snc_diag|sys_hub_action_type_definition|run script",
+          "name": "Run Script",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_diag"
+        },
+        {
+          "key": "x_snc_diag|sys_hub_action_type_definition|run subflow in async mode",
+          "name": "Run Subflow in Async Mode",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_diag"
+        },
+        {
+          "key": "x_snc_diag|sys_hub_action_type_definition|set estimated execution duration",
+          "name": "Set Estimated Execution Duration",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_diag"
+        },
+        {
+          "key": "x_snc_diag|sys_hub_action_type_definition|track subflow execution progress",
+          "name": "Track Subflow Execution Progress",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_diag"
+        },
+        {
+          "key": "x_snc_diag|sys_hub_action_type_definition|updatestepduration",
+          "name": "UpdateStepDuration",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_diag"
+        },
+        {
+          "key": "x_snc_diag|sys_hub_flow|async subflow processor",
+          "name": "Async Subflow Processor",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_diag"
+        },
+        {
+          "key": "x_snc_diag|sys_hub_flow|construct payload for telemetry for diagnostic tool",
+          "name": "Construct Payload for Telemetry For Diagnostic Tool",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_diag"
+        },
+        {
+          "key": "x_snc_diag|sys_hub_flow|create diagnostics execution steps",
+          "name": "Create Diagnostics Execution Steps",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_diag"
+        },
+        {
+          "key": "x_snc_diag|sys_hub_flow|diagnostic telemetry capture",
+          "name": "Diagnostic Telemetry Capture",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_diag"
+        },
+        {
+          "key": "x_snc_diag|sys_hub_flow|diagnostics definition processor",
+          "name": "Diagnostics Definition Processor",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_diag"
+        },
+        {
+          "key": "x_snc_diag|sys_hub_flow|process diagnostic steps (diagnostics)",
+          "name": "Process Diagnostic Steps (Diagnostics)",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_diag"
+        },
+        {
+          "key": "x_snc_diag|sys_hub_flow|process diagnostic steps (remediation)",
+          "name": "Process Diagnostic Steps (Remediation)",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_diag"
+        },
+        {
+          "key": "x_snc_diag|sys_hub_flow|re-validate diagnostics",
+          "name": "Re-Validate Diagnostics",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_diag"
+        },
+        {
+          "key": "x_snc_employee_cen|sys_hub_flow|kiosk - loader_load",
+          "name": "Kiosk - Loader_load",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_employee_cen"
+        },
+        {
+          "key": "x_snc_employee_cen|sys_hub_flow|kiosk - loader_unload",
+          "name": "Kiosk - Loader_unload",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_employee_cen"
+        },
+        {
+          "key": "x_snc_enable_now_0|sys_hub_action_type_definition|crm dh dac - manage nowassist features from request",
+          "name": "CRM DH DAC - Manage NowAssist Features From Request",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_enable_now_0"
+        },
+        {
+          "key": "x_snc_enable_now_0|sys_hub_flow|crm dh dac - enable nowassist configs",
+          "name": "CRM DH DAC - Enable NowAssist Configs",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_enable_now_0"
+        },
+        {
+          "key": "x_snc_erp_caw|sys_hub_action_type_definition|clean my work hub demo data",
+          "name": "Clean My Work Hub Demo Data",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_erp_caw"
+        },
+        {
+          "key": "x_snc_erp_caw|sys_hub_action_type_definition|demo data generator",
+          "name": "Demo Data Generator",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_erp_caw"
+        },
+        {
+          "key": "x_snc_erp_caw|sys_hub_action_type_definition|import xml new",
+          "name": "Import XML New",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_erp_caw"
+        },
+        {
+          "key": "x_snc_erp_caw|sys_hub_action_type_definition|update stage common architecture",
+          "name": "Update Stage Common Architecture",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_erp_caw"
+        },
+        {
+          "key": "x_snc_erp_caw|sys_hub_action_type_definition|update vm after approval",
+          "name": "Update VM after Approval",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_erp_caw"
+        },
+        {
+          "key": "x_snc_erp_caw|sys_hub_flow|approval for changes (staging)",
+          "name": "Approval for Changes (Staging)",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_erp_caw"
+        },
+        {
+          "key": "x_snc_erp_caw|sys_hub_flow|create bom request",
+          "name": "Create BOM Request",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_erp_caw"
+        },
+        {
+          "key": "x_snc_erp_caw|sys_hub_flow|generate staging approvals for other requests",
+          "name": "Generate staging approvals for other requests",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_erp_caw"
+        },
+        {
+          "key": "x_snc_erp_caw|sys_hub_flow|journal entry posting",
+          "name": "Journal entry posting",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_erp_caw"
+        },
+        {
+          "key": "x_snc_erp_caw|sys_hub_flow|mmr create",
+          "name": "MMR Create",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_erp_caw"
+        },
+        {
+          "key": "x_snc_erp_caw|sys_hub_flow|mwh loader",
+          "name": "MWH Loader",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_erp_caw"
+        },
+        {
+          "key": "x_snc_erp_caw|sys_hub_flow|mwh unload",
+          "name": "MWH Unload",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_erp_caw"
+        },
+        {
+          "key": "x_snc_erp_caw|sys_hub_flow|my work hub loader",
+          "name": "My Work Hub Loader",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_erp_caw"
+        },
+        {
+          "key": "x_snc_erp_caw|sys_hub_flow|my work hub unload",
+          "name": "My Work Hub Unload",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_erp_caw"
+        },
+        {
+          "key": "x_snc_erp_caw|sys_hub_flow|populate quick links",
+          "name": "Populate quick links",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_erp_caw"
+        },
+        {
+          "key": "x_snc_erp_caw|sys_hub_flow|production orders",
+          "name": "Production Orders",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_erp_caw"
+        },
+        {
+          "key": "x_snc_erp_caw|sys_hub_flow|subflow: review field updates for vendor records",
+          "name": "Subflow: Review field updates for vendor records",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_erp_caw"
+        },
+        {
+          "key": "x_snc_erp_caw|sys_hub_flow|submit supplier quotation",
+          "name": "Submit supplier quotation",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_erp_caw"
+        },
+        {
+          "key": "x_snc_erp_caw|sys_hub_flow|update short description & opened by",
+          "name": "Update short description & opened by",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_erp_caw"
+        },
+        {
+          "key": "x_snc_erpinvento_0|sys_hub_flow|app engine_business approval",
+          "name": "App Engine_Business approval",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_erpinvento_0"
+        },
+        {
+          "key": "x_snc_erpinvento_0|sys_hub_flow|app engine_central approval",
+          "name": "App Engine_Central approval",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_erpinvento_0"
+        },
+        {
+          "key": "x_snc_erpinvento_0|sys_hub_flow|app engine_create transfer request in sap",
+          "name": "App Engine_Create Transfer Request in SAP",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_erpinvento_0"
+        },
+        {
+          "key": "x_snc_erpinvento_0|sys_hub_flow|app engine_industry approval",
+          "name": "App Engine_Industry approval",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_erpinvento_0"
+        },
+        {
+          "key": "x_snc_erpinvento_0|sys_hub_flow|material transfer approval action",
+          "name": "Material Transfer Approval Action",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_erpinvento_0"
+        },
+        {
+          "key": "x_snc_erpinvento_0|sys_hub_flow|material transfer request",
+          "name": "Material Transfer Request",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_erpinvento_0"
+        },
+        {
+          "key": "x_snc_erpinvento_0|sys_hub_flow|material transfer request - use case: app engine inventory movements business - 948d51313b0c32101d2e6124c3e45ad7",
+          "name": "Material Transfer Request - Use case: App Engine Inventory Movements Business - 948d51313b0c32101d2e6124c3e45ad7",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_erpinvento_0"
+        },
+        {
+          "key": "x_snc_erpinvento_0|sys_hub_flow|material transfer request - use case: app engine inventory movements industry - 323db87997c832104a03bd90f053af45",
+          "name": "Material Transfer Request - Use case: App Engine Inventory Movements Industry - 323db87997c832104a03bd90f053af45",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_erpinvento_0"
+        },
+        {
+          "key": "x_snc_erpinvento_0|sys_hub_flow|material transfer request - use case: app engine inventory movements promotional - 5e3f687d3b4832101d2e6124c3e45a55",
+          "name": "Material Transfer Request - Use case: App Engine Inventory Movements Promotional - 5e3f687d3b4832101d2e6124c3e45a55",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_erpinvento_0"
+        },
+        {
+          "key": "x_snc_interpol_red|sys_hub_action_type_definition|get red notice details",
+          "name": "Get Red Notice Details",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_interpol_red"
+        },
+        {
+          "key": "x_snc_interpol_red|sys_hub_action_type_definition|get red notice images",
+          "name": "Get Red Notice Images",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_interpol_red"
+        },
+        {
+          "key": "x_snc_interpol_red|sys_hub_action_type_definition|get red notices",
+          "name": "Get Red Notices",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_interpol_red"
+        },
+        {
+          "key": "x_snc_interpol_red|sys_hub_action_type_definition|get un notice details",
+          "name": "Get UN Notice Details",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_interpol_red"
+        },
+        {
+          "key": "x_snc_interpol_red|sys_hub_action_type_definition|get un notice images",
+          "name": "Get UN Notice Images",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_interpol_red"
+        },
+        {
+          "key": "x_snc_interpol_red|sys_hub_action_type_definition|get un notices",
+          "name": "Get UN Notices",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_interpol_red"
+        },
+        {
+          "key": "x_snc_interpol_red|sys_hub_action_type_definition|get yellow notice details",
+          "name": "Get Yellow Notice Details",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_interpol_red"
+        },
+        {
+          "key": "x_snc_interpol_red|sys_hub_action_type_definition|get yellow notice images",
+          "name": "Get Yellow Notice Images",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_interpol_red"
+        },
+        {
+          "key": "x_snc_interpol_red|sys_hub_action_type_definition|get yellow notices",
+          "name": "Get Yellow Notices",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_interpol_red"
+        },
+        {
+          "key": "x_snc_interpol|sys_hub_action_type_definition|get red notice details",
+          "name": "Get Red Notice Details",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_interpol"
+        },
+        {
+          "key": "x_snc_interpol|sys_hub_action_type_definition|get red notice images",
+          "name": "Get Red Notice Images",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_interpol"
+        },
+        {
+          "key": "x_snc_interpol|sys_hub_action_type_definition|get red notices",
+          "name": "Get Red Notices",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_interpol"
+        },
+        {
+          "key": "x_snc_interpol|sys_hub_action_type_definition|get un notice details",
+          "name": "Get UN Notice Details",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_interpol"
+        },
+        {
+          "key": "x_snc_interpol|sys_hub_action_type_definition|get un notice images",
+          "name": "Get UN Notice Images",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_interpol"
+        },
+        {
+          "key": "x_snc_interpol|sys_hub_action_type_definition|get un notices",
+          "name": "Get UN Notices",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_interpol"
+        },
+        {
+          "key": "x_snc_interpol|sys_hub_action_type_definition|get yellow notice details",
+          "name": "Get Yellow Notice Details",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_interpol"
+        },
+        {
+          "key": "x_snc_interpol|sys_hub_action_type_definition|get yellow notice images",
+          "name": "Get Yellow Notice Images",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_interpol"
+        },
+        {
+          "key": "x_snc_interpol|sys_hub_action_type_definition|get yellow notices",
+          "name": "Get Yellow Notices",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_interpol"
+        },
+        {
+          "key": "x_snc_je_posting|sys_hub_flow|journal entries posting to the erp system",
+          "name": "Journal entries posting to the ERP system",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_je_posting"
+        },
+        {
+          "key": "x_snc_je_posting|sys_hub_flow|journal entries trigger approval",
+          "name": "Journal entries trigger approval",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_je_posting"
+        },
+        {
+          "key": "x_snc_je_posting|sys_hub_flow|journal entries validation",
+          "name": "Journal entries validation",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_je_posting"
+        },
+        {
+          "key": "x_snc_je_posting|sys_hub_flow|journal entry task creation monthly",
+          "name": "Journal entry task creation monthly",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_je_posting"
+        },
+        {
+          "key": "x_snc_je_posting|sys_hub_flow|journal entry validation ai agent",
+          "name": "Journal Entry Validation AI Agent",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_je_posting"
+        },
+        {
+          "key": "x_snc_je_posting|sys_hub_flow|journal excel upload",
+          "name": "Journal excel upload",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_je_posting"
+        },
+        {
+          "key": "x_snc_je_posting|sys_hub_flow|journal lines correction",
+          "name": "Journal Lines Correction",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_je_posting"
+        },
+        {
+          "key": "x_snc_je_posting|sys_hub_flow|journal task - journal entries validation & posting - 2b378efd8705ee14124087b70cbb35cd",
+          "name": "Journal task - Journal Entries Validation & Posting - 2b378efd8705ee14124087b70cbb35cd",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_je_posting"
+        },
+        {
+          "key": "x_snc_je_posting|sys_hub_flow|journal task approval ai agent",
+          "name": "Journal Task Approval AI Agent",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_je_posting"
+        },
+        {
+          "key": "x_snc_je_posting|sys_hub_flow|post journal entries to erp system ai agent",
+          "name": "Post Journal Entries to ERP System AI Agent",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_je_posting"
+        },
+        {
+          "key": "x_snc_k25_3387_r_0|sys_hub_flow|k25 3387 remediate",
+          "name": "K25 3387 Remediate",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_k25_3387_r_0"
+        },
+        {
+          "key": "x_snc_lead_notes_0|sys_hub_action_type_definition|cancel executing flows",
+          "name": "Cancel Executing Flows",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_lead_notes_0"
+        },
+        {
+          "key": "x_snc_lead_notes_0|sys_hub_action_type_definition|trigger reminder event",
+          "name": "Trigger Reminder Event",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_lead_notes_0"
+        },
+        {
+          "key": "x_snc_lead_notes_0|sys_hub_flow|notify contact reminder",
+          "name": "Notify Contact Reminder",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_lead_notes_0"
+        },
+        {
+          "key": "x_snc_leasing_po_0|sys_hub_action_type_definition|lease portal - delete demo records",
+          "name": "Lease Portal - Delete Demo Records",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_leasing_po_0"
+        },
+        {
+          "key": "x_snc_leasing_po_0|sys_hub_action_type_definition|verify company identification number",
+          "name": "Verify Company Identification Number",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_leasing_po_0"
+        },
+        {
+          "key": "x_snc_leasing_po_0|sys_hub_action_type_definition|verify ssn",
+          "name": "Verify SSN",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_leasing_po_0"
+        },
+        {
+          "key": "x_snc_leasing_po_0|sys_hub_flow|auto approve properties requested from usa (for demo)",
+          "name": "Auto approve properties requested from USA (for demo)",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_leasing_po_0"
+        },
+        {
+          "key": "x_snc_leasing_po_0|sys_hub_flow|convert application to lease",
+          "name": "Convert application to lease",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_leasing_po_0"
+        },
+        {
+          "key": "x_snc_leasing_po_0|sys_hub_flow|docintel extract values flow - lease request - extract contact details",
+          "name": "DocIntel Extract Values Flow - Lease Request - Extract Contact Details",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_leasing_po_0"
+        },
+        {
+          "key": "x_snc_leasing_po_0|sys_hub_flow|docintel extract values flow - property and lease management - extract values",
+          "name": "DocIntel Extract Values Flow - Property and Lease Management - Extract Values",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_leasing_po_0"
+        },
+        {
+          "key": "x_snc_leasing_po_0|sys_hub_flow|docintel extract values flow - rental agreement - extract rental agreement values",
+          "name": "DocIntel Extract Values Flow - Rental Agreement - Extract Rental Agreement Values",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_leasing_po_0"
+        },
+        {
+          "key": "x_snc_leasing_po_0|sys_hub_flow|docintel extract values flow - rental contact - rental contact",
+          "name": "DocIntel Extract Values Flow - Rental Contact - Rental Contact",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_leasing_po_0"
+        },
+        {
+          "key": "x_snc_leasing_po_0|sys_hub_flow|docintel task processing flow - lease request - processes rental agreement",
+          "name": "DocIntel Task Processing Flow - Lease Request - Processes Rental Agreement",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_leasing_po_0"
+        },
+        {
+          "key": "x_snc_leasing_po_0|sys_hub_flow|docintel task processing flow - property and lease management - create task for property details",
+          "name": "DocIntel Task Processing Flow - Property and Lease Management - Create task for property details",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_leasing_po_0"
+        },
+        {
+          "key": "x_snc_leasing_po_0|sys_hub_flow|docintel task processing flow - rental agreement - process rental agreement",
+          "name": "DocIntel Task Processing Flow - Rental Agreement - Process Rental Agreement",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_leasing_po_0"
+        },
+        {
+          "key": "x_snc_leasing_po_0|sys_hub_flow|docusign send lease agreement for e-signature",
+          "name": "DocuSign send lease agreement for e-signature",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_leasing_po_0"
+        },
+        {
+          "key": "x_snc_leasing_po_0|sys_hub_flow|lease agreement attached",
+          "name": "Lease agreement attached",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_leasing_po_0"
+        },
+        {
+          "key": "x_snc_leasing_po_0|sys_hub_flow|update lease request and contact details",
+          "name": "Update lease request and contact details",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_leasing_po_0"
+        },
+        {
+          "key": "x_snc_leasing_po_0|sys_hub_flow|validate tenant details",
+          "name": "Validate Tenant details",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_leasing_po_0"
+        },
+        {
+          "key": "x_snc_load_pa_dash|sys_hub_flow|load pa dashboard main",
+          "name": "Load PA dashboard Main",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_load_pa_dash"
+        },
+        {
+          "key": "x_snc_loyalty_re_0|sys_hub_action_type_definition|delete the last run rewards data",
+          "name": "Delete the last run Rewards Data",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_loyalty_re_0"
+        },
+        {
+          "key": "x_snc_loyalty_re_0|sys_hub_action_type_definition|get rewards program anomalies",
+          "name": "Get Rewards Program Anomalies",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_loyalty_re_0"
+        },
+        {
+          "key": "x_snc_loyalty_re_0|sys_hub_action_type_definition|get rewards program summary",
+          "name": "Get Rewards Program Summary",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_loyalty_re_0"
+        },
+        {
+          "key": "x_snc_loyalty_re_0|sys_hub_action_type_definition|loyalty feedback report",
+          "name": "Loyalty Feedback Report",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_loyalty_re_0"
+        },
+        {
+          "key": "x_snc_loyalty_re_0|sys_hub_action_type_definition|loyalty rewards: earning actions",
+          "name": "Loyalty Rewards: Earning Actions",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_loyalty_re_0"
+        },
+        {
+          "key": "x_snc_loyalty_re_0|sys_hub_action_type_definition|loyalty rewards: fetch redeemable rewards",
+          "name": "Loyalty Rewards: Fetch Redeemable Rewards",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_loyalty_re_0"
+        },
+        {
+          "key": "x_snc_loyalty_re_0|sys_hub_action_type_definition|loyalty rewards: get points balance",
+          "name": "Loyalty Rewards: Get Points Balance",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_loyalty_re_0"
+        },
+        {
+          "key": "x_snc_loyalty_re_0|sys_hub_action_type_definition|rewards: create crm tasks",
+          "name": "Rewards: Create CRM Tasks",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_loyalty_re_0"
+        },
+        {
+          "key": "x_snc_loyalty_re_0|sys_hub_action_type_definition|rewards: create vendor case",
+          "name": "Rewards: Create Vendor Case",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_loyalty_re_0"
+        },
+        {
+          "key": "x_snc_loyalty_re_0|sys_hub_action_type_definition|rewards: launch campaign",
+          "name": "Rewards: Launch Campaign",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_loyalty_re_0"
+        },
+        {
+          "key": "x_snc_loyalty_re_0|sys_hub_action_type_definition|update cases",
+          "name": "Update Cases",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_loyalty_re_0"
+        },
+        {
+          "key": "x_snc_loyalty_re_0|sys_hub_action_type_definition|update feedback",
+          "name": "Update Feedback",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_loyalty_re_0"
+        },
+        {
+          "key": "x_snc_loyalty_re_0|sys_hub_action_type_definition|update points balance",
+          "name": "Update Points Balance",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_loyalty_re_0"
+        },
+        {
+          "key": "x_snc_loyalty_re_0|sys_hub_action_type_definition|update redemption rate",
+          "name": "Update Redemption Rate",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_loyalty_re_0"
+        },
+        {
+          "key": "x_snc_loyalty_re_0|sys_hub_action_type_definition|vip redemption rates: fetch key drivers",
+          "name": "VIP Redemption Rates: Fetch Key Drivers",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_loyalty_re_0"
+        },
+        {
+          "key": "x_snc_loyalty_re_0|sys_hub_action_type_definition|vip redemption rates: recovery actions",
+          "name": "VIP Redemption Rates: Recovery Actions",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_loyalty_re_0"
+        },
+        {
+          "key": "x_snc_loyalty_re_0|sys_hub_flow|create crm outreach tasks",
+          "name": "Create CRM Outreach Tasks",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_loyalty_re_0"
+        },
+        {
+          "key": "x_snc_loyalty_re_0|sys_hub_flow|credit bonus points",
+          "name": "Credit Bonus Points",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_loyalty_re_0"
+        },
+        {
+          "key": "x_snc_loyalty_re_0|sys_hub_flow|flag reward & open vendor case",
+          "name": "Flag Reward & Open Vendor Case",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_loyalty_re_0"
+        },
+        {
+          "key": "x_snc_loyalty_re_0|sys_hub_flow|get vip engagement summary: key drivers",
+          "name": "Get VIP Engagement Summary: Key Drivers",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_loyalty_re_0"
+        },
+        {
+          "key": "x_snc_loyalty_re_0|sys_hub_flow|launch campaign",
+          "name": "Launch Campaign",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_loyalty_re_0"
+        },
+        {
+          "key": "x_snc_loyalty_re_0|sys_hub_flow|loyalty points optimization",
+          "name": "Loyalty Points Optimization",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_loyalty_re_0"
+        },
+        {
+          "key": "x_snc_loyalty_re_0|sys_hub_flow|loyalty rewards summary",
+          "name": "Loyalty Rewards Summary",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_loyalty_re_0"
+        },
+        {
+          "key": "x_snc_loyalty_re_0|sys_hub_flow|loyalty rewards: create knowledge article",
+          "name": "Loyalty Rewards: Create Knowledge Article",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_loyalty_re_0"
+        },
+        {
+          "key": "x_snc_loyalty_re_0|sys_hub_flow|loyalty rewards: detect anamolies",
+          "name": "Loyalty Rewards: Detect Anamolies",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_loyalty_re_0"
+        },
+        {
+          "key": "x_snc_loyalty_re_0|sys_hub_flow|loyalty rewards: publish knowledge article",
+          "name": "Loyalty Rewards: Publish Knowledge Article",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_loyalty_re_0"
+        },
+        {
+          "key": "x_snc_loyalty_re_0|sys_hub_flow|loyalty rewards: recommended actions",
+          "name": "Loyalty Rewards: Recommended actions",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_loyalty_re_0"
+        },
+        {
+          "key": "x_snc_loyalty_re_0|sys_hub_flow|loyalty rewards: send mail",
+          "name": "Loyalty Rewards: Send mail",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_loyalty_re_0"
+        },
+        {
+          "key": "x_snc_loyalty_re_0|sys_hub_flow|rewards program_load",
+          "name": "Rewards Program_load",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_loyalty_re_0"
+        },
+        {
+          "key": "x_snc_loyalty_re_0|sys_hub_flow|rewards program_unload",
+          "name": "Rewards Program_unload",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_loyalty_re_0"
+        },
+        {
+          "key": "x_snc_loyalty_re_0|sys_hub_flow|vip engagement summary: recovery actions",
+          "name": "VIP Engagement Summary: Recovery Actions",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_loyalty_re_0"
+        },
+        {
+          "key": "x_snc_manage_you_0|sys_hub_action_type_definition|create event",
+          "name": "Create Event",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_manage_you_0"
+        },
+        {
+          "key": "x_snc_manage_you_0|sys_hub_action_type_definition|execute flow",
+          "name": "Execute Flow",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_manage_you_0"
+        },
+        {
+          "key": "x_snc_manage_you_0|sys_hub_flow|document approval - master flow",
+          "name": "Document Approval - Master Flow",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_manage_you_0"
+        },
+        {
+          "key": "x_snc_manage_you_0|sys_hub_flow|single stage approval",
+          "name": "Single Stage Approval",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_manage_you_0"
+        },
+        {
+          "key": "x_snc_marketing_0|sys_hub_action_type_definition|fetch published events",
+          "name": "Fetch Published Events",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_marketing_0"
+        },
+        {
+          "key": "x_snc_marketing_0|sys_hub_action_type_definition|marketing event tables: update demo data",
+          "name": "Marketing Event Tables: Update demo data",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_marketing_0"
+        },
+        {
+          "key": "x_snc_marketing_0|sys_hub_action_type_definition|promote waitlist",
+          "name": "Promote Waitlist",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_marketing_0"
+        },
+        {
+          "key": "x_snc_marketing_0|sys_hub_action_type_definition|reserve next event",
+          "name": "Reserve Next Event",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_marketing_0"
+        },
+        {
+          "key": "x_snc_marketing_0|sys_hub_action_type_definition|resize capacity",
+          "name": "Resize Capacity",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_marketing_0"
+        },
+        {
+          "key": "x_snc_marketing_0|sys_hub_flow|booth registration process flow",
+          "name": "Booth Registration Process flow",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_marketing_0"
+        },
+        {
+          "key": "x_snc_marketing_0|sys_hub_flow|booth submission",
+          "name": "Booth Submission",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_marketing_0"
+        },
+        {
+          "key": "x_snc_marketing_0|sys_hub_flow|event registration cancelled events",
+          "name": "Event Registration cancelled events",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_marketing_0"
+        },
+        {
+          "key": "x_snc_marketing_0|sys_hub_flow|event registration confirmation email",
+          "name": "Event Registration Confirmation Email",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_marketing_0"
+        },
+        {
+          "key": "x_snc_marketing_0|sys_hub_flow|event registration expired events",
+          "name": "Event Registration expired events",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_marketing_0"
+        },
+        {
+          "key": "x_snc_marketing_0|sys_hub_flow|send event details changed email",
+          "name": "Send Event Details Changed Email",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_marketing_0"
+        },
+        {
+          "key": "x_snc_marketing_0|sys_hub_flow|send event reminder email",
+          "name": "Send Event Reminder Email",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_marketing_0"
+        },
+        {
+          "key": "x_snc_marketing_0|sys_hub_flow|send on hold confirmation",
+          "name": "Send On Hold Confirmation",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_marketing_0"
+        },
+        {
+          "key": "x_snc_marketing_0|sys_hub_flow|send promotional email",
+          "name": "Send Promotional Email",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_marketing_0"
+        },
+        {
+          "key": "x_snc_marketing_0|sys_hub_flow|send waitlist confirmation email",
+          "name": "Send Waitlist Confirmation Email",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_marketing_0"
+        },
+        {
+          "key": "x_snc_marketing_0|sys_hub_flow|update event registration attendee records",
+          "name": "Update Event Registration attendee records",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_marketing_0"
+        },
+        {
+          "key": "x_snc_master_dat_0|sys_hub_action_type_definition|create event",
+          "name": "Create Event",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_master_dat_0"
+        },
+        {
+          "key": "x_snc_master_dat_0|sys_hub_action_type_definition|execute flow",
+          "name": "Execute Flow",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_master_dat_0"
+        },
+        {
+          "key": "x_snc_master_dat_0|sys_hub_flow|aes - get po promin ver latest definition",
+          "name": "AES - Get PO Promin Ver Latest Definition",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_master_dat_0"
+        },
+        {
+          "key": "x_snc_master_dat_0|sys_hub_flow|clone material type and division",
+          "name": "Clone material type and division",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_master_dat_0"
+        },
+        {
+          "key": "x_snc_master_dat_0|sys_hub_flow|create material in sap",
+          "name": "Create Material in SAP",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_master_dat_0"
+        },
+        {
+          "key": "x_snc_master_dat_0|sys_hub_flow|crwf_mdm_notify requestor",
+          "name": "CrWF_MDM_Notify requestor",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_master_dat_0"
+        },
+        {
+          "key": "x_snc_master_dat_0|sys_hub_flow|delete material master request",
+          "name": "Delete Material Master Request",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_master_dat_0"
+        },
+        {
+          "key": "x_snc_master_dat_0|sys_hub_flow|equipment master update data - use case: mdm approval workflow - 7e53d82e2b13e6508beffd135e91bf28",
+          "name": "Equipment Master Update Data - Use case: MDM Approval Workflow - 7e53d82e2b13e6508beffd135e91bf28",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_master_dat_0"
+        },
+        {
+          "key": "x_snc_master_dat_0|sys_hub_flow|material master data templates creation",
+          "name": "Material Master Data Templates Creation",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_master_dat_0"
+        },
+        {
+          "key": "x_snc_master_dat_0|sys_hub_flow|material master request - use case: mdm approval workflow - 010d5c6c47e7e210414f912c236d43f9",
+          "name": "Material Master Request - Use case: MDM Approval Workflow - 010d5c6c47e7e210414f912c236d43f9",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_master_dat_0"
+        },
+        {
+          "key": "x_snc_master_dat_0|sys_hub_flow|material master request - use case: mdm approval workflow - af1318ea2b13e6508beffd135e91bf3d",
+          "name": "Material Master Request - Use case: MDM Approval Workflow - af1318ea2b13e6508beffd135e91bf3d",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_master_dat_0"
+        },
+        {
+          "key": "x_snc_master_dat_0|sys_hub_flow|mmr state update",
+          "name": "MMR State Update",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_master_dat_0"
+        },
+        {
+          "key": "x_snc_master_dat_0|sys_hub_flow|mmr state update auto approve request and create mmr",
+          "name": "MMR State Update Auto Approve Request And Create MMR",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_master_dat_0"
+        },
+        {
+          "key": "x_snc_master_dat_0|sys_hub_flow|mmr task automation decision matrix",
+          "name": "MMR Task Automation Decision Matrix",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_master_dat_0"
+        },
+        {
+          "key": "x_snc_master_dat_0|sys_hub_flow|mmr task automation flow",
+          "name": "MMR Task Automation Flow",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_master_dat_0"
+        },
+        {
+          "key": "x_snc_master_dat_0|sys_hub_flow|mmr task created",
+          "name": "MMR Task Created",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_master_dat_0"
+        },
+        {
+          "key": "x_snc_meetup|sys_hub_flow|event registration cancelled events",
+          "name": "Event Registration cancelled events",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_meetup"
+        },
+        {
+          "key": "x_snc_meetup|sys_hub_flow|event registration confirmation email",
+          "name": "Event Registration Confirmation Email",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_meetup"
+        },
+        {
+          "key": "x_snc_meetup|sys_hub_flow|event registration expired events",
+          "name": "Event Registration expired events",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_meetup"
+        },
+        {
+          "key": "x_snc_meetup|sys_hub_flow|event registration process flow",
+          "name": "Event Registration Process flow",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_meetup"
+        },
+        {
+          "key": "x_snc_meetup|sys_hub_flow|send event details changed email",
+          "name": "Send Event Details Changed Email",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_meetup"
+        },
+        {
+          "key": "x_snc_meetup|sys_hub_flow|send event reminder email",
+          "name": "Send Event Reminder Email",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_meetup"
+        },
+        {
+          "key": "x_snc_meetup|sys_hub_flow|send on hold confirmation",
+          "name": "Send On Hold Confirmation",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_meetup"
+        },
+        {
+          "key": "x_snc_meetup|sys_hub_flow|send waitlist confirmation email",
+          "name": "Send Waitlist Confirmation Email",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_meetup"
+        },
+        {
+          "key": "x_snc_meetup|sys_hub_flow|update event registration attendee records",
+          "name": "Update Event Registration attendee records",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_meetup"
+        },
+        {
+          "key": "x_snc_multiform_ex|sys_hub_action_type_definition|multiform setup sections",
+          "name": "Multiform Setup Sections",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_multiform_ex"
+        },
+        {
+          "key": "x_snc_multiform_ex|sys_hub_flow|multi form experience",
+          "name": "Multi Form Experience",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_multiform_ex"
+        },
+        {
+          "key": "x_snc_multiform_ex|sys_hub_flow|setup multiform experience",
+          "name": "Setup Multiform Experience",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_multiform_ex"
+        },
+        {
+          "key": "x_snc_sales_quot_0|sys_hub_flow|approval process",
+          "name": "Approval Process",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_sales_quot_0"
+        },
+        {
+          "key": "x_snc_sales_quot_0|sys_hub_flow|assignment process",
+          "name": "Assignment Process",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_sales_quot_0"
+        },
+        {
+          "key": "x_snc_sales_quot_0|sys_hub_flow|fulfilment process",
+          "name": "Fulfilment Process",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_sales_quot_0"
+        },
+        {
+          "key": "x_snc_sec_dhu|sys_hub_action_type_definition|baseline canary test",
+          "name": "Baseline Canary Test",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_sec_dhu"
+        },
+        {
+          "key": "x_snc_sec_dhu|sys_hub_action_type_definition|generate all detections",
+          "name": "Generate All Detections",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_sec_dhu"
+        },
+        {
+          "key": "x_snc_sec_dhu|sys_hub_action_type_definition|generate detections for vit",
+          "name": "Generate Detections for VIT",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_sec_dhu"
+        },
+        {
+          "key": "x_snc_sec_dhu|sys_hub_action_type_definition|generate watch topic counts",
+          "name": "Generate Watch Topic Counts",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_sec_dhu"
+        },
+        {
+          "key": "x_snc_sec_dhu|sys_hub_action_type_definition|get running flow",
+          "name": "Get Running Flow",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_sec_dhu"
+        },
+        {
+          "key": "x_snc_sec_dhu|sys_hub_action_type_definition|get useremail id",
+          "name": "Get UserEmail ID",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_sec_dhu"
+        },
+        {
+          "key": "x_snc_sec_dhu|sys_hub_action_type_definition|populate solutions for vits",
+          "name": "Populate Solutions for VITs",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_sec_dhu"
+        },
+        {
+          "key": "x_snc_sec_dhu|sys_hub_action_type_definition|populate solutions for vulnerability entries",
+          "name": "Populate Solutions for Vulnerability Entries",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_sec_dhu"
+        },
+        {
+          "key": "x_snc_sec_dhu|sys_hub_flow|generate detections data",
+          "name": "Generate Detections Data",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_sec_dhu"
+        },
+        {
+          "key": "x_snc_sec_dhu|sys_hub_flow|launch urp setup - max auto (covid-19)",
+          "name": "Launch URP Setup - Max Auto (COVID-19)",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_sec_dhu"
+        },
+        {
+          "key": "x_snc_sec_dhu|sys_hub_flow|phishing demo setup - max auto (covid-19)",
+          "name": "Phishing Demo Setup - Max Auto (COVID-19)",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_sec_dhu"
+        },
+        {
+          "key": "x_snc_sec_dhu|sys_hub_flow|phishing email standard parent subflow",
+          "name": "Phishing Email Standard Parent SubFlow",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_sec_dhu"
+        },
+        {
+          "key": "x_snc_sec_dhu|sys_hub_flow|phishing observables record modification",
+          "name": "Phishing Observables Record Modification",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_sec_dhu"
+        },
+        {
+          "key": "x_snc_sec_dhu|sys_hub_flow|reset urp demo data",
+          "name": "Reset URP Demo Data",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_sec_dhu"
+        },
+        {
+          "key": "x_snc_sec_dhu|sys_hub_flow|secops demohub - reset exposure assessment demo",
+          "name": "SecOps DemoHub - Reset Exposure Assessment Demo",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_sec_dhu"
+        },
+        {
+          "key": "x_snc_sec_dhu|sys_hub_flow|simulate predictive intelligence - sir",
+          "name": "Simulate Predictive Intelligence - SIR",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_sec_dhu"
+        },
+        {
+          "key": "x_snc_sec_dhu|sys_hub_flow|test flow",
+          "name": "Test flow",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_sec_dhu"
+        },
+        {
+          "key": "x_snc_subindustr_0|sys_hub_action_type_definition|dh sidr - update existing records",
+          "name": "DH SIDR - Update Existing Records",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_subindustr_0"
+        },
+        {
+          "key": "x_snc_subindustr_0|sys_hub_action_type_definition|dh update system property",
+          "name": "DH Update System Property",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_subindustr_0"
+        },
+        {
+          "key": "x_snc_subindustr_0|sys_hub_action_type_definition|fetch subindustry data",
+          "name": "Fetch Subindustry Data",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_subindustr_0"
+        },
+        {
+          "key": "x_snc_subindustr_0|sys_hub_flow|dh update subindustry property & update existing records",
+          "name": "DH Update Subindustry Property & Update Existing Records",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_subindustr_0"
+        },
+        {
+          "key": "x_snc_subindustr_0|sys_hub_flow|execute jump - tpsc comments 1",
+          "name": "Execute Jump - TPSC Comments 1",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_subindustr_0"
+        },
+        {
+          "key": "x_snc_switch_user|sys_hub_action_type_definition|update demo users language",
+          "name": "update demo users language",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_switch_user"
+        },
+        {
+          "key": "x_snc_switch_user|sys_hub_flow|switch user language preference",
+          "name": "Switch user language preference",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_switch_user"
+        },
+        {
+          "key": "x_snc_trvl_bkg|sys_hub_action_type_definition|create travel task from flow data",
+          "name": "Create Travel Task from Flow Data",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_trvl_bkg"
+        },
+        {
+          "key": "x_snc_trvl_bkg|sys_hub_action_type_definition|get travel balance from google sheets",
+          "name": "Get Travel Balance From Google Sheets",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_trvl_bkg"
+        },
+        {
+          "key": "x_snc_trvl_bkg|sys_hub_action_type_definition|travel cost estimation amadeus",
+          "name": "Travel Cost Estimation Amadeus",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_trvl_bkg"
+        },
+        {
+          "key": "x_snc_trvl_bkg|sys_hub_action_type_definition|travel request - change priority for high risk country",
+          "name": "Travel Request - Change Priority for high risk country",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_trvl_bkg"
+        },
+        {
+          "key": "x_snc_trvl_bkg|sys_hub_action_type_definition|update travel request status",
+          "name": "Update Travel Request Status",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_trvl_bkg"
+        },
+        {
+          "key": "x_snc_trvl_bkg|sys_hub_flow|create travel task",
+          "name": "Create Travel Task",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_trvl_bkg"
+        },
+        {
+          "key": "x_snc_trvl_bkg|sys_hub_flow|demo google sheets integration",
+          "name": "Demo Google Sheets Integration",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_trvl_bkg"
+        },
+        {
+          "key": "x_snc_trvl_bkg|sys_hub_flow|initiate approval",
+          "name": "Initiate approval",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_trvl_bkg"
+        },
+        {
+          "key": "x_snc_trvl_bkg|sys_hub_flow|request catalog item - provision phone",
+          "name": "Request Catalog Item - Provision Phone",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_trvl_bkg"
+        },
+        {
+          "key": "x_snc_trvl_bkg|sys_hub_flow|travel booking request - travel request approval - bd1083cd3b956a50376ead7a25e45a58",
+          "name": "Travel Booking Request - Travel Request Approval - bd1083cd3b956a50376ead7a25e45a58",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_trvl_bkg"
+        },
+        {
+          "key": "x_snc_trvl_bkg|sys_hub_flow|travel booking request - travel task resolution - 949197bc2b906a10b37ff132ce91bfdd",
+          "name": "Travel Booking Request - Travel Task Resolution - 949197bc2b906a10b37ff132ce91bfdd",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_trvl_bkg"
+        },
+        {
+          "key": "x_snc_trvl_bkg|sys_hub_flow|update comments",
+          "name": "Update Comments",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_trvl_bkg"
+        },
+        {
+          "key": "x_snc_trvl_bkg|sys_hub_flow|update priority - travel request",
+          "name": "Update Priority - Travel Request",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_trvl_bkg"
+        },
+        {
+          "key": "x_snc_tuition_re_0|sys_hub_flow|budget approval process",
+          "name": "Budget Approval Process",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_tuition_re_0"
+        },
+        {
+          "key": "x_snc_tuition_re_0|sys_hub_flow|budget calculations",
+          "name": "Budget Calculations",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_tuition_re_0"
+        },
+        {
+          "key": "x_snc_tuition_re_0|sys_hub_flow|budget creation",
+          "name": "Budget Creation",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_tuition_re_0"
+        },
+        {
+          "key": "x_snc_tuition_re_0|sys_hub_flow|budget state update",
+          "name": "Budget state update",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_tuition_re_0"
+        },
+        {
+          "key": "x_snc_tuition_re_0|sys_hub_flow|budget updation",
+          "name": "Budget Updation",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_tuition_re_0"
+        },
+        {
+          "key": "x_snc_tuition_re_0|sys_hub_flow|sla notification -expense request - warning",
+          "name": "SLA Notification -Expense Request - warning",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_tuition_re_0"
+        },
+        {
+          "key": "x_snc_unblock_sa_0|sys_hub_action_type_definition|generate sales order approval",
+          "name": "Generate Sales Order Approval",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_unblock_sa_0"
+        },
+        {
+          "key": "x_snc_unblock_sa_0|sys_hub_action_type_definition|trigger sales order approvals",
+          "name": "Trigger Sales Order Approvals",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_unblock_sa_0"
+        },
+        {
+          "key": "x_snc_unblock_sa_0|sys_hub_action_type_definition|use erp data (simulation)",
+          "name": "Use ERP data (Simulation)",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_unblock_sa_0"
+        },
+        {
+          "key": "x_snc_unblock_sa_0|sys_hub_flow|demo flow - generate sales order approvals",
+          "name": "Demo flow - Generate sales order approvals",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_unblock_sa_0"
+        },
+        {
+          "key": "x_snc_unblock_sa_0|sys_hub_flow|sales order created generate approval",
+          "name": "Sales Order Created Generate Approval",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_unblock_sa_0"
+        },
+        {
+          "key": "x_snc_unblock_sa_0|sys_hub_flow|sales order rejected",
+          "name": "Sales Order Rejected",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_unblock_sa_0"
+        },
+        {
+          "key": "x_snc_unblock_sa_0|sys_hub_flow|sap sales document - use case: aes - usod approval flow - ad5467dd4740f214414f912c236d43d5",
+          "name": "SAP Sales Document - Use case: AES - USOD Approval Flow - ad5467dd4740f214414f912c236d43d5",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_unblock_sa_0"
+        },
+        {
+          "key": "x_snc_unblock_sa_0|sys_hub_flow|update sales order in erp after approval",
+          "name": "Update sales order in ERP after approval",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_unblock_sa_0"
+        },
+        {
+          "key": "x_snc_universal_dg|sys_hub_action_type_definition|secops: udg - threat lookup action",
+          "name": "SECOPS: UDG - Threat Lookup Action",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_universal_dg"
+        },
+        {
+          "key": "x_snc_universal_dg|sys_hub_flow|secops: simulate host isolation with udg",
+          "name": "SECOPS: Simulate Host Isolation with UDG",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_universal_dg"
+        },
+        {
+          "key": "x_snc_universal_dg|sys_hub_flow|secops: udg - threat lookup",
+          "name": "SECOPS: UDG - Threat Lookup",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_universal_dg"
+        },
+        {
+          "key": "x_snc_update_u_pwd|sys_hub_action_type_definition|update password",
+          "name": "Update Password",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_update_u_pwd"
+        },
+        {
+          "key": "x_snc_update_u_pwd|sys_hub_flow|update personas password",
+          "name": "Update Personas Password",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_update_u_pwd"
+        },
+        {
+          "key": "x_snc_update_u_pwd|sys_hub_flow|update user password",
+          "name": "Update User Password",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_update_u_pwd"
+        },
+        {
+          "key": "x_snc_v_warranty_0|sys_hub_action_type_definition|create product problem record",
+          "name": "Create Product Problem Record",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_v_warranty_0"
+        },
+        {
+          "key": "x_snc_v_warranty_0|sys_hub_action_type_definition|get claim reason",
+          "name": "Get Claim Reason",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_v_warranty_0"
+        },
+        {
+          "key": "x_snc_v_warranty_0|sys_hub_action_type_definition|get similar claims",
+          "name": "Get Similar Claims",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_v_warranty_0"
+        },
+        {
+          "key": "x_snc_v_warranty_0|sys_hub_action_type_definition|update warranty record",
+          "name": "Update Warranty Record",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_v_warranty_0"
+        },
+        {
+          "key": "x_snc_v_warranty_0|sys_hub_flow|claims - warranty claim identifier - 4184f36ffb602ed0c1f4fa466eefdc56",
+          "name": "Claims - Warranty Claim Identifier - 4184f36ffb602ed0c1f4fa466eefdc56",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_v_warranty_0"
+        },
+        {
+          "key": "x_snc_weather_acme|sys_hub_action_type_definition|events api v2 - post an event",
+          "name": "Events API v2 - POST an event",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_weather_acme"
+        },
+        {
+          "key": "x_snc_weather_acme|sys_hub_action_type_definition|get /api/snc/acme_weather_forecast/current/{longitude}/{latitude}",
+          "name": "GET /api/snc/acme_weather_forecast/current/{longitude}/{latitude}",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_weather_acme"
+        },
+        {
+          "key": "x_snc_weather_acme|sys_hub_action_type_definition|get /api/snc/acme_weather_forecast/historical/{timestamp}/country/{country}/city/{city}",
+          "name": "GET /api/snc/acme_weather_forecast/historical/{timestamp}/country/{country}/city/{city}",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_weather_acme"
+        },
+        {
+          "key": "x_snc_weather_acme|sys_hub_action_type_definition|get /api/snc/acme_weather_forecast/historical/{timestamp}/{longitude}/{latitude}",
+          "name": "GET /api/snc/acme_weather_forecast/historical/{timestamp}/{longitude}/{latitude}",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_weather_acme"
+        },
+        {
+          "key": "x_snc_weather_acme|sys_hub_action_type_definition|get current city weather",
+          "name": "GET Current City Weather",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_weather_acme"
+        },
+        {
+          "key": "x_snc_weighbridge|sys_hub_action_type_definition|weighbridge ask for approval",
+          "name": "Weighbridge Ask for Approval",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_weighbridge"
+        },
+        {
+          "key": "x_snc_weighbridge|sys_hub_action_type_definition|weighbridge get attachment details",
+          "name": "Weighbridge Get Attachment Details",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_weighbridge"
+        },
+        {
+          "key": "x_snc_weighbridge|sys_hub_action_type_definition|weighbridge update demo data dates",
+          "name": "Weighbridge Update Demo Data Dates",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_weighbridge"
+        },
+        {
+          "key": "x_snc_weighbridge|sys_hub_flow|create weighbridge item",
+          "name": "Create Weighbridge Item",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_weighbridge"
+        },
+        {
+          "key": "x_snc_weighbridge|sys_hub_flow|create weighbridge task",
+          "name": "Create Weighbridge Task",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_weighbridge"
+        },
+        {
+          "key": "x_snc_weighbridge|sys_hub_flow|invoice case - use case: weighbridge task creation - 3be6367a2b5a2210b5d4f5a45e91bf4e",
+          "name": "Invoice case - Use case: Weighbridge Task Creation - 3be6367a2b5a2210b5d4f5a45e91bf4e",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_weighbridge"
+        },
+        {
+          "key": "x_snc_weighbridge|sys_hub_flow|invoice case - use case: weighbridge task creation - 7eb15de6931626103f687bfd1dba1043",
+          "name": "Invoice case - Use case: Weighbridge Task Creation - 7eb15de6931626103f687bfd1dba1043",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_weighbridge"
+        },
+        {
+          "key": "x_snc_weighbridge|sys_hub_flow|weighbridge capture license",
+          "name": "Weighbridge Capture License",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_weighbridge"
+        },
+        {
+          "key": "x_snc_weighbridge|sys_hub_flow|weighbridge capture vehicle",
+          "name": "Weighbridge Capture Vehicle",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_weighbridge"
+        },
+        {
+          "key": "x_snc_weighbridge|sys_hub_flow|weighbridge task - use case: weighbridge approval process - b55de346931a62103f687bfd1dba108c",
+          "name": "Weighbridge task - Use case: Weighbridge Approval Process - b55de346931a62103f687bfd1dba108c",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_weighbridge"
+        },
+        {
+          "key": "x_snc_weighbridge|sys_hub_flow|weighbridge task approved",
+          "name": "Weighbridge Task Approved",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_weighbridge"
+        },
+        {
+          "key": "x_snc_weighbridge|sys_hub_flow|weighbridge update plant details",
+          "name": "Weighbridge Update Plant Details",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_weighbridge"
+        },
+        {
+          "key": "x_snc_weighbridge|sys_hub_flow|weighbridge update transport details",
+          "name": "Weighbridge Update Transport Details",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_weighbridge"
+        },
+        {
+          "key": "x_snc_wevolunteer|sys_hub_flow|update state",
+          "name": "Update State",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_wevolunteer"
+        },
+        {
+          "key": "x_snc_xpn|sys_hub_flow|classification - agent assist",
+          "name": "Classification - Agent Assist",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_xpn"
+        },
+        {
+          "key": "x_snc_xpn|sys_hub_flow|classification approval",
+          "name": "Classification approval",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_xpn"
+        },
+        {
+          "key": "x_snc_xpn|sys_hub_flow|first investigation task",
+          "name": "First Investigation Task",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_xpn"
+        },
+        {
+          "key": "x_snc_xpn|sys_hub_flow|interpol red notice check",
+          "name": "Interpol Red Notice Check",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_xpn"
+        },
+        {
+          "key": "x_snc_xpn|sys_hub_flow|interpol red notice check - fake data",
+          "name": "Interpol Red Notice Check - Fake Data",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_xpn"
+        },
+        {
+          "key": "x_snc_xpn|sys_hub_flow|investigation review",
+          "name": "Investigation review",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_xpn"
+        },
+        {
+          "key": "x_snc_xpn|sys_hub_flow|investigation start",
+          "name": "Investigation start",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_xpn"
+        },
+        {
+          "key": "x_snc_xpn|sys_hub_flow|material approval",
+          "name": "Material Approval",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_xpn"
+        },
+        {
+          "key": "x_snc_xpn|sys_hub_flow|request approval",
+          "name": "Request approval",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_xpn"
+        },
+        {
+          "key": "x_snc_xpn|sys_hub_flow|submit complaint",
+          "name": "Submit complaint",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_xpn"
+        },
+        {
+          "key": "x_snc_xproperty_0|sys_hub_action_type_definition|add signature to the tenant agreement",
+          "name": "Add Signature to the tenant agreement",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_xproperty_0"
+        },
+        {
+          "key": "x_snc_xproperty_0|sys_hub_action_type_definition|copy attachment (fixed table)",
+          "name": "Copy Attachment (Fixed Table)",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_xproperty_0"
+        },
+        {
+          "key": "x_snc_xproperty_0|sys_hub_action_type_definition|copy attachment to email",
+          "name": "Copy Attachment to Email",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_xproperty_0"
+        },
+        {
+          "key": "x_snc_xproperty_0|sys_hub_action_type_definition|create a new lease bill in stripe",
+          "name": "Create a new lease bill in Stripe",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_xproperty_0"
+        },
+        {
+          "key": "x_snc_xproperty_0|sys_hub_action_type_definition|create rent roll",
+          "name": "Create Rent Roll",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_xproperty_0"
+        },
+        {
+          "key": "x_snc_xproperty_0|sys_hub_action_type_definition|custom login rest call action",
+          "name": "custom login rest call action",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_xproperty_0"
+        },
+        {
+          "key": "x_snc_xproperty_0|sys_hub_action_type_definition|generate a stripe payment link",
+          "name": "Generate a Stripe Payment Link",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_xproperty_0"
+        },
+        {
+          "key": "x_snc_xproperty_0|sys_hub_action_type_definition|get credit score",
+          "name": "Get Credit Score",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_xproperty_0"
+        },
+        {
+          "key": "x_snc_xproperty_0|sys_hub_action_type_definition|get customer data",
+          "name": "Get customer data",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_xproperty_0"
+        },
+        {
+          "key": "x_snc_xproperty_0|sys_hub_action_type_definition|get stripe user_id",
+          "name": "Get Stripe user_id",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_xproperty_0"
+        },
+        {
+          "key": "x_snc_xproperty_0|sys_hub_action_type_definition|get tenant details from salesforce",
+          "name": "Get Tenant Details from Salesforce",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_xproperty_0"
+        },
+        {
+          "key": "x_snc_xproperty_0|sys_hub_action_type_definition|get units",
+          "name": "Get Units",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_xproperty_0"
+        },
+        {
+          "key": "x_snc_xproperty_0|sys_hub_action_type_definition|plm - delete demo records",
+          "name": "PLM - Delete Demo Records",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_xproperty_0"
+        },
+        {
+          "key": "x_snc_xproperty_0|sys_hub_action_type_definition|property management: create kb article",
+          "name": "Property Management: Create KB article",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_xproperty_0"
+        },
+        {
+          "key": "x_snc_xproperty_0|sys_hub_action_type_definition|schedule data import",
+          "name": "Schedule Data Import",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_xproperty_0"
+        },
+        {
+          "key": "x_snc_xproperty_0|sys_hub_action_type_definition|set up product catalog stripe",
+          "name": "Set up product catalog Stripe",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_xproperty_0"
+        },
+        {
+          "key": "x_snc_xproperty_0|sys_hub_flow|add signature to tenant agreement",
+          "name": "Add Signature to tenant agreement",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_xproperty_0"
+        },
+        {
+          "key": "x_snc_xproperty_0|sys_hub_flow|administrative workflow (unit active)",
+          "name": "Administrative Workflow (Unit active)",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_xproperty_0"
+        },
+        {
+          "key": "x_snc_xproperty_0|sys_hub_flow|create stripe customer",
+          "name": "Create stripe customer",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_xproperty_0"
+        },
+        {
+          "key": "x_snc_xproperty_0|sys_hub_flow|create stripe invoice for lease",
+          "name": "Create stripe invoice for lease",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_xproperty_0"
+        },
+        {
+          "key": "x_snc_xproperty_0|sys_hub_flow|docusign tenancy agreement",
+          "name": "Docusign Tenancy Agreement",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_xproperty_0"
+        },
+        {
+          "key": "x_snc_xproperty_0|sys_hub_flow|fetch tenant details",
+          "name": "Fetch tenant details",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_xproperty_0"
+        },
+        {
+          "key": "x_snc_xproperty_0|sys_hub_flow|generate invoices",
+          "name": "Generate invoices",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_xproperty_0"
+        },
+        {
+          "key": "x_snc_xproperty_0|sys_hub_flow|get credit score",
+          "name": "Get Credit Score",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_xproperty_0"
+        },
+        {
+          "key": "x_snc_xproperty_0|sys_hub_flow|get insights for property case",
+          "name": "Get Insights for Property Case",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_xproperty_0"
+        },
+        {
+          "key": "x_snc_xproperty_0|sys_hub_flow|lease - tenant retention strategy - aef2e8efeb982a10b310f1cacad0cd5c",
+          "name": "Lease - Tenant Retention Strategy - aef2e8efeb982a10b310f1cacad0cd5c",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_xproperty_0"
+        },
+        {
+          "key": "x_snc_xproperty_0|sys_hub_flow|lease - use case: tenant retention strategy - 7838b5e987b7e2508f2d41150cbb35af",
+          "name": "Lease - Use case: Tenant Retention Strategy - 7838b5e987b7e2508f2d41150cbb35af",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_xproperty_0"
+        },
+        {
+          "key": "x_snc_xproperty_0|sys_hub_flow|lease application request - tenant risk & evaluation - 21af946ffb18e650c1f4fa466eefdcde",
+          "name": "Lease Application Request - Tenant Risk & Evaluation - 21af946ffb18e650c1f4fa466eefdcde",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_xproperty_0"
+        },
+        {
+          "key": "x_snc_xproperty_0|sys_hub_flow|lease renewal flow",
+          "name": "Lease renewal flow",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_xproperty_0"
+        },
+        {
+          "key": "x_snc_xproperty_0|sys_hub_flow|login",
+          "name": "login",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_xproperty_0"
+        },
+        {
+          "key": "x_snc_xproperty_0|sys_hub_flow|property cases details",
+          "name": "Property Cases details",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_xproperty_0"
+        },
+        {
+          "key": "x_snc_xproperty_0|sys_hub_flow|property cases details - bulk",
+          "name": "Property Cases details - Bulk",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_xproperty_0"
+        },
+        {
+          "key": "x_snc_xproperty_0|sys_hub_flow|reminder notification to tenants",
+          "name": "Reminder notification to tenants",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_xproperty_0"
+        },
+        {
+          "key": "x_snc_xproperty_0|sys_hub_flow|reminder notification to tenants on payment",
+          "name": "Reminder notification to tenants on payment",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_xproperty_0"
+        },
+        {
+          "key": "x_snc_xproperty_0|sys_hub_flow|run monthly rent roll",
+          "name": "Run monthly rent roll",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_xproperty_0"
+        },
+        {
+          "key": "x_snc_xproperty_0|sys_hub_flow|sync unit listing to units",
+          "name": "Sync unit listing to units",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_xproperty_0"
+        },
+        {
+          "key": "x_snc_xproperty_0|sys_hub_flow|tenant: check credit history",
+          "name": "Tenant: Check credit history",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_xproperty_0"
+        },
+        {
+          "key": "x_snc_xproperty_0|sys_hub_flow|tenant: check engagement",
+          "name": "Tenant: Check engagement",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_xproperty_0"
+        },
+        {
+          "key": "x_snc_xproperty_0|sys_hub_flow|tenant: check income stability",
+          "name": "Tenant: Check income stability",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_xproperty_0"
+        },
+        {
+          "key": "x_snc_xproperty_0|sys_hub_flow|tenant: check legal records",
+          "name": "Tenant: Check legal records",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_xproperty_0"
+        },
+        {
+          "key": "x_snc_xproperty_0|sys_hub_flow|tenant: check support cases history",
+          "name": "Tenant: Check Support Cases history",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_xproperty_0"
+        },
+        {
+          "key": "x_snc_xproperty_0|sys_hub_flow|tenant: overall risk score",
+          "name": "Tenant: Overall Risk Score",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_xproperty_0"
+        },
+        {
+          "key": "x_snc_xproperty_0|sys_hub_flow|tenant: payment behavior",
+          "name": "Tenant: Payment behavior",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_xproperty_0"
+        },
+        {
+          "key": "x_snc_xproperty_0|sys_hub_flow|update and approve the lease",
+          "name": "Update and approve the lease",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_xproperty_0"
+        },
+        {
+          "key": "x_snc_xproperty_0|sys_hub_flow|update and synchronise lease and tenant information",
+          "name": "Update and synchronise lease and tenant information",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_xproperty_0"
+        },
+        {
+          "key": "x_snc_xproperty_0|sys_hub_flow|update rent lines to collected",
+          "name": "Update Rent Lines to Collected",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_xproperty_0"
+        },
+        {
+          "key": "x_snc_xproperty_0|sys_hub_flow|update the lease with work notes",
+          "name": "Update the lease with work notes",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_xproperty_0"
+        },
+        {
+          "key": "x_snc_zcc_health_0|sys_hub_action_type_definition|fetch similar claims from databricks",
+          "name": "Fetch Similar claims from Databricks",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_zcc_health_0"
+        },
+        {
+          "key": "x_snc_zcc_health_0|sys_hub_action_type_definition|zcc table exists",
+          "name": "ZCC Table Exists",
+          "type": "sys_hub_action_type_definition",
+          "scope": "x_snc_zcc_health_0"
+        },
+        {
+          "key": "x_snc_zcc_health_0|sys_hub_flow|insurance claims - use case: resolve alectri health insurance claims - 779260f8972a6a103c9cbc2de053af33",
+          "name": "Insurance Claims - Use case: Resolve Alectri Health Insurance Claims - 779260f8972a6a103c9cbc2de053af33",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_zcc_health_0"
+        },
+        {
+          "key": "x_snc_zcc_health_0|sys_hub_flow|insurance claims - use case: resolve alectri health insurance claims - 8d1e3ab22b5e2210b5d4f5a45e91bfbe",
+          "name": "Insurance Claims - Use case: Resolve Alectri Health Insurance Claims - 8d1e3ab22b5e2210b5d4f5a45e91bfbe",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_zcc_health_0"
+        },
+        {
+          "key": "x_snc_zcc_health_0|sys_hub_flow|zcc health app loader",
+          "name": "ZCC Health App Loader",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_zcc_health_0"
+        },
+        {
+          "key": "x_snc_zcc_health_0|sys_hub_flow|zcc health app unloader",
+          "name": "ZCC Health App Unloader",
+          "type": "sys_hub_flow",
+          "scope": "x_snc_zcc_health_0"
+        }
+      ],
+      "evidence": [
+        "x_envas_sales_or_0",
+        "x_snc_2204giftcard",
+        "x_snc_2805_cross_0",
+        "x_snc_91_stripe",
+        "x_snc_ae_direct_0",
+        "x_snc_alectrimot_0",
+        "x_snc_annual_com_0",
+        "x_snc_automate_e_0",
+        "x_snc_banking_ch_1",
+        "x_snc_crwf_autom_0",
+        "x_snc_dash_builder",
+        "x_snc_demodata_wiz",
+        "x_snc_demohub_app",
+        "x_snc_demohub_da_0",
+        "x_snc_demohub_da_1",
+        "x_snc_demohub_isim",
+        "x_snc_dh_app_brand",
+        "x_snc_dh_app_con",
+        "x_snc_dh_app_diag",
+        "x_snc_dh_app_load",
+        "x_snc_dh_app_setup",
+        "x_snc_dh_custom_re",
+        "x_snc_dh_employe_0",
+        "x_snc_dh_expense",
+        "x_snc_dh_stg",
+        "x_snc_dh_telemetry",
+        "x_snc_diag",
+        "x_snc_employee_cen",
+        "x_snc_enable_now_0",
+        "x_snc_erp_caw",
+        "x_snc_erpinvento_0",
+        "x_snc_interpol",
+        "x_snc_interpol_red",
+        "x_snc_je_posting",
+        "x_snc_k25_3387_r_0",
+        "x_snc_lead_notes_0",
+        "x_snc_leasing_po_0",
+        "x_snc_load_pa_dash",
+        "x_snc_loyalty_re_0",
+        "x_snc_manage_you_0",
+        "x_snc_marketing_0",
+        "x_snc_master_dat_0",
+        "x_snc_meetup",
+        "x_snc_multiform_ex",
+        "x_snc_sales_quot_0",
+        "x_snc_sec_dhu",
+        "x_snc_subindustr_0",
+        "x_snc_switch_user",
+        "x_snc_trvl_bkg",
+        "x_snc_tuition_re_0",
+        "x_snc_unblock_sa_0",
+        "x_snc_universal_dg",
+        "x_snc_update_u_pwd",
+        "x_snc_v_warranty_0",
+        "x_snc_weather_acme",
+        "x_snc_weighbridge",
+        "x_snc_wevolunteer",
+        "x_snc_xpn",
+        "x_snc_xproperty_0",
+        "x_snc_zcc_health_0"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+# v2 run transcript (trimmed) -- full 31,833-row table render omitted;
+# regenerate with: nexus assess migration --from alectri --to retail --out replatform-checklist-v2.md
+# Run date: 2026-07-02 UTC; wall-clock 77s; read-only.
+
+
+
+warning: tables absent on alectri: ai_skill, sys_ai_agent, sys_security_acl, 
+virtual_agent_conversation_topic -- checklist excludes them
+warning: tables absent on retail: ai_skill, sys_ai_agent, sys_security_acl, 
+virtual_agent_conversation_topic -- checklist excludes them
+replatform alectri -> retail items=31833
+17 unnamed artifact(s) have no stable natural key and cannot be matched across 
+instances -- they always render as TODO on the source and EXTRA on the target
+[DONE] AI Summit / AI Summit / AI Summit 2/2
+[DONE] AI Summit / AI Summit / hide_jacket_size_unless_vip
+[DONE] AI Summit / AI Summit / show_jacket_size_if_vip
+
+[... 31,8xx checklist rows omitted ...]
+
+using AI agents
+[DONE] ZCC Health Insurance App / ZCC Health Insurance App / Reject Claim
+[DONE] ZCC Health Insurance App / ZCC Health Insurance App / Send for Approval
+[DONE] ZCC Health Insurance App / ZCC Health Insurance App / Update with Lens
+[DONE] ZCC Health Insurance App / ZCC Health Insurance App / Hide Load 
+Experience ID

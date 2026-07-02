@@ -144,7 +144,12 @@ The following commands are fully functional:
 - `nexus assess` -- inventory (classify one instance's custom config into a
   use-case inventory), migration (bi-directional DONE/TODO replatform
   checklist across two instances), and archive-based Gate 1 / Gate 2
-  assessment
+  assessment. Coverage: AI & Automation plus Developer Platform table groups
+  (business rules, script includes, client scripts, UI policies/actions,
+  ACLs, scheduled jobs, classic workflows), for custom-scoped apps and
+  customer-updated global-scope artifacts; `--group` restricts table groups,
+  `--domain-map` overlays business domains, absent tables are warned per
+  instance
 - `nexus schema` -- products, erd (reverse-engineer ServiceNow tables into
   Mermaid ERDs; product catalog synced from GitHub; accepts product name,
   acronym, or key; 1-2 products per ERD; deterministic, `--grouped` per-scope,
