@@ -8,9 +8,10 @@
 Frozen plan-file models (Selection -> MigrationPlan) and the byte-stable YAML
 emit/load pair that makes the plan file the auditable artifact of record
 (ADR-026 Decision 2), the selection-to-capture bridge that turns a curated
-Selection into full CaptureResult(s) (Story 01), and the pure closure
-builder that expands a Selection into its dependency closure (Story 04a).
-Advisory only: this layer never mutates an instance.
+Selection into full CaptureResult(s) (Story 01), and the pure closure/wave
+builder that expands a Selection into its dependency closure and orders it
+into topologically-sorted waves (Story 04). Advisory only: this layer never
+mutates an instance.
 """
 
 from nexus.migrate.capture_bridge import (
@@ -43,6 +44,7 @@ from nexus.migrate.models import (
     load_plan_yaml,
     load_selection_yaml,
 )
+from nexus.migrate.planner import build_waves, detect_cycles, validate_approval
 
 __all__ = [
     "DEFAULT_STOP_LIST",
@@ -61,6 +63,8 @@ __all__ = [
     "Wave",
     "build_capture_for_selection",
     "build_closure",
+    "build_waves",
+    "detect_cycles",
     "emit_plan_yaml",
     "emit_selection_yaml",
     "field_display",
@@ -69,4 +73,5 @@ __all__ = [
     "load_stop_list",
     "natural_key_segment",
     "record_natural_key",
+    "validate_approval",
 ]
