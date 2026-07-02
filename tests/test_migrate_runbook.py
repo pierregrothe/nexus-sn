@@ -16,7 +16,7 @@ from pathlib import Path
 
 from rich.console import Console
 
-from nexus.migrate.models import FindingKind, MigrationPlan, PlanLane
+from nexus.migrate.models import DriftReport, FindingKind, MigrationPlan, PlanLane
 from nexus.migrate.planner import validate_approval
 from nexus.migrate.runbook import DOCUMENTED_GAPS, render_runbook, render_summary, write_runbook
 from nexus.ui.capabilities import ColorDepth, RenderProfile, TerminalCapabilities
@@ -297,3 +297,66 @@ def test_write_runbook_writes_byte_stable_markdown_matching_render_runbook(tmp_p
     write_runbook(plan, path)
 
     assert path.read_text(encoding="utf-8") == render_runbook(plan)
+
+
+# -- Story 06 AC5: STALE banner via the render path ----------------------------
+
+
+def test_render_runbook_default_drift_none_is_byte_identical_to_story_05() -> None:
+    plan = make_migration_plan()
+
+    assert render_runbook(plan) == render_runbook(plan, drift=None)
+    assert "STALE" not in render_runbook(plan)
+
+
+def test_render_runbook_no_drift_report_omits_stale_banner() -> None:
+    plan = make_migration_plan()
+
+    text = render_runbook(plan, drift=DriftReport())
+
+    assert "STALE" not in text
+
+
+def test_render_runbook_with_drift_renders_stale_banner_with_counts() -> None:
+    plan = make_migration_plan()
+    drift = DriftReport(
+        source_added=("k1", "k2"),
+        source_removed=("k3",),
+        target_changed=("k4",),
+    )
+
+    text = render_runbook(plan, drift=drift)
+
+    assert "## STALE -- drift detected since this plan's snapshots" in text
+    assert "- source added: 2" in text
+    assert "- source removed: 1" in text
+    assert "- target changed: 1" in text
+    assert "- source changed" not in text
+    assert "- target added" not in text
+    assert "- target removed" not in text
+
+
+def test_render_runbook_stale_banner_renders_before_generated_at_header() -> None:
+    plan = make_migration_plan()
+    drift = DriftReport(source_added=("k1",))
+
+    text = render_runbook(plan, drift=drift)
+
+    title_idx = text.index("# Migration Runbook")
+    stale_idx = text.index("## STALE")
+    generated_idx = text.index("Generated-at")
+    assert title_idx < stale_idx < generated_idx
+
+
+def test_write_runbook_with_drift_writes_stale_banner_matching_render_runbook(
+    tmp_path: Path,
+) -> None:
+    plan = make_migration_plan()
+    drift = DriftReport(source_added=("k1",))
+    path = tmp_path / "runbook.md"
+
+    write_runbook(plan, path, drift=drift)
+
+    text = path.read_text(encoding="utf-8")
+    assert text == render_runbook(plan, drift=drift)
+    assert "STALE" in text

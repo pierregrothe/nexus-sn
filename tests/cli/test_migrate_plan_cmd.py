@@ -24,7 +24,7 @@ from nexus.cli import commands_migrate
 from nexus.cli.apps import app
 from nexus.cli.commands_migrate import PlanCollaborators
 from nexus.connectors.servicenow.errors import SNClientError
-from nexus.migrate.models import Selection, emit_selection_yaml, load_plan_yaml
+from nexus.migrate.models import BaselineEntry, Selection, emit_selection_yaml, load_plan_yaml
 from nexus.schema.models import SchemaGraph
 from tests.fakes.migrate import make_selection, make_selection_item
 from tests.fakes.migrate_closure import (
@@ -311,4 +311,78 @@ def test_migrate_plan_no_target_captures_exits_1(
 
     assert result.exit_code == 1
     assert "no captured records found for target profile" in result.stderr
+
+
+# -- Story 06: plan-time baseline population -----------------------------------
+
+
+def test_migrate_plan_records_sorted_baselines_from_collaborators(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("NEXUS_AUTO_UPDATE", "0")
+    selection_path = tmp_path / "selection.yaml"
+    _write_selection(selection_path, _happy_selection())
+    captures = _happy_captures()
+    schema_graph = make_schema_graph()
+    # Deliberately unsorted/out-of-order to verify run_plan sorts by
+    # (key, fingerprint) before storing the baseline on the plan.
+    source_entries = (
+        BaselineEntry(key="x_acme_app|sys_script_include|helper b", fingerprint="2026-07-01"),
+        BaselineEntry(key="x_acme_app|sys_script_include|helper a", fingerprint="2026-07-02"),
+        BaselineEntry(key="x_acme_app|sys_script_include|helper a", fingerprint="2026-07-01"),
+    )
+
+    def fake_factory() -> PlanCollaborators:
+        return PlanCollaborators(
+            build_captures=lambda _selection: captures,
+            build_schema_graph=lambda _selection: schema_graph,
+            build_baselines=lambda _selection: (source_entries, ()),
+        )
+
+    monkeypatch.setattr(commands_migrate, "default_plan_collaborators", fake_factory)
+    out_path = tmp_path / "runbook.md"
+
+    result = _invoke_plan(selection_path, out_path)
+
+    assert result.exit_code == 0
+    plan = load_plan_yaml((tmp_path / "runbook.plan.yaml").read_text(encoding="utf-8"))
+    assert plan.source_baseline == (
+        BaselineEntry(key="x_acme_app|sys_script_include|helper a", fingerprint="2026-07-01"),
+        BaselineEntry(key="x_acme_app|sys_script_include|helper a", fingerprint="2026-07-02"),
+        BaselineEntry(key="x_acme_app|sys_script_include|helper b", fingerprint="2026-07-01"),
+    )
+    assert plan.target_baseline == ()
+
+
+def test_migrate_plan_default_collaborator_baselines_empty_keeps_story_05_assertions(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Regression: PlanCollaborators.build_baselines defaults to an empty
+    # listing, so Story 05 fixtures that never mention baselines still
+    # produce a loadable plan with empty baseline fields.
+    monkeypatch.setenv("NEXUS_AUTO_UPDATE", "0")
+    selection_path = tmp_path / "selection.yaml"
+    _write_selection(selection_path, _happy_selection())
+    _set_collaborators(monkeypatch, captures=_happy_captures(), schema_graph=make_schema_graph())
+    out_path = tmp_path / "runbook.md"
+
+    result = _invoke_plan(selection_path, out_path)
+
+    assert result.exit_code == 0
+    plan = load_plan_yaml((tmp_path / "runbook.plan.yaml").read_text(encoding="utf-8"))
+    assert plan.source_baseline == ()
+    assert plan.target_baseline == ()
+
+
+# -- Story 06: --recheck/--selection are mutually exclusive paths --------------
+
+
+def test_migrate_plan_without_selection_and_without_recheck_exits_1(tmp_path: Path) -> None:
+    out_path = tmp_path / "runbook.md"
+
+    result = CliRunner().invoke(app, ["migrate", "plan", "--out", str(out_path)])
+
+    assert result.exit_code == 1
+    assert "--selection is required" in result.stderr
+    assert not out_path.exists()
     assert not out_path.exists()

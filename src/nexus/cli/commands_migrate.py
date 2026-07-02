@@ -13,10 +13,17 @@ access (ADR-026#Decision 1).
 
 ``plan`` (story 05) builds a ``MigrationPlan`` from a curated Selection --
 closure (story 04) + waves (story 04) -- and renders its runbook (story
-05a). Both Typer command bodies are thin wrappers over ``run_select`` /
-``run_plan``, mirroring ``commands_assess_replatform.py``'s
-``run_inventory`` / ``run_migration`` pattern -- no ctx.obj, which would
-clash with the RenderContext set by the root callback.
+05a), also recording an instance-wide baseline listing on the plan (story
+06). ``plan --recheck`` (story 06) re-inventories both instances and diffs
+them against a plan's recorded baselines, marking the runbook STALE on
+drift (ADR-026 Decision 4: freshness is enforced, not assumed) -- it never
+writes to either instance and never touches the plan file itself (Must
+Not: approval fields are only ever cleared by a human editing the plan
+YAML). All three Typer command bodies are thin wrappers over
+``run_select``/``run_plan``/``run_recheck``, mirroring
+``commands_assess_replatform.py``'s ``run_inventory``/``run_migration``
+pattern -- no ctx.obj, which would clash with the RenderContext set by the
+root callback.
 """
 
 import json
@@ -31,18 +38,27 @@ from nexus.capture.models import CaptureResult
 from nexus.cli.apps import migrate_app
 from nexus.cli.console import err_console
 from nexus.cli.console import render_context as _render_context
-from nexus.cli.migrate_wiring import PlanCollaborators, default_plan_collaborators
+from nexus.cli.migrate_wiring import (
+    PlanCollaborators,
+    RecheckCollaborators,
+    default_plan_collaborators,
+    default_recheck_collaborators,
+)
 from nexus.connectors.servicenow.errors import SNClientError
 from nexus.migrate.closure import build_closure
 from nexus.migrate.models import (
+    BaselineEntry,
+    DriftReport,
     MigrationPlan,
     Selection,
     SelectionItem,
     emit_plan_yaml,
     emit_selection_yaml,
+    load_plan_yaml,
     load_selection_yaml,
 )
 from nexus.migrate.planner import build_waves, detect_cycles
+from nexus.migrate.recheck import compute_drift, listing_from_entries, plan_has_baseline
 from nexus.migrate.runbook import render_summary, write_runbook
 from nexus.replatform.models import MigrationChecklist
 from nexus.ui import Notice
@@ -157,6 +173,18 @@ def _latest_captured_at(captures: tuple[CaptureResult, ...], profile: str) -> da
     return max(matches) if matches else None
 
 
+def _sorted_baseline(entries: tuple[BaselineEntry, ...]) -> tuple[BaselineEntry, ...]:
+    """Sort BaselineEntry rows by (key, fingerprint) for deterministic plan assembly.
+
+    Args:
+        entries: BaselineEntry rows from ``PlanCollaborators.build_baselines``.
+
+    Returns:
+        The same entries sorted by (key, fingerprint).
+    """
+    return tuple(sorted(entries, key=lambda entry: (entry.key, entry.fingerprint)))
+
+
 def run_plan(
     *,
     selection_path: Path,
@@ -180,7 +208,10 @@ def run_plan(
             ``out`` with its suffix replaced by ``.plan.yaml`` (e.g.
             ``runbook.md`` -> ``runbook.plan.yaml``).
         render_context: Destination console for the summary.
-        collaborators: Injectable capture + schema-graph builders.
+        collaborators: Injectable capture + schema-graph + baseline builders.
+            The assembled plan's ``source_baseline``/``target_baseline``
+            come from ``collaborators.build_baselines`` (story 06), sorted
+            by (key, fingerprint) for determinism.
 
     Returns:
         Exit code 0 on success -- including a plan with unresolved blocking
@@ -206,6 +237,7 @@ def run_plan(
     try:
         captures = collaborators.build_captures(selection)
         schema_graph = collaborators.build_schema_graph(selection)
+        source_baseline, target_baseline = collaborators.build_baselines(selection)
     except SNClientError as exc:
         err_console.print(Notice.error(f"failed to capture instances for plan: {exc}"))
         return 1
@@ -245,6 +277,8 @@ def run_plan(
         target_captured_at=target_captured_at,
         waves=waves,
         findings=findings,
+        source_baseline=_sorted_baseline(source_baseline),
+        target_baseline=_sorted_baseline(target_baseline),
     )
 
     plan_path = out.with_suffix(".plan.yaml")
@@ -254,23 +288,182 @@ def run_plan(
     return 0
 
 
+def _runbook_path_for_recheck(plan_path: Path, out_override: Path | None) -> Path | None:
+    """Derive the runbook path a drifted recheck rewrites (AC5).
+
+    Args:
+        plan_path: The ``--plan`` path given to ``--recheck``.
+        out_override: The ``--out`` path, if given.
+
+    Returns:
+        ``out_override`` when given; otherwise ``plan_path`` with its
+        ``.plan.yaml`` suffix replaced by ``.md``; or None when
+        ``plan_path`` does not end in ``.plan.yaml`` and no ``--out``
+        override was given (the caller must error).
+    """
+    if out_override is not None:
+        return out_override
+    name = plan_path.name
+    if not name.endswith(".plan.yaml"):
+        return None
+    return plan_path.with_name(name[: -len(".plan.yaml")] + ".md")
+
+
+def _render_drift_report(drift: DriftReport, render_context: RenderContext) -> None:
+    """Print the drift report grouped by instance and change kind (AC2).
+
+    Args:
+        drift: The computed DriftReport.
+        render_context: Destination console.
+    """
+    groups = (
+        ("source", "added", drift.source_added),
+        ("source", "removed", drift.source_removed),
+        ("source", "changed", drift.source_changed),
+        ("target", "added", drift.target_added),
+        ("target", "removed", drift.target_removed),
+        ("target", "changed", drift.target_changed),
+    )
+    for instance, kind, keys in groups:
+        if not keys:
+            continue
+        render_context.console.print(f"{instance} {kind} ({len(keys)}):", highlight=False)
+        for key in keys:
+            render_context.console.print(f"  {key}", highlight=False)
+
+
+def run_recheck(
+    *,
+    plan_path: Path,
+    out_override: Path | None,
+    render_context: RenderContext,
+    collaborators: RecheckCollaborators,
+) -> int:
+    """Re-inventory both instances and report drift against a plan's baselines.
+
+    Read-only: never writes to either ServiceNow instance, and never
+    rewrites ``plan_path`` itself -- the plan's approval block
+    (``approved_by``/``approved_at``) is only ever cleared by a human
+    editing the plan YAML (Must Not).
+
+    Args:
+        plan_path: Path to a MigrationPlan YAML file (the ``emit_plan_yaml``
+            format ``migrate plan`` produces).
+        out_override: Optional ``--out`` override for the runbook rewrite
+            path on drift; required when ``plan_path`` does not end in
+            ``.plan.yaml``.
+        render_context: Destination console for the drift report.
+        collaborators: Injectable fresh-listing builder.
+
+    Returns:
+        Exit code 0 when no drift is detected (AC1); 2 when drift is
+        detected (AC2); 1 when the plan is missing/unreadable/malformed/
+        invalid, has no usable baseline, a collaborator fails (e.g. an
+        instance is unreachable), or a drifted recheck cannot determine a
+        runbook path to rewrite (AC3).
+    """
+    try:
+        raw_text = plan_path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as exc:
+        err_console.print(Notice.error(f"cannot read plan {plan_path}: {exc}"))
+        return 1
+    try:
+        plan = load_plan_yaml(raw_text)
+    except ValidationError as exc:
+        err_console.print(Notice.error(f"plan {plan_path} failed validation: {exc}"))
+        return 1
+    except ValueError as exc:
+        err_console.print(Notice.error(f"plan {plan_path} is not valid YAML: {exc}"))
+        return 1
+
+    if not plan_has_baseline(plan):
+        err_console.print(
+            Notice.error(
+                f"plan {plan_path} has no recheck baseline -- regenerate it with "
+                "`nexus migrate plan` on this version to enable --recheck"
+            )
+        )
+        return 1
+
+    try:
+        source_entries, target_entries = collaborators.build_listings(
+            plan.source_profile, plan.target_profile
+        )
+    except SNClientError as exc:
+        err_console.print(Notice.error(f"failed to re-inventory instances for recheck: {exc}"))
+        return 1
+    drift = compute_drift(
+        plan, listing_from_entries(source_entries), listing_from_entries(target_entries)
+    )
+
+    if not drift.has_drift:
+        render_context.console.print("no drift detected", highlight=False)
+        return 0
+
+    _render_drift_report(drift, render_context)
+    runbook_path = _runbook_path_for_recheck(plan_path, out_override)
+    if runbook_path is None:
+        err_console.print(
+            Notice.error(
+                f"plan {plan_path} does not end in .plan.yaml -- pass --out to say "
+                "where the STALE runbook should be rewritten"
+            )
+        )
+        return 1
+    write_runbook(plan, runbook_path, drift=drift)
+    return 2
+
+
 @migrate_app.command("plan")
-def migrate_plan(  # pragma: no cover -- thin Typer wrapper over run_plan
+def migrate_plan(  # pragma: no cover -- thin Typer wrapper over run_plan/run_recheck
     selection: Annotated[
         str, typer.Option("--selection", help="Selection YAML to build a MigrationPlan from")
-    ],
+    ] = "",
     out: Annotated[
         str,
         typer.Option(
             "--out",
             help=(
                 "Write the runbook markdown to this path; the plan YAML is written "
-                "alongside it, at --out with its suffix replaced by .plan.yaml"
+                "alongside it, at --out with its suffix replaced by .plan.yaml. With "
+                "--recheck, only needed when --plan does not end in .plan.yaml -- "
+                "overrides the derived runbook rewrite path on drift"
             ),
         ),
-    ],
+    ] = "",
+    recheck: Annotated[
+        bool,
+        typer.Option(
+            "--recheck",
+            help="Re-inventory both instances and report drift against --plan's baselines",
+        ),
+    ] = False,
+    plan: Annotated[
+        str,
+        typer.Option(
+            "--plan", help="MigrationPlan YAML to recheck drift against (required with --recheck)"
+        ),
+    ] = "",
 ) -> None:
-    """Build a MigrationPlan from a curated Selection and render its runbook."""
+    """Build a MigrationPlan from a curated Selection and render its runbook, or --recheck drift."""
+    if recheck:
+        if not plan:
+            err_console.print(Notice.error("--recheck requires --plan"))
+            raise typer.Exit(1)
+        code = run_recheck(
+            plan_path=Path(plan),
+            out_override=Path(out) if out else None,
+            render_context=_render_context,
+            collaborators=default_recheck_collaborators(),
+        )
+        raise typer.Exit(code)
+
+    if not selection:
+        err_console.print(Notice.error("--selection is required"))
+        raise typer.Exit(1)
+    if not out:
+        err_console.print(Notice.error("--out is required"))
+        raise typer.Exit(1)
     code = run_plan(
         selection_path=Path(selection),
         out=Path(out),
