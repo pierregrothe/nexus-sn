@@ -37,6 +37,12 @@ are processed in sorted-key order, and the returned ``items``/``edges``/
 ``findings`` are each sorted before being returned, so the result never
 depends on input record order (see
 ``tests/test_migrate_closure.py::test_build_closure_is_order_independent``).
+
+Natural-key collisions (fix wave 2): ServiceNow allows two OLD-capture
+records to share a natural key. ``_records_by_key`` resolves each collision
+deterministically -- the lexicographically smallest ``sys_id`` wins -- and
+raises one ``KEY_COLLISION`` finding per colliding key rather than silently
+depending on API return order.
 """
 
 import logging
@@ -291,6 +297,52 @@ def _access_posture_findings(
     return findings
 
 
+def _records_by_key(
+    old_records: tuple[ConfigRecord, ...],
+) -> tuple[dict[str, ConfigRecord], list[IntegrityFinding]]:
+    """Group OLD-capture records by natural key, resolving collisions deterministically.
+
+    ServiceNow allows two records to share a natural key (same
+    scope+table+casefolded name) -- e.g. two independently created ACL rows
+    scoped identically. A plain dict comprehension over ``old_records`` would
+    let the LAST record in API return order silently win, making closure
+    resolution depend on network response ordering. This groups by key
+    first, then keeps the record with the lexicographically smallest
+    ``sys_id`` (stable regardless of input order) and raises one
+    KEY_COLLISION finding per colliding key, naming every colliding sys_id.
+
+    Args:
+        old_records: The source-instance ConfigRecords closure walks.
+
+    Returns:
+        A tuple of (natural key -> winning record, KEY_COLLISION findings).
+    """
+    grouped: dict[str, list[ConfigRecord]] = {}
+    for record in old_records:
+        key = record_natural_key(record, _name_field(record.table), record.scope_name)
+        grouped.setdefault(key, []).append(record)
+
+    winners: dict[str, ConfigRecord] = {}
+    findings: list[IntegrityFinding] = []
+    for key, records in grouped.items():
+        winner = min(records, key=lambda r: r.sys_id)
+        winners[key] = winner
+        if len(records) > 1:
+            sys_ids = sorted({record.sys_id for record in records})
+            findings.append(
+                IntegrityFinding(
+                    kind=FindingKind.KEY_COLLISION,
+                    subject_key=key,
+                    detail=(
+                        f"natural key {key!r} collides across sys_ids: "
+                        f"{', '.join(sys_ids)} -- kept {winner.sys_id!r} "
+                        "(lexicographically smallest)"
+                    ),
+                )
+            )
+    return winners, findings
+
+
 def build_closure(
     selection: Selection,
     captures: tuple[CaptureResult, ...],
@@ -337,10 +389,7 @@ def build_closure(
         for record in capture.records
     )
     records_by_sys_id = {record.sys_id: record for record in old_records}
-    records_by_key = {
-        record_natural_key(record, _name_field(record.table), record.scope_name): record
-        for record in old_records
-    }
+    records_by_key, key_collision_findings = _records_by_key(old_records)
 
     edges_by_from_table: dict[str, list[ReferenceEdge]] = {}
     for edge in schema_graph.reference_edges:
@@ -348,7 +397,7 @@ def build_closure(
 
     items: dict[str, ClosureItem] = {}
     ordering_edges: set[OrderingEdge] = set()
-    findings: list[IntegrityFinding] = []
+    findings: list[IntegrityFinding] = list(key_collision_findings)
 
     seed_keys = sorted(
         key for key, disposition in disposition_by_key.items() if disposition == "include"
@@ -453,7 +502,18 @@ def build_closure(
                     items[row_key] = ClosureItem(key=row_key, added_by_closure=True)
                     queue.append(row_key)
 
-    tables_in_plan = {key.split("|", 2)[1] for key in items}
+    tables_in_plan: set[str] = set()
+    for key in items:
+        parts = key.split("|", 2)
+        if len(parts) != 3:
+            # USE_CASE rollup key (no "|" separators, e.g. "AI Summit") can
+            # reach `items` when a curator marks it disposition="include" --
+            # it aggregates workflows rather than naming a table, so it is
+            # skipped here (see capture_bridge.build_capture_for_selection's
+            # docstring for the same treatment at the capture layer).
+            log.debug("closure: skipping non-workflow item key %r for access-posture scan", key)
+            continue
+        tables_in_plan.add(parts[1])
     findings.extend(_access_posture_findings(tables_in_plan, old_records, new_records))
 
     sorted_items = tuple(items[key] for key in sorted(items))

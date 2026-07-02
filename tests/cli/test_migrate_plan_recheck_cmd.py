@@ -107,6 +107,7 @@ def test_migrate_plan_recheck_drift_exits_2(
     source_baseline = (make_baseline_entry(key=_KEY_A, fingerprint=_FP1),)
     plan_path = tmp_path / "runbook.plan.yaml"
     _write_plan(plan_path, source_baseline=source_baseline, target_baseline=())
+    (tmp_path / "runbook.md").write_bytes(b"# Migration Runbook: alectri -> retail\n")
     fresh_source = (
         make_baseline_entry(key=_KEY_A, fingerprint=_FP1),
         make_baseline_entry(key=_KEY_B, fingerprint=_FP1),
@@ -127,6 +128,7 @@ def test_migrate_plan_recheck_drift_reports_grouped_by_instance_and_kind(
     )
     plan_path = tmp_path / "runbook.plan.yaml"
     _write_plan(plan_path, source_baseline=source_baseline, target_baseline=())
+    (tmp_path / "runbook.md").write_bytes(b"# Migration Runbook: alectri -> retail\n")
     # KEY_A removed, KEY_B fingerprint changed -- source_removed + source_changed.
     fresh_source = (make_baseline_entry(key=_KEY_B, fingerprint=_FP2),)
     _set_recheck_collaborators(monkeypatch, source_entries=fresh_source, target_entries=())
@@ -145,12 +147,13 @@ def test_migrate_plan_recheck_drift_rewrites_runbook_with_stale_banner(
     source_baseline = (make_baseline_entry(key=_KEY_A, fingerprint=_FP1),)
     plan_path = tmp_path / "runbook.plan.yaml"
     _write_plan(plan_path, source_baseline=source_baseline, target_baseline=())
+    runbook_path = tmp_path / "runbook.md"
+    runbook_path.write_bytes(b"# Migration Runbook: alectri -> retail\n\npre-existing content\n")
     _set_recheck_collaborators(monkeypatch, source_entries=(), target_entries=())
 
     result = _invoke_recheck(plan_path)
 
     assert result.exit_code == 2
-    runbook_path = tmp_path / "runbook.md"
     assert runbook_path.exists()
     text = runbook_path.read_text(encoding="utf-8")
     assert "STALE" in text
@@ -165,6 +168,7 @@ def test_migrate_plan_recheck_drift_leaves_plan_yaml_bytes_unchanged(
     original_plan_bytes = _write_plan(
         plan_path, source_baseline=source_baseline, target_baseline=()
     )
+    (tmp_path / "runbook.md").write_bytes(b"# Migration Runbook: alectri -> retail\n")
     _set_recheck_collaborators(monkeypatch, source_entries=(), target_entries=())
 
     result = _invoke_recheck(plan_path)
@@ -260,6 +264,27 @@ def test_migrate_plan_recheck_non_plan_yaml_suffix_without_out_exits_1(
 
     assert result.exit_code == 1
     assert "does not end in .plan.yaml" in result.stderr
+
+
+def test_migrate_plan_recheck_missing_derived_runbook_exits_1(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Finding 1b: no --out given, and the derived runbook.md was never
+    # created (or lives elsewhere) -- rechecking must never write a STALE
+    # runbook to a path that was never the plan's own runbook.
+    source_baseline = (make_baseline_entry(key=_KEY_A, fingerprint=_FP1),)
+    plan_path = tmp_path / "runbook.plan.yaml"
+    _write_plan(plan_path, source_baseline=source_baseline, target_baseline=())
+    _set_recheck_collaborators(monkeypatch, source_entries=(), target_entries=())
+
+    result = _invoke_recheck(plan_path)
+
+    assert result.exit_code == 1
+    assert "derived runbook path" in result.stderr
+    assert "runbook.md" in result.stderr
+    assert "does not exist" in result.stderr
+    assert "pass --out" in result.stderr
+    assert not (tmp_path / "runbook.md").exists()
 
 
 def test_migrate_plan_recheck_non_plan_yaml_suffix_with_out_override_succeeds(

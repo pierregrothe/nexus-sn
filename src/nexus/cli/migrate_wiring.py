@@ -26,7 +26,7 @@ from typing import cast
 
 from nexus.capture.models import CaptureResult
 from nexus.capture.scope import ScopeDiscoverer
-from nexus.capture.tables import DEFAULT_TABLE_GROUPS, TableGroup, TableSpec
+from nexus.capture.tables import CUSTOM_SCOPE_PREFIXES, DEFAULT_TABLE_GROUPS, TableGroup, TableSpec
 from nexus.cli.auth import acquire_token as _acquire_token
 from nexus.connectors.servicenow.client import ServiceNowClient
 from nexus.connectors.servicenow.errors import SNClientError
@@ -51,8 +51,7 @@ _PAGE_LIMIT = 5000
 _SCHEMA_AREA_KEY = "migrate-plan-selection-tables"
 
 # Baseline/recheck instance-wide listing (Story 06) -- mirrors
-# commands_assess_replatform.py's lightweight-listing constants.
-_CUSTOM_PREFIXES = ("x_", "u_")
+# commands_assess_replatform.py's lightweight-listing shape.
 _PAGE_SIZE = 1000
 _FINGERPRINT_FIELD = "sys_updated_on"
 
@@ -249,7 +248,16 @@ async def _build_live_schema_graph(selection: Selection) -> SchemaGraph:  # prag
         A SchemaGraph covering exactly the selection's named tables and
         their reference targets.
     """
-    tables = tuple(sorted({item.key.split("|", 2)[1] for item in selection.items}))
+    wanted_tables: set[str] = set()
+    for item in selection.items:
+        parts = item.key.split("|", 2)
+        if len(parts) != 3:
+            # USE_CASE rollup key (no "|" separators) -- see
+            # capture_bridge.build_capture_for_selection's docstring; it
+            # names no table, so it is skipped here too.
+            continue
+        wanted_tables.add(parts[1])
+    tables = tuple(sorted(wanted_tables))
     _registry, meta, token, _expiry = _acquire_token(selection.source_profile)
     async with ServiceNowClient(instance_url=meta.url, token=token) as client:
         rows = await _fetch_reference_dictionary_rows(client, tables)
@@ -400,7 +408,7 @@ async def _list_baseline_live(  # pragma: no cover -- live I/O
             custom_ids = [
                 entry.sys_id
                 for entry in manifest.scopes
-                if entry.scope.startswith(_CUSTOM_PREFIXES)
+                if entry.scope.startswith(CUSTOM_SCOPE_PREFIXES)
             ]
             global_ids = [entry.sys_id for entry in manifest.scopes if entry.scope == "global"]
             if not (custom_ids or global_ids):

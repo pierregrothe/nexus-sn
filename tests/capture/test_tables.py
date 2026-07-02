@@ -5,9 +5,18 @@
 
 """Registry-shape tests for nexus.capture.tables."""
 
-from nexus.capture.tables import AI_AUTOMATION, DEFAULT_TABLE_GROUPS, DEVELOPER_PLATFORM
+from nexus.capture.tables import (
+    AI_AUTOMATION,
+    CUSTOM_SCOPE_PREFIXES,
+    DEFAULT_TABLE_GROUPS,
+    DEVELOPER_PLATFORM,
+)
 
 __all__: list[str] = []
+
+
+def test_custom_scope_prefixes_pinned_value() -> None:
+    assert CUSTOM_SCOPE_PREFIXES == ("x_", "u_")
 
 
 def test_default_table_groups_registers_both_groups() -> None:

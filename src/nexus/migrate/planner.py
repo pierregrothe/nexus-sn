@@ -279,12 +279,13 @@ def validate_approval(plan: MigrationPlan) -> tuple[str, ...]:
     * ``STRANDED_DEPENDENCY`` without a ``waiver`` attached.
     * ``DATA_PREREQUISITE`` without an ``acknowledgment`` attached.
 
-    ``CYCLE`` and ``ACCESS_POSTURE_DRIFT`` findings are surfaced in the plan
-    but are deliberately NON-BLOCKING in v1 -- this is an extension point: a
-    later story may promote either to blocking once runbook guidance exists
-    for resolving them (cycles need a manual sequencing decision;
-    access-posture drift needs a security review step neither of which this
-    story defines).
+    ``CYCLE``, ``ACCESS_POSTURE_DRIFT``, and ``KEY_COLLISION`` findings are
+    surfaced in the plan but are deliberately NON-BLOCKING in v1 -- this is
+    an extension point: a later story may promote any of them to blocking
+    once runbook guidance exists for resolving them (cycles need a manual
+    sequencing decision; access-posture drift needs a security review step;
+    key collisions already resolve deterministically at closure time --
+    none of which this story defines a blocking gate for).
 
     Args:
         plan: The assembled MigrationPlan to validate.
@@ -308,8 +309,8 @@ def validate_approval(plan: MigrationPlan) -> tuple[str, ...]:
                         f"{finding.kind.value} on {finding.subject_key!r} is unacknowledged: "
                         f"{finding.detail}"
                     )
-            case FindingKind.CYCLE | FindingKind.ACCESS_POSTURE_DRIFT:
+            case FindingKind.CYCLE | FindingKind.ACCESS_POSTURE_DRIFT | FindingKind.KEY_COLLISION:
                 pass
-            case _:  # pragma: no cover -- FindingKind is closed to 4 members; unreachable today.
+            case _:  # pragma: no cover -- FindingKind is closed to 5 members; unreachable today.
                 pass
     return tuple(reasons)

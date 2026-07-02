@@ -65,13 +65,18 @@ class FindingKind(StrEnum):
     Open to extension by later stories; this module fixes only the members
     required so far. ``ACCESS_POSTURE_DRIFT`` (Story 04, AC4) flags a
     selected table whose ``accessible_from``/``caller_access`` posture
-    differs between the source and target instance captures.
+    differs between the source and target instance captures. ``KEY_COLLISION``
+    (fix wave 2) flags two OLD-capture records sharing the same natural key
+    (scope+table+casefolded name) -- ServiceNow allows this, and closure
+    resolves it deterministically by keeping the record with the
+    lexicographically smallest sys_id.
     """
 
     STRANDED_DEPENDENCY = "STRANDED_DEPENDENCY"
     DATA_PREREQUISITE = "DATA_PREREQUISITE"
     CYCLE = "CYCLE"
     ACCESS_POSTURE_DRIFT = "ACCESS_POSTURE_DRIFT"
+    KEY_COLLISION = "KEY_COLLISION"
 
 
 class SelectionItem(BaseModel):
