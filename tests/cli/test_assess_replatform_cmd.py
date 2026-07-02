@@ -16,6 +16,7 @@ import typer
 from rich.console import Console
 from typer.testing import CliRunner
 
+from nexus.capture.models import ScopeEntry, ScopeManifest
 from nexus.cli import commands_assess_replatform
 from nexus.cli.apps import app
 from nexus.cli.commands_assess_replatform import (
@@ -33,7 +34,6 @@ from nexus.ui.capabilities import ColorDepth, RenderProfile, TerminalCapabilitie
 from nexus.ui.render_context import RenderContext
 from nexus.ui.theme import NEXUS_THEME
 from tests.fakes.replatform import (
-    make_scope_manifest,
     make_use_case,
     make_use_case_inventory,
     make_workflow_ref,
@@ -304,7 +304,47 @@ def test_resolve_groups_with_explicit_keys_returns_cli_order() -> None:
 
 def test_merge_manifests_unions_scopes_by_sys_id() -> None:
     ts = datetime(2026, 7, 1, 12, 0, 0, tzinfo=UTC)
-    a = make_scope_manifest(scopes={"s1": "x_app"}, captured_at=ts)
-    b = make_scope_manifest(scopes={"s1": "x_app", "s2": "x_other"}, captured_at=ts)
+    # `a` lists s2 before s1 -- insertion order alone would yield (s2, s1), so a
+    # correctly-sorted output proves the sort-by-sys_id, not just insertion order.
+    a = ScopeManifest(
+        instance_id="dev",
+        captured_at=ts,
+        scopes=(
+            ScopeEntry(
+                sys_id="s2",
+                name="x_other",
+                scope="x_other",
+                version="1.0",
+                vendor="test",
+                table_counts={},
+            ),
+            ScopeEntry(
+                sys_id="s1",
+                name="x_app",
+                scope="x_app",
+                version="1.0",
+                vendor="test",
+                table_counts={"incident": 5},
+            ),
+        ),
+    )
+    # `b` duplicates s1 with overlapping (incident) and new (problem) table counts.
+    b = ScopeManifest(
+        instance_id="dev",
+        captured_at=ts,
+        scopes=(
+            ScopeEntry(
+                sys_id="s1",
+                name="x_app",
+                scope="x_app",
+                version="1.0",
+                vendor="test",
+                table_counts={"incident": 9, "problem": 3},
+            ),
+        ),
+    )
     merged = _merge_manifests((a, b))
     assert tuple(e.sys_id for e in merged.scopes) == ("s1", "s2")
+    s1 = next(e for e in merged.scopes if e.sys_id == "s1")
+    # Right-biased union: b's incident count (9) overwrites a's (5); problem is added.
+    assert s1.table_counts == {"incident": 9, "problem": 3}
