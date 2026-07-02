@@ -10,17 +10,25 @@ Mirrors ``nexus.replatform.reporter``: a public console summary
 (``render_runbook`` / ``write_runbook``), split the same way
 ``render_checklist``/``write_markdown`` are. ``render_runbook`` is pure --
 every value in the rendered text derives from the ``MigrationPlan``
-argument, never from wall-clock time, so two renders of the same plan are
-byte-identical (AC6). The runbook's ``generated-at`` header line is not a
-render timestamp -- it is the later of the plan's own source/target
-snapshot timestamps (ADR-026 Decision 4: freshness is enforced, not
-assumed), which is why it stays stable across repeated renders.
+argument (and, since story 06, an optional ``DriftReport``), never from
+wall-clock time, so two renders of the same plan are byte-identical (AC6).
+The runbook's ``generated-at`` header line is not a render timestamp -- it
+is the later of the plan's own source/target snapshot timestamps
+(ADR-026 Decision 4: freshness is enforced, not assumed), which is why it
+stays stable across repeated renders.
+
+Story 06's ``plan --recheck`` reuses this same render path for the STALE
+runbook rewrite (AC5) rather than a second, ad hoc output convention: pass
+``drift`` and, when it carries drift, a prominent STALE banner renders in
+the header, before everything else. ``drift=None`` (the default) renders
+byte-identically to story 05's output.
 """
 
 from pathlib import Path
 
 from nexus.migrate.models import (
     Acknowledgment,
+    DriftReport,
     IntegrityFinding,
     MigrationPlan,
     PlanItem,
@@ -61,7 +69,7 @@ _LANE_ADVISORY_NOTICE = (
 )
 
 
-def render_runbook(plan: MigrationPlan) -> str:
+def render_runbook(plan: MigrationPlan, *, drift: DriftReport | None = None) -> str:
     """Render a MigrationPlan as a lane-shaped, byte-stable markdown runbook.
 
     Section order: header (AC3) -> approval status (AC7) -> waivers and
@@ -70,12 +78,16 @@ def render_runbook(plan: MigrationPlan) -> str:
 
     Args:
         plan: The assembled MigrationPlan to render.
+        drift: A computed DriftReport from a ``plan --recheck`` run (story
+            06). When given and ``drift.has_drift``, a STALE banner renders
+            in the header before everything else. Default None renders
+            byte-identically to story 05's output.
 
     Returns:
         Markdown text with LF-only line endings (AC6).
     """
     lines: list[str] = []
-    lines.extend(_header_lines(plan))
+    lines.extend(_header_lines(plan, drift=drift))
     lines.extend(_approval_lines(plan))
     lines.extend(_waiver_ack_lines(plan))
     lines.extend(_documented_gap_lines())
@@ -112,37 +124,69 @@ def render_summary(plan: MigrationPlan, ctx: RenderContext) -> None:
         ctx.console.print(Notice.info("no blocking findings"))
 
 
-def write_runbook(plan: MigrationPlan, path: Path) -> None:
+def write_runbook(plan: MigrationPlan, path: Path, *, drift: DriftReport | None = None) -> None:
     """Write the runbook as byte-stable markdown.
 
     Args:
         plan: The assembled MigrationPlan to render.
         path: Destination file. Always written with LF endings via
             ``write_bytes`` so output is identical across platforms.
+        drift: A computed DriftReport from a ``plan --recheck`` run (story
+            06); see ``render_runbook``.
     """
-    path.write_bytes(render_runbook(plan).encode("utf-8"))
+    path.write_bytes(render_runbook(plan, drift=drift).encode("utf-8"))
 
 
-def _header_lines(plan: MigrationPlan) -> list[str]:
-    """Title, generated-at, snapshot identities, and validity window (AC3).
+def _stale_banner_lines(drift: DriftReport) -> list[str]:
+    """Prominent STALE banner with drift counts per instance/kind (AC5).
+
+    Args:
+        drift: The computed DriftReport; only called when ``drift.has_drift``.
+
+    Returns:
+        Markdown lines for the STALE banner, one line per non-empty
+        instance/kind group.
+    """
+    lines = ["## STALE -- drift detected since this plan's snapshots", ""]
+    groups = (
+        ("source", "added", drift.source_added),
+        ("source", "removed", drift.source_removed),
+        ("source", "changed", drift.source_changed),
+        ("target", "added", drift.target_added),
+        ("target", "removed", drift.target_removed),
+        ("target", "changed", drift.target_changed),
+    )
+    for instance, kind, keys in groups:
+        if keys:
+            lines.append(f"- {instance} {kind}: {len(keys)}")
+    lines.append("")
+    return lines
+
+
+def _header_lines(plan: MigrationPlan, *, drift: DriftReport | None = None) -> list[str]:
+    """Title, optional STALE banner, snapshot identities, and validity window (AC3, AC5).
 
     ``generated-at`` is deterministic, not wall-clock: the later of the two
     snapshot timestamps the plan was computed from (AC3 + AC6 coexistence).
     """
     generated_at = max(plan.source_captured_at, plan.target_captured_at)
-    return [
-        f"# Migration Runbook: {plan.source_profile} -> {plan.target_profile}",
-        "",
-        f"Generated-at (snapshot freshness): {generated_at.isoformat()}",
-        "",
-        f"Source snapshot: {plan.source_profile} "
-        f"captured_at={plan.source_captured_at.isoformat()}",
-        f"Target snapshot: {plan.target_profile} "
-        f"captured_at={plan.target_captured_at.isoformat()}",
-        "",
-        f"Validity window: {_RECHECK_NOTICE}",
-        "",
-    ]
+    lines = [f"# Migration Runbook: {plan.source_profile} -> {plan.target_profile}", ""]
+    if drift is not None and drift.has_drift:
+        lines.extend(_stale_banner_lines(drift))
+    lines.extend(
+        [
+            f"Generated-at (snapshot freshness): {generated_at.isoformat()}",
+            "",
+            f"Source snapshot: {plan.source_profile} "
+            f"captured_at={plan.source_captured_at.isoformat()}",
+            f"Target snapshot: {plan.target_profile} "
+            f"captured_at={plan.target_captured_at.isoformat()}",
+            "",
+            f"Validity window: {_RECHECK_NOTICE}",
+            "",
+        ]
+    )
+    return lines
 
 
 def _approval_lines(plan: MigrationPlan) -> list[str]:

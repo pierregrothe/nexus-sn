@@ -15,6 +15,8 @@ import nexus.migrate.models as migrate_models
 import tests.fakes.migrate as fakes_migrate
 from nexus.migrate.models import (
     Acknowledgment,
+    BaselineEntry,
+    DriftReport,
     FindingKind,
     IntegrityFinding,
     MigrationPlan,
@@ -345,6 +347,62 @@ def test_migration_plan_forbids_extra() -> None:
         )
 
 
+# -- AC12: BaselineEntry + DriftReport (Story 06) -----------------------------
+
+
+def _baseline_entry() -> BaselineEntry:
+    return BaselineEntry(
+        key="x_alectri_core|sys_hub_flow|approve po", fingerprint="2026-07-01 10:00:00"
+    )
+
+
+def test_baseline_entry_holds_fields_with_default_fingerprint() -> None:
+    entry = BaselineEntry(key="k")
+    assert entry.key == "k"
+    assert entry.fingerprint == ""
+
+
+def test_baseline_entry_is_frozen() -> None:
+    entry = _baseline_entry()
+    with pytest.raises(ValidationError):
+        setattr(entry, "fingerprint", "changed")
+
+
+def test_baseline_entry_forbids_extra() -> None:
+    with pytest.raises(ValidationError):
+        BaselineEntry.model_validate({"key": "k", "fingerprint": "f", "extra": "x"})
+
+
+def test_drift_report_defaults_to_no_drift() -> None:
+    assert DriftReport().has_drift is False
+
+
+def test_drift_report_has_drift_true_when_any_field_populated() -> None:
+    assert DriftReport(source_added=("k",)).has_drift is True
+    assert DriftReport(source_removed=("k",)).has_drift is True
+    assert DriftReport(source_changed=("k",)).has_drift is True
+    assert DriftReport(target_added=("k",)).has_drift is True
+    assert DriftReport(target_removed=("k",)).has_drift is True
+    assert DriftReport(target_changed=("k",)).has_drift is True
+
+
+def test_drift_report_is_frozen() -> None:
+    report = DriftReport()
+    with pytest.raises(ValidationError):
+        setattr(report, "source_added", ("k",))
+
+
+def test_drift_report_forbids_extra() -> None:
+    with pytest.raises(ValidationError):
+        DriftReport.model_validate({"source_added": (), "extra": "x"})
+
+
+def test_migration_plan_defaults_baselines_to_empty() -> None:
+    plan = _migration_plan()
+    assert plan.source_baseline == ()
+    assert plan.target_baseline == ()
+
+
 # -- AC10: byte-stable YAML round trip -----------------------------------------
 
 
@@ -365,6 +423,57 @@ def test_emit_plan_yaml_round_trip_byte_stable(tmp_path: Path) -> None:
 
     assert second == first
     assert "\r" not in second
+
+
+def test_emit_plan_yaml_round_trip_with_baselines_byte_stable(tmp_path: Path) -> None:
+    plan = MigrationPlan(
+        schema_version="1.0",
+        source_profile="alectri",
+        target_profile="retail",
+        source_captured_at=_TS,
+        target_captured_at=_TS,
+        waves=(_wave(),),
+        findings=(),
+        source_baseline=(_baseline_entry(),),
+        target_baseline=(
+            BaselineEntry(
+                key="x_alectri_core|sys_hub_flow|approve po", fingerprint="2026-07-01 09:00:00"
+            ),
+        ),
+    )
+    first = emit_plan_yaml(plan)
+
+    assert "source_baseline" in first
+    assert "target_baseline" in first
+
+    path = tmp_path / "plan.yaml"
+    path.write_bytes(first.encode("utf-8"))
+    reloaded = load_plan_yaml(path.read_bytes().decode("utf-8"))
+    second = emit_plan_yaml(reloaded)
+
+    assert second == first
+    assert reloaded.source_baseline == plan.source_baseline
+    assert reloaded.target_baseline == plan.target_baseline
+
+
+def test_load_plan_yaml_old_plan_without_baseline_loads() -> None:
+    # Story 05 plan files predate source_baseline/target_baseline -- a plan
+    # YAML with no baseline keys at all must still load, defaulting both to
+    # () (Story 06 Resolution 1).
+    text = (
+        "schema_version: '1.0'\n"
+        "source_profile: alectri\n"
+        "target_profile: retail\n"
+        "source_captured_at: '2026-07-02T12:00:00+00:00'\n"
+        "target_captured_at: '2026-07-02T12:00:00+00:00'\n"
+        "waves: []\n"
+        "findings: []\n"
+    )
+
+    plan = load_plan_yaml(text)
+
+    assert plan.source_baseline == ()
+    assert plan.target_baseline == ()
 
 
 def test_load_plan_yaml_rejects_invalid_yaml_syntax() -> None:
@@ -421,8 +530,12 @@ def test_make_selection_round_trips_byte_stable() -> None:
 
 
 def test_migrate_models_all_lists_every_public_name() -> None:
+    # Story 06: BaselineEntry + DriftReport added -- see that story's report
+    # for why the exact-set assertion needed updating.
     assert set(migrate_models.__all__) == {
         "Acknowledgment",
+        "BaselineEntry",
+        "DriftReport",
         "FindingKind",
         "IntegrityFinding",
         "MigrationPlan",

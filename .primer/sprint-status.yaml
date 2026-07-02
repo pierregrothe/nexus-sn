@@ -118,7 +118,7 @@ phases:
       migration-planner-03-migrate-select-cli: done  # shipped 2026-07-02; follow-up open: assess migration --out-json producer
       migration-planner-04-plan-builder-closure-waves: done  # shipped 2026-07-02; scope_name live-capture verification carried to story 05
       migration-planner-05-runbook-plan-cli: done  # shipped 2026-07-02; fresh-timestamp fix caught in review
-      migration-planner-06-plan-recheck-drift: backlog
+      migration-planner-06-plan-recheck-drift: done  # shipped 2026-07-02; baseline embedded in plan (scope-symmetric with recheck listing)
       migration-planner-07-migrate-preflight: backlog
 
   2026.08-execution-lane-spikes:
