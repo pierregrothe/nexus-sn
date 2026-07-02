@@ -1,6 +1,6 @@
 # Story 03: bi-directional checklist diff
 
-Status: backlog
+Status: done
 Spec-Clarity: high
 Depends-On: 01
 
@@ -72,12 +72,12 @@ timestamps, and the union of both `coverage` tuples.
 
 ## Tasks / Subtasks
 
-- [ ] Create `src/nexus/replatform/diff.py` -- `build_checklist(...)` (AC1)
-- [ ] Implement workflow-grain status (AC2) and use-case rollup (AC3)
-- [ ] Implement `_apply_aliases(target, aliases)` remap (AC4)
-- [ ] Implement stable sort (AC5) and EXTRA handling (AC6)
-- [ ] Create `tests/test_replatform_diff.py` (AC1-AC7) using Story 01 fakes
-- [ ] Update `src/nexus/replatform/__init__.py` exports
+- [x] Create `src/nexus/replatform/diff.py` -- `build_checklist(...)` (AC1)
+- [x] Implement workflow-grain status (AC2) and use-case rollup (AC3)
+- [x] Implement `_apply_aliases(target, aliases)` remap (AC4)
+- [x] Implement stable sort (AC5) and EXTRA handling (AC6)
+- [x] Create `tests/test_replatform_diff.py` (AC1-AC7) using Story 01 fakes
+- [x] Update `src/nexus/replatform/__init__.py` exports
 
 ## Existing Code
 

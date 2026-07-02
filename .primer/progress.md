@@ -183,10 +183,13 @@ CLI:
     github_repo. Wire vs cached models split for round-trip safety.
   nexus templates -- DataTable of cached catalog with synced-age
     footer; Hint pointing at `nexus sync` when no prior sync has run.
-  nexus assess -- --for <template> (Gate 1 readiness), --job <id>
+  nexus assess -- Typer group. Bare/--for/--job/no-flag gate+health
+    behavior unchanged: --for <template> (Gate 1 readiness), --job <id>
     (Gate 2 validation), no-flag (standalone health scan),
-    --live / --archive source switch, --skip-gate2 ack-skip.
-    Verdict-to-exit PASS=0 / BLOCK=2 / ERROR=1.
+    --live / --archive source switch, --skip-gate2 ack-skip,
+    verdict-to-exit PASS=0 / BLOCK=2 / ERROR=1. Plus `inventory <profile>`
+    and `migration --from --to [--scope-alias] [--group] [--domain-map]`
+    (see Replatform layer below).
   nexus apply -- Gate 1 -> ApplyEngine -> Gate 2 orchestrator.
     Flags: --scope X (target scope override), --force (skip Gate 1
     BLOCK only), --skip-gate2 (omit post-apply Gate 2),
@@ -215,7 +218,7 @@ Infrastructure:
     progressive levels plus live SPM family run (6 fresh + 3 already-
     installed treated as success, 1 timeout).
 
-Tests: 1778 passing. All real fakes (incl. httpx.MockTransport,
+Tests: 1867 passing / 3 skipped (1870 collected). All real fakes (incl. httpx.MockTransport,
 FakeBatchProgress, FakeServiceNowClient, FakeSchemaCartographer,
 FakeAgentClient, no unittest.mock). mypy strict + pyright strict
 report 0 errors across src/. ruff + black clean. GitHub:
@@ -264,13 +267,14 @@ Governance enforcement:
   Post-edit checks: black + ruff + mypy + pyright (all strict, all blocking)
   Pre-commit hook: 7 hooks via .pre-commit-config.yaml -- black, ruff,
     mypy, pyright, semgrep, pytest, file-size guard
-  ADR catalog: 24 ADRs in .primer/adr/. Latest: ADR-024
-    (FramedViewer supersedes pypager). ADR-023 (file-size cap:
+  ADR catalog: 25 ADRs in .primer/adr/. Latest: ADR-025
+    (replatform cross-instance analysis). ADR-023 (file-size cap:
     800 src / 1000 tests with ratchet enforcement) drove the cli.py
     split into a 22-module cli/ package.
-  PRD catalog: 3 PRDs in .primer/prd/ -- PRD-001 (CLI UX wow
+  PRD catalog: 4 PRDs in .primer/prd/ -- PRD-001 (CLI UX wow
     factor), PRD-002 (NEXUS Assessment), PRD-003 (NEXUS Template
-    Library). All three at status=draft.
+    Library), PRD-004 (NEXUS Replatform Checklist). All four at
+    status=draft.
 
 Assessment layer (2026.06-assessment epic shipped 2026-05-19):
   AssessmentRule + Ruleset Pydantic schemas (frozen+strict+extra=forbid)
@@ -355,6 +359,36 @@ Template Library layer (2026.06-template-library epic shipped 2026-05-19):
     GitHubSync consumes unchanged.
   scripts/validate_template_documents.py CI validator + workflow
     step in validate-templates.yml.
+
+Replatform layer (2026.07-nexus-replatform-checklist epic, PRs #55/#56,
+  + coverage extension on feat/2026.07-replatform-coverage, both shipped
+  2026-07-02):
+  src/nexus/replatform/ -- deterministic, LLM-free, bi-directional
+    use-case/workflow checklist for cross-instance replatforming.
+    UseCase/UseCaseInventory/ChecklistItem/MigrationChecklist frozen
+    Pydantic models; natural-key `(scope, type, casefold(collapse_ws(name)))`
+    identity, never sys_id; multiset matching so duplicate keys consume
+    target occurrences one-for-one instead of collapsing.
+  Coverage spans AI_AUTOMATION + DEVELOPER_PLATFORM table groups (13
+    tables total: ai_skill, sys_hub_flow(+input/logic),
+    sys_hub_action_type_definition, virtual_agent_conversation_topic(+block),
+    sys_ai_agent(+capability), sys_script, sys_script_include,
+    sys_script_client, sys_ui_policy, sys_ui_action, sys_security_acl,
+    sysauto_script, wf_workflow) for custom-scoped apps, plus a second
+    per-table pass for customer-updated (sys_customer_update=true)
+    global-scope artifacts.
+  Per-app use-case naming: catalog product > app display name >
+    Uncategorized (unresolvable scopes only); `--domain-map` YAML overlay
+    for engagement-supplied business-domain names; `--group` restricts
+    capture to a named table group.
+  Honesty rails: UseCaseInventory.skipped_tables warns per absent table;
+    unnamed artifacts counted + warned rather than silently dropped.
+  `nexus assess inventory <profile>` + `nexus assess migration --from --to
+    [--scope-alias]` under the restructured `assess` Typer group (bare
+    gate/health behavior unchanged). Live-proven 2026-07-02 against
+    alectri/retail: 30,463 artifacts, 95 named use cases, 0 Uncategorized.
+  AI enrichment (specialist-driven naming/sub-clustering) deferred to v2,
+    pending the 2026.07 Agent Specialists epic.
 
 Setup wizard layer (credential management):
   PromptSource Protocol + TyperPromptSource + ScriptedPromptSource

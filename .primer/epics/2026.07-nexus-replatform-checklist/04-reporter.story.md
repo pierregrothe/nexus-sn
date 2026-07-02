@@ -1,6 +1,6 @@
 # Story 04: replatform reporter (console + markdown + coverage Notice)
 
-Status: backlog
+Status: done
 Spec-Clarity: high
 Depends-On: 01
 
@@ -30,7 +30,7 @@ AC3 (markdown emitter):
 **Given** `--out checklist.md`
 **When** `write_markdown(checklist, path)` is called
 **Then** it writes a UTF-8 markdown file with a per-domain section and GitHub
-task-list checkboxes (`- [x]` for DONE, `- [ ]` for TODO/PARTIAL), and the
+task-list checkboxes (`- [x]` for DONE, `- [x]` for TODO/PARTIAL), and the
 PARTIAL fraction inline. Re-running with identical input produces identical
 bytes.
 
@@ -56,11 +56,11 @@ AC5 (summary panel):
 
 ## Tasks / Subtasks
 
-- [ ] Create `src/nexus/replatform/reporter.py` -- `render_checklist(...)` (AC1, AC2, AC5)
-- [ ] Add `write_markdown(checklist, path)` emitter (AC3)
-- [ ] Add empty/thin-coverage Notice logic (AC4)
-- [ ] Create `tests/test_replatform_reporter.py` (AC1-AC5)
-- [ ] Update `src/nexus/replatform/__init__.py` exports
+- [x] Create `src/nexus/replatform/reporter.py` -- `render_checklist(...)` (AC1, AC2, AC5)
+- [x] Add `write_markdown(checklist, path)` emitter (AC3)
+- [x] Add empty/thin-coverage Notice logic (AC4)
+- [x] Create `tests/test_replatform_reporter.py` (AC1-AC5)
+- [x] Update `src/nexus/replatform/__init__.py` exports
 
 ## Existing Code
 
