@@ -1,6 +1,6 @@
 # Story 01: full-fidelity selective capture
 
-Status: backlog
+Status: done
 Spec-Clarity: high
 Depends-On: none
 
@@ -70,15 +70,15 @@ AC6 (empty selection, GWT):
 
 ## Tasks / Subtasks
 
-- [ ] Widen `SnFieldValue` type alias in `src/nexus/capture/models.py` (AC1)
-- [ ] Update `_row_to_record` in `src/nexus/capture/fetcher.py` to keep
+- [x] Widen `SnFieldValue` type alias in `src/nexus/capture/models.py` (AC1)
+- [x] Update `_row_to_record` in `src/nexus/capture/fetcher.py` to keep
       bool/int/float/None fields (AC2)
-- [ ] Extend the capture-layer fake with rows carrying scalar field types
+- [x] Extend the capture-layer fake with rows carrying scalar field types
       (AC2, AC3)
-- [ ] Extend archive round-trip tests for scalar fidelity (AC3)
-- [ ] Create `src/nexus/migrate/__init__.py` + `src/nexus/migrate/capture_bridge.py`
+- [x] Extend archive round-trip tests for scalar fidelity (AC3)
+- [x] Create `src/nexus/migrate/__init__.py` + `src/nexus/migrate/capture_bridge.py`
       -- `build_capture_for_selection` (AC4-AC6)
-- [ ] Create `tests/test_capture_fetcher_scalars.py` and
+- [x] Create `tests/test_capture_fetcher_scalars.py` and
       `tests/test_migrate_capture_bridge.py` (AC1-AC6)
 
 ## Existing Code
