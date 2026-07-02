@@ -12,6 +12,7 @@ import pytest
 from pydantic import ValidationError
 
 import nexus.migrate.models as migrate_models
+import tests.fakes.migrate as fakes_migrate
 from nexus.migrate.models import (
     Acknowledgment,
     FindingKind,
@@ -399,3 +400,15 @@ def test_migrate_models_has_no_forbidden_imports_or_dict_any() -> None:
     assert "nexus.cli" not in source
     assert "nexus.agents" not in source
     assert "dict[str, Any]" not in source
+
+
+def test_make_migration_plan_round_trips_byte_stable() -> None:
+    plan = fakes_migrate.make_migration_plan()
+    first = emit_plan_yaml(plan)
+    assert emit_plan_yaml(load_plan_yaml(first)) == first
+
+
+def test_make_selection_constructs_selection_with_items() -> None:
+    selection = fakes_migrate.make_selection()
+    assert isinstance(selection, Selection)
+    assert selection.items

@@ -94,7 +94,7 @@ on ADR-027.
 
 | Requirement | Story | Status |
 |---|---|---|
-| FR1 | 02-migrate-models-plan-roundtrip | backlog |
+| FR1 | 02-migrate-models-plan-roundtrip | done |
 | FR2 | 03-migrate-select-cli | backlog |
 | FR3 | 04-plan-builder-closure-waves, 05-runbook-plan-cli | backlog |
 | FR4 | 04-plan-builder-closure-waves | backlog |
@@ -114,7 +114,7 @@ on ADR-027.
 |---|---|---|---|
 | 00 | s0-closure-scale-spike | none | done |
 | 01 | full-fidelity-selective-capture | none | backlog |
-| 02 | migrate-models-plan-roundtrip | none | backlog |
+| 02 | migrate-models-plan-roundtrip | none | done |
 | 03 | migrate-select-cli | 02 | backlog |
 | 04 | plan-builder-closure-waves | 01, 02 | backlog |
 | 05 | runbook-plan-cli | 04 | backlog |
@@ -159,7 +159,7 @@ any full-estate curation is offered to anyone.
   single NEW instance.
 
 ## Progress
-- Stories: 1/8 done, 0 in-progress, 7 backlog
+- Stories: 2/8 done, 0 in-progress, 6 backlog
 - S0 wall-clock: 10.75ms (alectri, 30,463 artifacts, seed-stop-list walk; JSON load for both
   inventories + the schema archive is a separate 0.200s)
 - S0 findings (no stop-list): raw 40,306 / deduped 351
