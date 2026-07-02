@@ -1,6 +1,6 @@
 # Story 06: `nexus assess inventory` + `nexus assess migration`
 
-Status: backlog
+Status: done
 Spec-Clarity: high
 Depends-On: 02, 03, 04, 05
 
@@ -78,12 +78,12 @@ AC6 (gates still intact):
 
 ## Tasks / Subtasks
 
-- [ ] Define `ReplatformCollaborators` + `default_replatform_collaborators(paths)` (AC1)
-- [ ] Attach collaborators to `ctx.obj` in the assess group callback (AC1)
-- [ ] Implement `inventory` subcommand body + `--out inv.json` (AC2)
-- [ ] Implement `migration` subcommand body + markdown `--out` (AC3)
-- [ ] Add `--scope-alias` parser -> tuple of pairs (AC4)
-- [ ] Create `tests/test_assess_inventory_cmd.py` + `tests/test_assess_migration_cmd.py`
+- [x] Define `ReplatformCollaborators` + `default_replatform_collaborators(paths)` (AC1)
+- [x] Attach collaborators to `ctx.obj` in the assess group callback (AC1)
+- [x] Implement `inventory` subcommand body + `--out inv.json` (AC2)
+- [x] Implement `migration` subcommand body + markdown `--out` (AC3)
+- [x] Add `--scope-alias` parser -> tuple of pairs (AC4)
+- [x] Create `tests/test_assess_inventory_cmd.py` + `tests/test_assess_migration_cmd.py`
       using `CliRunner` + fakes (AC2-AC6)
 
 ## Existing Code

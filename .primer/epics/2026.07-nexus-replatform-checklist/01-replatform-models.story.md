@@ -1,6 +1,6 @@
 # Story 01: replatform models
 
-Status: backlog
+Status: done
 Spec-Clarity: high
 Depends-On: none
 
@@ -84,13 +84,13 @@ AC7 (exports + purity):
 
 ## Tasks / Subtasks
 
-- [ ] Create `src/nexus/replatform/__init__.py` with lazy/explicit exports (AC7)
-- [ ] Create `src/nexus/replatform/models.py` -- WorkflowRef, UseCase,
+- [x] Create `src/nexus/replatform/__init__.py` with lazy/explicit exports (AC7)
+- [x] Create `src/nexus/replatform/models.py` -- WorkflowRef, UseCase,
       UseCaseInventory, ChecklistItem, MigrationChecklist (AC1-3, AC6)
-- [ ] Add `ChecklistStatus`, `ChecklistKind` StrEnums (AC4)
-- [ ] Add `@model_validator(mode="after")` count invariant on ChecklistItem (AC5)
-- [ ] Create `tests/fakes/replatform.py` -- canned inventories + checklist items
-- [ ] Create `tests/test_replatform_models.py` (AC1-AC7)
+- [x] Add `ChecklistStatus`, `ChecklistKind` StrEnums (AC4)
+- [x] Add `@model_validator(mode="after")` count invariant on ChecklistItem (AC5)
+- [x] Create `tests/fakes/replatform.py` -- canned inventories + checklist items
+- [x] Create `tests/test_replatform_models.py` (AC1-AC7)
 
 ## Existing Code
 

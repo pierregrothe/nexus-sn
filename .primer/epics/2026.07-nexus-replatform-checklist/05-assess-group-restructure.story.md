@@ -1,6 +1,6 @@
 # Story 05: convert `assess` to a Typer group (preserve gates)
 
-Status: backlog
+Status: done
 Spec-Clarity: high
 Depends-On: none
 
@@ -57,14 +57,14 @@ AC5 (flag mutex preserved):
 
 ## Tasks / Subtasks
 
-- [ ] Add a `assess` Typer sub-app object (location: `commands_assess.py` or a
+- [x] Add a `assess` Typer sub-app object (location: `commands_assess.py` or a
       new `cli/assess_app.py`) with an `invoke_without_command=True` callback (AC1)
-- [ ] Move the bare gate/health dispatch into the callback behind the
+- [x] Move the bare gate/health dispatch into the callback behind the
       `ctx.invoked_subcommand is None` guard (AC1, AC2)
-- [ ] Update `commands_top.py` to register the group (AC3)
-- [ ] Update/extend tests: bare-path regression + a placeholder subcommand to
+- [x] Update `commands_top.py` to register the group (AC3)
+- [x] Update/extend tests: bare-path regression + a placeholder subcommand to
       prove no double-fire (AC2, AC4)
-- [ ] Verify flag mutex still enforced (AC5)
+- [x] Verify flag mutex still enforced (AC5)
 
 ## Existing Code
 

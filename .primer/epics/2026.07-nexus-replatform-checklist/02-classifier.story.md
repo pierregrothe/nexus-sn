@@ -1,6 +1,6 @@
 # Story 02: deterministic use-case classifier
 
-Status: backlog
+Status: done
 Spec-Clarity: high
 Depends-On: 01
 
@@ -92,15 +92,15 @@ records from multiple scopes mapping to the same family, they merge into one
 
 ## Tasks / Subtasks
 
-- [ ] Create `src/nexus/replatform/classifier.py` -- `classify(...)` (AC1, AC5-7)
-- [ ] Add `_normalize_key(name, type, scope)` helper (AC2)
-- [ ] Add scope-resolution helper over `ScopeManifest` with Uncategorized
+- [x] Create `src/nexus/replatform/classifier.py` -- `classify(...)` (AC1, AC5-7)
+- [x] Add `_normalize_key(name, type, scope)` helper (AC2)
+- [x] Add scope-resolution helper over `ScopeManifest` with Uncategorized
       fallback (AC3)
-- [ ] Add `WorkflowRef` extraction from `ConfigRecord.fields` (AC4)
-- [ ] Extend `tests/fakes/replatform.py` with `FakeScopeManifest` + capture
+- [x] Add `WorkflowRef` extraction from `ConfigRecord.fields` (AC4)
+- [x] Extend `tests/fakes/replatform.py` with `FakeScopeManifest` + capture
       records carrying a `name` field
-- [ ] Create `tests/test_replatform_classifier.py` (AC1-AC7)
-- [ ] Update `src/nexus/replatform/__init__.py` exports
+- [x] Create `tests/test_replatform_classifier.py` (AC1-AC7)
+- [x] Update `src/nexus/replatform/__init__.py` exports
 
 ## Existing Code
 

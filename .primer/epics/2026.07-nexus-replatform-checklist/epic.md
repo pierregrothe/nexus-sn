@@ -87,7 +87,7 @@ gate/health behavior of `nexus assess` is preserved unchanged.
 
 ## Progress
 
-Stories: 0/6 done, 0 in-progress, 6 backlog
+Stories: 6/6 done -- COMPLETE
 
 ## Out of Scope (this epic)
 

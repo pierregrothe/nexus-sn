@@ -7,6 +7,7 @@
 
 import json
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from io import StringIO
 from pathlib import Path
 
@@ -15,12 +16,18 @@ import typer
 from rich.console import Console
 from typer.testing import CliRunner
 
+from nexus.capture.models import ScopeEntry, ScopeManifest
+from nexus.capture.tables import DEVELOPER_PLATFORM, TableSpec
 from nexus.cli import commands_assess_replatform
 from nexus.cli.apps import app
 from nexus.cli.commands_assess_replatform import (
     ReplatformCollaborators,
+    _merge_manifests,
     _ref_value,
+    _scope_query,
+    parse_domain_map,
     parse_scope_aliases,
+    resolve_groups,
     run_inventory,
     run_migration,
 )
@@ -28,7 +35,11 @@ from nexus.replatform.models import UseCaseInventory
 from nexus.ui.capabilities import ColorDepth, RenderProfile, TerminalCapabilities
 from nexus.ui.render_context import RenderContext
 from nexus.ui.theme import NEXUS_THEME
-from tests.fakes.replatform import make_use_case, make_use_case_inventory, make_workflow_ref
+from tests.fakes.replatform import (
+    make_use_case,
+    make_use_case_inventory,
+    make_workflow_ref,
+)
 
 
 @dataclass(slots=True)
@@ -149,6 +160,15 @@ def test_parse_scope_aliases_rejects_missing_equals() -> None:
         parse_scope_aliases(["nope"])
 
 
+def test_parse_domain_map_returns_none_when_omitted() -> None:
+    assert parse_domain_map("") is None
+
+
+def test_parse_domain_map_rejects_missing_file(tmp_path: Path) -> None:
+    with pytest.raises(typer.BadParameter):
+        parse_domain_map(str(tmp_path / "absent.yaml"))
+
+
 def test_ref_value_extracts_value_from_reference_dict() -> None:
     assert _ref_value({"value": "abc123", "link": "https://x"}) == "abc123"
 
@@ -168,7 +188,7 @@ def test_assess_inventory_command_routes_profile_and_writes_json(
     seen: list[str] = []
     inv = _itsm_inventory("prod", ("Alpha",))
 
-    def fake_factory(_paths: object) -> ReplatformCollaborators:
+    def fake_factory(_paths: object, **_kwargs: object) -> ReplatformCollaborators:
         def build(profile: str) -> UseCaseInventory:
             seen.append(profile)
             return inv
@@ -187,6 +207,81 @@ def test_assess_inventory_command_routes_profile_and_writes_json(
     assert data["profile"] == "prod"
 
 
+def test_assess_inventory_command_routes_group_and_domain_map_kwargs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("NEXUS_AUTO_UPDATE", "0")
+    inv = _itsm_inventory("prod", ("Alpha",))
+    seen_kwargs: dict[str, object] = {}
+
+    def fake_factory(_paths: object, **kwargs: object) -> ReplatformCollaborators:
+        seen_kwargs.update(kwargs)
+        return ReplatformCollaborators(build_inventory=lambda _p: inv)
+
+    monkeypatch.setattr(
+        commands_assess_replatform, "default_replatform_collaborators", fake_factory
+    )
+    out = tmp_path / "inv.json"
+    result = CliRunner().invoke(
+        app,
+        [
+            "assess",
+            "inventory",
+            "prod",
+            "--out",
+            str(out),
+            "--group",
+            "developer_platform",
+        ],
+    )
+    assert result.exit_code == 0
+    assert seen_kwargs["groups"] == (DEVELOPER_PLATFORM,)
+    assert seen_kwargs["overrides"] is None
+
+
+def test_assess_migration_command_routes_group_and_domain_map_kwargs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("NEXUS_AUTO_UPDATE", "0")
+    src_wf = make_workflow_ref(scope="x_oldcorp", name="Intake")
+    tgt_wf = make_workflow_ref(scope="x_newcorp", name="Intake")
+    source = make_use_case_inventory(
+        profile="old", use_cases=(make_use_case(key="x_oldcorp", workflows=(src_wf,)),)
+    )
+    target = make_use_case_inventory(
+        profile="new", use_cases=(make_use_case(key="x_newcorp", workflows=(tgt_wf,)),)
+    )
+    by_profile = {"old": source, "new": target}
+    seen_kwargs: dict[str, object] = {}
+
+    def fake_factory(_paths: object, **kwargs: object) -> ReplatformCollaborators:
+        seen_kwargs.update(kwargs)
+        return ReplatformCollaborators(build_inventory=lambda p: by_profile[p])
+
+    monkeypatch.setattr(
+        commands_assess_replatform, "default_replatform_collaborators", fake_factory
+    )
+    out = tmp_path / "checklist.md"
+    result = CliRunner().invoke(
+        app,
+        [
+            "assess",
+            "migration",
+            "--from",
+            "old",
+            "--to",
+            "new",
+            "--out",
+            str(out),
+            "--group",
+            "developer_platform",
+        ],
+    )
+    assert result.exit_code == 0
+    assert seen_kwargs["groups"] == (DEVELOPER_PLATFORM,)
+    assert seen_kwargs["overrides"] is None
+
+
 def test_assess_migration_command_routes_options_and_writes_markdown(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -202,7 +297,7 @@ def test_assess_migration_command_routes_options_and_writes_markdown(
     )
     by_profile = {"old": source, "new": target}
 
-    def fake_factory(_paths: object) -> ReplatformCollaborators:
+    def fake_factory(_paths: object, **_kwargs: object) -> ReplatformCollaborators:
         def build(profile: str) -> UseCaseInventory:
             seen.append(profile)
             return by_profile[profile]
@@ -236,3 +331,120 @@ def test_assess_migration_command_routes_options_and_writes_markdown(
     # reads DONE (checked box) with nothing left over as EXTRA.
     assert "- [x]" in content
     assert "EXTRA" not in content
+
+
+def test_run_inventory_warns_on_skipped_tables() -> None:
+    buf = StringIO()
+    inv = make_use_case_inventory(profile="dev", skipped_tables=("ai_skill",))
+    collaborators = ReplatformCollaborators(build_inventory=lambda _p: inv)
+    code = run_inventory(
+        profile="dev", out=None, render_context=_plain_ctx(buf), collaborators=collaborators
+    )
+    assert code == 0
+    assert "tables absent on dev" in buf.getvalue()
+    assert "ai_skill" in buf.getvalue()
+
+
+def test_run_migration_warns_on_skipped_tables_per_side() -> None:
+    buf = StringIO()
+    by_profile = {
+        "old": make_use_case_inventory(profile="old", skipped_tables=("ai_skill",)),
+        "new": make_use_case_inventory(
+            profile="new", use_cases=(), skipped_tables=("sys_ai_agent",)
+        ),
+    }
+    collaborators = ReplatformCollaborators(build_inventory=lambda p: by_profile[p])
+    code = run_migration(
+        from_profile="old",
+        to_profile="new",
+        aliases=(),
+        out=None,
+        render_context=_plain_ctx(buf),
+        collaborators=collaborators,
+    )
+    assert code == 0
+    assert "tables absent on old" in buf.getvalue()
+    assert "tables absent on new" in buf.getvalue()
+
+
+def test_resolve_groups_defaults_to_all_registered_groups() -> None:
+    groups = resolve_groups([])
+    assert tuple(g.key for g in groups) == ("ai_automation", "developer_platform")
+
+
+def test_resolve_groups_rejects_unknown_key() -> None:
+    with pytest.raises(typer.BadParameter, match="unknown table group"):
+        resolve_groups(["nope"])
+
+
+def test_resolve_groups_with_explicit_keys_returns_cli_order() -> None:
+    groups = resolve_groups(["developer_platform", "ai_automation"])
+    assert tuple(g.key for g in groups) == ("developer_platform", "ai_automation")
+
+
+def test_resolve_groups_dedupes_repeated_keys() -> None:
+    groups = resolve_groups(["ai_automation", "ai_automation"])
+    assert tuple(g.key for g in groups) == ("ai_automation",)
+
+
+def test_merge_manifests_unions_scopes_by_sys_id() -> None:
+    ts = datetime(2026, 7, 1, 12, 0, 0, tzinfo=UTC)
+    # `a` lists s2 before s1 -- insertion order alone would yield (s2, s1), so a
+    # correctly-sorted output proves the sort-by-sys_id, not just insertion order.
+    a = ScopeManifest(
+        instance_id="dev",
+        captured_at=ts,
+        scopes=(
+            ScopeEntry(
+                sys_id="s2",
+                name="x_other",
+                scope="x_other",
+                version="1.0",
+                vendor="test",
+                table_counts={},
+            ),
+            ScopeEntry(
+                sys_id="s1",
+                name="x_app",
+                scope="x_app",
+                version="1.0",
+                vendor="test",
+                table_counts={"incident": 5},
+            ),
+        ),
+    )
+    # `b` duplicates s1 with overlapping (incident) and new (problem) table counts.
+    b = ScopeManifest(
+        instance_id="dev",
+        captured_at=ts,
+        scopes=(
+            ScopeEntry(
+                sys_id="s1",
+                name="x_app",
+                scope="x_app",
+                version="1.0",
+                vendor="test",
+                table_counts={"incident": 9, "problem": 3},
+            ),
+        ),
+    )
+    merged = _merge_manifests((a, b))
+    assert tuple(e.sys_id for e in merged.scopes) == ("s1", "s2")
+    s1 = next(e for e in merged.scopes if e.sys_id == "s1")
+    # Right-biased union: b's incident count (9) overwrites a's (5); problem is added.
+    assert s1.table_counts == {"incident": 9, "problem": 3}
+
+
+def test_merge_manifests_rejects_empty_input() -> None:
+    with pytest.raises(ValueError, match="at least one manifest"):
+        _merge_manifests(())
+
+
+def test_scope_query_plain_for_custom_scopes() -> None:
+    spec = TableSpec(name="sys_script", display="Business Rules")
+    assert _scope_query(spec, "a,b", customer_only=False) == "sys_scopeINa,b"
+
+
+def test_scope_query_appends_customer_filter_for_global() -> None:
+    spec = TableSpec(name="sys_script", display="Business Rules")
+    assert _scope_query(spec, "g1", customer_only=True) == "sys_scopeINg1^sys_customer_update=true"

@@ -3,7 +3,7 @@
 # backlog | ready | in-progress | review | done.
 # Derived from roadmap.md checkboxes; "next implementation target" entries
 # from active.md Next Steps are promoted to `ready`.
-generated: 2026-05-19  # synced after both 2026.06 epics shipped
+generated: 2026-07-02  # synced after 2026.07 replatform checklist + coverage extension shipped
 project: nexus-sn
 
 phases:
@@ -97,15 +97,17 @@ phases:
       rollback-manager-for-failed-deployments: backlog
 
   2026.07-replatform-checklist:
-    status: planned
+    status: active  # v1 done; v2 AI enrichment still open
     items:
-      replatform-checklist-epic: backlog  # PRD-004, ADR-025
-      replatform-checklist-01-models: backlog
-      replatform-checklist-02-classifier: backlog
-      replatform-checklist-03-checklist-diff: backlog
-      replatform-checklist-04-reporter: backlog
-      replatform-checklist-05-assess-group-restructure: backlog
-      replatform-checklist-06-assess-subcommands: backlog
+      replatform-checklist-epic: done  # PRD-004, ADR-025; shipped PRs #55/#56 (2026-06-29)
+      replatform-checklist-01-models: done
+      replatform-checklist-02-classifier: done
+      replatform-checklist-03-checklist-diff: done
+      replatform-checklist-04-reporter: done
+      replatform-checklist-05-assess-group-restructure: done
+      replatform-checklist-06-assess-subcommands: done
+      replatform-coverage-extension: done  # branch feat/2026.07-replatform-coverage, live-proven 2026-07-02
+      replatform-ai-enrichment-v2: backlog  # depends on 2026.07-agent-specialists
 
   2026.08-distribution:
     status: planned
@@ -121,7 +123,7 @@ phases:
       knowledge-mastery-kb: backlog
       mcpprobe-real-endpoint-urls: backlog
       jira-github-confluence-connectors: backlog
-      extend-capture-developer-platform: backlog
+      extend-capture-developer-platform: done  # shipped 2026-07-02 with replatform coverage extension
       wire-products-tab-context-updates: backlog
       plugin-install-activate-over-rest: backlog
       mine-scripted-rest-catalog: backlog

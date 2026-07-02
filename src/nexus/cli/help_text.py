@@ -36,7 +36,16 @@ __all__ = [
 
 
 def help_entry(command: str, purpose: str, example: str) -> CommandHelpEntry:
-    """Tiny constructor wrapper; avoids restating Pydantic keywords below."""
+    """Build a CommandHelpEntry without restating Pydantic keywords below.
+
+    Args:
+        command: Command name as typed by the user (e.g. ``"plugins scan"``).
+        purpose: One-or-two-sentence description shown in the discovery view.
+        example: A runnable example invocation.
+
+    Returns:
+        The populated CommandHelpEntry.
+    """
     return CommandHelpEntry(command=command, purpose=purpose, example=example)
 
 
@@ -45,6 +54,12 @@ def guide_items(entries: list[CommandHelpEntry]) -> list[tuple[str, str]]:
 
     The short description is the first sentence of ``purpose`` (split on
     ``". "``) so the Box-2 listing stays single-line per row.
+
+    Args:
+        entries: Help entries to project.
+
+    Returns:
+        One ``(command, first_sentence_of_purpose)`` pair per entry, in order.
     """
     out: list[tuple[str, str]] = []
     for entry in entries:
@@ -460,8 +475,11 @@ TOP_LEVEL_HELP: list[CommandHelpEntry] = [
     ),
     help_entry(
         "assess",
-        "Run an instance health scan or targeted assessment (stub).",
-        "nexus assess --for-template incident-tuner",
+        "Assess instances and plan replatform migrations. Bare 'assess' runs "
+        "a Gate 1/Gate 2 health scan against a captured archive; 'inventory' "
+        "classifies one instance's custom config into use cases; 'migration' "
+        "diffs two instances into a DONE/TODO replatform checklist.",
+        "nexus assess migration --from old-prod --to new-prod --out checklist.md",
     ),
     help_entry(
         "apply <template>",

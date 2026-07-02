@@ -79,13 +79,15 @@ pip install ".[ui]"                                       # from source
 ## Quick start
 
 ```bash
-nexus instance register       # add a ServiceNow instance (auto-provisions OAuth)
-nexus status                  # verify connection and capability tier
-nexus capture discover        # scan AI automation artifacts in your instance
-nexus capture pull <scope>    # download scope configuration to local YAML
-nexus plugins scan            # inventory all installed plugins
-nexus plugins advisories      # CVE, EOL, and license findings
-nexus plugins impact <id>     # reverse-dependency and record-count analysis
+nexus instance register <profile>   # add a ServiceNow instance (auto-provisions OAuth)
+nexus status                        # verify connection and capability tier
+nexus capture discover              # scan AI automation artifacts in your instance
+nexus capture pull <scope>          # download scope configuration to local YAML
+nexus plugins scan                  # inventory all installed plugins
+nexus plugins advisories            # CVE, EOL, and license findings
+nexus plugins impact <id>           # reverse-dependency and record-count analysis
+nexus assess inventory <profile>    # classify custom config into a use-case inventory
+nexus assess migration --from <old> --to <new>   # bi-directional replatform checklist
 ```
 
 ## Roadmap
@@ -131,26 +133,38 @@ lists; in CI or under `--plain` you get tab-separated plain text. Run
 The following commands are fully functional:
 
 - `nexus status` -- tier detection, MCP capability probe, auto-update check
+- `nexus setup` -- first-run wizard: keychain probe, instance registration,
+  inline re-auth for profiles with missing tokens
 - `nexus instance` -- register, connect, refresh, list, delete, use
 - `nexus capture` -- discover, pull, list, push (bidirectional SN config transport)
 - `nexus plugins` -- scan, list, info, impact, advisories, orphans, diff,
-  updates, drift, baselines, recommend, export, promote, install, activate,
+  outdated, drift, baselines, recommend, export, promote, install, activate,
   upgrade, apply (full lifecycle including PromotionPlan execution against
   ServiceNow's discovered sn_appclient endpoints)
+- `nexus assess` -- inventory (classify one instance's custom config into a
+  use-case inventory), migration (bi-directional DONE/TODO replatform
+  checklist across two instances), and archive-based Gate 1 / Gate 2
+  assessment. Coverage: AI & Automation plus Developer Platform table groups
+  (business rules, script includes, client scripts, UI policies/actions,
+  ACLs, scheduled jobs, classic workflows), for custom-scoped apps and
+  customer-updated global-scope artifacts; `--group` restricts table groups,
+  `--domain-map` overlays business domains, absent tables are warned per
+  instance
 - `nexus schema` -- products, erd (reverse-engineer ServiceNow tables into
   Mermaid ERDs; product catalog synced from GitHub; accepts product name,
   acronym, or key; 1-2 products per ERD; deterministic, `--grouped` per-scope,
   SVG rendered by default via Kroki, offline archive round-trip)
+- `nexus sync` -- pull the template catalog and schema product catalog from GitHub
+- `nexus templates` -- browse the cached template catalog
 - `nexus reauth` -- OAuth token refresh helper
 - `nexus update` -- manual update check
 
 The following commands are stubs (not yet implemented):
 
-- `nexus setup` -- credential wizard (2026.05)
-- `nexus sync` -- pull latest templates from GitHub (2026.05)
-- `nexus templates` -- browse and apply templates (2026.05)
-- `nexus assess` -- instance health scan (2026.06)
-- `nexus apply` -- deploy a template (2026.06)
+- `nexus assess --live` / `nexus assess --job <id>` -- live capture and
+  apply-job verification for the Gate 1/2 scan (archive mode works)
+- `nexus apply` -- deploy a template (live capture runner and ApplyEngine
+  wiring pending)
 - `nexus run` -- free-form AI orchestration (2026.07)
 - `nexus rollback` -- undo a previous deployment (2026.07)
 
@@ -164,7 +178,7 @@ flowchart LR
     --> inv["PluginInventory\n(frozen snapshot)"]
     inv --> adv["advisories\n(CVE / EOL / license)"]
     inv --> imp["impact\n(reverse deps +\ncross-scope refs)"]
-    inv --> upd["updates\n(store catalog diff)"]
+    inv --> upd["outdated\n(store catalog diff)"]
     inv --> drift["drift\n(vs named baseline)"]
     inv --> diff["diff\n(cross-instance)"]
     adv --> defer["defer finding\n(per-instance override)"]
@@ -173,7 +187,7 @@ flowchart LR
     diff --> promote["promote\n(generate PromotionPlan YAML)"]
     promote --> apply["apply\n(execute against target instance)"]
     inv --> exec["install / activate /\nupgrade"]
-    upd --> batch["updates --apply\n(skip-on-fail batch;\n--family filter)"]
+    upd --> batch["upgrade --all\n(skip-on-fail batch;\n--family filter)"]
     exec --> poll["ProgressPoller\n(sn_appclient/progress)"]
     apply --> poll
     batch --> poll
@@ -200,9 +214,9 @@ Write-side commands (execution):
 nexus plugins install <plugin-id>                # install with dependency-cascade preview
 nexus plugins upgrade <plugin-id> --to X.Y.Z     # upgrade to a specific version
 nexus plugins activate <plugin-id>               # activate an installed plugin
-nexus plugins updates --apply --yes              # batch-upgrade every pending plugin (skip-on-fail)
-nexus plugins updates --apply --yes --family ITSM --family ITOM  # filter the batch to one or more families
-nexus plugins updates --apply --yes --out report.yaml            # write a BatchUpgradeReport YAML
+nexus plugins upgrade --all --yes                # batch-upgrade every pending plugin (skip-on-fail)
+nexus plugins upgrade --family ITSM --family ITOM --yes  # filter the batch to one or more families
+nexus plugins upgrade --all --yes --out report.yaml      # write a BatchUpgradeReport YAML
 nexus plugins promote dev --to prod --out plan.yaml  # generate PromotionPlan
 nexus plugins apply plan.yaml                    # execute the plan; rolls back on partial failure
 ```

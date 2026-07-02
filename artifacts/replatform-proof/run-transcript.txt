@@ -1,0 +1,25 @@
+NEXUS replatform checklist -- live run transcript
+Generated: 2026-06-30T03:33:29Z (UTC)
+Instances: alectri (OLD) -> retail (NEW). Read-only; no changes made.
+
+$ nexus assess inventory alectri
+
+inventory alectri: 1 use case(s) coverage=ai_automation
+  Uncategorized: 558 workflow(s)
+  ... (full checklist written via --out in the attached replatform-checklist.md)
+  [completed in 9.9s, exit 0]
+
+$ nexus assess inventory retail
+
+inventory retail: 1 use case(s) coverage=ai_automation
+  Uncategorized: 553 workflow(s)
+  ... (full checklist written via --out in the attached replatform-checklist.md)
+  [completed in 7.5s, exit 0]
+
+$ nexus assess migration --from alectri --to retail
+
+
+replatform alectri -> retail items=559
+  ... (full checklist written via --out in the attached replatform-checklist.md)
+  [completed in 10.4s, exit 0]
+

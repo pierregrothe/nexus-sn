@@ -7,8 +7,9 @@
 
 The classifier consumes already-loaded capture data (``CaptureResult`` tuples
 plus a ``ScopeManifest``) and the schema product catalog. It performs no I/O, no
-LLM call, and no MCP call. Custom scopes absent from the catalog collapse to the
-``Uncategorized`` domain.
+LLM call, and no MCP call. Custom scopes absent from the catalog group under
+their application display name; only unresolvable scopes fall back to
+Uncategorized.
 """
 
 from nexus.capture.models import CaptureResult, ScopeManifest, SnFieldValue
@@ -26,34 +27,52 @@ def classify(
     catalog: SchemaProductCatalog,
     *,
     profile: str,
+    skipped_tables: tuple[str, ...] = (),
+    overrides: dict[str, str] | None = None,
 ) -> UseCaseInventory:
     """Classify captured artifacts into a deterministic use-case inventory.
 
     Args:
-        captures: Captures for one instance. Plural for forward-compat with
-            future table groups; one ``AI_AUTOMATION`` capture suffices today.
+        captures: Captures for one instance -- one CaptureResult per covered
+            table group.
         scopes: Scope manifest used to resolve ``ConfigRecord.scope_sys_id`` to
             the technical scope key (``ScopeEntry.scope``).
         catalog: Schema product catalog. Its ``{scope.key: product.name}`` map
-            supplies each use case's domain; unknown scopes -> ``Uncategorized``.
+            supplies each use case's domain when the scope is a known OOB
+            product; custom scopes absent from the catalog group under their
+            application display name; only unresolvable scopes fall back to
+            ``Uncategorized``.
         profile: Instance profile name recorded on the inventory.
+        skipped_tables: Tables absent on this instance (HTTP 400/404 during the
+            live listing), recorded on the inventory sorted for transparency.
+        overrides: Consultant-supplied ``{scope_key: domain}`` overlay. Takes
+            precedence over the catalog and the application display name.
 
     Returns:
         A frozen ``UseCaseInventory`` whose use cases are grouped by domain and
         sorted by ``(domain, workflow key)`` for byte-stable output.
     """
-    sys_to_scope = {entry.sys_id: entry.scope for entry in scopes.scopes}
+    sys_to_entry = {entry.sys_id: entry for entry in scopes.scopes}
+    scope_key_to_name = {entry.scope: entry.name for entry in scopes.scopes}
     scope_to_domain = {
         scope.key: product.name for product in catalog.products for scope in product.scopes
     }
+    override_map = overrides or {}
     by_domain: dict[str, list[WorkflowRef]] = {}
     evidence: dict[str, set[str]] = {}
     coverage: set[str] = set()
     for capture in captures:
         coverage.add(capture.table_group)
         for record in capture.records:
-            scope_key = sys_to_scope.get(record.scope_sys_id) or record.scope_name
-            domain = scope_to_domain.get(scope_key, _UNCATEGORIZED)
+            entry = sys_to_entry.get(record.scope_sys_id)
+            scope_key = entry.scope if entry is not None else record.scope_name
+            app_name = entry.name if entry is not None else scope_key_to_name.get(scope_key, "")
+            domain = (
+                override_map.get(scope_key)
+                or scope_to_domain.get(scope_key)
+                or app_name
+                or _UNCATEGORIZED
+            )
             name = _display_name(record.fields.get("name", ""))
             # Unnamed records have no stable cross-instance identity; fall back to
             # the sys_id so the natural key stays unique (no collision/over-count).
@@ -81,6 +100,7 @@ def classify(
         captured_at=scopes.captured_at,
         coverage=tuple(sorted(coverage)),
         use_cases=use_cases,
+        skipped_tables=tuple(sorted(skipped_tables)),
     )
 
 

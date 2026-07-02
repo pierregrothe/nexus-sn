@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 __all__ = [
     "AI_AUTOMATION",
     "DEFAULT_TABLE_GROUPS",
+    "DEVELOPER_PLATFORM",
     "RelatedTable",
     "TableGroup",
     "TableSpec",
@@ -39,6 +40,8 @@ class TableSpec:
         scope_field: Field on this table carrying the application scope ref.
         related: Child tables fetched in the same pass as this table's records.
         key_fields: Fields to include in the archive record summary.
+        name_field: Field carrying this table's display name (some tables,
+            e.g. sys_ui_policy, have no `name` field and use another instead).
     """
 
     name: str
@@ -46,6 +49,7 @@ class TableSpec:
     scope_field: str = "sys_scope"
     related: tuple[RelatedTable, ...] = field(default_factory=tuple)
     key_fields: tuple[str, ...] = ("sys_id", "name", "sys_scope")
+    name_field: str = "name"
 
 
 @dataclass(slots=True, frozen=True)
@@ -96,6 +100,30 @@ AI_AUTOMATION: TableGroup = TableGroup(
     ),
 )
 
+# Identity note: sys_security_acl rows share `name` across operations
+# (read/write ACLs on one resource). The replatform diff matches keys as a
+# multiset, so per-name counts stay honest even without an operation suffix.
+DEVELOPER_PLATFORM: TableGroup = TableGroup(
+    key="developer_platform",
+    display="Developer Platform",
+    tables=(
+        TableSpec(name="sys_script", display="Business Rules"),
+        TableSpec(name="sys_script_include", display="Script Includes"),
+        TableSpec(name="sys_script_client", display="Client Scripts"),
+        TableSpec(
+            name="sys_ui_policy",
+            display="UI Policies",
+            name_field="short_description",
+            key_fields=("sys_id", "short_description", "sys_scope"),
+        ),
+        TableSpec(name="sys_ui_action", display="UI Actions"),
+        TableSpec(name="sys_security_acl", display="Access Controls"),
+        TableSpec(name="sysauto_script", display="Scheduled Script Jobs"),
+        TableSpec(name="wf_workflow", display="Classic Workflows"),
+    ),
+)
+
 DEFAULT_TABLE_GROUPS: dict[str, TableGroup] = {
     AI_AUTOMATION.key: AI_AUTOMATION,
+    DEVELOPER_PLATFORM.key: DEVELOPER_PLATFORM,
 }

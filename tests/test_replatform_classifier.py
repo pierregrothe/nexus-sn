@@ -43,9 +43,11 @@ def test_classify_maps_catalog_scope_to_product_domain() -> None:
     assert uc.workflows[0].type == "sys_hub_flow"
 
 
-def test_classify_buckets_custom_scope_as_uncategorized() -> None:
-    scopes = make_scope_manifest(scopes={"s1": "x_acme_app"}, captured_at=_TS)
-    catalog = make_schema_catalog(scope_to_product={"sn_hamp": "Hardware Asset Management"})
+def test_classify_names_custom_scope_domain_after_app_display_name() -> None:
+    scopes = make_scope_manifest(
+        scopes={"s1": "x_acme_app"}, names={"s1": "Acme Field Service"}, captured_at=_TS
+    )
+    catalog = make_schema_catalog(scope_to_product={})
     capture = make_capture_result(
         records=(
             make_config_record(
@@ -59,8 +61,42 @@ def test_classify_buckets_custom_scope_as_uncategorized() -> None:
     )
     inv = classify((capture,), scopes, catalog, profile="prod")
     assert len(inv.use_cases) == 1
-    assert inv.use_cases[0].domain == "Uncategorized"
+    assert inv.use_cases[0].domain == "Acme Field Service"
     assert inv.use_cases[0].workflows[0].key == "x_acme_app|ai_skill|greeting"
+
+
+def test_classify_catalog_domain_wins_over_app_display_name() -> None:
+    scopes = make_scope_manifest(
+        scopes={"s1": "sn_hamp"}, names={"s1": "HAM Store App"}, captured_at=_TS
+    )
+    catalog = make_schema_catalog(scope_to_product={"sn_hamp": "Hardware Asset Management"})
+    capture = make_capture_result(
+        records=(
+            make_config_record(
+                sys_id="r1", table="sys_hub_flow", scope_sys_id="s1", fields={"name": "A"}
+            ),
+        ),
+    )
+    inv = classify((capture,), scopes, catalog, profile="prod")
+    assert inv.use_cases[0].domain == "Hardware Asset Management"
+
+
+def test_classify_buckets_unresolvable_scope_as_uncategorized() -> None:
+    scopes = make_scope_manifest(scopes={}, captured_at=_TS)
+    catalog = make_schema_catalog(scope_to_product={})
+    capture = make_capture_result(
+        records=(
+            make_config_record(
+                sys_id="r1",
+                table="ai_skill",
+                scope_sys_id="ghost",
+                scope_name="",
+                fields={"name": "Greeting"},
+            ),
+        ),
+    )
+    inv = classify((capture,), scopes, catalog, profile="prod")
+    assert inv.use_cases[0].domain == "Uncategorized"
 
 
 def test_classify_extracts_display_value_from_reference_field() -> None:
@@ -162,3 +198,45 @@ def test_classify_falls_back_to_scope_name_when_sys_id_unknown() -> None:
     wf = inv.use_cases[0].workflows[0]
     assert wf.scope == "x_fallback"
     assert wf.key == "x_fallback|sys_hub_flow|x"
+
+
+def test_classify_records_skipped_tables_sorted() -> None:
+    scopes = make_scope_manifest(scopes={"s1": "x_acme_app"}, captured_at=_TS)
+    catalog = make_schema_catalog(scope_to_product={})
+    capture = make_capture_result(records=())
+    inv = classify(
+        (capture,), scopes, catalog, profile="prod", skipped_tables=("sys_ai_agent", "ai_skill")
+    )
+    assert inv.skipped_tables == ("ai_skill", "sys_ai_agent")
+
+
+def test_classify_domain_map_overrides_catalog() -> None:
+    scopes = make_scope_manifest(scopes={"s1": "sn_hamp"}, captured_at=_TS)
+    catalog = make_schema_catalog(scope_to_product={"sn_hamp": "Hardware Asset Management"})
+    capture = make_capture_result(
+        records=(
+            make_config_record(
+                sys_id="r1", table="sys_hub_flow", scope_sys_id="s1", fields={"name": "A"}
+            ),
+        ),
+    )
+    inv = classify((capture,), scopes, catalog, profile="prod", overrides={"sn_hamp": "Asset Ops"})
+    assert inv.use_cases[0].domain == "Asset Ops"
+
+
+def test_classify_groups_global_scope_under_its_display_name() -> None:
+    scopes = make_scope_manifest(scopes={"g1": "global"}, names={"g1": "Global"}, captured_at=_TS)
+    catalog = make_schema_catalog(scope_to_product={})
+    capture = make_capture_result(
+        records=(
+            make_config_record(
+                sys_id="r1",
+                table="sys_script",
+                scope_sys_id="g1",
+                fields={"name": "Incident autoclose"},
+            ),
+        ),
+    )
+    inv = classify((capture,), scopes, catalog, profile="prod")
+    assert inv.use_cases[0].domain == "Global"
+    assert inv.use_cases[0].workflows[0].key == "global|sys_script|incident autoclose"
