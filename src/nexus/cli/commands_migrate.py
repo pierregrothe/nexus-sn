@@ -218,7 +218,7 @@ def run_plan(
         findings, since the runbook still renders and approval is a
         separate, later git-reviewed step (AC7). 1 when the selection file
         is missing/unreadable/malformed/invalid, a collaborator fails, or
-        the captures cover neither the source nor the target profile.
+        the captures do not cover either the source or the target profile.
     """
     try:
         raw_text = selection_path.read_text(encoding="utf-8")

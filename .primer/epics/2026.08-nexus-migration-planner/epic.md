@@ -96,11 +96,11 @@ on ADR-027.
 |---|---|---|
 | FR1 | 02-migrate-models-plan-roundtrip | done |
 | FR2 | 03-migrate-select-cli | done |
-| FR3 | 04-plan-builder-closure-waves, 05-runbook-plan-cli | backlog |
+| FR3 | 04-plan-builder-closure-waves, 05-runbook-plan-cli | done |
 | FR4 | 04-plan-builder-closure-waves | done |
 | FR5 | 04-plan-builder-closure-waves | done |
 | FR6 | 04-plan-builder-closure-waves | done |
-| FR7 | 05-runbook-plan-cli | backlog |
+| FR7 | 05-runbook-plan-cli | done |
 | FR8 | 06-plan-recheck-drift | backlog |
 | FR9 | 07-migrate-preflight | backlog |
 | FR10 | 01-full-fidelity-selective-capture | done |
@@ -117,7 +117,7 @@ on ADR-027.
 | 02 | migrate-models-plan-roundtrip | none | done |
 | 03 | migrate-select-cli | 02 | done |
 | 04 | plan-builder-closure-waves | 01, 02 | done |
-| 05 | runbook-plan-cli | 04 | backlog |
+| 05 | runbook-plan-cli | 04 | done |
 | 06 | plan-recheck-drift | 05 | backlog |
 | 07 | migrate-preflight | none | backlog |
 
@@ -159,7 +159,7 @@ any full-estate curation is offered to anyone.
   single NEW instance.
 
 ## Progress
-- Stories: 5/8 done, 0 in-progress, 3 backlog
+- Stories: 6/8 done, 0 in-progress, 2 backlog
 - S0 wall-clock: 10.75ms (alectri, 30,463 artifacts, seed-stop-list walk; JSON load for both
   inventories + the schema archive is a separate 0.200s)
 - S0 findings (no stop-list): raw 40,306 / deduped 351
