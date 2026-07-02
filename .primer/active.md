@@ -20,8 +20,9 @@ absent-table + unnamed-artifact warnings. Live-proven vs alectri/retail
 a real duplicate-name multiset case. Proof pack:
 artifacts/replatform-proof/verification-summary.md (v2 section).
 
-Context: CIBC replatform conversation (old -> new instance). Meeting-prep
-assessment 2026-07-01 identified the coverage gaps this branch closes.
+Context: financial-services customer replatform conversation (old -> new
+instance). Meeting-prep assessment 2026-07-01 identified the coverage gaps
+this branch closes.
 
 Other roadmap candidates:
 * `2026.07-agent-specialists` -- 8 domain specialists + ExecutionContext

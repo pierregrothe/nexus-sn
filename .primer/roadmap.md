@@ -116,7 +116,7 @@
       across two instances. Deterministic v1 (product-family bucketing over
       the AI_AUTOMATION capture + plugins), natural-key matching (never
       sys_id), advisory only. Driver: replatform onto a clean instance after
-      an acquisition (CIBC pattern). Shipped in PRs #55/#56 (2026-06-29).
+      an acquisition (large FS customer pattern). Shipped in PRs #55/#56 (2026-06-29).
       PRD: prd/PRD-004-nexus-replatform-checklist.md
       ADR: adr/ADR-025-replatform-cross-instance-analysis.md
       Epic: epics/2026.07-nexus-replatform-checklist/

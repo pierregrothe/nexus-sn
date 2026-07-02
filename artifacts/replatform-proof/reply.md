@@ -43,7 +43,7 @@ your custom AI & Automation artifacts -- Flows and subflows, IntegrationHub
 actions, Virtual Agent topics, NowAssist skills, and AI Agents. Broader
 configuration coverage (business rules, UI policies, ACLs, catalog items, and
 so on) and grouping custom apps into named product domains are the next
-milestone. If CIBC's replatform is largely flow/automation-driven, it is a
+milestone. If the customer's replatform is largely flow/automation-driven, it is a
 direct fit today; if it spans every customization type, I would set expectations
 that the current release covers that AI & Automation surface.
 
@@ -53,7 +53,7 @@ Attached:
 - verification-summary.md  -- the numbers above and how they were checked
 - run-transcript.txt       -- the terminal transcript of the run
 
-Happy to run it against a CIBC sandbox pair and walk you through a real
+Happy to run it against a customer sandbox pair and walk you through a real
 checklist whenever it is useful.
 
 Best,
