@@ -160,6 +160,16 @@ any full-estate curation is offered to anyone.
 
 ## Progress
 - Stories: 0/8 done, 0 in-progress, 8 backlog
+- S0 wall-clock: 10.75ms (alectri, 30,463 artifacts, seed-stop-list walk; JSON load for both
+  inventories + the schema archive is a separate 0.200s)
+- S0 findings (no stop-list): raw 40,306 / deduped 351
+- S0 findings (seed stop-list): raw 40,306 (expansion 40,306 / data-prerequisite 0) / deduped 351
+  (expansion 351 / data-prerequisite 0) -- see s0-spike-results.md "Important caveat": none of the
+  8 schema-declared reference edges for the 9 artifact tables target a stop-list table, so
+  dampening measured zero here
+- S0 lane-units: 95 = 82 scoped apps + 13 global use cases + 0 data batches
+- Full details, regeneration commands, and the schema-graph edge list: see
+  `s0-spike-results.md`
 
 ## References
 
