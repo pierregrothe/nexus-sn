@@ -229,6 +229,7 @@ def run_migration(
     to_profile: str,
     aliases: tuple[tuple[str, str], ...],
     out: Path | None,
+    out_json: Path | None,
     render_context: RenderContext,
     collaborators: ReplatformCollaborators,
 ) -> int:
@@ -239,6 +240,8 @@ def run_migration(
         to_profile: NEW instance profile (the target).
         aliases: ``(old, new)`` scope-rename pairs for matching.
         out: Optional path to write the checklist markdown.
+        out_json: Optional path to write the checklist as MigrationChecklist
+            JSON, the shape ``nexus migrate select --from-checklist`` consumes.
         render_context: Destination console + profile.
         collaborators: Injectable inventory builder.
 
@@ -256,6 +259,8 @@ def run_migration(
     render_checklist(checklist, render_context)
     if out is not None:
         write_markdown(checklist, out)
+    if out_json is not None:
+        out_json.write_bytes(checklist.model_dump_json(indent=2).encode("utf-8"))
     return 0
 
 
@@ -523,6 +528,12 @@ def assess_migration(  # pragma: no cover -- thin Typer wrapper over run_migrati
     out: Annotated[
         str, typer.Option("--out", help="Write the checklist markdown to this path")
     ] = "",
+    out_json: Annotated[
+        str,
+        typer.Option(
+            "--out-json", help="Write the checklist as MigrationChecklist JSON to this path"
+        ),
+    ] = "",
     domain_map: Annotated[
         str,
         typer.Option("--domain-map", help="YAML file mapping scope keys to business domains"),
@@ -539,6 +550,7 @@ def assess_migration(  # pragma: no cover -- thin Typer wrapper over run_migrati
         to_profile=to_profile,
         aliases=parse_scope_aliases(scope_alias or []),
         out=Path(out) if out else None,
+        out_json=Path(out_json) if out_json else None,
         render_context=_render_context,
         collaborators=default_replatform_collaborators(
             paths, groups=resolve_groups(group or []), overrides=parse_domain_map(domain_map)

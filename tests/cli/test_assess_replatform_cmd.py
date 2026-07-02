@@ -31,7 +31,10 @@ from nexus.cli.commands_assess_replatform import (
     run_inventory,
     run_migration,
 )
-from nexus.replatform.models import UseCaseInventory
+from nexus.cli.commands_migrate import run_select
+from nexus.migrate.models import load_selection_yaml
+from nexus.replatform.diff import build_checklist
+from nexus.replatform.models import MigrationChecklist, UseCaseInventory
 from nexus.ui.capabilities import ColorDepth, RenderProfile, TerminalCapabilities
 from nexus.ui.render_context import RenderContext
 from nexus.ui.theme import NEXUS_THEME
@@ -115,6 +118,7 @@ def test_run_migration_renders_checklist_and_writes_markdown(tmp_path: Path) -> 
         to_profile="new",
         aliases=(),
         out=out,
+        out_json=None,
         render_context=_plain_ctx(buf),
         collaborators=collaborators,
     )
@@ -143,6 +147,7 @@ def test_run_migration_applies_scope_alias(tmp_path: Path) -> None:
         to_profile="new",
         aliases=(("x_oldcorp", "x_newcorp"),),
         out=None,
+        out_json=None,
         render_context=_plain_ctx(buf),
         collaborators=collaborators,
     )
@@ -359,12 +364,92 @@ def test_run_migration_warns_on_skipped_tables_per_side() -> None:
         to_profile="new",
         aliases=(),
         out=None,
+        out_json=None,
         render_context=_plain_ctx(buf),
         collaborators=collaborators,
     )
     assert code == 0
     assert "tables absent on old" in buf.getvalue()
     assert "tables absent on new" in buf.getvalue()
+
+
+def test_run_migration_out_json_writes_checklist_json(tmp_path: Path) -> None:
+    source = _itsm_inventory("old", ("Alpha", "Beta"))
+    target = _itsm_inventory("new", ("Alpha",))
+    collaborators = ReplatformCollaborators(
+        build_inventory=_FixedInventory({"old": source, "new": target})
+    )
+    buf = StringIO()
+    out_json = tmp_path / "checklist.json"
+    code = run_migration(
+        from_profile="old",
+        to_profile="new",
+        aliases=(),
+        out=None,
+        out_json=out_json,
+        render_context=_plain_ctx(buf),
+        collaborators=collaborators,
+    )
+    assert code == 0
+    data = json.loads(out_json.read_text(encoding="utf-8"))
+    written = MigrationChecklist.model_validate(data, strict=False)
+    assert written == build_checklist(source, target, ())
+
+
+def test_run_migration_out_json_feeds_migrate_select(tmp_path: Path) -> None:
+    # Producer/consumer proof: `assess migration --out-json` writes exactly the
+    # shape `migrate select --from-checklist` expects, undecided-seeding every
+    # distinct checklist item key.
+    source = _itsm_inventory("old", ("Alpha", "Beta"))
+    target = _itsm_inventory("new", ("Alpha",))
+    collaborators = ReplatformCollaborators(
+        build_inventory=_FixedInventory({"old": source, "new": target})
+    )
+    checklist_path = tmp_path / "checklist.json"
+    code = run_migration(
+        from_profile="old",
+        to_profile="new",
+        aliases=(),
+        out=None,
+        out_json=checklist_path,
+        render_context=_plain_ctx(StringIO()),
+        collaborators=collaborators,
+    )
+    assert code == 0
+
+    selection_path = tmp_path / "selection.yaml"
+    select_code = run_select(
+        checklist_path=checklist_path,
+        out=selection_path,
+        render_context=_plain_ctx(StringIO()),
+    )
+    assert select_code == 0
+
+    checklist = build_checklist(source, target, ())
+    expected_keys = set(dict.fromkeys(item.key for item in checklist.items))
+    selection = load_selection_yaml(selection_path.read_text(encoding="utf-8"))
+    assert {item.key for item in selection.items} == expected_keys
+    assert len(selection.items) == len(expected_keys)
+    assert all(item.disposition == "undecided" for item in selection.items)
+
+
+def test_run_migration_no_out_json_writes_nothing(tmp_path: Path) -> None:
+    source = _itsm_inventory("old", ("Alpha",))
+    target = _itsm_inventory("new", ("Alpha",))
+    collaborators = ReplatformCollaborators(
+        build_inventory=_FixedInventory({"old": source, "new": target})
+    )
+    code = run_migration(
+        from_profile="old",
+        to_profile="new",
+        aliases=(),
+        out=None,
+        out_json=None,
+        render_context=_plain_ctx(StringIO()),
+        collaborators=collaborators,
+    )
+    assert code == 0
+    assert list(tmp_path.iterdir()) == []
 
 
 def test_resolve_groups_defaults_to_all_registered_groups() -> None:
