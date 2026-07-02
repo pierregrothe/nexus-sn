@@ -1,6 +1,6 @@
 # Story 04: plan builder -- closure + waves
 
-Status: backlog
+Status: done
 Spec-Clarity: high
 Depends-On: 01, 02
 
@@ -117,23 +117,23 @@ attached, that finding no longer blocks.
 
 ## Tasks / Subtasks
 
-- [ ] Create `src/nexus/migrate/closure.py` -- reference-field closure walk
+- [x] Create `src/nexus/migrate/closure.py` -- reference-field closure walk
       over `CaptureResult` + schema graph (AC1)
-- [ ] Implement co-capture rules (ACL->ACL-role, sysauto_script->script,
+- [x] Implement co-capture rules (ACL->ACL-role, sysauto_script->script,
       sys_hub_flow->snapshot/subflow/action) (AC2)
-- [ ] Implement `sys_scope_privilege` presence check (AC3)
-- [ ] Implement `sys_db_object` accessible_from/caller_access diff; add
+- [x] Implement `sys_scope_privilege` presence check (AC3)
+- [x] Implement `sys_db_object` accessible_from/caller_access diff; add
       `ACCESS_POSTURE_DRIFT` to `FindingKind` in `src/nexus/migrate/models.py`
       (AC4)
-- [ ] Implement configurable core-table stop-list + DATA_PREREQUISITE
+- [x] Implement configurable core-table stop-list + DATA_PREREQUISITE
       dampening, defaulting to Story 00's seed list (AC1, AC5)
-- [ ] Create `src/nexus/migrate/planner.py` -- `build_waves` topological
+- [x] Create `src/nexus/migrate/planner.py` -- `build_waves` topological
       sort + `CYCLE` finding emission (AC6, AC7)
-- [ ] Implement `validate_approval(plan) -> tuple[str, ...]` blocking-reason
+- [x] Implement `validate_approval(plan) -> tuple[str, ...]` blocking-reason
       function (AC8-AC10)
-- [ ] Create `tests/fakes/migrate_closure.py` -- small fixture
+- [x] Create `tests/fakes/migrate_closure.py` -- small fixture
       CaptureResult/schema-graph pairs covering each rule row
-- [ ] Create `tests/test_migrate_closure.py`, `tests/test_migrate_planner.py`
+- [x] Create `tests/test_migrate_closure.py`, `tests/test_migrate_planner.py`
       (AC1-AC10)
 
 ## Existing Code
