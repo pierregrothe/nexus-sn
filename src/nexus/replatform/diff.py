@@ -41,22 +41,28 @@ def build_checklist(
 
     Returns:
         A frozen ``MigrationChecklist`` whose items are sorted by
-        ``(domain, use_case_key, kind, key)``.
+        ``(domain, use_case_key, kind, key)``. Matching is multiset: each
+        source occurrence of a natural key consumes at most one target
+        occurrence, so duplicate keys neither drop EXTRA rows nor
+        double-count DONE.
     """
     new_to_old = {new: old for old, new in aliases}
-    target_by_key: dict[str, tuple[UseCase, WorkflowRef]] = {}
+    target_by_key: dict[str, list[tuple[UseCase, WorkflowRef]]] = {}
     for use_case in target.use_cases:
         for workflow in use_case.workflows:
-            target_by_key[_remap(workflow, new_to_old)] = (use_case, workflow)
+            target_by_key.setdefault(_remap(workflow, new_to_old), []).append((use_case, workflow))
+    # Multiset semantics: each source occurrence consumes at most one target
+    # occurrence, so duplicate names neither drop EXTRA rows nor double-count DONE.
+    unmatched = {key: len(entries) for key, entries in target_by_key.items()}
 
-    source_keys: set[str] = set()
     items: list[ChecklistItem] = []
     for use_case in source.use_cases:
         built = 0
         for workflow in use_case.workflows:
-            source_keys.add(workflow.key)
-            present = workflow.key in target_by_key
-            built += 1 if present else 0
+            present = unmatched.get(workflow.key, 0) > 0
+            if present:
+                unmatched[workflow.key] -= 1
+                built += 1
             items.append(
                 _workflow_item(
                     workflow,
@@ -78,8 +84,8 @@ def build_checklist(
             )
         )
 
-    for effective_key, (use_case, workflow) in target_by_key.items():
-        if effective_key not in source_keys:
+    for key, entries in target_by_key.items():
+        for use_case, workflow in entries[len(entries) - unmatched[key] :]:
             items.append(_workflow_item(workflow, use_case, ChecklistStatus.EXTRA))
 
     items.sort(key=lambda item: (item.domain, item.use_case_key, item.kind.value, item.key))

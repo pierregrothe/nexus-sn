@@ -161,3 +161,45 @@ def test_build_checklist_records_profiles_and_timestamps() -> None:
     assert checklist.target_profile == "new"
     assert checklist.source_captured_at == source.captured_at
     assert checklist.target_captured_at == target.captured_at
+
+
+def test_build_checklist_duplicate_source_names_each_need_a_target() -> None:
+    dup_a = make_workflow_ref(scope="x_app", name="Duplicate")
+    dup_b = make_workflow_ref(scope="x_app", name="  duplicate ")
+    source = make_use_case_inventory(
+        profile="old", use_cases=(make_use_case(key="x_app", workflows=(dup_a, dup_b)),)
+    )
+    target = make_use_case_inventory(
+        profile="new", use_cases=(make_use_case(key="x_app", workflows=(dup_a,)),)
+    )
+    checklist = build_checklist(source, target)
+    uc = _item(checklist.items, key="x_app", kind=ChecklistKind.USE_CASE)
+    assert uc.status is ChecklistStatus.PARTIAL
+    assert uc.built_count == 1
+    assert uc.total_count == 2
+
+
+def test_build_checklist_duplicate_target_names_surface_unmatched_extra() -> None:
+    dup = make_workflow_ref(scope="x_app", name="Duplicate")
+    source = make_use_case_inventory(
+        profile="old", use_cases=(make_use_case(key="x_app", workflows=(dup,)),)
+    )
+    target = make_use_case_inventory(
+        profile="new", use_cases=(make_use_case(key="x_app", workflows=(dup, dup)),)
+    )
+    checklist = build_checklist(source, target)
+    extras = [i for i in checklist.items if i.status is ChecklistStatus.EXTRA]
+    assert len(extras) == 1
+
+
+def test_build_checklist_all_duplicate_targets_extra_when_source_missing() -> None:
+    dup = make_workflow_ref(scope="x_app", name="Duplicate")
+    source = make_use_case_inventory(
+        profile="old", use_cases=(make_use_case(key="x_app", workflows=()),)
+    )
+    target = make_use_case_inventory(
+        profile="new", use_cases=(make_use_case(key="x_app", workflows=(dup, dup)),)
+    )
+    checklist = build_checklist(source, target)
+    extras = [i for i in checklist.items if i.status is ChecklistStatus.EXTRA]
+    assert len(extras) == 2
