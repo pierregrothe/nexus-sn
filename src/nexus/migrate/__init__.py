@@ -25,7 +25,9 @@ from nexus.migrate.models import (
     Waiver,
     Wave,
     emit_plan_yaml,
+    emit_selection_yaml,
     load_plan_yaml,
+    load_selection_yaml,
 )
 
 __all__ = [
@@ -41,5 +43,7 @@ __all__ = [
     "Wave",
     "build_capture_for_selection",
     "emit_plan_yaml",
+    "emit_selection_yaml",
     "load_plan_yaml",
+    "load_selection_yaml",
 ]
