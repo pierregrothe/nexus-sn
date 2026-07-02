@@ -44,7 +44,7 @@ def test_default_stop_list_matches_story_00_seed() -> None:
 # -- AC1: reference-field closure rule table ---------------------------------
 
 
-def test_closure_records_edge_for_include_include_reference() -> None:
+def test_build_closure_records_edge_for_include_include_reference() -> None:
     selection = _selection(
         (
             make_selection_item(key=f"{_SCOPE}|sys_script_include|helper a", disposition="include"),
@@ -71,7 +71,7 @@ def test_closure_records_edge_for_include_include_reference() -> None:
     assert result.findings == ()
 
 
-def test_closure_auto_adds_undecided_reference_target() -> None:
+def test_build_closure_auto_adds_undecided_reference_target() -> None:
     selection = _selection(
         (
             make_selection_item(key=f"{_SCOPE}|sys_script_include|helper a", disposition="include"),
@@ -100,7 +100,7 @@ def test_closure_auto_adds_undecided_reference_target() -> None:
     assert result.findings == ()
 
 
-def test_closure_stranded_dependency_on_explicit_exclude() -> None:
+def test_build_closure_stranded_dependency_on_explicit_exclude() -> None:
     selection = _selection(
         (
             make_selection_item(key=f"{_SCOPE}|sys_script_include|helper a", disposition="include"),
@@ -127,7 +127,7 @@ def test_closure_stranded_dependency_on_explicit_exclude() -> None:
     assert f"{_SCOPE}|sys_script_include|helper b" in finding.detail
 
 
-def test_closure_data_prerequisite_on_stop_list_table() -> None:
+def test_build_closure_data_prerequisite_on_stop_list_table() -> None:
     selection = _selection(
         (make_selection_item(key=f"{_SCOPE}|sys_script_include|helper a", disposition="include"),)
     )
@@ -150,7 +150,7 @@ def test_closure_data_prerequisite_on_stop_list_table() -> None:
     assert "sys_user" in finding.detail
 
 
-def test_closure_isolated_item_has_no_edges_or_findings() -> None:
+def test_build_closure_isolated_item_has_no_edges_or_findings() -> None:
     selection = _selection(
         (make_selection_item(key=f"{_SCOPE}|sys_script_include|helper a", disposition="include"),)
     )
@@ -165,7 +165,7 @@ def test_closure_isolated_item_has_no_edges_or_findings() -> None:
     assert result.findings == ()
 
 
-def test_closure_seed_item_without_captured_record_stays_in_plan() -> None:
+def test_build_closure_seed_item_without_captured_record_stays_in_plan() -> None:
     # A curated "include" item whose capture never produced a matching
     # record (e.g. its scope wasn't found on the source instance) still
     # ends up in the plan -- closure just can't walk its (nonexistent)
@@ -183,7 +183,7 @@ def test_closure_seed_item_without_captured_record_stays_in_plan() -> None:
     assert result.findings == ()
 
 
-def test_closure_reference_edge_with_no_field_value_is_skipped() -> None:
+def test_build_closure_reference_edge_with_no_field_value_is_skipped() -> None:
     selection = _selection(
         (make_selection_item(key=f"{_SCOPE}|sys_script_include|helper a", disposition="include"),)
     )
@@ -202,7 +202,7 @@ def test_closure_reference_edge_with_no_field_value_is_skipped() -> None:
 # -- AC2: co-capture rule table ----------------------------------------------
 
 
-def test_closure_acl_role_rows_always_added_regardless_of_disposition() -> None:
+def test_build_closure_acl_role_rows_always_added_regardless_of_disposition() -> None:
     selection = _selection(
         (
             make_selection_item(
@@ -235,7 +235,7 @@ def test_closure_acl_role_rows_always_added_regardless_of_disposition() -> None:
     assert result.findings == ()
 
 
-def test_closure_acl_role_rows_bypass_stop_list() -> None:
+def test_build_closure_acl_role_rows_bypass_stop_list() -> None:
     selection = _selection(
         (
             make_selection_item(
@@ -261,7 +261,7 @@ def test_closure_acl_role_rows_bypass_stop_list() -> None:
     assert result.findings == ()
 
 
-def test_closure_sysauto_script_reference_follows_standard_rule() -> None:
+def test_build_closure_sysauto_script_reference_follows_standard_rule() -> None:
     selection = _selection(
         (
             make_selection_item(
@@ -289,7 +289,7 @@ def test_closure_sysauto_script_reference_follows_standard_rule() -> None:
     assert result.findings == ()
 
 
-def test_closure_flow_snapshot_subflow_action_rows_always_added() -> None:
+def test_build_closure_flow_snapshot_subflow_action_rows_always_added() -> None:
     selection = _selection(
         (make_selection_item(key=f"{_SCOPE}|sys_hub_flow|approve po", disposition="include"),)
     )
@@ -329,7 +329,7 @@ def test_closure_flow_snapshot_subflow_action_rows_always_added() -> None:
 # -- AC3: sys_scope_privilege presence check ---------------------------------
 
 
-def test_closure_stranded_dependency_on_missing_scope_privilege_grant() -> None:
+def test_build_closure_stranded_dependency_on_missing_scope_privilege_grant() -> None:
     selection = _selection(
         (
             make_selection_item(key=f"{_SCOPE}|sys_script_include|helper a", disposition="include"),
@@ -371,7 +371,7 @@ def test_closure_stranded_dependency_on_missing_scope_privilege_grant() -> None:
     assert _OTHER_SCOPE in stranded[0].detail
 
 
-def test_closure_no_finding_when_scope_privilege_grant_present() -> None:
+def test_build_closure_no_finding_when_scope_privilege_grant_present() -> None:
     selection = _selection(
         (
             make_selection_item(key=f"{_SCOPE}|sys_script_include|helper a", disposition="include"),
@@ -400,7 +400,7 @@ def test_closure_no_finding_when_scope_privilege_grant_present() -> None:
 # -- AC4: sys_db_object access-posture diff ----------------------------------
 
 
-def test_closure_access_posture_drift_on_differing_fields() -> None:
+def test_build_closure_access_posture_drift_on_differing_fields() -> None:
     selection = _selection(
         (make_selection_item(key=f"{_SCOPE}|sys_script_include|helper a", disposition="include"),)
     )
@@ -436,7 +436,7 @@ def test_closure_access_posture_drift_on_differing_fields() -> None:
     assert "package_private" in drift[0].detail
 
 
-def test_closure_no_access_posture_drift_when_fields_match() -> None:
+def test_build_closure_no_access_posture_drift_when_fields_match() -> None:
     selection = _selection(
         (make_selection_item(key=f"{_SCOPE}|sys_script_include|helper a", disposition="include"),)
     )
@@ -499,7 +499,7 @@ def test_load_stop_list_non_list_shape_raises_value_error(tmp_path: Path) -> Non
         load_stop_list(path)
 
 
-def test_closure_custom_stop_list_dampens_like_default(tmp_path: Path) -> None:
+def test_build_closure_custom_stop_list_dampens_like_default(tmp_path: Path) -> None:
     path = tmp_path / "stop-list.yaml"
     path.write_text("- sys_approval\n", encoding="utf-8")
     custom_stop_list = load_stop_list(path)
@@ -555,6 +555,93 @@ def test_build_closure_transitive_undecided_auto_add() -> None:
     assert items_by_key[f"{_SCOPE}|sys_script_include|helper b"].added_by_closure is True
     assert items_by_key[f"{_SCOPE}|sys_script_include|helper c"].added_by_closure is True
     assert len(result.edges) == 2
+
+
+def test_build_closure_mutual_undecided_references_terminate_and_add_once() -> None:
+    # Cycle-safety regression guard: A(include) -> B(undecided) -> C(undecided)
+    # -> B is a real mutual reference between undecided items resolved through
+    # build_closure itself. The walk must terminate, add each undecided item
+    # exactly once (the enqueue is guarded by "not in items"), record every
+    # ordering edge including the cycle-closing one, and stay deterministic.
+    selection = _selection(
+        (
+            make_selection_item(key=f"{_SCOPE}|sys_script_include|helper a", disposition="include"),
+            make_selection_item(
+                key=f"{_SCOPE}|sys_script_include|helper b", disposition="undecided"
+            ),
+            make_selection_item(
+                key=f"{_SCOPE}|sys_script_include|helper c", disposition="undecided"
+            ),
+        )
+    )
+    record_a = make_record(
+        "sys_script_include", "a1", _SCOPE, "Helper A", uses=make_ref("b1", "Helper B")
+    )
+    record_b = make_record(
+        "sys_script_include", "b1", _SCOPE, "Helper B", uses=make_ref("c1", "Helper C")
+    )
+    record_c = make_record(
+        "sys_script_include", "c1", _SCOPE, "Helper C", uses=make_ref("b1", "Helper B")
+    )
+    schema_graph = make_schema_graph(
+        (make_reference_edge("sys_script_include", "uses", "sys_script_include"),)
+    )
+
+    result = build_closure(
+        selection,
+        (make_capture((record_a, record_b, record_c), instance_id="alectri"),),
+        schema_graph,
+    )
+    shuffled = build_closure(
+        selection,
+        (make_capture((record_c, record_b, record_a), instance_id="alectri"),),
+        schema_graph,
+    )
+
+    key_a = f"{_SCOPE}|sys_script_include|helper a"
+    key_b = f"{_SCOPE}|sys_script_include|helper b"
+    key_c = f"{_SCOPE}|sys_script_include|helper c"
+    # Each item appears exactly once (no duplicate adds from the cycle).
+    assert [item.key for item in result.items] == [key_a, key_b, key_c]
+    items_by_key = {item.key: item for item in result.items}
+    assert items_by_key[key_b].added_by_closure is True
+    assert items_by_key[key_c].added_by_closure is True
+    # All three ordering edges recorded, including the cycle-closing C -> B.
+    assert {(e.dependent_key, e.dependency_key) for e in result.edges} == {
+        (key_a, key_b),
+        (key_b, key_c),
+        (key_c, key_b),
+    }
+    assert result.findings == ()
+    assert result == shuffled
+
+
+def test_build_closure_stop_list_precedes_explicit_exclude() -> None:
+    # AC1 row 4 says "any item": a reference target whose table is
+    # stop-listed dampens to DATA_PREREQUISITE even when the target's own
+    # SelectionItem disposition is an explicit exclude -- the stop-list check
+    # takes precedence, so no STRANDED_DEPENDENCY is raised and the row is
+    # never added.
+    selection = _selection(
+        (
+            make_selection_item(key=f"{_SCOPE}|sys_script_include|helper a", disposition="include"),
+            make_selection_item(key=f"{_SCOPE}|cmdb_ci|some ci", disposition="exclude"),
+        )
+    )
+    record_a = make_record(
+        "sys_script_include", "a1", _SCOPE, "Helper A", ci=make_ref("ci1", "Some CI")
+    )
+    ci_record = make_record("cmdb_ci", "ci1", _SCOPE, "Some CI")
+    captures = (make_capture((record_a, ci_record), instance_id="alectri"),)
+    schema_graph = make_schema_graph((make_reference_edge("sys_script_include", "ci", "cmdb_ci"),))
+
+    result = build_closure(selection, captures, schema_graph)
+
+    assert f"{_SCOPE}|cmdb_ci|some ci" not in {item.key for item in result.items}
+    assert len(result.findings) == 1
+    assert result.findings[0].kind == FindingKind.DATA_PREREQUISITE
+    assert "cmdb_ci" in result.findings[0].detail
+    assert not any(f.kind == FindingKind.STRANDED_DEPENDENCY for f in result.findings)
 
 
 def test_build_closure_stop_list_dampens_even_when_target_independently_included() -> None:
