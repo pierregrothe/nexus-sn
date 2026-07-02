@@ -1,6 +1,6 @@
 # Story 06: `plan --recheck` drift detection
 
-Status: backlog
+Status: done
 Spec-Clarity: high
 Depends-On: 05
 
@@ -61,15 +61,15 @@ such as a companion `.stale` marker file).
 
 ## Tasks / Subtasks
 
-- [ ] Create `src/nexus/migrate/recheck.py` -- `compute_drift(plan,
+- [x] Create `src/nexus/migrate/recheck.py` -- `compute_drift(plan,
       source_listing, target_listing) -> DriftReport` (AC1-AC4)
-- [ ] Define a `DriftReport` frozen model in `src/nexus/migrate/models.py`
+- [x] Define a `DriftReport` frozen model in `src/nexus/migrate/models.py`
       (added/removed/changed per instance) (AC2-AC4)
-- [ ] Wire `--recheck` + `--plan` options onto the existing
+- [x] Wire `--recheck` + `--plan` options onto the existing
       `@migrate_app.command("plan")` (Story 05), branching to the recheck
       path reusing the replatform-style lightweight live listing (AC1-AC3)
-- [ ] Implement the runbook STALE header rewrite via `render_runbook` (AC5)
-- [ ] Create `tests/test_migrate_recheck.py`, `tests/cli/test_migrate_plan_recheck_cmd.py`
+- [x] Implement the runbook STALE header rewrite via `render_runbook` (AC5)
+- [x] Create `tests/test_migrate_recheck.py`, `tests/cli/test_migrate_plan_recheck_cmd.py`
       (AC1-AC5)
 
 ## Existing Code

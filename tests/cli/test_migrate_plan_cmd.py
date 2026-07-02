@@ -385,4 +385,13 @@ def test_migrate_plan_without_selection_and_without_recheck_exits_1(tmp_path: Pa
     assert result.exit_code == 1
     assert "--selection is required" in result.stderr
     assert not out_path.exists()
-    assert not out_path.exists()
+
+
+def test_migrate_plan_without_out_and_without_recheck_exits_1(tmp_path: Path) -> None:
+    selection_path = tmp_path / "selection.yaml"
+    selection_path.write_text("placeholder", encoding="utf-8")
+
+    result = CliRunner().invoke(app, ["migrate", "plan", "--selection", str(selection_path)])
+
+    assert result.exit_code == 1
+    assert "--out is required" in result.stderr
