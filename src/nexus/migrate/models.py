@@ -57,13 +57,16 @@ class PlanLane(StrEnum):
 class FindingKind(StrEnum):
     """Kind of integrity finding raised while closing a selection.
 
-    Open to extension by later stories (e.g. Story 04's access-posture-drift
-    rule); this module fixes only the members required by this story.
+    Open to extension by later stories; this module fixes only the members
+    required so far. ``ACCESS_POSTURE_DRIFT`` (Story 04, AC4) flags a
+    selected table whose ``accessible_from``/``caller_access`` posture
+    differs between the source and target instance captures.
     """
 
     STRANDED_DEPENDENCY = "STRANDED_DEPENDENCY"
     DATA_PREREQUISITE = "DATA_PREREQUISITE"
     CYCLE = "CYCLE"
+    ACCESS_POSTURE_DRIFT = "ACCESS_POSTURE_DRIFT"
 
 
 class SelectionItem(BaseModel):
