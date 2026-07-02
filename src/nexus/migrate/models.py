@@ -30,6 +30,9 @@ __all__ = [
     "MigrationPlan",
     "PlanItem",
     "PlanLane",
+    "PreflightItemResult",
+    "PreflightReport",
+    "PreflightStatus",
     "Selection",
     "SelectionItem",
     "Waiver",
@@ -307,6 +310,58 @@ class MigrationPlan(BaseModel):
     target_chain: tuple[str, ...] = ()
     source_baseline: tuple[BaselineEntry, ...] = ()
     target_baseline: tuple[BaselineEntry, ...] = ()
+
+
+class PreflightStatus(StrEnum):
+    """Outcome of one `nexus migrate preflight` probe item (Story 07, AC2).
+
+    ``PASS``/``FAIL`` are determinate outcomes from a probe that completed
+    (HTTP 200/403 respectively for table-read probes). ``UNKNOWN`` covers
+    every non-determinate case -- 404, a network hiccup, or an
+    unrecognized auth-mode string -- so preflight never raises on a
+    403/404 and always renders a row (Must Not).
+    """
+
+    PASS = "PASS"
+    FAIL = "FAIL"
+    UNKNOWN = "UNKNOWN"
+
+
+class PreflightItemResult(BaseModel):
+    """Outcome of probing one execution precondition against one instance.
+
+    Attributes:
+        item: Stable id of the probed item, e.g. ``cicd-plugin``.
+        instance: Which side this row targets -- ``"old"`` or ``"new"``,
+            matching `nexus migrate preflight --from/--to` (AC4).
+        status: PASS/FAIL/UNKNOWN outcome (AC2).
+        purpose: One-line description of what the probe checks.
+        remediation: Suggested action when the probe is not PASS.
+        detail: SN-side error message/detail or other free-text context;
+            empty when nothing further to add.
+    """
+
+    model_config = _FROZEN
+
+    item: str
+    instance: str
+    status: PreflightStatus
+    purpose: str
+    remediation: str
+    detail: str = ""
+
+
+class PreflightReport(BaseModel):
+    """Full `nexus migrate preflight` outcome across both instances.
+
+    Attributes:
+        items: Every probed item x instance row, sorted deterministically
+            by ``(instance, item)`` (Story 07 binding resolution 3).
+    """
+
+    model_config = _FROZEN
+
+    items: tuple[PreflightItemResult, ...]
 
 
 def _emit_yaml(model: BaseModel) -> str:

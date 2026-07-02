@@ -22,6 +22,9 @@ from nexus.migrate.models import (
     MigrationPlan,
     PlanItem,
     PlanLane,
+    PreflightItemResult,
+    PreflightReport,
+    PreflightStatus,
     Selection,
     SelectionItem,
     Waiver,
@@ -403,6 +406,68 @@ def test_migration_plan_defaults_baselines_to_empty() -> None:
     assert plan.target_baseline == ()
 
 
+# -- Story 07: PreflightStatus / PreflightItemResult / PreflightReport -------
+
+
+def test_preflight_status_members_exact_set() -> None:
+    assert {member.value for member in PreflightStatus} == {"PASS", "FAIL", "UNKNOWN"}
+
+
+def _preflight_item_result() -> PreflightItemResult:
+    return PreflightItemResult(
+        item="cicd-plugin",
+        instance="old",
+        status=PreflightStatus.PASS,
+        purpose="CICD plugin must be installed and active",
+        remediation="Install and activate the CICD Spoke plugin",
+    )
+
+
+def test_preflight_item_result_holds_fields_with_default_detail() -> None:
+    result = _preflight_item_result()
+    assert result.item == "cicd-plugin"
+    assert result.instance == "old"
+    assert result.status is PreflightStatus.PASS
+    assert result.detail == ""
+
+
+def test_preflight_item_result_is_frozen() -> None:
+    result = _preflight_item_result()
+    with pytest.raises(ValidationError):
+        setattr(result, "status", PreflightStatus.FAIL)
+
+
+def test_preflight_item_result_forbids_extra() -> None:
+    with pytest.raises(ValidationError):
+        PreflightItemResult.model_validate(
+            {
+                "item": "cicd-plugin",
+                "instance": "old",
+                "status": PreflightStatus.PASS,
+                "purpose": "p",
+                "remediation": "r",
+                "extra": "x",
+            }
+        )
+
+
+def test_preflight_report_holds_items() -> None:
+    result = _preflight_item_result()
+    report = PreflightReport(items=(result,))
+    assert report.items == (result,)
+
+
+def test_preflight_report_is_frozen() -> None:
+    report = PreflightReport(items=())
+    with pytest.raises(ValidationError):
+        setattr(report, "items", (_preflight_item_result(),))
+
+
+def test_preflight_report_forbids_extra() -> None:
+    with pytest.raises(ValidationError):
+        PreflightReport.model_validate({"items": (), "extra": "x"})
+
+
 # -- AC10: byte-stable YAML round trip -----------------------------------------
 
 
@@ -530,8 +595,8 @@ def test_make_selection_round_trips_byte_stable() -> None:
 
 
 def test_migrate_models_all_lists_every_public_name() -> None:
-    # Story 06: BaselineEntry + DriftReport added -- see that story's report
-    # for why the exact-set assertion needed updating.
+    # Story 07: PreflightStatus/PreflightItemResult/PreflightReport added --
+    # see that story's report for why the exact-set assertion needed updating.
     assert set(migrate_models.__all__) == {
         "Acknowledgment",
         "BaselineEntry",
@@ -541,6 +606,9 @@ def test_migrate_models_all_lists_every_public_name() -> None:
         "MigrationPlan",
         "PlanItem",
         "PlanLane",
+        "PreflightItemResult",
+        "PreflightReport",
+        "PreflightStatus",
         "Selection",
         "SelectionItem",
         "Waiver",

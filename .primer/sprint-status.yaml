@@ -119,7 +119,7 @@ phases:
       migration-planner-04-plan-builder-closure-waves: done  # shipped 2026-07-02; scope_name live-capture verification carried to story 05
       migration-planner-05-runbook-plan-cli: done  # shipped 2026-07-02; fresh-timestamp fix caught in review
       migration-planner-06-plan-recheck-drift: done  # shipped 2026-07-02; baseline embedded in plan (scope-symmetric with recheck listing)
-      migration-planner-07-migrate-preflight: backlog
+      migration-planner-07-migrate-preflight: done  # shipped 2026-07-02; folds spike S1 (CICD availability probe)
 
   2026.08-execution-lane-spikes:
     status: planned
