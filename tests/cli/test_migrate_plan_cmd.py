@@ -12,6 +12,7 @@ monkeypatching) so no live ServiceNow call is ever made -- the production
 wiring itself is ``# pragma: no cover``.
 """
 
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -143,6 +144,45 @@ def test_migrate_plan_prints_console_summary(
     assert "migration plan alectri -> retail" in result.output
 
 
+def test_migrate_plan_records_fresh_source_capture_timestamp_not_selection_seed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Regression (story 05 review): run_plan used to copy the seed-time
+    # selection.source_captured_at into the plan, silently discarding the
+    # FRESH source capture's timestamp -- the value the plan was actually
+    # computed from (ADR-026 Decision 4). Timestamps here are deliberately
+    # DISTINCT: the selection's seed-time value is older than the fresh
+    # source capture's.
+    stale_seed_ts = datetime(2026, 6, 20, 8, 0, 0, tzinfo=UTC)
+    fresh_source_ts = datetime(2026, 7, 2, 15, 30, 0, tzinfo=UTC)
+    monkeypatch.setenv("NEXUS_AUTO_UPDATE", "0")
+    selection = make_selection(
+        source_captured_at=stale_seed_ts,
+        items=(
+            make_selection_item(key=f"{_SCOPE}|sys_script_include|helper a", disposition="include"),
+        ),
+    )
+    selection_path = tmp_path / "selection.yaml"
+    _write_selection(selection_path, selection)
+    record = make_record("sys_script_include", "a1", _SCOPE, "Helper A")
+    source = make_capture((record,), instance_id="alectri", captured_at=fresh_source_ts)
+    target = make_capture((), instance_id="retail")
+    _set_collaborators(monkeypatch, captures=(source, target), schema_graph=make_schema_graph())
+    out_path = tmp_path / "runbook.md"
+
+    result = _invoke_plan(selection_path, out_path)
+
+    assert result.exit_code == 0
+    # The plan YAML carries the FRESH source capture timestamp...
+    plan = load_plan_yaml((tmp_path / "runbook.plan.yaml").read_text(encoding="utf-8"))
+    assert plan.source_captured_at == fresh_source_ts
+    assert plan.source_captured_at != stale_seed_ts
+    # ...and so does the runbook's freshness header.
+    runbook = out_path.read_text(encoding="utf-8")
+    assert f"Source snapshot: alectri captured_at={fresh_source_ts.isoformat()}" in runbook
+    assert stale_seed_ts.isoformat() not in runbook
+
+
 # -- AC7: unapproved plan still writes and exits 0 ----------------------------
 
 
@@ -237,6 +277,23 @@ def test_migrate_plan_collaborator_capture_failure_exits_1(
 
     assert result.exit_code == 1
     assert "failed to capture instances for plan" in result.stderr
+    assert not out_path.exists()
+
+
+def test_migrate_plan_no_source_captures_exits_1(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("NEXUS_AUTO_UPDATE", "0")
+    selection_path = tmp_path / "selection.yaml"
+    _write_selection(selection_path, _happy_selection())
+    target_only = (make_capture((), instance_id="retail"),)
+    _set_collaborators(monkeypatch, captures=target_only, schema_graph=make_schema_graph())
+    out_path = tmp_path / "runbook.md"
+
+    result = _invoke_plan(selection_path, out_path)
+
+    assert result.exit_code == 1
+    assert "no captured records found for source profile" in result.stderr
     assert not out_path.exists()
 
 

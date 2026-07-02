@@ -34,14 +34,15 @@ from nexus.ui.render_context import RenderContext
 
 __all__ = ["DOCUMENTED_GAPS", "render_runbook", "render_summary", "write_runbook"]
 
-# AC5: fixed documented-gap register (PRD-005 "Out of Scope" /
-# ADR-026#Consequences) -- printed verbatim in every runbook, never
-# conditionally omitted. The v1 closure (Story 04) does not analyze any of
-# these; a later story may promote one to an in-tool check.
+# AC5: fixed documented-gap register -- printed verbatim in every runbook,
+# never conditionally omitted. Entries are aligned verbatim to PRD-005's
+# "Out of Scope" named-gap sentence (the canonical source; ADR-026's
+# Consequences paraphrases it). The v1 closure (Story 04) does not analyze
+# any of these; a later story may promote one to an in-tool check.
 DOCUMENTED_GAPS: tuple[str, ...] = (
-    "script-body references (dot-walks, hardcoded sys_ids)",
+    "script-body scanning (dot-walks, hardcoded sys_ids)",
     "sys_domain separation",
-    "legacy Workflow internals",
+    "legacy Workflow internals closure",
     "notification/email template refs",
     "REST/SOAP message + MID/credential refs",
     "business-rule execution order",

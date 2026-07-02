@@ -168,20 +168,23 @@ class PlanCollaborators:
     build_schema_graph: Callable[[Selection], SchemaGraph]
 
 
-def _target_captured_at(
-    captures: tuple[CaptureResult, ...], target_profile: str
-) -> datetime | None:
-    """Return the latest captured_at among CaptureResults for target_profile.
+def _latest_captured_at(captures: tuple[CaptureResult, ...], profile: str) -> datetime | None:
+    """Return the latest captured_at among CaptureResults for ``profile``.
+
+    Shared by the source and target sides of ``run_plan``'s MigrationPlan
+    assembly: the plan must record the timestamps of the FRESH captures it
+    was computed from (ADR-026 Decision 4), never the seed-time
+    ``selection.source_captured_at`` carried forward from ``migrate select``.
 
     Args:
         captures: CaptureResults covering both instances.
-        target_profile: The target instance profile to filter on.
+        profile: Instance profile to filter on.
 
     Returns:
         The latest matching captured_at, or None when no CaptureResult in
-        ``captures`` names ``target_profile``.
+        ``captures`` names ``profile``.
     """
-    matches = [capture.captured_at for capture in captures if capture.instance_id == target_profile]
+    matches = [capture.captured_at for capture in captures if capture.instance_id == profile]
     return max(matches) if matches else None
 
 
@@ -193,6 +196,12 @@ def run_plan(
     collaborators: PlanCollaborators,
 ) -> int:
     """Build a MigrationPlan from a curated Selection and render its runbook.
+
+    The plan's ``source_captured_at``/``target_captured_at`` both come from
+    the FRESH captures ``collaborators.build_captures`` just fetched -- never
+    from ``selection.source_captured_at``, which is the seed-time value
+    ``migrate select`` carried forward and may badly understate source
+    currency (ADR-026 Decision 4: plans record what they were computed from).
 
     Args:
         selection_path: Path to a Selection YAML file (the
@@ -208,7 +217,8 @@ def run_plan(
         Exit code 0 on success -- including a plan with unresolved blocking
         findings, since the runbook still renders and approval is a
         separate, later git-reviewed step (AC7). 1 when the selection file
-        is missing/unreadable/malformed/invalid, or a collaborator fails.
+        is missing/unreadable/malformed/invalid, a collaborator fails, or
+        the captures cover neither the source nor the target profile.
     """
     try:
         raw_text = selection_path.read_text(encoding="utf-8")
@@ -231,7 +241,15 @@ def run_plan(
         err_console.print(Notice.error(f"failed to capture instances for plan: {exc}"))
         return 1
 
-    target_captured_at = _target_captured_at(captures, selection.target_profile)
+    source_captured_at = _latest_captured_at(captures, selection.source_profile)
+    if source_captured_at is None:
+        err_console.print(
+            Notice.error(
+                f"no captured records found for source profile {selection.source_profile!r}"
+            )
+        )
+        return 1
+    target_captured_at = _latest_captured_at(captures, selection.target_profile)
     if target_captured_at is None:
         err_console.print(
             Notice.error(
@@ -254,7 +272,7 @@ def run_plan(
         schema_version=_PLAN_SCHEMA_VERSION,
         source_profile=selection.source_profile,
         target_profile=selection.target_profile,
-        source_captured_at=selection.source_captured_at,
+        source_captured_at=source_captured_at,
         target_captured_at=target_captured_at,
         waves=waves,
         findings=findings,

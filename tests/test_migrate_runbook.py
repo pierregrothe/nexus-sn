@@ -170,6 +170,19 @@ def test_render_runbook_reports_none_recorded_when_no_waivers_or_acks() -> None:
 # -- AC5: documented-gap register ----------------------------------------------
 
 
+def test_documented_gaps_match_prd_005_out_of_scope_verbatim() -> None:
+    # Canonical source: .primer/prd/PRD-005-nexus-migration-planner.md#Out of
+    # Scope, the named-gap sentence -- ADR-026's Consequences paraphrases it.
+    assert DOCUMENTED_GAPS == (
+        "script-body scanning (dot-walks, hardcoded sys_ids)",
+        "sys_domain separation",
+        "legacy Workflow internals closure",
+        "notification/email template refs",
+        "REST/SOAP message + MID/credential refs",
+        "business-rule execution order",
+    )
+
+
 def test_render_runbook_includes_documented_gap_register_verbatim_for_minimal_plan() -> None:
     plan = make_migration_plan(waves=(), findings=())
 
