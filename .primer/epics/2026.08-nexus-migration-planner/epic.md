@@ -170,6 +170,24 @@ any full-estate curation is offered to anyone.
 - S0 lane-units: 95 = 82 scoped apps + 13 global use cases + 0 data batches
 - Full details, regeneration commands, and the schema-graph edge list: see
   `s0-spike-results.md`
+- Epic close-out (2026-07-02/03): whole-epic 7-agent final review (all findings
+  adversarially verified) + live end-to-end validation vs alectri/retail found
+  and fixed 3 Criticals + 2 Importants the per-story gates could not see (PRs
+  #70-#71: rollup-key crash at 3 sites, recheck runbook-path divergence, missing
+  preflight exports, silent natural-key-collision record drop, plan-wiring token
+  refresh). Final live proof (bounded pilot selection, 6 items / 2 scopes):
+  checklist JSON 9.9MB -> select seeded 27,959 items -> plan exit 0 (1 wave,
+  0 findings; runbook 1.4KB + plan YAML 5.8MB with instance-wide baselines) ->
+  recheck exit 0 "no drift detected" -> preflight all-PASS both instances.
+  Suite at close: 2159 tests green, nexus.migrate 100% coverage.
+- Known v1 characteristics recorded for v1.1: full-estate selections trigger
+  disposition-blind capture of every named scope x table (a 27,959-item
+  selection exceeds 10 min live) -- bounded pilot selections are the v1
+  workflow; per-(scope,table) fetch tightening is the v1.1 fix. USE_CASE-level
+  include is a documented no-op (propagation to member workflows is an open
+  UX question). Deferred minors: _cell dict-unwrap triplication, DriftReport
+  grouping duplication, closure linear scans, PreflightItemResult.instance
+  as plain str.
 
 ## References
 

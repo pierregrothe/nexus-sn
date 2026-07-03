@@ -218,7 +218,7 @@ Infrastructure:
     progressive levels plus live SPM family run (6 fresh + 3 already-
     installed treated as success, 1 timeout).
 
-Tests: 1867 passing / 3 skipped (1870 collected). All real fakes (incl. httpx.MockTransport,
+Tests: 2159 passing / 3 skipped (2162 collected). All real fakes (incl. httpx.MockTransport,
 FakeBatchProgress, FakeServiceNowClient, FakeSchemaCartographer,
 FakeAgentClient, no unittest.mock). mypy strict + pyright strict
 report 0 errors across src/. ruff + black clean. GitHub:
@@ -389,6 +389,50 @@ Replatform layer (2026.07-nexus-replatform-checklist epic, PRs #55/#56,
     alectri/retail: 30,463 artifacts, 95 named use cases, 0 Uncategorized.
   AI enrichment (specialist-driven naming/sub-clustering) deferred to v2,
     pending the 2026.07 Agent Specialists epic.
+
+Migrate layer (2026.08-nexus-migration-planner epic, PRs #61-#71, shipped
+  2026-07-02/03, live-proven vs alectri/retail):
+  src/nexus/migrate/ -- selective-migration planner; advisory only
+    (charter hard limit 4), consumes replatform checklists + full captures.
+  models.py -- frozen plan-file models (Selection/SelectionItem,
+    MigrationPlan/Wave/PlanItem, IntegrityFinding, Waiver with
+    author!=approver segregation validator, Acknowledgment, BaselineEntry,
+    DriftReport, Preflight* models); byte-stable LF-only YAML emit/load
+    pairs for Selection AND MigrationPlan (emit(load(emit(x))) == emit(x)).
+  capture_bridge.py -- Selection -> full CaptureResults: narrowed table
+    groups (no over-fetch of unselected tables), disposition-blind capture
+    (closure must resolve references into excluded/undecided targets),
+    scope_name normalized to technical scope keys, USE_CASE rollup keys
+    skipped, natural-key helpers parity-locked to replatform's.
+  closure.py -- pure dependency closure: include/undecided/exclude
+    asymmetry (exclude is never overridden -- STRANDED_DEPENDENCY instead;
+    undecided auto-adds transitively, marked added_by_closure), co-capture
+    rules (ACL->ACL-role, flow closure), stop-list dampening to
+    DATA_PREREQUISITE (DEFAULT_STOP_LIST from the S0 spike + load_stop_list),
+    sys_scope_privilege presence + sys_db_object access-posture checks,
+    deterministic natural-key-collision resolution + KEY_COLLISION finding.
+  planner.py -- SCC/condensation wave ordering (cycles -> CYCLE finding,
+    one shared wave, never dropped); validate_approval blocks ONLY on
+    unwaived STRANDED_DEPENDENCY + unacknowledged DATA_PREREQUISITE.
+  runbook.py -- pure renderer: input-derived generated-at (byte-stable),
+    snapshot identities + recheck validity window, NOT-APPROVED banner,
+    waivers/acks verbatim front page, PRD-005-verbatim documented-gap
+    register (unconditional), (wave, lane) grouped units, STALE banner
+    via optional drift param.
+  recheck.py -- pure compute_drift over embedded plan baselines
+    (key + sys_updated_on fingerprint multisets; added/removed/changed
+    per instance).
+  preflight.py -- GET-only execution-precondition probes (CICD plugin,
+    sn_cicd role 403->UNKNOWN, app-repo 403->FAIL, auth mode) reusing
+    role_probe + scanner primitives; folds spike S1.
+  CLI: `nexus migrate select|plan|plan --recheck|preflight` (thin wrappers
+    + injectable collaborators; live wiring in cli/migrate_wiring.py with
+    token-refresh callbacks); `assess migration --out-json` checklist
+    producer. Exit codes: recheck 0 no-drift / 2 drift / 1 hard error.
+  Live e2e proof (bounded pilot, 2 scopes / 6 items): plan exit 0 (1 wave,
+    0 findings), recheck "no drift detected" exit 0, preflight all-PASS
+    both instances. Full-estate selections are a v1.1 target (capture
+    breadth exceeds 10 min live).
 
 Setup wizard layer (credential management):
   PromptSource Protocol + TyperPromptSource + ScriptedPromptSource

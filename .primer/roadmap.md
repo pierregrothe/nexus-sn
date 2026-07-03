@@ -136,8 +136,8 @@
       for scopes whose display names are still too coarse (depends on the
       2026.07 Agent Specialists epic).
 
-## 2026.08 -- Migration Planner [planned]
-- [ ] Selective-migration planner -- nexus migrate select / plan / preflight;
+## 2026.08 -- Migration Planner [active]
+- [x] Selective-migration planner -- nexus migrate select / plan / preflight;
       selection plan file, dependency closure with waivers/acknowledgments,
       wave ordering, lane-hint runbook. Advisory only (charter hard limit 4);
       execution lanes gated on ADR-027 after the spike track.
