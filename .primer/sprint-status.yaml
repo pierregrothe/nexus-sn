@@ -110,7 +110,7 @@ phases:
       replatform-ai-enrichment-v2: backlog  # depends on 2026.07-agent-specialists
 
   2026.08-migration-planner:
-    status: active
+    status: done  # all 8 stories + close-out shipped 2026-07-02/03 (PRs #61-#71); live-proven vs demo pair
     items:
       migration-planner-00-s0-closure-scale-spike: done  # S0 measured 2026-07-02; results in epic s0-spike-results.md
       migration-planner-01-full-fidelity-selective-capture: done  # shipped 2026-07-02 (after story 02; Selection dependency)
