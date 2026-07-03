@@ -56,3 +56,6 @@ artifacts/replatform-proof/inventory-*-v2.json
 
 # S0 spike schema-graph archive -- regenerable via spike_s0_fetch_schema_edges.py
 artifacts/replatform-proof/*/s0-platform-artifacts-*.json
+
+# primer multi-session write lease (never committed)
+.primer/.lease

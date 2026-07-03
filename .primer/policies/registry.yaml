@@ -1,0 +1,312 @@
+# Policy registry -- source of truth for enforcement governance.
+# Schema: see the primer skill's reference/registry-schema.md.
+# Slugs are immutable; checks/status are managed by /primer reconcile.
+generated: 2026-07-03
+known_gaps: []
+
+policies:
+  - slug: semantic-governance
+    name: Semantic governance rules (semgrep)
+    category: quality
+    constitutional: true
+    justifying_adrs: [ADR-016, ADR-017, ADR-019]
+    checks:
+      - kind: pre-commit-hook
+        id: no-lru-cache-none
+        stage: commit
+        bundled_into: semgrep
+      - kind: pre-commit-hook
+        id: no-unittest-testcase
+        stage: commit
+        bundled_into: semgrep
+      - kind: pre-commit-hook
+        id: caching-must-use-cached-decorator
+        stage: commit
+        bundled_into: semgrep
+      - kind: pre-commit-hook
+        id: cached-requires-explicit-ttl
+        stage: commit
+        bundled_into: semgrep
+      - kind: pre-commit-hook
+        id: cached-persist-requires-namespace
+        stage: commit
+        bundled_into: semgrep
+      - kind: pre-commit-hook
+        id: external-keychain-must-use-wrapper
+        stage: commit
+        bundled_into: semgrep
+      - kind: pre-commit-hook
+        id: no-stub-see-docstring
+        stage: commit
+        bundled_into: semgrep
+      - kind: pre-commit-hook
+        id: enum-shadowing-label-dict
+        stage: commit
+        bundled_into: semgrep
+        tier: soft
+      - kind: pre-commit-hook
+        id: no-sys-stdout-write
+        stage: commit
+        bundled_into: semgrep
+    status: enforced
+  - slug: lint-standards
+    name: Blocking lint standards (ruff banned-api / codes)
+    category: quality
+    constitutional: true
+    justifying_adrs: [ADR-007, ADR-016]
+    checks:
+      - kind: pre-commit-hook
+        id: no-mocks
+        stage: commit
+        bundled_into: ruff
+      - kind: pre-commit-hook
+        id: no-relative-imports
+        stage: commit
+        bundled_into: ruff
+      - kind: pre-commit-hook
+        id: no-bare-except
+        stage: commit
+        bundled_into: ruff
+      - kind: pre-commit-hook
+        id: no-deferred-import
+        stage: commit
+        bundled_into: ruff
+      - kind: pre-commit-hook
+        id: no-type-ignore
+        stage: commit
+        bundled_into: ruff
+    status: enforced
+  - slug: file-aware-blocking
+    name: File-aware pre-edit blocks (regex PreToolUse hook)
+    category: quality
+    constitutional: true
+    justifying_adrs: [ADR-008]
+    checks:
+      - kind: cc-hook
+        id: _run.py pre-edit-validate
+        stage: per-edit
+    status: enforced
+  - slug: dual-type-checking
+    name: Dual type checking (mypy + pyright), post-edit + commit
+    category: quality
+    constitutional: true
+    justifying_adrs: [ADR-008, ADR-012]
+    checks:
+      - kind: cc-hook
+        id: _run.py post-edit-lint
+        stage: per-edit
+      - kind: pre-commit-hook
+        id: mypy
+        stage: commit
+      - kind: pre-commit-hook
+        id: pyright
+        stage: commit
+    status: enforced
+  - slug: formatting
+    name: Formatting (black --check)
+    category: quality
+    constitutional: false
+    checks:
+      - kind: pre-commit-hook
+        id: black
+        stage: commit
+    status: enforced
+  - slug: behavioral-coverage
+    name: Behavioral coverage ratchet (per-module, non-decreasing)
+    category: testing
+    constitutional: true
+    justifying_adrs: [ADR-009]
+    checks:
+      - kind: ratchet
+        id: modules
+        stage: per-edit
+        baseline_path: .ratchet.json
+    status: enforced
+  - slug: file-size-limits
+    name: File-size limits ratchet (src 800 / tests 1000)
+    category: quality
+    constitutional: false
+    justifying_adrs: [ADR-023]
+    checks:
+      - kind: pre-commit-hook
+        id: file-size
+        stage: commit
+      - kind: ratchet
+        id: files
+        stage: commit
+        baseline_path: .file-size-baseline.json
+    status: enforced
+  - slug: test-suite-gate
+    name: Full test-suite gate (pre-commit + release-tag CI)
+    category: testing
+    constitutional: true
+    justifying_adrs: [ADR-013]
+    checks:
+      - kind: pre-commit-hook
+        id: pytest
+        stage: commit
+      - kind: ci-job
+        id: ci.yml:test
+        stage: ci
+    status: enforced
+  - slug: ci-lint-gate
+    name: CI lint + type-check gate (every push / PR)
+    category: quality
+    constitutional: false
+    justifying_adrs: [ADR-012, ADR-013]
+    checks:
+      - kind: ci-job
+        id: ci.yml:lint
+        stage: ci
+    status: enforced
+  - slug: release-automation
+    name: Release build + publish on CalVer tag
+    category: process
+    constitutional: false
+    justifying_adrs: [ADR-020]
+    checks:
+      - kind: ci-job
+        id: release.yml:publish
+        stage: ci
+    status: enforced
+  - slug: template-validation
+    name: Community template validation on PR
+    category: process
+    constitutional: false
+    justifying_adrs: [ADR-002]
+    checks:
+      - kind: ci-job
+        id: validate-templates.yml:validate
+        stage: ci
+    status: enforced
+  - slug: calver
+    name: CalVer versioning (YYYY.0M.PATCH)
+    category: process
+    constitutional: false
+    justifying_adrs: [ADR-004]
+    checks:
+      - kind: agent-rule
+        id: CLAUDE.md
+        stage: per-edit
+    status: enforced
+  - slug: file-headers
+    name: File headers on new Python files
+    category: process
+    constitutional: false
+    checks:
+      - kind: agent-rule
+        id: CLAUDE.md
+        stage: per-edit
+    status: enforced
+  - slug: google-docstrings
+    name: Google-style docstrings on public API
+    category: quality
+    constitutional: false
+    checks:
+      - kind: agent-rule
+        id: CLAUDE.md
+        stage: per-edit
+    status: enforced
+  - slug: module-exports
+    name: Explicit __all__ in every module
+    category: architecture
+    constitutional: false
+    checks:
+      - kind: agent-rule
+        id: CLAUDE.md
+        stage: per-edit
+    status: enforced
+  - slug: pydantic-frozen
+    name: Pydantic frozen+strict+extra=forbid
+    category: architecture
+    constitutional: true
+    justifying_adrs: [ADR-021]
+    checks:
+      - kind: agent-rule
+        id: CLAUDE.md
+        stage: per-edit
+    status: enforced
+  - slug: utc-only
+    name: UTC-aware datetimes only
+    category: quality
+    constitutional: true
+    checks:
+      - kind: agent-rule
+        id: CLAUDE.md
+        stage: per-edit
+    status: enforced
+  - slug: slots-dataclass
+    name: slots=True on structured dataclasses
+    category: quality
+    constitutional: false
+    checks:
+      - kind: agent-rule
+        id: CLAUDE.md
+        stage: per-edit
+    status: enforced
+  - slug: enum-dispatch
+    name: match/case enum dispatch with case _ default
+    category: quality
+    constitutional: false
+    checks:
+      - kind: agent-rule
+        id: CLAUDE.md
+        stage: per-edit
+    status: enforced
+  - slug: no-print
+    name: logging, never print() in library code
+    category: quality
+    constitutional: true
+    checks:
+      - kind: agent-rule
+        id: CLAUDE.md
+        stage: per-edit
+    status: enforced
+  - slug: secrets-keychain
+    name: Secrets in OS keychain only
+    category: architecture
+    constitutional: true
+    justifying_adrs: [ADR-019]
+    checks:
+      - kind: agent-rule
+        id: CLAUDE.md
+        stage: per-edit
+    status: enforced
+  - slug: layer-order
+    name: Layer dependency order
+    category: architecture
+    constitutional: true
+    checks:
+      - kind: agent-rule
+        id: CLAUDE.md
+        stage: per-edit
+    status: enforced
+  - slug: test-naming
+    name: test_<function>_<scenario> naming
+    category: testing
+    constitutional: false
+    checks:
+      - kind: agent-rule
+        id: CLAUDE.md
+        stage: per-edit
+    status: enforced
+  - slug: hundred-pct-coverage
+    name: 100% line coverage target
+    category: testing
+    constitutional: true
+    justifying_adrs: [ADR-009]
+    checks:
+      - kind: agent-rule
+        id: CLAUDE.md
+        stage: per-edit
+    status: enforced
+  - slug: behavioral-tests
+    name: Tests assert behavior, not side effects
+    category: testing
+    constitutional: true
+    justifying_adrs: [ADR-009]
+    checks:
+      - kind: agent-rule
+        id: CLAUDE.md
+        stage: per-edit
+    status: enforced
