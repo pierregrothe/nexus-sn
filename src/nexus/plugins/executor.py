@@ -42,6 +42,7 @@ from nexus.plugins.executor_models import (
     OperationLog,
     OperationResult,
 )
+from nexus.plugins.executor_rollback import run_rollback
 from nexus.plugins.impact import reverse_dependencies
 from nexus.plugins.models import PluginInfo, PluginInventory
 from nexus.plugins.progress import ProgressCallback, ProgressPoller, ProgressState
@@ -744,17 +745,11 @@ class PluginExecutor:
         completed: list[OperationResult],
         console: Console,
     ) -> list[OperationResult]:
-        """Reverse-undo each completed forward op. Best-effort, never aborts.
+        """Reverse-undo each completed forward op via :func:`run_rollback`.
 
-        Mapping (sub-project M's rollback path; sub-project N adds true
-        uninstall/deactivate endpoints later):
-          install   -> reuse submit_install with action label "rollback_install"
-          activate  -> reuse submit_activate with action label "rollback_activate"
-          upgrade   -> submit_upgrade with rollback_version captured from forward op,
-                       action label "rollback_upgrade"
-
-        Each rollback step is independent: a failed step is recorded as an
-        unsuccessful OperationResult but does not stop subsequent rollbacks.
+        Best-effort, never aborts. Delegates to
+        :func:`nexus.plugins.executor_rollback.run_rollback`, passing the
+        executor's client and inventory snapshot.
 
         Args:
             completed: Successfully completed forward operations to undo, in
@@ -764,89 +759,4 @@ class PluginExecutor:
         Returns:
             List of OperationResults for each rollback attempt, in LIFO order.
         """
-        rollback_results: list[OperationResult] = []
-        for op in reversed(completed):
-            started = time.monotonic()
-            console.print(f"[warn]rollback {op.action} {op.plugin_id}[/]")
-
-            rb_action: Literal["rollback_install", "rollback_activate", "rollback_upgrade"]
-            if op.action == "install":
-                rb_action = "rollback_install"
-            elif op.action == "activate":
-                rb_action = "rollback_activate"
-            elif op.action == "upgrade":
-                rb_action = "rollback_upgrade"
-            else:
-                # Skip any non-forward action (defensive; shouldn't happen)
-                continue
-
-            info = self._by_id.get(op.plugin_id)
-            if info is None:
-                rollback_results.append(
-                    OperationResult(
-                        action=rb_action,
-                        plugin_id=op.plugin_id,
-                        success=False,
-                        message="rollback failed: plugin not in inventory",
-                        duration_s=time.monotonic() - started,
-                        tracker_id="",
-                        update_set=None,
-                        rollback_version=None,
-                    )
-                )
-                continue
-
-            try:
-                if op.action == "install":
-                    raw = await self._client.submit_uninstall(info.sys_id)
-                elif op.action == "activate":
-                    raw = await self._client.submit_deactivate(info.sys_id)
-                else:  # upgrade
-                    raw = await self._client.submit_upgrade(info.sys_id, op.rollback_version)
-            except Exception as exc:
-                rollback_results.append(
-                    OperationResult(
-                        action=rb_action,
-                        plugin_id=op.plugin_id,
-                        success=False,
-                        message=f"rollback failed: {exc}",
-                        duration_s=time.monotonic() - started,
-                        tracker_id="",
-                        update_set=None,
-                        rollback_version=None,
-                    )
-                )
-                continue
-
-            tracker_id = str(raw.get("trackerId", ""))
-            poller = ProgressPoller(self._client)
-            try:
-                final = await poller.poll(tracker_id)
-            except (PluginProgressError, PluginTimeoutError) as exc:
-                err_msg = getattr(exc, "error_message", "") or str(exc)
-                rollback_results.append(
-                    OperationResult(
-                        action=rb_action,
-                        plugin_id=op.plugin_id,
-                        success=False,
-                        message=f"rollback failed: {err_msg}",
-                        duration_s=time.monotonic() - started,
-                        tracker_id=tracker_id,
-                        update_set=None,
-                        rollback_version=None,
-                    )
-                )
-                continue
-            rollback_results.append(
-                OperationResult(
-                    action=rb_action,
-                    plugin_id=op.plugin_id,
-                    success=True,
-                    message=final.status_label,
-                    duration_s=time.monotonic() - started,
-                    tracker_id=tracker_id,
-                    update_set=final.update_set,
-                    rollback_version=final.rollback_version,
-                )
-            )
-        return rollback_results
+        return await run_rollback(self._client, self._by_id, completed, console)
