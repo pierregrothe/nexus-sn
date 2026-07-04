@@ -64,13 +64,13 @@ gate/health behavior of `nexus assess` is preserved unchanged.
 
 | Requirement | Story | Status |
 |---|---|---|
-| FR1 | 01-replatform-models | backlog |
-| FR2 | 02-classifier | backlog |
-| FR3 | 02-classifier | backlog |
-| FR4 | 03-checklist-diff | backlog |
-| FR5 | 04-reporter | backlog |
-| FR6 | 05-assess-group-restructure | backlog |
-| FR7 | 06-assess-subcommands | backlog |
+| FR1 | 01-replatform-models | done |
+| FR2 | 02-classifier | done |
+| FR3 | 02-classifier | done |
+| FR4 | 03-checklist-diff | done |
+| FR5 | 04-reporter | done |
+| FR6 | 05-assess-group-restructure | done |
+| FR7 | 06-assess-subcommands | done |
 | NFR1-5 | all stories | backlog |
 | C1-4 | all stories | backlog |
 
@@ -78,12 +78,12 @@ gate/health behavior of `nexus assess` is preserved unchanged.
 
 | # | Title | Dependencies | Status |
 |---|---|---|---|
-| 01 | replatform-models | none | backlog |
-| 02 | classifier | 01 | backlog |
-| 03 | checklist-diff | 01 | backlog |
-| 04 | reporter | 01 | backlog |
-| 05 | assess-group-restructure | none | backlog |
-| 06 | assess-subcommands | 02, 03, 04, 05 | backlog |
+| 01 | replatform-models | none | done |
+| 02 | classifier | 01 | done |
+| 03 | checklist-diff | 01 | done |
+| 04 | reporter | 01 | done |
+| 05 | assess-group-restructure | none | done |
+| 06 | assess-subcommands | 02, 03, 04, 05 | done |
 
 ## Progress
 

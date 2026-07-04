@@ -3,7 +3,7 @@
 # backlog | ready | in-progress | review | done.
 # Derived from roadmap.md checkboxes; "next implementation target" entries
 # from active.md Next Steps are promoted to `ready`.
-generated: 2026-07-02  # synced after 2026.07 replatform checklist + coverage extension shipped
+generated: 2026-07-04  # reconciled to roadmap.md: added 2026.06-schema-cartographer phase + 10 missing backlog items
 project: nexus-sn
 
 phases:
@@ -88,6 +88,16 @@ phases:
       nexus-template-library-06-nexus-apply-cli: done
       nexus-template-library-07-example-templates-and-ci: done
 
+  2026.06-schema-cartographer:
+    status: done  # nexus.schema layer + product catalog; shipped PR #54
+    items:
+      nexus-schema-layer: done
+      nexus-schema-command: done
+      deterministic-grouped-erd: done
+      kroki-image-export: done
+      three-seeded-areas: done
+      schema-product-catalog: done
+
   2026.07-agent-specialists:
     status: planned
     items:
@@ -147,3 +157,16 @@ phases:
       wire-products-tab-context-updates: backlog
       plugin-install-activate-over-rest: backlog
       mine-scripted-rest-catalog: backlog
+      # License Audit (nexus.licenses)
+      nexus-licenses-role-check: backlog
+      nexus-licenses-user-exposure: backlog
+      nexus-assess-license-exposure: backlog
+      ssc-license-validation: backlog
+      # Schema Fast-follows
+      local-svg-graphviz: backlog
+      record-level-config-trace: backlog
+      nexus-schema-diff: backlog
+      per-scope-erd-splitting: backlog
+      more-areas-csm-itsm-hrsd: backlog
+      # ApplyEngine v2 (Other Backlog)
+      applyengine-v2: backlog

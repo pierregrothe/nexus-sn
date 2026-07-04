@@ -67,13 +67,13 @@ demonstrating the v1 surface.
 
 | Requirement | Story | Status |
 |---|---|---|
-| FR1 | 01-now-assist-skill-schema | backlog |
-| FR2 | 02-workflow-schema | backlog |
-| FR3 | 03-template-document-and-loader | backlog |
-| FR4 | 04-render-to-records | backlog |
-| FR5 | 05-apply-engine | backlog |
-| FR6 | 06-nexus-apply-cli | backlog |
-| FR7 | 07-example-templates-and-ci | backlog |
+| FR1 | 01-now-assist-skill-schema | done |
+| FR2 | 02-workflow-schema | done |
+| FR3 | 03-template-document-and-loader | done |
+| FR4 | 04-render-to-records | done |
+| FR5 | 05-apply-engine | done |
+| FR6 | 06-nexus-apply-cli | done |
+| FR7 | 07-example-templates-and-ci | done |
 | NFR1-5 | all stories | backlog |
 | C1-3 | all stories | backlog |
 
@@ -81,13 +81,13 @@ demonstrating the v1 surface.
 
 | # | Title | Dependencies | Status |
 |---|---|---|---|
-| 01 | now-assist-skill-schema | none | backlog |
-| 02 | workflow-schema | none | backlog |
-| 03 | template-document-and-loader | 01, 02 | backlog |
-| 04 | render-to-records | 03 | backlog |
-| 05 | apply-engine | 04 | backlog |
-| 06 | nexus-apply-cli | 05 | backlog |
-| 07 | example-templates-and-ci | 03 | backlog |
+| 01 | now-assist-skill-schema | none | done |
+| 02 | workflow-schema | none | done |
+| 03 | template-document-and-loader | 01, 02 | done |
+| 04 | render-to-records | 03 | done |
+| 05 | apply-engine | 04 | done |
+| 06 | nexus-apply-cli | 05 | done |
+| 07 | example-templates-and-ci | 03 | done |
 
 ## Progress
 

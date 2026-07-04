@@ -75,13 +75,13 @@ ApplyEngine exists.
 
 | Requirement | Story | Status |
 |---|---|---|
-| FR1 | 01-rule-schemas-and-yaml-loader | backlog |
-| FR2 | 02-constraint-dsl-operators | backlog |
-| FR3 | 03-rule-engine | backlog |
-| FR4 | 04-gates | backlog |
-| FR5 | 05-assessment-reporter | backlog |
-| FR6 | 06-nexus-assess-cli | backlog |
-| FR7 | 07-example-rulesets-and-ci | backlog |
+| FR1 | 01-rule-schemas-and-yaml-loader | done |
+| FR2 | 02-constraint-dsl-operators | done |
+| FR3 | 03-rule-engine | done |
+| FR4 | 04-gates | done |
+| FR5 | 05-assessment-reporter | done |
+| FR6 | 06-nexus-assess-cli | done |
+| FR7 | 07-example-rulesets-and-ci | done |
 | NFR1-5 | all stories | backlog |
 | C1-3 | all stories | backlog |
 
@@ -89,13 +89,13 @@ ApplyEngine exists.
 
 | # | Title | Dependencies | Status |
 |---|---|---|---|
-| 01 | rule-schemas-and-yaml-loader | none | backlog |
-| 02 | constraint-dsl-operators | 01 | backlog |
-| 03 | rule-engine | 02 | backlog |
-| 04 | gates | 03 | backlog |
-| 05 | assessment-reporter | 04 | backlog |
-| 06 | nexus-assess-cli | 04 | backlog |
-| 07 | example-rulesets-and-ci | 01 | backlog |
+| 01 | rule-schemas-and-yaml-loader | none | done |
+| 02 | constraint-dsl-operators | 01 | done |
+| 03 | rule-engine | 02 | done |
+| 04 | gates | 03 | done |
+| 05 | assessment-reporter | 04 | done |
+| 06 | nexus-assess-cli | 04 | done |
+| 07 | example-rulesets-and-ci | 01 | done |
 
 ## Progress
 
