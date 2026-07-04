@@ -153,7 +153,6 @@ phases:
       knowledge-mastery-kb: backlog
       mcpprobe-real-endpoint-urls: backlog
       jira-github-confluence-connectors: backlog
-      extend-capture-developer-platform: done  # shipped 2026-07-02 with replatform coverage extension
       wire-products-tab-context-updates: backlog
       plugin-install-activate-over-rest: backlog
       mine-scripted-rest-catalog: backlog

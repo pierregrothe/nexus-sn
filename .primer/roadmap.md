@@ -204,10 +204,6 @@ works for any ServiceNow product installed on the instance.
 - [ ] Knowledge mastery KB (206 ServiceNow product docs)
 - [ ] MCPProbe real endpoint URLs
 - [ ] JIRA, GitHub, Confluence connectors
-- [x] Extend capture to DEVELOPER_PLATFORM table group
-      (business rules, script includes, ACLs, scheduled jobs) -- shipped
-      2026-07-02 with the replatform coverage extension; the group is also
-      selectable in nexus capture discover/pull via --group
 - [ ] Wire `/api/sn_appclient/appmanager/products?tab_context=updates`
       into scanner (alectri demo shows 269 product updates beyond the 762 apps)
 - [ ] Plugin install/activate over REST via the discovered sn_appclient
