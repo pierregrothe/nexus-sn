@@ -261,20 +261,23 @@ CLI UX batch-progress layer (adaptive plugin upgrade display):
 
 Governance enforcement:
   Pre-edit hook (.claude/hooks/pre-edit-validate.py) -- 10 blocking rules
-  Coverage ratchet (.ratchet.json) -- 127 per-module entries; per-module
+  Coverage ratchet (.ratchet.json) -- 132 per-module entries; per-module
     covered_lines can only increase, never decrease
   Semgrep rules (.semgrep/rules.yml) -- semantic rules with ADR tracing
   Post-edit checks: black + ruff + mypy + pyright (all strict, all blocking)
-  Pre-commit hook: 7 hooks via .pre-commit-config.yaml -- black, ruff,
-    mypy, pyright, semgrep, pytest, file-size guard
-  ADR catalog: 25 ADRs in .primer/adr/. Latest: ADR-025
-    (replatform cross-instance analysis). ADR-023 (file-size cap:
+  Pre-commit hook: 8 hooks via .pre-commit-config.yaml -- black, ruff,
+    mypy, pyright, semgrep, pytest, file-size guard, primer-reconcile
+    (registry<->config governance drift gate). governance.md's marked
+    tables are the authoritative gate breakdown (19 blocking checks).
+  ADR catalog: 25 ADRs in .primer/adr/. Latest: ADR-026
+    (selective-migration planner). ADR-023 (file-size cap:
     800 src / 1000 tests with ratchet enforcement) drove the cli.py
-    split into a 22-module cli/ package.
-  PRD catalog: 4 PRDs in .primer/prd/ -- PRD-001 (CLI UX wow
+    split into a 22-module cli/ package and the executor.py split
+    (rollback -> executor_rollback.py).
+  PRD catalog: 5 PRDs in .primer/prd/ -- PRD-001 (CLI UX wow
     factor), PRD-002 (NEXUS Assessment), PRD-003 (NEXUS Template
-    Library), PRD-004 (NEXUS Replatform Checklist). All four at
-    status=draft.
+    Library), PRD-004 (NEXUS Replatform Checklist), PRD-005 (NEXUS
+    Migration Planner).
 
 Assessment layer (2026.06-assessment epic shipped 2026-05-19):
   AssessmentRule + Ruleset Pydantic schemas (frozen+strict+extra=forbid)

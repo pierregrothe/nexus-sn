@@ -103,8 +103,11 @@ validate-templates.yml -- validate changed YAML on PR touching templates/
 
 ## Pre-commit (local, before every commit)
 
-.pre-commit-config.yaml: black + ruff + mypy + pyright + pytest
+.pre-commit-config.yaml: black + ruff + mypy + pyright + semgrep + pytest +
+file-size + primer-reconcile (registry drift gate).
 Aligned with CI lint stage; a commit that passes pre-commit will pass CI.
+Note: pre-commit is not installed as a git hook by default -- run
+`pre-commit install` to activate these gates locally.
 
 ## Versioning
 

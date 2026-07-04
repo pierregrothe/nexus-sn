@@ -1,10 +1,12 @@
 # NEXUS -- Active Work
 
-Last updated: 2026-07-03
-Session: PM-autonomous delivery of the 2026.08 migration-planner epic --
-all 8 stories + 1 follow-up shipped (PRs #61-#69), plus epic close-out
-(whole-epic 7-agent final review + live e2e validation, fixes in PRs
-#70-#71). Everything merged to main; live-proven vs alectri/retail.
+Last updated: 2026-07-04
+Session: governance maintenance -- registry reconciled and the
+primer-reconcile drift checker wired into pre-commit (commits now gate on
+registry<->config drift once pre-commit is installed); orphan detection made
+kind-aware. executor.py split per ADR-023 (rollback -> executor_rollback.py).
+All merged + pushed to main. The 2026.08 migration-planner epic (prior
+session, PRs #61-#71) remains shipped and live-proven vs alectri/retail.
 
 ## Current Focus
 
@@ -27,11 +29,11 @@ gated on ADR-027 after the S2-S5 spike epic.
 
 ## Recent Changes
 
-- b7b47c6 fix(cli): plan capture/schema clients carry token-refresh callback (#71)
-- af19ab2 fix(migrate+cli): close live-e2e and final-review findings (#70)
-- f6d11d0 feat(migrate+cli): nexus migrate preflight (story 07) (#69)
-- e772e68 feat(migrate+cli): plan --recheck drift detection + STALE runbook (story 06) (#68)
-- 591a4e4 feat(migrate+cli): nexus migrate plan + lane-shaped runbook (story 05) (#67)
+- fefa94e docs(plugins): correct run_rollback mapping docstring to match code
+- e0b84da Merge branch 'refactor/executor-split-adr023': ADR-023 executor split
+- a29e8e7 refactor(plugins): extract rollback to executor_rollback.py (ADR-023)
+- 69371cb primer: reconcile governance registry -- wire gate + kind-aware orphan fix
+- 6de9b24 primer: reconcile governance registry (#73)
 
 ## Open Blockers
 
@@ -65,4 +67,4 @@ gated on ADR-027 after the S2-S5 spike epic.
 
 ## Branch / remote state
 
-On main, synced with origin (b7b47c6). Latest tag: 2026.06.0.
+On main, synced with origin (fefa94e). Latest tag: 2026.06.0.

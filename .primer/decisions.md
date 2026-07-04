@@ -68,113 +68,28 @@ lives in git history at commit `592d525` and earlier.
 
 ---
 
-### 2026-05-13 -- README sync via injectable-runner script (scripts/)
+## Compressed entries (2026-05-13 through 2026-05-19)
 
-`scripts/sync_readme.py` (stdlib-only, injectable pytest runner) auto-
-updates README version/Python-requirement/test-count via anchor comments
-as part of `/primer sync` Step 8.
+Trimmed on the 2026-07-04 sync per the >150-line cap. Full text lives in
+git history.
 
-### 2026-05-13 -- Plugin execution full lifecycle in 2026.05.x (sub-projects M + N)
-
-Two sub-projects shipped the full plugin lifecycle -- M (install/activate/
-upgrade/apply-plan with rollback) and N (deactivate/uninstall with
-mandatory impact gate) -- completing assess -> plan -> execute -> rescan.
-
-### 2026-05-13 -- Gantt diagram synced from roadmap.md via sync_readme.py
-
-sync_readme.py now regenerates the README's Mermaid Gantt from
-roadmap.md between HTML comment anchors as part of /primer sync Step 8.
-
-### 2026-05-13 -- README badge row synced from live project data
-
-Six shields.io badges (3 static, 3 computed by sync_readme.py: Python
-version, test count, LOC) added below the README title, kept current
-automatically on every /primer sync.
-
-### 2026-05-14 -- Plugin deactivate/uninstall is platform-blocked by SN
-
-Exhaustive investigation (script includes, session-cookie auth, GraphQL,
-direct table ops, SN docs/KB) confirmed ServiceNow exposes no
-programmatic API for plugin deactivate/uninstall; CLI commands remain as
-forward-compatible stubs that fail loudly against live SN.
-
-### 2026-05-14 -- Batch plugin upgrade + governance ADRs from the work
-
-`nexus plugins updates --family/--apply/--yes/--out` added batch upgrade
-(skip-on-fail, BatchUpgradeReport); ADR-021 codified @model_validator
-over @computed_field for frozen models, ADR-022 codified the deferred-
-import exception in cli.py, and black joined the post-edit hook.
-
-### 2026-05-15 -- Exhaustive smoke coverage for `plugins updates` + tests/ type-check cleanup
-
-Cleared all mypy/pyright errors in tests/, fixed a sync_readme.py false-
-positive stub-mismatch warning, and extended `plugins updates` smoke
-coverage from 6 to 16 live-tested option permutations including
-destructive --apply paths.
-
-### 2026-05-16 -- Brew/apt-style plugin CLI redesign + transparent OAuth refresh
-
-Split `plugins updates` into read-only `plugins outdated` and
-destructive `plugins upgrade` (positional id / --family / --all,
-brew/apt-style); added transparent OAuth token refresh and treated SN's
-"already installed" HTTP 400 as an idempotent success.
-
-### 2026-05-18 -- Offering-plugin install is structurally unreachable via OAuth/REST
-
-Traced offering-plugin (sn_hs_*/sn_fs_*) installs to
-`AppUpgradeAjaxProcessor`, an AJAX-only endpoint unreachable via OAuth
-Bearer; documented as unsupported and stripped the diagnostic plumbing
-that proved it.
-
-### 2026-05-18 -- PromptSource Protocol for testable wizard flows
-
-Introduced a runtime-checkable `PromptSource` Protocol
-(`TyperPromptSource` + `ScriptedPromptSource`) so interactive
-setup/instance-register wizards are testable without `unittest.mock`.
-
-### 2026-05-18 -- Wire vs cached manifest model split (sync v1)
-
-Split the sync manifest into a pure wire-shape `TemplateManifest` and a
-composing `CachedManifest` (adds `cached_at`/`source`) to fix a
-round-trip break caused by `extra="forbid"`.
-
-### 2026-05-18 -- Idempotent provision_oauth on deterministic name
-
-Made `provision_oauth` idempotent on a deterministic `nexus-<profile>`
-entity name (GET-then-PATCH-rotate) so an interrupted `nexus setup` no
-longer accumulates orphan OAuth entities on the SN instance.
-
-### 2026-05-19 -- FramedViewer (Textual) supersedes pypager for sticky-frame paging (ADR-024)
-
-PRD-001 reversed its Textual ban after discovering FramedViewer (not
-pypager/PagedTable) was already the shipped paging path; ADR-024 records
-the reversal and the pypager surface was deleted as dead code.
-
-### 2026-05-19 -- BatchProgressProtocol with adaptive RICH/PLAIN implementations
-
-`BatchProgressProtocol` with `RichBatchProgress` (ETA column, EMA prior
-store) and `PlainBatchProgress` (multiplexer-safe line output) gives long
-plugin-batch upgrades adaptive progress feedback, dispatched via
-`make_batch_progress(ctx, ...)`.
-
-### 2026-05-19 -- Drop --cov-fail-under=100 in favour of per-file ratchet
-
-Removed the always-broken global 100% coverage gate in favor of the
-per-file ratchet in `.ratchet.json`, which already enforces that
-covered_lines never regresses.
-
-### 2026-05-19 -- 2026.06 phase closed: Assessment + Template Library shipped end-to-end
-
-Both 2026.06 phases (RuleEngine-based Assessment gates and the Template
-Library's schema/render/apply pipeline) shipped in one session, taking
-the test count from 1367 to 1624 and PRD count from 1 to 3.
-
-### 2026-05-19 -- sys_update_xml ACL block on live PDIs (production gap)
-
-Live smoke against alectri found ServiceNow blocks direct REST POSTs to
-`sys_update_xml` by ACL even for admin (a platform security pattern, not
-a misconfiguration); the bundle-via-update-set architecture works up to
-the final write hop, deferred to a v2 direct-write/import-API follow-up.
+* 2026-05-13 -- **README sync via injectable-runner script**: scripts/sync_readme.py auto-updates README version/Python-req/test-count during /primer sync.
+* 2026-05-13 -- **Plugin execution full lifecycle (M+N)**: install/activate/upgrade/apply-plan with rollback + deactivate/uninstall with mandatory impact gate.
+* 2026-05-13 -- **README Gantt synced from roadmap.md** via sync_readme.py between HTML anchors.
+* 2026-05-13 -- **README badge row synced from live project data** (Python version, test count, LOC).
+* 2026-05-14 -- **Plugin deactivate/uninstall is SN-platform-blocked**: no programmatic API exists; CLI stays a forward-compatible stub.
+* 2026-05-14 -- **Batch plugin upgrade + governance ADRs**: ADR-021 (@model_validator over @computed_field), ADR-022 (cli.py deferred imports), black joined the post-edit hook.
+* 2026-05-15 -- **Exhaustive smoke coverage for plugins updates** (6->16 permutations) + tests/ type-check cleanup.
+* 2026-05-16 -- **Brew/apt-style plugin CLI redesign**: split into read-only `outdated` + destructive `upgrade`; transparent OAuth refresh; SN "already installed" 400 = idempotent success.
+* 2026-05-18 -- **Offering-plugin install structurally unreachable via OAuth/REST** (AppUpgradeAjaxProcessor is AJAX-only); documented unsupported.
+* 2026-05-18 -- **PromptSource Protocol for testable wizard flows** (no unittest.mock).
+* 2026-05-18 -- **Wire vs cached manifest model split** fixes an extra="forbid" round-trip break.
+* 2026-05-18 -- **Idempotent provision_oauth** on a deterministic nexus-<profile> name (GET-then-PATCH-rotate).
+* 2026-05-19 -- **FramedViewer (Textual) supersedes pypager** for sticky-frame paging (ADR-024); pypager deleted as dead code.
+* 2026-05-19 -- **BatchProgressProtocol** with adaptive RICH/PLAIN implementations.
+* 2026-05-19 -- **Drop --cov-fail-under=100** in favour of the per-file .ratchet.json ratchet.
+* 2026-05-19 -- **2026.06 phase closed** (Assessment + Template Library shipped end-to-end; tests 1367->1624, PRDs 1->3).
+* 2026-05-19 -- **sys_update_xml ACL block on live PDIs**: SN blocks direct REST POST even for admin; bundle-via-update-set deferred to a v2 direct-write/import-API follow-up.
 
 ---
 
@@ -253,3 +168,30 @@ Closed the v1 coverage gaps on branch feat/2026.07-replatform-coverage
   skipped_tables), unnamed artifacts counted + warned.
 - PEP 758 caveat learned: unparenthesized multi-except cannot carry `as`;
   parenthesized form required when binding.
+
+---
+
+### 2026-07-04 -- Governance registry gate wired + kind-aware orphan detection
+
+**Status:** accepted
+
+**Context:** The policy registry (.primer/policies/registry.yaml) had an
+installed drift checker (.claude/scripts/primer-reconcile.py) that was never
+wired into pre-commit, so registry<->config drift did not gate commits.
+Adversarial verification (20 synthetic drift fixtures) also surfaced two
+checker defects: a 136-line ORPHANED-CHECK flood on the per-module coverage
+ratchet, and a kind-agnostic `claimed` set that let a live pre-commit hook be
+masked by a same-string check of a different kind.
+
+**Decision:** Wire primer-reconcile as a pre-commit hook, registered as the
+`governance-reconciliation` policy (gates-blocking). Exclude per-check
+`baseline_path` override baselines from the orphan scan (kills the flood;
+override keys are project DATA, not a governance surface). Make orphan
+detection kind-aware via separate `claimed_pc` / `claimed_ratchet` sets. Both
+checker fixes carried in the global primer skill template.
+
+**Consequences:** Commits gate on registry drift once `pre-commit install` is
+run (the hook is not installed by default in this checkout). The
+governance-reconciliation policy makes the registry self-consistent (the gate
+claims its own hook). Verified: 15/16 adversarial fixtures pass, the 16th being
+the pre-existing cross-kind bug now fixed.
