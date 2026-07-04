@@ -37,12 +37,11 @@ async def run_rollback(
 ) -> list[OperationResult]:
     """Reverse-undo each completed forward op. Best-effort, never aborts.
 
-    Mapping (sub-project M's rollback path; sub-project N adds true
-    uninstall/deactivate endpoints later):
-      install   -> reuse submit_install with action label "rollback_install"
-      activate  -> reuse submit_activate with action label "rollback_activate"
-      upgrade   -> submit_upgrade with rollback_version captured from forward op,
-                   action label "rollback_upgrade"
+    Mapping (each forward op is undone via its inverse SN endpoint):
+      install   -> submit_uninstall, action label "rollback_install"
+      activate  -> submit_deactivate, action label "rollback_activate"
+      upgrade   -> submit_upgrade with rollback_version captured from the
+                   forward op, action label "rollback_upgrade"
 
     Each rollback step is independent: a failed step is recorded as an
     unsuccessful OperationResult but does not stop subsequent rollbacks.
