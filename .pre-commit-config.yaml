@@ -57,3 +57,11 @@ repos:
         types: [python]
         pass_filenames: false
         always_run: true
+  - repo: local
+    hooks:
+      - id: primer-reconcile
+        name: Governance registry drift
+        entry: python .claude/scripts/primer-reconcile.py
+        language: system
+        pass_filenames: false
+        always_run: true

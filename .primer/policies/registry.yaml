@@ -1,7 +1,7 @@
 # Policy registry -- source of truth for enforcement governance.
 # Schema: see the primer skill's reference/registry-schema.md.
 # Slugs are immutable; checks/status are managed by /primer reconcile.
-generated: 2026-07-03
+generated: 2026-07-04
 known_gaps: []
 
 policies:
@@ -178,6 +178,15 @@ policies:
       - kind: ci-job
         id: validate-templates.yml:validate
         stage: ci
+    status: enforced
+  - slug: governance-reconciliation
+    name: Governance registry drift gate (primer-reconcile)
+    category: process
+    constitutional: false
+    checks:
+      - kind: pre-commit-hook
+        id: primer-reconcile
+        stage: commit
     status: enforced
   - slug: calver
     name: CalVer versioning (YYYY.0M.PATCH)
