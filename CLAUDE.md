@@ -101,3 +101,28 @@ Templates live in templates/ at the repo root.
 Each template type has a Pydantic schema in src/nexus/templates/schemas/.
 CI validates all YAML on PR via .github/workflows/validate-templates.yml.
 See docs/CONTRIBUTING.md for the contribution process.
+
+<!-- primer:triggers:start (managed by /primer bootstrap -- edit outside the markers) -->
+## Primer Workflow Triggers
+
+RUN these yourself (evidence-based bookkeeping):
+- `/primer story start <slug>` -- the moment you begin implementing a
+  roadmap/epic item, BEFORE the first code edit.
+- `/primer story done <slug>` -- every AC / Tasks / DoD checkbox is
+  checked and the work is merged.
+- `/primer status` -- on any staleness nudge, or before starting new work.
+- `/primer sync` -- at post-merge / pre-PR boundaries (lease rules apply).
+
+SUGGEST these, never auto-run (product decisions stay human):
+- `/primer brainstorm` -- a substantial new idea has no epic or spec
+  behind it yet.
+- `/primer epic` -- an approved brainstorm or roadmap phase needs story
+  decomposition.
+- `/primer prd add` -- a product-level commitment is being made (charter
+  required; suggest `/primer charter` first if it is missing).
+- `/primer roadmap` / `governance` / `charter` -- the file is missing or
+  the user asks to plan or govern.
+- `/primer reconcile` -- the commit gate blocks (exit 2) or status shows
+  registry drift.
+- `/primer upgrade` -- status reports Roadmap Aging or cleanup candidates.
+<!-- primer:triggers:end -->
