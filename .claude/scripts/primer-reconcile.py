@@ -249,6 +249,53 @@ def live_ratchet_keys(baseline_path: str) -> set[str]:
     return keys
 
 
+def _collect_numeric_keys(obj) -> set[str]:
+    """Collect dict keys whose value is a number, at any depth.
+
+    Args:
+        obj: Decoded JSON value (dict, list, or scalar).
+
+    Returns:
+        Keys mapping directly to an int or float (bool excluded).
+        Ratchet baselines map check ids to numeric thresholds; container
+        and metadata keys (a 'counts' wrapper dict, an 'updated'
+        timestamp string) are structure, not checks.
+    """
+    keys: set[str] = set()
+    if isinstance(obj, dict):
+        for key, value in obj.items():
+            if isinstance(value, (int, float)) and not isinstance(value, bool):
+                keys.add(str(key))
+            else:
+                keys.update(_collect_numeric_keys(value))
+    elif isinstance(obj, list):
+        for item in obj:
+            keys.update(_collect_numeric_keys(item))
+    return keys
+
+
+def numeric_ratchet_keys(baseline_path: str) -> set[str]:
+    """Collect only numeric-valued baseline keys (the orphan-scan universe).
+
+    Args:
+        baseline_path: Project-root-relative path to the baseline JSON file.
+
+    Returns:
+        Keys whose value is a number, at any depth; empty when the file
+        is missing or fails to decode. resolve() keeps using
+        live_ratchet_keys (any-depth presence) so container-claiming
+        registries still resolve unchanged.
+    """
+    path = Path(baseline_path)
+    if not path.is_file():
+        return set()
+    try:
+        data = json.loads(path.read_text(encoding="utf-8-sig"))
+    except (json.JSONDecodeError, UnicodeDecodeError, OSError):
+        return set()
+    return _collect_numeric_keys(data)
+
+
 def settings_commands() -> str:
     """Concatenate every hook command string in .claude/settings.json.
 
@@ -382,7 +429,13 @@ def main() -> int:
     # already claims its key; collecting the override's other keys would flood
     # warn-only ORPHANED-CHECK noise on every commit (seen on nexus-sn: 136
     # false orphans). Override baselines are still read for resolve().
-    orphans = sorted((pc_ids - claimed_pc) | (ratchets - claimed_ratchet))
+    # It also considers ONLY numeric-valued keys: baselines map check ids
+    # to numeric thresholds, so container/metadata keys (a 'counts'
+    # wrapper, an 'updated' timestamp) are structure, not checks (seen on
+    # mds: 2 permanent false warns on every commit).
+    orphans = sorted(
+        (pc_ids - claimed_pc)
+        | (numeric_ratchet_keys(baselines) - claimed_ratchet))
     for orphan in orphans:
         print(f"ORPHANED-CHECK (warn): '{orphan}' is live but claimed by "
               "no registry policy -- register it via /primer reconcile")
