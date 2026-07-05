@@ -5,18 +5,33 @@
 Import direction is strictly bottom-to-top. Never import from a higher layer.
 
   cache -> (nothing in nexus)            # Layer 0 utility (ADR-017)
+  knowledge -> (nothing in nexus)        # Layer 0 leaf (KB loader/index)
   config -> cache
   auth -> config, cache
   capabilities -> config, auth, cache
   api -> capabilities, cache
   connectors -> cache
-  agents -> api, connectors, knowledge, cache
+  plugins -> config, cache
+  capture -> connectors, config
+  schema -> connectors, api, config
+  agents -> api, connectors, knowledge, cache      # scaffolded, stubs
   templates -> connectors, knowledge, cache
   assessment -> connectors, cache
-  execution -> agents, templates, assessment, api, cache
+  instances -> auth, plugins, config, cache, ui/components
+  replatform -> capture, schema, config, ui/components
+  execution -> agents, templates, assessment, api, cache   # scaffolded, stubs
   updater -> config, cache               # Layer 7 (ADR-020)
-  cli -> execution, templates, assessment, config, auth, capabilities, cache, updater
-  ui -> cli (same API surface)
+  migrate -> capture, schema, instances, plugins, connectors, config, ui/components
+  cli -> execution, templates, assessment, capture, plugins, instances, migrate,
+         replatform, schema, config, auth, capabilities, cache, updater
+  ui -> cli (NiceGUI dashboard -- planned)
+
+`ui/components/` (StatusBadge, DataTable, ...) is a shared Rich-rendering
+presentation library imported by mid-graph packages (instances, migrate,
+replatform) for terminal output; it is distinct from the planned top-level
+NiceGUI dashboard (`ui`) that wraps the CLI. "ui/components" above refers to the
+former. `agents/` and `execution/` are scaffolded at the positions shown but are
+not yet wired (see Agent pattern).
 
 If you need to pass data between layers, use the types defined in base.py / schemas.py.
 Never import upward.
@@ -30,20 +45,28 @@ No raw dicts as public API.
 
 ## Error hierarchy
 
-NexusError (base)
-  ConfigError       -- missing/invalid config
-  AuthError         -- credential lookup failed
-  SNClientError     -- SN REST API errors
-    SNAuthError     -- 401/403
-    SNNotFoundError -- 404
-    SNRateLimitError -- 429
-  TemplateError     -- invalid YAML
-    SchemaError     -- Pydantic validation failure
-    VersionError    -- SN version incompatibility
-  AssessmentError   -- readiness gate failure
-  ExecutionError    -- agent or dispatch failure
+No shared `NexusError` base exists -- each layer subclasses `Exception`
+directly (a few subclass RuntimeError/ValueError). Real families by layer:
 
-Errors carry: code (snake_case), message, suggestion, blocking flag.
+  api         AnthropicError, KrokiError
+  auth        AuthError, KeychainUnavailableError          (carry `suggestion`)
+  cache       CacheKeyError
+  connectors  SNClientError -> SNAuthError (401/403), SNNotFoundError (404),
+              SNRateLimitError (429)                        (carry `suggestion`)
+  capture     CaptureError -> ScopeNotFoundError, TableUnavailableError,
+              ArchiveCorruptError, UpdateSetError
+  templates   TemplatesError -> InvalidGitHubRepoError, TemplateLoadError,
+              ScopeNotFoundError
+  schema      SchemaError -> AreaNotFoundError, ScopeNotFoundError,
+              SchemaArchiveError, ScopeRecordCountError
+  assessment  AssessmentError -> RulesetLoadError; InteractiveRequiredError
+  instances   InstanceError -> InvalidProfileNameError, InstanceNotFoundError,
+              OAuthError, TokenExpiredError, SnapshotError
+  plugins     PluginScanError, PluginAdvisoryDataError, PluginImpactError,
+              PluginExecutionError -> Progress/Timeout/NotFound/Batch/
+              ImpactBlock/Unsupported; BaselineNotFoundError, AdvisoryOverrideError
+  updater     UpdaterError
+
 CLI exit codes: 0=success, 1=blocking error, 2=usage error.
 Errors to stderr. Machine-readable output to stdout.
 
@@ -105,23 +128,29 @@ Every connector implements ConnectorProtocol:
   tools() -> list[Tool]
   call(tool_name, **kwargs) -> ToolResult
 
-ConnectorRegistry merges tool lists and routes calls.
-ServiceNow connector is always registered. Others are optional.
-With claude-agent-sdk, connector tools are exposed to the LLM via
-ClaudeAgentOptions(mcp_servers=...). NEXUS-internal Python tool calls bypass
-the LLM and go through ConnectorRegistry directly.
+ConnectorRegistry (src/nexus/connectors/registry.py) and ServiceNowConnector
+implement this protocol but are not yet instantiated anywhere; today the CLI and
+engines call ServiceNow through ServiceNowClient directly.
 
-## Agent pattern
+Planned: a composition root that registers connectors on a ConnectorRegistry and
+exposes their tools to the LLM via ClaudeAgentOptions(mcp_servers=...) --
+agent_client.py currently passes only system_prompt/model/max_turns.
 
-Every specialist implements AgentProtocol:
+## Agent pattern (scaffolded -- not yet wired)
+
+The AgentProtocol / ExecutionContext / AgentResult types are defined
+(src/nexus/agents/base.py):
   name: str (property)
   domain: str (property)
   run(context: ExecutionContext) -> AgentResult
 
-ExecutionContext is immutable (frozen dataclass). Agents never mutate shared state.
-AgentResult carries: outputs dict (sys_ids, counts), errors list, summary string.
-The execution dispatcher passes outputs from completed tasks into inputs of
-dependent tasks via the execution context registry.
+ExecutionContext is immutable (frozen dataclass); AgentResult carries an
+outputs dict (sys_ids, counts), errors list, and summary string.
+
+Planned: the execution dispatcher will pass outputs from completed tasks into
+dependent tasks via an execution context registry. Today src/nexus/execution/
+(planner, dispatcher, reporter, rollback) and src/nexus/agents/specialists/ are
+stubs -- no orchestration runs yet.
 
 ## Template YAML contract
 
@@ -171,19 +200,23 @@ Always include a case _: default branch.
 
 ## Model selection
 
-Agents pass a model string to AgentClient.complete(model=...) when they need
-to override the SDK default. The Agent SDK picks the model when the argument
-is None. NEXUS does not maintain its own model-discovery layer -- that
-responsibility moved to the SDK with ADR-015.
+CLI command handlers (e.g. plugins explain / roadmap / recommend deactivate)
+pass a model string to AgentClient.complete(model=...) when they need to
+override the SDK default. The Agent SDK picks the model when the argument is
+None. NEXUS does not maintain its own model-discovery layer -- that
+responsibility moved to the SDK with ADR-015. (Specialist agents are scaffolded
+but not yet wired -- see Agent pattern.)
 
 ## Fake-as-Protocol-implementation test doubles
 
 Test fakes implement the exact Protocol the production code consumes. Naming
-convention: FakeXClient where XClient is the real class. Fakes use
-@dataclass(slots=True), expose a `calls: list[dict]` for assertion, and return
-a configurable canned_response field. Example: FakeAgentClient implements
-AgentClientProtocol; tests inject it where the production code expects the
-Protocol. side_effect on a fake lets tests trigger error paths without
-patching. No mocks anywhere -- all test doubles are real Python classes with
-the same interface.
+convention: FakeXClient where XClient is the real class. The simplest shape --
+used by FakeAgentClient (tests/fakes/fake_agent_client.py) -- is a
+@dataclass(slots=True) exposing a `calls: list[dict]` for assertion and a
+configurable canned_response field. Stateful fakes use whatever shape their
+domain needs: FakeServiceNowClient is a plain class with a
+`calls: list[tuple[str, str]]` log, and FakeKeychainClient is a plain
+KeychainClient subclass with an in-memory store. side_effect / failure-mode
+fields let tests trigger error paths without patching. No mocks anywhere -- all
+test doubles are real Python classes implementing the same Protocol.
 Prefer match over if/elif chains for 3+ branches.

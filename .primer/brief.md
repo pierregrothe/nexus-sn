@@ -27,22 +27,29 @@ NEXUS is a ServiceNow configuration package manager backed by AI orchestration.
 
 Templates are declarative YAML artifacts versioned in the GitHub repo. The local tool
 syncs against the registry, validates against Pydantic schemas, and applies templates
-through an AI-assisted execution engine with three assessment gates:
+through a deterministic render-and-push engine. Three assessment gates back the
+apply/scan flows:
 
 - Gate 1 (readiness): checks prerequisites before deploying
 - Gate 2 (validation): verifies everything was created correctly after deploying
 - Standalone health scan: `nexus assess` against any instance at any time
 
-## Why independent of Claude Code
+The AI-assisted orchestration engine (specialist agents, planning/dispatch) is
+scaffolded but not yet wired; see product.md "Planned".
 
-NEXUS calls the Anthropic API directly. No Claude Code, no Claude Desktop, no Node.js.
-Ships as a pip package. Runs on Windows, macOS, Linux identically.
+## LLM access and Claude Code
 
-NEXUS does NOT run an MCP server. ServiceNow has configured enterprise MCP servers
-(Value Melody, SSC, BT1, Data Analytics, GTM, M365) inside the Claude Enterprise
-account. These are not separate services NEXUS calls directly -- they are injected
-into the Anthropic API session by the enterprise account configuration. NEXUS probes
-their availability at startup via lightweight Anthropic API calls and builds a
+NEXUS ships as a pure-Python pip package, runs identically on Windows, macOS, and
+Linux, and runs no MCP server of its own and no Node.js. Since ADR-015, LLM calls
+route through the claude-agent-sdk, which uses the installed Claude Code CLI and its
+credentials (env token, credentials file, or OS keychain) -- so Claude Code is a
+runtime dependency for AI features; the deterministic tools (schema, plugins,
+capture, migrate, assess) run with no LLM call.
+
+ServiceNow's enterprise MCP servers (Value Melody, SSC, BT1, Data Analytics, GTM,
+M365, Marketing) live inside the Claude Enterprise account and are injected into the
+model session rather than called by NEXUS directly. NEXUS detects which are available
+at startup by reading Claude Code's local config/keychain state and builds a
 CapabilitySet. Features requiring unavailable servers are disabled transparently.
 
 ## Distribution
